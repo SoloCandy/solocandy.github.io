@@ -1,0 +1,1824 @@
+<!DOCTYPE html>
+<!--
+  SUSP OS — Forza Suspension Calculator
+  Physics approach based on NumberlessMath's Forza Suspension Calculator (2020)
+  Original: https://forums.forza.net/t/beta-forza-suspension-calculator/97135
+  Original sheet: https://docs.google.com/spreadsheets/d/1ySrVkgQpohIduhdLCwe99p3d6KmWXKgck5Uk-qDOlPw/edit?usp=sharing
+  MIT License
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>SUSP.OS</title>
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.4/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{height:100%;height:-webkit-fill-available;}
+body{background:#020617;color:#cbd5e1;font-family:'Courier New',monospace;overflow:hidden;
+     -webkit-text-size-adjust:100%;height:100%;height:-webkit-fill-available;}
+@media(max-width:768px){
+  body{overflow:auto}
+  #root>div>div:nth-child(2){flex-direction:column!important;overflow-y:auto}
+  #root>div>div:nth-child(2)>div:first-child{width:100%!important;border-right:none;border-bottom:1px solid #0f172a}
+}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:#0a0f1a}
+::-webkit-scrollbar-thumb{background:#1e293b;border-radius:2px}
+.sidebar-scroll::-webkit-scrollbar{width:12px}
+.sidebar-scroll::-webkit-scrollbar-track{background:#0a0f1a;border-left:1px solid #0f172a}
+.sidebar-scroll::-webkit-scrollbar-thumb{background:#1e293b;border-radius:2px;border:3px solid #0a0f1a}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover{background:#334155}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+.num{width:80px;background:transparent;border:1px solid transparent;border-radius:2px;
+     color:#e2e8f0;font-family:'Courier New',monospace;font-size:16px;padding:1px 2px;
+     outline:none;text-align:right;transition:border-color .12s,background .12s}
+.num:hover{border-color:#1e293b}
+.num:focus{border-color:#e2e8f033;background:#0a0f1a}
+.sli{-webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:1.5px;
+     outline:none;margin-top:6px;cursor:pointer;display:block;border:none;padding:4px 0;
+     box-sizing:content-box;background-clip:content-box}
+.sli::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#e2e8f0;
+  border-radius:50%;cursor:pointer;margin-top:-5.5px;transition:transform .1s;
+  box-shadow:0 0 0 2px #02061799}
+.sli::-webkit-slider-thumb:hover{transform:scale(1.2)}
+.sli::-moz-range-thumb{width:14px;height:14px;background:#e2e8f0;border-radius:50%;border:none;
+  cursor:pointer;box-shadow:0 0 0 2px #02061799}
+.tog{flex:1;padding:3px 0;border:1px solid #1e293b;background:#0a0f1a;color:#475569;
+     border-radius:2px;cursor:pointer;font-family:'Courier New',monospace;font-size:11px;
+     letter-spacing:1px;transition:all .12s;-webkit-tap-highlight-color:transparent}
+.tog.on{border-color:#e2e8f033;background:#0f172a;color:#e2e8f0}
+.tbtn{padding:4px 10px;border:1px solid #1e293b;background:transparent;color:#475569;
+      border-radius:2px;cursor:pointer;font-family:'Courier New',monospace;font-size:11px;
+      letter-spacing:1px;transition:all .12s;-webkit-tap-highlight-color:transparent}
+.tbtn.on{border-color:#e2e8f044;background:#0f172a;color:#e2e8f0}
+.tbtn.saved{border-color:#e2e8f022;color:#9ca3af}
+.stog{width:100%;display:flex;align-items:center;justify-content:space-between;
+      padding:9px 12px;background:none;border:none;border-bottom:1px solid #0f172a;
+      color:#6b7280;cursor:pointer;font-family:'Courier New',monospace;font-size:11px;
+      letter-spacing:2px;text-transform:uppercase;transition:color .12s,background .12s;
+      -webkit-tap-highlight-color:transparent}
+.stog:hover{color:#9ca3af;background:#0a0f1a88}
+.stog-open{color:#9ca3af}
+.card{background:#020617;border:1px solid #1e293b;border-radius:2px;overflow:hidden;margin-bottom:10px}
+.ch{padding:3px 8px;background:#0a0f1a;border-bottom:1px solid #1e293b;
+    display:flex;align-items:center;gap:6px;column-gap:6px}
+.ch span{font-size:10px;color:#6b7280;letter-spacing:2px;text-transform:uppercase}
+.cb{padding:7px 8px}
+.ro{padding:5px 8px;background:#0f172a;border:1px solid #1e293b;border-radius:2px}
+.rl{font-size:9px;color:#6b7280;letter-spacing:1px;margin-bottom:1px;text-transform:uppercase}
+.rv{font-size:20px;font-weight:700;line-height:1}
+.rv-lg{font-size:24px;font-weight:700;line-height:1}
+.ru{font-size:9px;color:#4b5563;margin-top:1px}
+.sr{display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;
+    border-bottom:1px solid #0f172a;font-size:11px}
+.sl{color:#6b7280}.sv{color:#9ca3af;font-size:12px}.su{font-size:10px;color:#4b5563;margin-left:3px}
+</style>
+</head>
+<body>
+<div id="root">
+  <!-- Shown only if React fails to mount -->
+  <div id="pre-load" style="padding:24px;color:#6b7280;font-family:Courier New,monospace;font-size:12px;background:#020617;min-height:100vh">
+    <div style="color:#e2e8f0;font-size:14px;margin-bottom:8px">SUSP.OS</div>
+    <div style="margin-bottom:16px">Loading...</div>
+  </div>
+</div>
+<script>
+// Global error catcher — fires before React/Babel, shows error on blank screen
+window.onerror=function(msg,src,line,col,err){
+  var d=document.getElementById('pre-load');
+  if(d){
+    d.innerHTML='<div style="color:#e2e8f0;font-size:14px;margin-bottom:8px">SUSP.OS — Failed to load</div>'
+      +'<div style="color:#6b7280;margin-bottom:12px">JavaScript error on line '+line+'</div>'
+      +'<div style="background:#0f172a;padding:12px;border-radius:4px;color:#ef4444;word-break:break-all;line-height:1.6">'+(msg||'Unknown error')+'</div>'
+      +'<button onclick="location.reload()" style="margin-top:16px;padding:8px 16px;background:#0f172a;border:1px solid #1e293b;color:#e2e8f0;border-radius:4px;cursor:pointer;font-family:Courier New;font-size:12px">RELOAD</button>';
+  }
+};
+// Hide the pre-load message once React takes over
+window.addEventListener('DOMContentLoaded',function(){
+  setTimeout(function(){
+    var d=document.getElementById('pre-load');
+    if(d&&d.innerHTML.indexOf('Loading')>-1)d.style.display='none';
+  },5000);
+});
+</script>
+<script id="app-source" type="text/plain">
+const {useState,useMemo,useRef,useEffect,useLayoutEffect,useCallback}=React;
+
+const KG_TO_LB=2.204622622,LB_IN_TO_NM=175.126790921,MPH_TO_MS=0.44704;
+const ARB_RS_SCALE=240,CAMBER_GAIN=0.7;
+const ROLL_CENTER_HEIGHT=0.09;
+const DAMPING_CALIBRATION=0.001;
+//
+//
+const MECH_BALANCE_STIFFNESS_WEIGHT=0.698;
+const GAME_LIMITS={horizon:{damping:20,arb:65},motorsport:{damping:40,arb:40}};
+
+const cornerMasses=ch=>{
+  const kg=ch.weight/KG_TO_LB;
+  return{front:(kg*(ch.frontBias/100))/2,rear:(kg*(1-ch.frontBias/100))/2};
+};
+const flatRideRearHz=(fHz,wb,mph)=>{
+  if(mph>=200)return{hz:fHz,clamped:false};
+  const ms=mph*MPH_TO_MS;
+  if(ms<1)return{hz:fHz*1.2,clamped:false};
+  const t=wb/ms,d=(1/fHz)-(2*t);
+  const raw=d>0.05?1/d:fHz*1.2;
+  const clamped=raw>fHz*1.6;
+  return{hz:clamped?fHz*1.6:raw,clamped};
+};
+const solveSpring=(hz,mass,mr)=>{
+  const wr=Math.pow(hz*2*Math.PI,2)*mass;
+  return(wr/Math.pow(mr,2))/LB_IN_TO_NM;
+};
+const solveDamp=(hz,mass,z,lim)=>{
+  const wr=Math.pow(hz*2*Math.PI,2)*mass,cc=2*Math.sqrt(wr*mass);
+  return Math.min(lim,Math.max(1,cc*(z/100)*DAMPING_CALIBRATION));
+};
+
+const feelToPhysics=(ch,fe)=>{
+  const frontHz=0.8+(fe.rideStiffness/100)*2.7;
+  const rearHzResult=flatRideRearHz(frontHz,ch.wheelbase,fe.targetSpeed);
+  const rearHz=rearHzResult.hz;
+  const rearHzClamped=rearHzResult.clamped;
+  const dampingMode=fe.dampingMode??'ratio';
+  const reboundZeta=Math.max(10,Math.min(115,fe.reboundZeta??70));
+  const bumpZeta=dampingMode==='ratio'
+    ? Math.max(10,Math.min(reboundZeta,reboundZeta*Math.min(100,fe.bumpRatio??56)/100))
+    : Math.max(10,Math.min(115,fe.bumpZeta??39));
+  const arbBalance=Math.max(20,Math.min(80,(100-ch.frontBias)+fe.arbBias*0.4));
+  const arbMode=fe.arbMode??'auto';
+  const arbTargetRoll=arbMode==='roll'
+    ? Math.max(0.3,Math.min(5.0,fe.arbTargetRollMan))
+    : 2.6-(fe.rideStiffness/100)*1.8;   // used only in roll mode now
+  const arbShareMan=Math.max(0,Math.min(80,fe.arbShareMan??15));
+  const arbFloor=Math.max(1,Math.min(fe.arbFloor??6,fe.arbCeil??65));
+  const arbCeil =Math.max(arbFloor+1,Math.min(65,fe.arbCeil??65));
+  return{frontHz,rearHz,rearHzClamped,reboundZeta,bumpZeta,dampingMode,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil};
+};
+
+const computeTune=(ch,phys,gameMode)=>{
+  const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
+  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil}=phys;
+  const springF=solveSpring(fHz,m.front,ch.motionRatioF);
+  const springR=solveSpring(rHz,m.rear,ch.motionRatioR);
+  const rebF=solveDamp(fHz,m.front,reboundZeta,lim.damping);
+  const rebR=solveDamp(rHz,m.rear,reboundZeta,lim.damping);
+  const bumpF=solveDamp(fHz,m.front,bumpZeta,lim.damping);
+  const bumpR=solveDamp(rHz,m.rear,bumpZeta,lim.damping);
+  const wrFN=Math.pow(fHz*2*Math.PI,2)*m.front,wrRN=Math.pow(rHz*2*Math.PI,2)*m.rear;
+  const rsSpF=(wrFN*ch.trackF*ch.trackF)/2,rsSpR=(wrRN*ch.trackR*ch.trackR)/2;
+  const rsSp=rsSpF+rsSpR;
+  const totalKg=ch.weight/KG_TO_LB,rollArm=ch.cgHeight-ROLL_CENTER_HEIGHT;
+  const rollMoment=totalKg*9.81*rollArm;                       // N·m at 1g
+  const rsTotalTarget=rollMoment/(arbTargetRoll*(Math.PI/180)); // N·m/rad (used in roll mode)
+  const naturalRollDeg=(rsSp>0)?((rollMoment/rsSp)*(180/Math.PI)):5;
+  const autoShareTarget=Math.max(5,Math.min(50,naturalRollDeg*7));
+  const shareTarget=arbMode==='share'
+    ? arbShareMan/100
+    : autoShareTarget/100;             // auto uses natural-roll-derived share
+  let rsAbBudget=arbMode==='roll'
+    ? rsTotalTarget-rsSpF-rsSpR        // roll mode: invert roll equation as before
+    : rsSp*(shareTarget/(1-shareTarget)); // auto + share: target a fraction directly
+  const rF=arbBalance/100;
+  //
+  const lightShare=Math.min(rF,1-rF);                          // smaller fraction
+  const heavyShare=Math.max(rF,1-rF);                          // larger fraction
+  const lightTrack=rF<=0.5?ch.trackR:ch.trackF;                // lighter side track
+  const heavyTrack=rF>=0.5?ch.trackR:ch.trackF;                // heavier side track
+  const rsLightFloor=arbFloor*ARB_RS_SCALE*lightTrack*lightTrack;
+  const rsHeavyFloor=rsLightFloor*(heavyShare/lightShare);     // scaled to preserve ratio
+  const budgetFloor=rsLightFloor+rsHeavyFloor;
+  if(rsAbBudget<budgetFloor)rsAbBudget=budgetFloor;
+  const rsHeavyCeil=arbCeil*ARB_RS_SCALE*heavyTrack*heavyTrack;
+  const rsHeavyBudget=rsAbBudget*heavyShare;
+  if(rsHeavyBudget>rsHeavyCeil)rsAbBudget=rsHeavyCeil/heavyShare;
+  const clk=(rs,track)=>Math.min(Math.min(lim.arb,arbCeil),Math.max(1,rs/(ARB_RS_SCALE*track*track)));
+  const arbF=clk(rsAbBudget*(1-rF),ch.trackF);
+  const arbR=clk(rsAbBudget*rF,ch.trackR);
+  const rsAbF=arbF*ARB_RS_SCALE*ch.trackF*ch.trackF;
+  const rsAbR=arbR*ARB_RS_SCALE*ch.trackR*ch.trackR;
+  const rsTotal=rsSpF+rsSpR+rsAbF+rsAbR;
+  const rollDeg=rsTotal>0?rollMoment/rsTotal*(180/Math.PI):0;
+  const rollClamped=arbMode==='roll'&&Math.abs(rollDeg-arbTargetRoll)>0.05;
+  const nf=ch.frontBias/100;
+  const bSp=(rsSpF+rsSpR)>0?((rsSpF/(rsSpF+rsSpR))-nf)*100:0;
+  const bAb=(rsAbF+rsAbR)>0?((rsAbF/(rsAbF+rsAbR))-nf)*100:0;
+  const bTot=bSp+bAb;
+  const rsBalance=rsTotal>0?(rsSpR+rsAbR)/rsTotal:1-ch.frontBias/100;
+  const mechBalance=MECH_BALANCE_STIFFNESS_WEIGHT*rsBalance
+                   +(1-MECH_BALANCE_STIFFNESS_WEIGHT)*(1-ch.frontBias/100);
+  const settle=reboundZeta>0?2.302/((reboundZeta/100)*fHz*2*Math.PI):99;
+  return{springF,springR,rebF,rebR,bumpF,bumpR,arbF,arbR,
+         fHz,rHz,settle,rollDeg,rollTarget:arbTargetRoll,rollClamped,
+         arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
+         bSp,bAb,bTot,mechBalance};
+};
+
+const computeAlignment=(ch,tune,layout,buildType)=>{
+  const{fHz,rHz,rollDeg}=tune;
+  const build=buildType??'track';
+  const isDrift=build==='drift';
+  const isStreet=build==='street';
+
+  const camberGain=Math.max(0.55,Math.min(0.85,1.05-(ch.cgHeight??0.45)*0.8));
+  const rearGainMult=layout==='FWD'?0.50:layout==='AWD'?0.70:0.75;
+  const fwdReduction=layout==='FWD'?0.3:0.0;
+
+  let recCamberF, recCamberR;
+  if(isDrift){
+    recCamberF=layout==='FWD'?-2.0:-3.0;
+    recCamberR=layout==='FWD'?-1.0:-1.5;
+  } else {
+    const optimalCamber=isStreet?-1.0:-1.5;
+    recCamberF=Math.round(Math.max(-4.0,Math.min(0.0,
+      optimalCamber - rollDeg*camberGain + fwdReduction))*10)/10;
+    recCamberR=Math.round(Math.max(-3.5,Math.min(0.0,
+      optimalCamber - rollDeg*camberGain*rearGainMult))*10)/10;
+  }
+
+  const toeFByBuild={
+    street: layout==='FWD'?0.05:0.0,
+    track:  layout==='FWD'?0.05:-0.05,
+    drift:  layout==='FWD'?0.0:-0.10,
+  }[build]??-0.05;
+  const recToeF=Math.round(Math.max(-0.20,Math.min(0.15,
+    toeFByBuild+(ch.frontBias-50)*-0.003+(fHz-1.8)*0.010))*10)/10;
+
+  const toeRBase=isDrift
+    ? 0.05
+    : layout==='RWD'
+      ? (isStreet?0.15:0.10)
+      : layout==='AWD'?0.08:0.05;
+  const recToeR=Math.round(Math.max(0.0,Math.min(0.25,
+    toeRBase+((1-ch.frontBias/100)-0.5)*0.20+Math.max(0,rHz-fHz)*-0.03))*10)/10;
+
+  const casterBase=isDrift?4.8:isStreet?5.2:5.8;
+  const recCaster=parseFloat(Math.max(4.0,Math.min(7.5,
+    casterBase+(fHz-1.8)*0.4+(ch.frontBias-50)*0.04+(layout==='FWD'?-0.5:0))).toFixed(1));
+
+  return{recCamberF,recCamberR,recToeF,recToeR,recCaster};
+};
+
+const DIFF_BIAS_SCALE=0.08;
+
+const computeDiff=(ch,fe,dr)=>{
+  const rB=1-ch.frontBias/100;
+  const cl=(v,lo,hi)=>Math.max(lo,Math.min(hi,Math.round(v)));
+  const biasExit=dr.diffBiasExit??0;   // controls accel lock
+  const biasEntry=dr.diffBiasEntry??0; // controls decel lock
+  const build=dr.buildType??'track';
+
+  let vals;
+  if(dr.diffManual){
+    vals=dr.layout==='AWD'
+      ?{layout:'AWD',
+        frontAccel:dr.diffFrontAccel??25, frontDecel:dr.diffFrontDecel??0,
+        rearAccel: dr.diffRearAccel??50,  rearDecel: dr.diffRearDecel??10,
+        center:    dr.diffCenter??65}
+      :{layout:dr.layout,
+        accel:dr.diffAccel??35, decel:dr.diffDecel??10};
+  } else if(dr.layout==='AWD'){
+    const bAdj=build==='drift'?10:build==='track'?5:0;
+    const center=cl(62+rB*10+bAdj,45,80);
+    vals={layout:'AWD',
+      frontAccel:cl(28-biasExit*0.10,10,40),
+      frontDecel:0,
+      rearAccel: cl(48+biasExit*0.25,20,70),
+      rearDecel: cl(8+(rB-0.5)*15+biasEntry*0.15,0,20),
+      center};
+  } else {
+    const isRWD=dr.layout==='RWD';
+    const accelBase=isRWD
+      ?{street:28,track:35,drift:48}[build]
+      :{street:15,track:20,drift:12}[build];
+    const decelBase=isRWD
+      ?{street:15,track:12,drift:3}[build]
+      :{street:8, track:5, drift:2}[build];
+    const accel=isRWD
+      ? cl(accelBase+biasExit*0.20, 10, 65)
+      : cl(accelBase-biasExit*0.15,  5, 35);
+    const decel=cl(decelBase+(rB-0.5)*(isRWD?15:5)+biasEntry*0.15, 0, isRWD?30:15);
+    vals={layout:dr.layout,accel,decel};
+  }
+
+  const nf=ch.frontBias/100;
+  let bDiffAccel=0, bDiffDecel=0;
+  if(vals.layout==='AWD'){
+    bDiffAccel=(vals.frontAccel*nf - vals.rearAccel*(1-nf))*DIFF_BIAS_SCALE;
+    bDiffDecel=(vals.frontDecel*nf + vals.rearDecel*(1-nf))*DIFF_BIAS_SCALE;
+  } else if(vals.layout==='RWD'){
+    bDiffAccel=-vals.accel*(1-nf)*DIFF_BIAS_SCALE;
+    bDiffDecel= vals.decel*(1-nf)*DIFF_BIAS_SCALE;
+  } else {
+    bDiffAccel= vals.accel*nf*DIFF_BIAS_SCALE;
+    bDiffDecel= vals.decel*nf*DIFF_BIAS_SCALE;
+  }
+
+  return{...vals,bDiffAccel,bDiffDecel};
+};
+
+const hzCtx=hz=>{
+  if(hz<1.3)return['SOFT','#64748b'];
+  if(hz<2.0)return['ROAD','#94a3b8'];
+  if(hz<2.8)return['FIRM','#f59e0b'];
+  return['RACE','#ef4444'];
+};
+const arbCtx=(arb,limit)=>{
+  const p=(arb-1)/(limit-1);
+  if(p<0.25)return['SOFT','#64748b'];
+  if(p<0.50)return['ROAD','#94a3b8'];
+  if(p<0.75)return['FIRM','#f59e0b'];
+  return['MAX','#ef4444'];
+};
+const diffCtx=v=>{
+  if(v===0)return['OFF','#374151'];
+  if(v<20)return['LOW','#64748b'];
+  if(v<45)return['MED','#94a3b8'];
+  if(v<70)return['HIGH','#f59e0b'];
+  return['MAX','#ef4444'];
+};
+
+const computeCheck=(spr,damp,masses,mr)=>{
+  const wrF=spr.f*LB_IN_TO_NM*mr.f*mr.f,wrR=spr.r*LB_IN_TO_NM*mr.r*mr.r;
+  const hF=wrF>0?Math.sqrt(wrF/masses.front)/(2*Math.PI):0;
+  const hR=wrR>0?Math.sqrt(wrR/masses.rear)/(2*Math.PI):0;
+  const ccF=2*Math.sqrt(wrF*masses.front),ccR=2*Math.sqrt(wrR*masses.rear);
+  return{hF,hR,
+    zRebF:ccF>0?(damp.rebF/DAMPING_CALIBRATION/ccF)*100:0,zRebR:ccR>0?(damp.rebR/DAMPING_CALIBRATION/ccR)*100:0,
+    zBmpF:ccF>0?(damp.bumpF/DAMPING_CALIBRATION/ccF)*100:0,zBmpR:ccR>0?(damp.bumpR/DAMPING_CALIBRATION/ccR)*100:0};
+};
+
+const mergeDefaults=(initial,parsed)=>
+  (initial&&typeof initial==='object'&&!Array.isArray(initial)
+    &&parsed&&typeof parsed==='object'&&!Array.isArray(parsed))
+    ?{...initial,...parsed}:parsed;
+const usePersist=(key,initial)=>{
+  const[val,setVal]=useState(()=>{
+    try{const s=localStorage.getItem(key);
+      return s?mergeDefaults(initial,JSON.parse(s)):initial;}
+    catch(e){return initial;} // private browsing or parse error — use defaults
+  });
+  const set=v=>{
+    const next=typeof v==='function'?v(val):v;
+    setVal(next);
+    try{localStorage.setItem(key,JSON.stringify(next));}catch{}
+  };
+  return[val,set];
+};
+
+const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
+              trackF:1.55,trackR:1.52,
+              motionRatioF:1.0,motionRatioR:1.0};
+const DEF_FE={rideStiffness:35,arbBias:0,targetSpeed:70,gameMode:'horizon',
+              dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,
+              arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,arbFloor:6,arbCeil:65};
+const DEF_DR={layout:'RWD',buildType:'track',
+              diffManual:false,diffBiasExit:0,diffBiasEntry:0,
+              diffAccel:35,diffDecel:10,
+              diffFrontAccel:28,diffFrontDecel:0,
+              diffRearAccel:48,diffRearDecel:8,diffCenter:65};
+const DEF_AL={alignManual:false,
+              camberF:-2.3,camberR:-1.8,toeF:-0.1,toeR:0.1,caster:5.5};
+
+const PRESET_SAVES={
+  1:{name:'STREET',
+     fe:{...DEF_FE,rideStiffness:31,targetSpeed:60,reboundZeta:60,bumpRatio:50,
+         arbFloor:4,arbCeil:30},
+     dr:{...DEF_DR,buildType:'street',diffBiasExit:-10,diffBiasEntry:10}},
+  2:{name:'TRACK',
+     fe:{...DEF_FE,rideStiffness:55,targetSpeed:120,reboundZeta:72,bumpRatio:58,
+         arbFloor:6,arbCeil:55},
+     dr:{...DEF_DR,buildType:'track',diffBiasExit:5,diffBiasEntry:0}},
+  3:{name:'RALLY',
+     fe:{...DEF_FE,rideStiffness:18,targetSpeed:80,reboundZeta:65,bumpRatio:45,
+         arbFloor:3,arbCeil:20,arbBias:-10},
+     dr:{...DEF_DR,buildType:'street',diffBiasExit:-5,diffBiasEntry:-15}},
+};
+
+const Hint=({text})=>{
+  const[pos,setPos]=useState(null);
+  const ref=useRef(null);
+  const isTouch=useRef(false);
+
+  const calcPos=()=>{
+    if(!ref.current)return null;
+    const r=ref.current.getBoundingClientRect();
+    const TW=220,TH=120,GAP=5,PAD=6;
+    const top=r.bottom+GAP+TH>window.innerHeight?r.top-TH-GAP:r.bottom+GAP;
+    const left=Math.max(PAD,Math.min(r.left,window.innerWidth-TW-PAD));
+    return{top,left};
+  };
+
+  const onMouseEnter=()=>{ if(!isTouch.current) setPos(calcPos()); };
+  const onMouseLeave=()=>{ if(!isTouch.current) setPos(null); };
+
+  const onClick=e=>{
+    isTouch.current=true; // mark as touch device once we see a click from touch
+    e.stopPropagation();
+    setPos(p=>p?null:calcPos());
+  };
+
+  useEffect(()=>{
+    if(!pos)return;
+    const dismiss=()=>setPos(null);
+    const t=setTimeout(()=>document.addEventListener('click',dismiss,{once:true}),10);
+    return()=>{clearTimeout(t);document.removeEventListener('click',dismiss);};
+  },[pos]);
+
+  return(
+    <span ref={ref} style={{display:'inline-block',cursor:'help',WebkitTapHighlightColor:'transparent'}}
+          onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
+          onTouchStart={()=>{isTouch.current=true;}}
+          onClick={onClick}>
+      <span style={{fontSize:10,color:'#4b5563',marginLeft:4}}>ⓘ</span>
+      {pos&&ReactDOM.createPortal(
+        <div style={{position:'fixed',top:pos.top,left:pos.left,zIndex:1000,width:220,
+                     background:'#0f172a',border:'1px solid #e2e8f011',borderRadius:2,
+                     padding:'7px 9px',fontSize:11,color:'#94a3b8',lineHeight:1.6,
+                     pointerEvents:'none',boxShadow:'0 4px 16px #00000088'}}>
+          {text}
+        </div>,
+        document.body
+      )}
+    </span>
+  );
+};
+
+const Field=({label,value,onChange,min,max,step=0.01,unit='',hint=null,logScale=false,logMid=null})=>{
+  const mid=logMid??Math.sqrt(min*max);
+  const valToT=v=>{
+    if(!logScale)return(v-min)/(max-min);
+    if(v<=mid)return 0.5*Math.log(Math.max(v,min)/min)/Math.log(mid/min);
+    return 0.5+0.5*Math.log(v/mid)/Math.log(max/mid);
+  };
+  const tToVal=t=>{
+    if(!logScale)return min+(max-min)*t;
+    if(t<=0.5)return min*Math.pow(mid/min,t*2);
+    return mid*Math.pow(max/mid,(t-0.5)*2);
+  };
+  const t=Math.max(0,Math.min(1,valToT(value)));
+  const pct=t*100;
+  const clamp=v=>Math.max(min,Math.min(max,v));
+  const wheelStep=logScale?Math.max(1,Math.round(value*0.005)):step;
+  const [draft,setDraft]=useState(null);
+  const focused=draft!==null;
+  const commit=()=>{
+    if(draft===null)return;
+    const v=parseFloat(draft);
+    onChange(isNaN(v)?value:clamp(v));
+    setDraft(null);
+  };
+  const numRef=useRef(null), sliRef=useRef(null);
+  const valRef=useRef(value);
+  const draftRef=useRef(draft);
+  const onChangeRef=useRef(onChange); useLayoutEffect(()=>{onChangeRef.current=onChange;},[onChange]);
+  useLayoutEffect(()=>{valRef.current=value;},[value]);
+  useLayoutEffect(()=>{draftRef.current=draft;},[draft]);
+  useEffect(()=>{
+    const onWheel=e=>{
+      const focused=document.activeElement===numRef.current||document.activeElement===sliRef.current;
+      if(!focused)return;
+      e.preventDefault();
+      e.stopPropagation();
+      const base=draftRef.current!==null&&!isNaN(parseFloat(draftRef.current))
+        ? parseFloat(draftRef.current) : valRef.current;
+      const dir=e.deltaY<0?1:-1;
+      const dynStep=logScale?(base<6000?1:Math.max(1,Math.round((base-6000)/600))):step;
+      const next=clamp(base+dir*dynStep);
+      const snapped=logScale?Math.round(next):Math.round(next/step)*step;
+      onChangeRef.current(parseFloat(snapped.toFixed(6)));
+      if(draftRef.current!==null)setDraft(null);
+    };
+    const n=numRef.current, s=sliRef.current;
+    n&&n.addEventListener('wheel',onWheel,{passive:false});
+    s&&s.addEventListener('wheel',onWheel,{passive:false});
+    return()=>{
+      n&&n.removeEventListener('wheel',onWheel);
+      s&&s.removeEventListener('wheel',onWheel);
+    };
+  },[min,max,step,logScale]);
+  return(
+    <div style={{marginBottom:10}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:3}}>
+        <span style={{fontSize:12,color:'#9ca3af',minWidth:0,overflow:'hidden',
+                      textOverflow:'ellipsis',whiteSpace:'nowrap',marginRight:6}}>
+          {label}{hint&&<Hint text={hint}/>}
+        </span>
+        <div style={{display:'flex',alignItems:'center',gap:3,flexShrink:0}}>
+          <input ref={numRef} type="number" className="num" min={min} max={max} step={logScale?1:step}
+            value={focused?draft:value}
+            onFocus={()=>setDraft(String(value))}
+            onChange={e=>setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}/>
+          {unit&&<span style={{fontSize:10,color:'#6b7280',fontFamily:'Courier New',
+                               whiteSpace:'nowrap'}}>{unit}</span>}
+        </div>
+      </div>
+      <input ref={sliRef} type="range" className="sli" min={0} max={1} step={0.0001}
+        value={logScale?t:undefined}
+        {...(!logScale&&{min,max,step,value})}
+        style={{background:`linear-gradient(to right,#e2e8f0 ${pct}%,#1e293b ${pct}%)`}}
+        onChange={e=>onChange(logScale
+          ?Math.round(clamp(tToVal(parseFloat(e.target.value))))
+          :parseFloat(e.target.value))}/>
+    </div>
+  );
+};
+
+const FeelSlider=({label,value,onChange,min,max,step=1,leftLabel,rightLabel,readout=null,centered=false,locked=false,hint=null,markers=null})=>{
+  const pct=((value-min)/(max-min))*100;
+  const cPct=((0-min)/(max-min))*100;
+  let bg;
+  if(centered){
+    if(value===0){
+      bg=`linear-gradient(to right,#0f172a 49%,#334155 49%,#334155 51%,#0f172a 51%)`;
+    } else if(value>0){
+      bg=`linear-gradient(to right,#0f172a ${cPct}%,#e2e8f0 ${cPct}%,#e2e8f0 ${pct}%,#0f172a ${pct}%)`;
+    } else {
+      bg=`linear-gradient(to right,#0f172a ${pct}%,#e2e8f0 ${pct}%,#e2e8f0 ${cPct}%,#0f172a ${cPct}%)`;
+    }
+  } else {
+    bg=`linear-gradient(to right,#e2e8f0 ${pct}%,#1e293b ${pct}%)`;
+  }
+  const wrapRef=useRef(null);
+  const valRef=useRef(value);
+  useLayoutEffect(()=>{valRef.current=value;},[value]);
+  const lockRef=useRef(locked); lockRef.current=locked;
+  const onChangeRef=useRef(onChange); useLayoutEffect(()=>{onChangeRef.current=onChange;},[onChange]);
+  useEffect(()=>{
+    const onWheel=e=>{
+      if(document.activeElement!==wrapRef.current&&!wrapRef.current?.contains(document.activeElement))return;
+      e.preventDefault();
+      e.stopPropagation();
+      if(lockRef.current)return;
+      const dir=e.deltaY<0?1:-1;
+      const next=Math.max(min,Math.min(max,valRef.current+dir*step));
+      const snapped=Math.round(next/step)*step;
+      onChangeRef.current(parseFloat(snapped.toFixed(6)));
+    };
+    const w=wrapRef.current;
+    w&&w.addEventListener('wheel',onWheel,{passive:false});
+    return()=>{w&&w.removeEventListener('wheel',onWheel);};
+  },[min,max,step]);
+  return(
+    <div ref={wrapRef} style={{marginBottom:markers&&markers.some(m=>m.label)?18:10,opacity:locked?0.38:1,transition:'opacity .15s'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:3}}>
+        <span style={{fontSize:12,color:'#9ca3af',minWidth:0,overflow:'hidden',
+                      textOverflow:'ellipsis',whiteSpace:'nowrap',marginRight:6}}>{label}{hint&&<Hint text={hint}/>}</span>
+        <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+          {locked&&<span style={{fontSize:10,color:'#94a3b888',letterSpacing:1}}>MANUAL</span>}
+          {readout&&<span style={{fontSize:11,color:'#6b7280',fontFamily:'Courier New'}}>{readout}</span>}
+        </div>
+      </div>
+      <div style={{position:'relative'}}>
+        <input type="range" className="sli" min={min} max={max} step={step} value={value}
+          style={{background:bg,cursor:locked?'not-allowed':'pointer',pointerEvents:locked?'none':'auto'}}
+          onChange={e=>!locked&&onChange(parseFloat(e.target.value))}/>
+        {centered&&<div style={{
+          position:'absolute',left:'50%',top:'50%',
+          transform:'translate(-50%,-50%)',
+          width:2,height:10,background:value===0?'#e2e8f0':'#334155',
+          borderRadius:1,pointerEvents:'none',transition:'background .15s'}}/>}
+        {markers&&markers.map(m=>{
+          const pct=(m.value-min)/(max-min);
+          const left=`calc(${pct*100}% + ${(0.5-pct)*14}px)`;
+          const active=value>=m.value;
+          return(
+            <div key={m.value} style={{position:'absolute',left,top:'50%',
+                transform:'translate(-50%,-50%)',pointerEvents:'none',
+                display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+              <div style={{width:1.5,height:8,borderRadius:1,
+                           background:active?m.color:'#1e293b',
+                           transition:'background .15s'}}/>
+              {m.label&&<span style={{fontSize:8,color:active?m.color:'#374151',
+                                      letterSpacing:0.5,whiteSpace:'nowrap',
+                                      transition:'color .15s',marginTop:2}}>
+                {m.label}
+              </span>}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
+        <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>{leftLabel}</span>
+        <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>{rightLabel}</span>
+      </div>
+    </div>
+  );
+};
+
+const DampingDial=({rebound,bump})=>{
+  const[hover,setHover]=useState(null); // 'rebound'|'bump'|null
+  const SIZE=120,CX=60,CY=58,R=46;
+  const GAP_DEG=60; // gap at bottom
+  const START=180+GAP_DEG/2;  // 210° from top-clockwise = lower-left
+  const SWEEP=360-GAP_DEG;
+  const MIN_Z=10,MAX_Z=115;
+  const zetaToAngle=z=>START+((z-MIN_Z)/(MAX_Z-MIN_Z))*SWEEP;
+  const polar=(deg,r=R)=>{
+    const rad=((deg-90)*Math.PI)/180; // SVG: 0deg = top, clockwise
+    return[CX+r*Math.cos(rad),CY+r*Math.sin(rad)];
+  };
+  const arcPath=(a1,a2,r=R)=>{
+    const[x1,y1]=polar(a1,r);
+    const[x2,y2]=polar(a2,r);
+    const sweep=((a2-a1)+360)%360;
+    const large=sweep>180?1:0;
+    return`M${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)}`;
+  };
+  const rebA=zetaToAngle(rebound);
+  const bumpA=zetaToAngle(bump);
+  const endA=START+SWEEP;
+  const [rxSvg,rySvg]=polar(rebA);
+  const [bxSvg,bySvg]=polar(bumpA);
+  const bumpPct=rebound>0?Math.round((bump/rebound)*100):0;
+  const label=hover==='rebound'?`${Math.round(rebound)}%`
+             :hover==='bump'   ?`${Math.round(bump)}%`
+             :`${bumpPct}%`;
+  const labelSub=hover==='rebound'?'REBOUND'
+                :hover==='bump'   ?'BUMP'
+                :'B/R';
+  const loA=Math.min(rebA,bumpA), hiA=Math.max(rebA,bumpA);
+  const crossed=bump>rebound;
+  return(
+    <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
+      <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
+        {/* background track */}
+        <path d={arcPath(START,endA)} fill="none" stroke="#1e293b" strokeWidth={4} strokeLinecap="round"/>
+        {/* rebound arc: START → rebA, red */}
+        <path d={arcPath(START,rebA)} fill="none" stroke="#ef4444" strokeWidth={4} strokeLinecap="round" opacity={0.7}/>
+        {/* bump arc: START → bumpA, blue */}
+        <path d={arcPath(START,bumpA)} fill="none" stroke="#3b82f6" strokeWidth={4} strokeLinecap="round" opacity={0.7}/>
+        {/* fill between thumbs */}
+        <path d={arcPath(loA,hiA)} fill="none"
+          stroke={crossed?'#f59e0b':'#7c3aed'} strokeWidth={3} strokeLinecap="round" opacity={0.5}/>
+        {/* rebound thumb */}
+        <circle cx={rxSvg} cy={rySvg} r={5} fill="#ef4444" stroke="#0f172a" strokeWidth={1.5}
+          style={{cursor:'default'}}
+          onMouseEnter={()=>setHover('rebound')} onMouseLeave={()=>setHover(null)}
+          onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='rebound'?null:'rebound');}}/>
+        {/* bump thumb */}
+        <circle cx={bxSvg} cy={bySvg} r={5} fill="#3b82f6" stroke="#0f172a" strokeWidth={1.5}
+          style={{cursor:'default'}}
+          onMouseEnter={()=>setHover('bump')} onMouseLeave={()=>setHover(null)}
+          onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='bump'?null:'bump');}}/>
+        {/* center label */}
+        <text x={CX} y={CY-4} textAnchor="middle" fill={crossed?'#f59e0b':'#e2e8f0'}
+          fontSize={16} fontFamily="Courier New" fontWeight="700">{label}</text>
+        <text x={CX} y={CY+11} textAnchor="middle" fill="#475569"
+          fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{labelSub}</text>
+      </svg>
+    </div>
+  );
+};
+
+const ArbRangeSlider=({floor,ceil,onFloor,onCeil,min=1,max=65})=>{
+  const trackRef=useRef(null);
+  const floorRef=useRef(floor); floorRef.current=floor;
+  const ceilRef=useRef(ceil);   ceilRef.current=ceil;
+  const pct=v=>((v-min)/(max-min))*100;
+  const fromPct=p=>Math.round(min+(max-min)*(p/100));
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+
+  const startDrag=useCallback((e,thumb)=>{
+    e.preventDefault();
+    const track=trackRef.current;
+    if(!track)return;
+    const move=ev=>{
+      const client=ev.touches?ev.touches[0].clientX:ev.clientX;
+      const{left,width}=track.getBoundingClientRect();
+      const raw=clamp(((client-left)/width)*100,0,100);
+      const val=fromPct(raw);
+      if(thumb==="floor") onFloor(clamp(val,min,ceilRef.current-1));
+      else                onCeil (clamp(val,floorRef.current+1,max));
+    };
+    const up=()=>{
+      window.removeEventListener("mousemove",move);window.removeEventListener("mouseup",up);
+      window.removeEventListener("touchmove",move);window.removeEventListener("touchend",up);
+    };
+    window.addEventListener("mousemove",move);window.addEventListener("mouseup",up);
+    window.addEventListener("touchmove",move,{passive:false});window.addEventListener("touchend",up);
+  },[min,max,onFloor,onCeil]);
+
+  const onWheelFloor=useCallback(e=>{
+    e.preventDefault();e.stopPropagation();
+    onFloor(clamp(floorRef.current+(e.deltaY<0?1:-1),min,ceilRef.current-1));
+  },[min,onFloor]);
+  const onWheelCeil=useCallback(e=>{
+    e.preventDefault();e.stopPropagation();
+    onCeil(clamp(ceilRef.current+(e.deltaY<0?1:-1),floorRef.current+1,max));
+  },[max,onCeil]);
+
+  const floorThumbRef=useRef(null);
+  const ceilThumbRef=useRef(null);
+  useEffect(()=>{
+    const f=floorThumbRef.current,c=ceilThumbRef.current;
+    f&&f.addEventListener("wheel",onWheelFloor,{passive:false});
+    c&&c.addEventListener("wheel",onWheelCeil, {passive:false});
+    return()=>{
+      f&&f.removeEventListener("wheel",onWheelFloor);
+      c&&c.removeEventListener("wheel",onWheelCeil);
+    };
+  },[onWheelFloor,onWheelCeil]);
+
+  const fPct=pct(floor),cPct=pct(ceil);
+  const thumbStyle={position:"absolute",top:"50%",transform:"translate(-50%,-50%)",
+    width:14,height:14,borderRadius:"50%",background:"#e2e8f0",
+    cursor:"grab",boxSizing:"border-box",zIndex:2,boxShadow:"0 0 0 2px #02061799",touchAction:"none"};
+  return(
+    <div style={{marginBottom:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:4}}>
+        <span style={{fontSize:12,color:"#9ca3af"}}>ARB Range</span>
+          <Hint text="Sets the minimum and maximum ARB click values the solver is allowed to use. Left thumb = floor (minimum clicks at high ride stiffness, preserves balance authority). Right thumb = ceiling (maximum clicks at soft ride stiffness, prevents bars from dominating). Both sides scale proportionally to preserve the front/rear balance ratio."/>
+        <span style={{fontSize:11,color:"#9ca3af",fontFamily:"Courier New"}}>
+          {floor}–{ceil} clicks
+        </span>
+      </div>
+      <div ref={trackRef} style={{position:"relative",height:22,display:"flex",alignItems:"center",
+                                  cursor:"default",userSelect:"none",touchAction:"none"}}>
+        <div style={{position:"absolute",left:0,right:0,height:3,borderRadius:1.5,background:"#1e293b"}}/>
+        <div style={{position:"absolute",left:`${fPct}%`,width:`${cPct-fPct}%`,height:3,
+                     borderRadius:1.5,background:"#e2e8f0"}}/>
+        <div ref={floorThumbRef} style={{...thumbStyle,left:`${fPct}%`}}
+          onMouseDown={e=>startDrag(e,"floor")}
+          onTouchStart={e=>startDrag(e,"floor")}/>
+        <div ref={ceilThumbRef} style={{...thumbStyle,left:`${cPct}%`}}
+          onMouseDown={e=>startDrag(e,"ceil")}
+          onTouchStart={e=>startDrag(e,"ceil")}/>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
+        <span style={{fontSize:10,color:"#374151",letterSpacing:1}}>1 SOFT</span>
+        <span style={{fontSize:10,color:"#374151",letterSpacing:1}}>65 STIFF</span>
+      </div>
+    </div>
+  );
+};
+
+const AdvancedToggle=({open,onToggle,active=false})=>(
+  <div onClick={onToggle}
+       style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',
+               margin:'4px -12px 2px',padding:'8px 12px',
+               borderTop:'1px solid #0f172a',borderBottom:open?'1px solid #0f172a':'none',
+               background:open?'#0a0f1a':'none',transition:'background .12s',userSelect:'none'}}>
+    <span style={{fontSize:10,letterSpacing:2,color:active?'#e2e8f0':open?'#6b7280':'#4b5563',
+                  transition:'color .12s',whiteSpace:'nowrap'}}>
+      ADVANCED
+    </span>
+    {active&&<div style={{width:4,height:4,borderRadius:'50%',background:'#e2e8f0',flexShrink:0}}/>}
+    <div style={{flex:1,height:1,background:'#0f172a'}}/>
+    <span style={{fontSize:10,color:active?'#9ca3af':open?'#6b7280':'#374151',transition:'color .12s'}}>
+      {open?'▲':'▼'}
+    </span>
+  </div>
+);
+
+const Toggle=({label,value,onChange,options})=>(
+  <div style={{marginBottom:9}}>
+    {label&&<span style={{fontSize:12,color:'#6b7280',display:'block',marginBottom:3}}>{label}</span>}
+    <div style={{display:'flex',gap:3}}>
+      {options.map(o=><button key={o.value} className={`tog${value===o.value?' on':''}`}
+        onClick={()=>onChange(o.value)}>{o.label}</button>)}
+    </div>
+  </div>
+);
+
+const Sec=({title,open,onToggle,onReset,children})=>(
+  <div style={{borderBottom:'1px solid #0f172a'}}>
+    <button className={`stog${open?' stog-open':''}`} onClick={onToggle}>
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        <div style={{width:2,height:10,borderRadius:1,flexShrink:0,
+                     background:open?'#e2e8f0':'#1e293b',transition:'background .12s'}}/>
+        <span>{title}</span>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:6}}>
+        {onReset&&<span
+          onClick={e=>{e.stopPropagation();if(window.confirm(`Reset ${title} to defaults?`))onReset();}}
+          title="Reset to defaults"
+          style={{fontSize:10,color:'#374151',padding:'1px 5px',borderRadius:2,
+                  border:'1px solid #1e293b',lineHeight:1.4,cursor:'pointer',
+                  transition:'color .12s,border-color .12s',userSelect:'none'}}
+          onMouseEnter={e=>{e.currentTarget.style.color='#6b7280';e.currentTarget.style.borderColor='#374151';}}
+          onMouseLeave={e=>{e.currentTarget.style.color='#374151';e.currentTarget.style.borderColor='#1e293b';}}>
+          RESET
+        </span>}
+        <span style={{fontSize:11,color:open?'#9ca3af':'#374151',transition:'color .12s'}}>
+          {open?'▲':'▼'}
+        </span>
+      </div>
+    </button>
+    {open&&<div style={{padding:'8px 12px 10px'}}>{children}</div>}
+  </div>
+);
+
+const Readout=({label,value,unit,warn=false,decimals=1,ctx=null,primary=false})=>(
+  <div className="ro" style={primary?{borderColor:'#e2e8f022'}:{}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:1}}>
+      <div className="rl">{label}</div>
+      {ctx&&<span style={{fontSize:9,color:ctx[1],letterSpacing:1,
+                          background:ctx[1]+'18',border:`1px solid ${ctx[1]}44`,
+                          borderRadius:2,padding:'1px 4px',lineHeight:1.4}}>
+        {ctx[0]}
+      </span>}
+    </div>
+    <div style={{display:'flex',alignItems:'baseline',gap:3}}>
+      <span className={primary?'rv-lg':'rv'} style={{color:warn?'#f59e0b':'#e2e8f0'}}>
+        {typeof value==='number'?value.toFixed(decimals):value}
+      </span>
+      {unit&&<span className="ru" style={{marginTop:0}}>{unit}</span>}
+    </div>
+  </div>
+);
+
+const Stat=({label,value,unit,decimals=2})=>(
+  <div className="sr">
+    <span className="sl">{label}</span>
+    <span className="sv">{typeof value==='number'?value.toFixed(decimals):value}
+      <span className="su">{unit}</span></span>
+  </div>
+);
+
+const Card=({title,accent=false,hint=null,children})=>(
+  <div className="card" style={accent?{borderColor:'#e2e8f011'}:{}}>
+    <div className="ch" style={accent?{borderBottomColor:'#e2e8f011',background:'#0a0f1a'}:{}}>
+      <span style={accent?{color:'#9ca3af'}:{}}>{title}</span>
+      {hint&&<Hint text={hint}/>}
+    </div>
+    <div className="cb">{children}</div>
+  </div>
+);
+
+const BiasSeg=({label,val,hint})=>{
+  const c=val>0.5?'#3b82f6':val<-0.5?'#ef4444':'#64748b';
+  return(
+    <div style={{background:'#020617',padding:'5px 7px',borderRadius:2,border:'1px solid #0f172a'}}>
+      <div style={{display:'flex',alignItems:'center',gap:3}}>
+        <span style={{fontSize:10,color:'#374151',letterSpacing:1}}>{label}</span>
+        <Hint text={hint}/>
+      </div>
+      <div style={{fontFamily:'Courier New',fontSize:13,color:c}}>
+        {val>=0?'+':''}{val.toFixed(1)}
+      </div>
+    </div>
+  );
+};
+
+const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,mechBalance})=>{
+  const cl=v=>Math.max(-50,Math.min(50,v));
+  const abs=Math.abs(total);
+  const label=abs<3?'NEUTRAL':total>0?'UNDERSTEER':'OVERSTEER';
+  const col=abs<3?'#e2e8f0':total>0?'#3b82f6':'#ef4444';
+  const tip=abs<3
+    ?'Setup is well balanced. Fine-tune with alignment if needed.'
+    :total>0
+      ?(abs>10?'Move the Balance slider toward Oversteer to correct.'
+              :'Small Balance adjustment toward Oversteer should correct this.')
+      :(abs>10?'Move the Balance slider toward Understeer to correct.'
+              :'Small Balance adjustment toward Understeer should correct this.');
+  return(
+    <div>
+      {mechBalance!=null&&
+        <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',
+                     marginBottom:10,padding:'6px 10px',background:'#020617',
+                     border:'1px solid #1e293b',borderRadius:2}}>
+          <span style={{fontSize:10,color:'#64748b',letterSpacing:2}}>MECH BALANCE</span>
+          <div style={{display:'flex',alignItems:'baseline',gap:6}}>
+            <span style={{fontFamily:'Courier New',fontSize:16,fontWeight:700,color:'#e2e8f0',lineHeight:1}}>
+              {mechBalance.toFixed(2)}
+            </span>
+            <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>0=FRONT · 1=REAR</span>
+          </div>
+        </div>}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:5,marginBottom:5}}>
+        <BiasSeg label="SPRINGS" val={bSp}
+          hint="How much the front/rear spring rates bias roll stiffness, relative to weight distribution. + = understeer."/>
+        <BiasSeg label="ARB" val={bAb}
+          hint="How much the front/rear anti-roll bars bias roll stiffness, relative to weight distribution. + = understeer."/>
+        <BiasSeg label="DIFF ACCEL" val={bDiffAccel}
+          hint="Estimated accel-lock contribution to exit balance. Rear accel lock = oversteer tendency (−). Front accel lock = understeer (+). Magnitude is calibrated, not derived."/>
+        <BiasSeg label="DIFF DECEL" val={bDiffDecel}
+          hint="Estimated decel-lock contribution to entry balance. Higher decel lock = understeer on entry (+). Front decel especially strong. Magnitude is calibrated, not derived."/>
+      </div>
+      <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:5}}>
+        <span style={{fontFamily:'Courier New',fontSize:20,fontWeight:700,color:col,lineHeight:1}}>
+          {abs<3?'±0.0':`${total>=0?'+':''}${total.toFixed(1)}`}
+        </span>
+        <span style={{fontSize:11,color:col,letterSpacing:2}}>{label}</span>
+      </div>
+      <div style={{fontSize:11,color:'#6b7280',lineHeight:1.6,padding:'6px 8px',
+                   background:'#020617',borderRadius:2,border:'1px solid #0f172a'}}>{tip}</div>
+      <div style={{fontSize:10,color:'#374151',lineHeight:1.5,marginTop:6}}>
+        Roll-stiffness and differential contributions. Alignment also affects balance.
+      </div>
+    </div>
+  );
+};
+
+const CheckerModal=({onClose,lim})=>{
+  const[ckSpr,setCkSpr]=useState({f:400,r:300});
+  const[ckDmp,setCkDmp]=useState({rebF:5,rebR:5,bumpF:3,bumpR:3});
+  const[ckMr,setCkMr]=useState({f:1.0,r:1.0});
+  const[ckW,setCkW]=useState(3200);
+  const[ckB,setCkB]=useState(52);
+  const pS=k=>v=>setCkSpr(p=>({...p,[k]:v}));
+  const pD=k=>v=>setCkDmp(p=>({...p,[k]:v}));
+  const pM=k=>v=>setCkMr(p=>({...p,[k]:v}));
+  const masses=useMemo(()=>{const kg=ckW/KG_TO_LB;
+    return{front:(kg*(ckB/100))/2,rear:(kg*(1-ckB/100))/2};},[ckW,ckB]);
+  const ck=useMemo(()=>computeCheck(ckSpr,ckDmp,masses,ckMr),[ckSpr,ckDmp,masses,ckMr]);
+  return(
+    <div style={{position:'fixed',inset:0,background:'#000c',zIndex:999,
+                 display:'flex',alignItems:'center',justifyContent:'center'}}
+         onClick={onClose}>
+      <div style={{background:'#020617',border:'1px solid #1e293b',borderRadius:2,
+                   width:660,maxHeight:'88vh',overflow:'auto'}}
+           onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+                     padding:'8px 14px',borderBottom:'1px solid #1e293b'}}>
+          <span style={{fontSize:12,color:'#9ca3af',letterSpacing:2}}>TUNE CHECK</span>
+          <button onClick={onClose} style={{background:'none',border:'none',color:'#6b7280',
+                                           cursor:'pointer',fontSize:17,lineHeight:1}}>✕</button>
+        </div>
+        <div style={{padding:14}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+            <Card title="VEHICLE MASS">
+              <Field label="Weight" value={ckW} onChange={setCkW} min={100} max={18000} step={1} unit="lb" logScale={true} logMid={6000}/>
+              <Field label="Front Bias" value={ckB} onChange={setCkB} min={30} max={70} step={1} unit="%"/>
+              <Stat label="Corner mass front" value={masses.front} unit="kg"/>
+              <Stat label="Corner mass rear" value={masses.rear} unit="kg"/>
+            </Card>
+            <Card title="SPRING INPUTS">
+              <Field label="Spring Rate Front" value={ckSpr.f} onChange={pS('f')} min={50} max={2500} step={1} unit="lb/in"/>
+              <Field label="Spring Rate Rear" value={ckSpr.r} onChange={pS('r')} min={50} max={2500} step={1} unit="lb/in"/>
+              <Field label="Motion Ratio Front" value={ckMr.f} onChange={pM('f')} min={0.5} max={1.0} step={0.01}
+                hint="Default 1.0 matches the calculator. Only change if you know the car's real suspension geometry."/>
+              <Field label="Motion Ratio Rear" value={ckMr.r} onChange={pM('r')} min={0.5} max={1.0} step={0.01}
+                hint="Default 1.0 matches the calculator. Only change if you know the car's real suspension geometry."/>
+            </Card>
+            <Card title="DAMPING INPUTS">
+              <Field label="Rebound Front" value={ckDmp.rebF} onChange={pD('rebF')} min={1} max={lim.damping} step={0.1} unit={`/ ${lim.damping}`}/>
+              <Field label="Rebound Rear" value={ckDmp.rebR} onChange={pD('rebR')} min={1} max={lim.damping} step={0.1} unit={`/ ${lim.damping}`}/>
+              <Field label="Bump Front" value={ckDmp.bumpF} onChange={pD('bumpF')} min={1} max={lim.damping} step={0.1} unit={`/ ${lim.damping}`}/>
+              <Field label="Bump Rear" value={ckDmp.bumpR} onChange={pD('bumpR')} min={1} max={lim.damping} step={0.1} unit={`/ ${lim.damping}`}/>
+            </Card>
+            <Card title="DECODED TUNE" accent>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
+                <Readout label="Hz FRONT" value={ck.hF} unit="Hz"/>
+                <Readout label="Hz REAR" value={ck.hR} unit="Hz"/>
+              </div>
+              <Stat label="Rebound ratio front" value={ck.zRebF} unit="%" decimals={1}/>
+              <Stat label="Rebound ratio rear"  value={ck.zRebR} unit="%" decimals={1}/>
+              <Stat label="Bump ratio front"    value={ck.zBmpF} unit="%" decimals={1}/>
+              <Stat label="Bump ratio rear"     value={ck.zBmpR} unit="%" decimals={1}/>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const GAME_MODE_ENC={'horizon':0,'motorsport':1};
+const GAME_MODE_DEC=['horizon','motorsport'];
+const DAMPING_MODE_ENC={'ratio':0,'independent':1};
+const DAMPING_MODE_DEC=['ratio','independent'];
+const ARB_MODE_ENC={'auto':0,'roll':1,'share':2};
+const ARB_MODE_DEC=['auto','roll','share'];
+const LAYOUT_ENC={'FWD':0,'RWD':1,'AWD':2};
+const LAYOUT_DEC=['FWD','RWD','AWD'];
+const BUILD_ENC={'street':0,'track':1,'drift':2};
+const BUILD_DEC=['street','track','drift'];
+
+const encodeTune=(ch,fe,dr)=>{
+  const arr=[
+    ch.weight,ch.frontBias,ch.wheelbase,ch.cgHeight,ch.trackF,ch.trackR,ch.motionRatioF,ch.motionRatioR,
+    fe.rideStiffness,fe.arbBias??0,fe.targetSpeed,GAME_MODE_ENC[fe.gameMode]??0,
+    DAMPING_MODE_ENC[fe.dampingMode??'ratio']??0,fe.reboundZeta??70,fe.bumpRatio??56,fe.bumpZeta??39,
+    ARB_MODE_ENC[fe.arbMode??'auto']??0,fe.arbTargetRollMan??1.8,fe.arbShareMan??15,fe.arbFloor??6,fe.arbCeil??65,
+    LAYOUT_ENC[dr.layout]??1,BUILD_ENC[dr.buildType??'track']??1,dr.diffManual?1:0,
+    dr.diffBiasExit??0,dr.diffAccel??35,dr.diffDecel??10,
+    dr.diffFrontAccel??28,dr.diffFrontDecel??0,dr.diffRearAccel??48,dr.diffRearDecel??8,dr.diffCenter??65,
+    dr.diffBiasEntry??0,
+  ];
+  return btoa(arr.join('|'));
+};
+
+const decodeTune=(code)=>{
+  const raw=atob(code.trim());
+  if(raw.startsWith('{')){
+    const{ch:ic,fe:ife,dr:idr}=JSON.parse(raw);
+    return{ch:ic,fe:ife,dr:idr};
+  }
+  const v=raw.split('|').map(Number);
+  const ch={weight:v[0],frontBias:v[1],wheelbase:v[2],cgHeight:v[3],trackF:v[4],trackR:v[5],motionRatioF:v[6],motionRatioR:v[7]};
+  const fe={rideStiffness:v[8],arbBias:v[9],targetSpeed:v[10],gameMode:GAME_MODE_DEC[v[11]]??'horizon',
+            dampingMode:DAMPING_MODE_DEC[v[12]]??'ratio',reboundZeta:v[13],bumpRatio:v[14],bumpZeta:v[15],
+            arbMode:ARB_MODE_DEC[v[16]]??'auto',arbTargetRollMan:v[17],arbShareMan:v[18],arbFloor:v[19],arbCeil:v[20]};
+  const dr={layout:LAYOUT_DEC[v[21]]??'RWD',buildType:BUILD_DEC[v[22]]??'track',diffManual:v[23]===1,
+            diffBiasExit:v[24]??0,diffAccel:v[25],diffDecel:v[26],
+            diffFrontAccel:v[27],diffFrontDecel:v[28],diffRearAccel:v[29],diffRearDecel:v[30],diffCenter:v[31],
+            diffBiasEntry:v[32]??0};
+  return{ch,fe,dr};
+};
+
+const SaveSlot=({i,s,onLoad,onSave,onClear,onRename})=>{
+  const[editing,setEditing]=useState(false);
+  const[draft,setDraft]=useState('');
+  const inputRef=useRef(null);
+
+  const startEdit=e=>{
+    e.stopPropagation();
+    setDraft(s.name);
+    setEditing(true);
+    setTimeout(()=>{inputRef.current?.select();},10);
+  };
+  const commit=()=>{
+    const name=draft.trim().slice(0,12)||s.name;
+    onRename(i,name);
+    setEditing(false);
+  };
+
+  if(!s) return(
+    <button className="tbtn" style={{fontSize:10,color:'#374151',borderStyle:'dashed'}}
+      onClick={onSave} title={`Save current feel & drivetrain to slot ${i}`}>
+      + SLOT {i}
+    </button>
+  );
+
+  return(
+    <div style={{display:'flex',gap:1,alignItems:'center'}}>
+      {editing
+        ? <input ref={inputRef} autoFocus
+            value={draft} onChange={e=>setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={e=>{if(e.key==='Enter')commit();if(e.key==='Escape'){setEditing(false);}}}
+            style={{width:72,background:'#0a0f1a',border:'1px solid #e2e8f033',borderRadius:2,
+                    color:'#e2e8f0',fontFamily:'Courier New',fontSize:10,padding:'2px 5px',
+                    outline:'none',textTransform:'uppercase'}}/>
+        : <button className="tbtn saved" style={{fontSize:10,maxWidth:80,overflow:'hidden',
+                    textOverflow:'ellipsis',whiteSpace:'nowrap'}}
+            onClick={onLoad}
+            onDoubleClick={startEdit}
+            title={`Load: ${s.name} — double-click to rename`}>
+            {s.name.slice(0,12).toUpperCase()}
+          </button>}
+      {!editing&&<button onClick={startEdit}
+        style={{background:'none',border:'1px solid #1e293b',borderRadius:2,
+                color:'#374151',cursor:'pointer',fontSize:9,padding:'0 3px',lineHeight:'22px',
+                flexShrink:0}}
+        title="Rename">✎</button>}
+      <button onClick={()=>{if(window.confirm(`Clear "${s.name}"?`))onClear();}}
+        style={{background:'none',border:'1px solid #1e293b',borderRadius:2,
+                color:'#374151',cursor:'pointer',fontSize:10,padding:'0 3px',lineHeight:'22px',
+                flexShrink:0}}
+        title="Clear slot">✕</button>
+    </div>
+  );
+};
+
+class ErrorBoundary extends React.Component{
+  constructor(p){super(p);this.state={err:null};}
+  static getDerivedStateFromError(e){return{err:e};}
+  render(){
+    if(this.state.err)return(
+      <div style={{padding:24,color:'#ef4444',fontFamily:'Courier New',fontSize:12,background:'#020617',minHeight:'100vh'}}>
+        <div style={{marginBottom:8,color:'#e2e8f0',fontSize:14}}>SUSP.OS — Failed to load</div>
+        <div style={{marginBottom:16,color:'#6b7280'}}>An error occurred. Try reloading the page.</div>
+        <div style={{background:'#0f172a',padding:12,borderRadius:4,border:'1px solid #1e293b',
+                     whiteSpace:'pre-wrap',wordBreak:'break-all',lineHeight:1.6}}>
+          {this.state.err.toString()}
+        </div>
+        <button onClick={()=>window.location.reload()}
+          style={{marginTop:16,padding:'8px 16px',background:'#0f172a',border:'1px solid #1e293b',
+                  color:'#e2e8f0',borderRadius:4,cursor:'pointer',fontFamily:'Courier New',fontSize:12}}>
+          RELOAD
+        </button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
+function App(){
+  const[ch,setCh]=usePersist('suspos_ch_v8',DEF_CH);
+  const[fe,setFe]=usePersist('suspos_fe_v8',DEF_FE);
+  const[dr,setDr]=usePersist('suspos_dr_v8',DEF_DR);
+  const[al,setAl]=usePersist('suspos_al_v2',DEF_AL);
+  const[saves,setSaves]=usePersist('suspos_saves_v9',PRESET_SAVES);
+  const[open,setOpen]=useState({chassis:true,feel:true,arb:true,alignment:true,drivetrain:true,chassisAdv:false,balanceExpanded:true,statsOpen:false});
+  const[showChecker,setShowChecker]=useState(false);
+  const[sidebarOpen,setSidebarOpen]=useState(true);
+  const[isMobile,setIsMobile]=useState(false);
+  useEffect(()=>{
+    const preload=document.getElementById('pre-load');
+    if(preload)preload.style.display='none';
+    const check=()=>{
+      const mobile=window.innerWidth<768;
+      setIsMobile(mobile);
+      setSidebarOpen(!mobile);
+    };
+    check();
+    window.addEventListener('resize',check);
+    return()=>window.removeEventListener('resize',check);
+  },[]);
+
+  const pCh=k=>v=>setCh(p=>({...p,[k]:v}));
+  const pFe=k=>v=>setFe(p=>({...p,[k]:v}));
+  const pDr=k=>v=>setDr(p=>({...p,[k]:v}));
+  const pAl=k=>v=>setAl(p=>({...p,[k]:v}));
+  const tog=k=>()=>setOpen(p=>({...p,[k]:!p[k]}));
+
+  const physics=useMemo(()=>feelToPhysics(ch,fe),[ch,fe]);
+  const tune=useMemo(()=>computeTune(ch,physics,fe.gameMode),[ch,physics,fe.gameMode]);
+  const autoAlign=useMemo(()=>computeAlignment(ch,tune,dr.layout,dr.buildType),[ch,tune,dr.layout,dr.buildType]);
+  const align=al.alignManual
+    ?{recCamberF:al.camberF,recCamberR:al.camberR,
+      recToeF:al.toeF,recToeR:al.toeR,recCaster:al.caster}
+    :autoAlign;
+  const diff=useMemo(()=>computeDiff(ch,fe,dr),[ch,fe,dr]);
+  const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel;
+  const lim=GAME_LIMITS[fe.gameMode];
+
+  const handleSlot=i=>{
+    const s=saves[i];
+    if(s){
+      setFe({...DEF_FE,...s.fe});
+      setDr({...DEF_DR,...s.dr});
+    }
+    else{
+      const hz=physics.frontHz.toFixed(1);
+      const build=(dr.buildType??'track').toUpperCase();
+      setSaves(p=>({...p,[i]:{fe,dr,name:`${build} ${hz}`}}));
+    }
+  };
+  const clearSlot=i=>setSaves(p=>{const n={...p};delete n[i];return n;});
+  const renameSlot=(i,name)=>setSaves(p=>({...p,[i]:{...p[i],name}}));
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',height:'100vh',minHeight:'-webkit-fill-available',overflow:'hidden'}}>
+      {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim}/>}
+
+      {/* HEADER */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+                   padding:'0 14px',height:42,borderBottom:'1px solid #0f172a',
+                   flexShrink:0,background:'#020617'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <button onClick={()=>setSidebarOpen(p=>!p)}
+            style={{background:'none',border:'1px solid #1e293b',borderRadius:2,
+                    color:sidebarOpen?'#e2e8f0':'#6b7280',cursor:'pointer',
+                    padding:'3px 7px',fontSize:13,lineHeight:1,transition:'color .12s,border-color .12s',
+                    borderColor:sidebarOpen?'#e2e8f033':'#1e293b'}}>
+            {sidebarOpen?'✕':'☰'}
+          </button>
+          <div style={{fontWeight:700,fontSize:15,color:'#e2e8f0',letterSpacing:4}}>
+            SUSP<span style={{color:'#374151'}}>.</span>OS
+          </div>
+        </div>
+        <div style={{display:'flex',gap:3}}>
+          {['horizon','motorsport'].map(m=>(
+            <button key={m} className={`tbtn${fe.gameMode===m?' on':''}`}
+              onClick={()=>pFe('gameMode')(m)} style={{fontSize:11}}>{m.toUpperCase()}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* BODY */}
+      <div style={{display:'flex',flex:1,overflow:'hidden',position:'relative'}}>
+
+        {/* BACKDROP — mobile only, closes sidebar on tap */}
+        {sidebarOpen&&isMobile&&
+          <div onClick={()=>setSidebarOpen(false)}
+               style={{position:'absolute',inset:0,background:'#00000088',zIndex:150}}/>}
+
+        {/* SIDEBAR */}
+        <div className="sidebar-scroll" style={{WebkitOverflowScrolling:'touch',overscrollBehavior:'contain',
+          width:300,flexShrink:0,overflowY:'auto',
+          borderRight:'1px solid #0f172a',background:'#020617',
+          ...(isMobile?{
+            position:'absolute',top:0,left:0,bottom:0,zIndex:200,
+            transform:sidebarOpen?'translateX(0)':'translateX(-100%)',
+            transition:'transform .2s ease',
+            boxShadow:sidebarOpen?'4px 0 24px #000000cc':'none',
+          }:{
+            display:sidebarOpen?'block':'none',
+          })
+        }}>
+
+          <Sec title="CHASSIS" open={open.chassis} onToggle={tog('chassis')}
+            onReset={()=>setCh({...DEF_CH})}>
+            <Field label="Weight" value={ch.weight} onChange={pCh('weight')} min={100} max={18000} step={1} unit="lb" logScale={true} logMid={6000}
+              hint="Total vehicle weight in pounds. Find this on the car's stat page in Forza. Affects spring rates, damper forces, and ARB stiffness directly."/>
+            <Field label="Front Weight Bias" value={ch.frontBias} onChange={pCh('frontBias')} min={30} max={70} step={1} unit="%"
+              hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance. Most front-engined cars are 52–58% front."/>
+            <Field label="Wheelbase" value={ch.wheelbase} onChange={pCh('wheelbase')} min={0.4} max={4.0} step={0.01} unit="m"
+              hint="Distance between front and rear axles in metres. Used by the flat-ride formula to match rear spring frequency to your target speed. Typical cars: 2.4–2.9m."/>
+            <Field label="CG Height" value={ch.cgHeight} onChange={pCh('cgHeight')} min={0.2} max={0.9} step={0.01} unit="m"
+              hint="Estimated height of the centre of gravity above ground. Forza doesn't expose this — use 0.40–0.46m for sports cars, 0.48–0.55m for sedans, 0.58–0.70m for SUVs. Affects roll moment and ARB stiffness."/>
+            <AdvancedToggle open={open.chassisAdv} onToggle={()=>setOpen(p=>({...p,chassisAdv:!p.chassisAdv}))}/>
+            {open.chassisAdv&&<>
+              <Field label="Track Width Front" value={ch.trackF} onChange={pCh('trackF')} min={1.0} max={2.2} step={0.01} unit="m"
+                hint="Distance between left and right wheels. Typical: 1.4–1.8m. Wider = more roll resistance."/>
+              <Field label="Track Width Rear" value={ch.trackR} onChange={pCh('trackR')} min={1.0} max={2.2} step={0.01} unit="m"
+                hint="Distance between left and right wheels. Typical: 1.4–1.8m. Often slightly wider than front."/>
+              <Field label="Motion Ratio Front" value={ch.motionRatioF} onChange={pCh('motionRatioF')} min={0.5} max={1.0} step={0.01}
+                hint="Spring compression per inch of wheel travel. Default 1.0 = no correction (matches simplified calculator). Real values: MacPherson ~0.85–0.95, Wishbone ~0.75–0.90."/>
+              <Field label="Motion Ratio Rear" value={ch.motionRatioR} onChange={pCh('motionRatioR')} min={0.5} max={1.0} step={0.01}
+                hint="Spring compression per inch of wheel travel. Default 1.0 = no correction (matches simplified calculator). Real values: MacPherson ~0.85–0.95, Wishbone ~0.75–0.90."/>
+            </>}
+          </Sec>
+
+          <Sec title="FEEL" open={open.feel} onToggle={tog('feel')}
+            onReset={()=>setFe(p=>({...p,
+              rideStiffness:DEF_FE.rideStiffness,
+              targetSpeed:DEF_FE.targetSpeed,
+              dampingMode:DEF_FE.dampingMode,
+              reboundZeta:DEF_FE.reboundZeta,
+              bumpRatio:DEF_FE.bumpRatio,
+              bumpZeta:DEF_FE.bumpZeta}))}>
+            <FeelSlider label="Ride Stiffness" value={fe.rideStiffness}
+              onChange={pFe('rideStiffness')} min={0} max={100} leftLabel="COMFORT" rightLabel="RACE"
+              readout={`${physics.frontHz.toFixed(2)} Hz`}
+              hint="Sets the front spring frequency. COMFORT (0) = 0.80 Hz, street-soft. RACE (100) = 3.50 Hz, track-stiff. Rear frequency is derived automatically via the flat-ride formula. The Hz readout updates live."
+              markers={[
+                {value:19,color:'#64748b',label:'ROAD'},
+                {value:44,color:'#f59e0b',label:'FIRM'},
+                {value:74,color:'#ef4444',label:'RACE'},
+              ]}/>
+            <FeelSlider label="Target Speed" value={fe.targetSpeed}
+              onChange={pFe('targetSpeed')} min={40} max={200} step={5}
+              leftLabel="CITY" rightLabel="OFF"
+              readout={fe.targetSpeed>=200
+                ? `FLAT RIDE OFF · ${physics.rearHz.toFixed(2)} Hz rear`
+                : `${fe.targetSpeed} mph · ${physics.rearHz.toFixed(2)} Hz rear${physics.rearHzClamped?' ⚠':''}`}
+              hint="The speed at which front and rear wheels hit bumps in phase (flat ride). Lower = rear spring tuned for city/low-speed feel. Higher = tuned for motorway/track. OFF disables the flat-ride correction — rear Hz matches front Hz adjusted for mass only."/>
+            <div style={{display:'flex',alignItems:'center',gap:6,
+                         padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
+                         border:'1px solid #1e293b',marginBottom:10,marginTop:-6}}>
+              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>FRONT</span>
+              <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{physics.frontHz.toFixed(2)}</span>
+              <span style={{fontSize:10,color:'#4b5563'}}>Hz</span>
+              <div style={{flex:1,height:1,background:'#1e293b'}}/>
+              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>REAR</span>
+              <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{physics.rearHz.toFixed(2)}</span>
+              <span style={{fontSize:10,color:'#4b5563'}}>Hz</span>
+            </div>
+            <DampingDial rebound={fe.reboundZeta??70} bump={physics.bumpZeta}/>
+            {/* damping mode toggle */}
+            <div style={{display:'flex',gap:3,marginBottom:10}}>
+              <button className={`tog${(fe.dampingMode??'ratio')==='ratio'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampingMode:'ratio'}))}>BUMP RATIO</button>
+              <button className={`tog${(fe.dampingMode??'ratio')==='independent'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampingMode:'independent',
+                  bumpZeta:Math.round(physics.bumpZeta)}))}>INDEPENDENT</button>
+            </div>
+            <FeelSlider label="Rebound ζ" value={fe.reboundZeta??70}
+              onChange={pFe('reboundZeta')} min={10} max={115} step={1}
+              leftLabel="10%" rightLabel="115%"
+              hint="Damping ratio for the rebound (extension) stroke — how quickly the suspension returns after compression. 55–70% is typical. Above 70% (Butterworth) the car feels planted but stiff. Above 100% (overdamped) the suspension moves sluggishly."
+              markers={[
+                {value:70, color:'#f59e0b',label:'BWORTH'},
+                {value:100,color:'#ef4444',label:'OVER'},
+              ]}
+              readout={(()=>{
+                const z=fe.reboundZeta??70;
+                if(z>100)return`${z}% ⚠ OVERDAMPED`;
+                if(z>70) return`${z}% · BUTTERWORTH`;
+                return`${z}%`;
+              })()}/>
+            {(fe.dampingMode??'ratio')==='ratio'
+              ? <FeelSlider label="Bump Ratio" value={fe.bumpRatio??56}
+                  onChange={pFe('bumpRatio')} min={10} max={100} step={1}
+                  leftLabel="10%" rightLabel="100%"
+                  hint="Bump damping as a percentage of rebound. Lower = softer over sharp hits, more compliant on rough roads. Higher = more consistent feel between bump and rebound strokes. 40–65% is the typical real-world range. Readout shows ratio / resulting bump ζ."
+                  markers={[{value:65,color:'#f59e0b',label:'FIRM'}]}
+                  readout={(()=>{
+                    const ratio=Math.min(100,fe.bumpRatio??56);
+                    const bz=Math.max(10,Math.min((fe.reboundZeta??70),(fe.reboundZeta??70)*ratio/100));
+                    const zLabel=bz>100?`${Math.round(bz)}% ⚠ OVERDAMPED`:
+                                 bz>70 ?`${Math.round(bz)}% · BUTTERWORTH`:
+                                         `${Math.round(bz)}%`;
+                    return`${ratio}% / ${zLabel}`;
+                  })()}/>
+              : <FeelSlider label="Bump ζ" value={fe.bumpZeta??39}
+                  onChange={pFe('bumpZeta')} min={10} max={115} step={1}
+                  leftLabel="10%" rightLabel="115%"
+                  hint="Bump damping ratio set independently from rebound. Useful when you want precise control — e.g. soft bump for road compliance with firm rebound for body control. Keep below rebound for normal handling."
+                  readout={(()=>{
+                    const z=fe.bumpZeta??39;
+                    const r=fe.reboundZeta??70;
+                    const cross=z>r?' ⚠ CROSSED':'';
+                    if(z>100)return`${z}% ⚠ OVERDAMPED${cross}`;
+                    if(z>70) return`${z}% · BUTTERWORTH${cross}`;
+                    return`${z}%${cross}`;
+                  })()}/>}
+            <div style={{display:'flex',alignItems:'center',gap:6,
+                         padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
+                         border:'1px solid #1e293b',marginBottom:4,marginTop:-6}}>
+              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1,whiteSpace:'nowrap'}}>REB</span>
+              <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{Math.round(physics.reboundZeta)}%</span>
+              <span style={{fontSize:10,color:'#1e293b',flex:1,textAlign:'center'}}>·</span>
+              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1,whiteSpace:'nowrap'}}>BUMP</span>
+              <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{Math.round(physics.bumpZeta)}%</span>
+              <span style={{fontSize:10,color:'#1e293b',flex:1,textAlign:'center'}}>·</span>
+              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1,whiteSpace:'nowrap'}}>SETTLE</span>
+              <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{tune.settle.toFixed(2)}s</span>
+            </div>
+          </Sec>
+
+          <Sec title="ANTI-ROLL BARS" open={open.arb} onToggle={tog('arb')}
+            onReset={()=>setFe(p=>({...p,
+              arbBias:DEF_FE.arbBias,
+              arbMode:DEF_FE.arbMode,
+              arbTargetRollMan:DEF_FE.arbTargetRollMan,
+              arbShareMan:DEF_FE.arbShareMan,
+              arbFloor:DEF_FE.arbFloor,
+              arbCeil:DEF_FE.arbCeil}))}>
+            <FeelSlider label="ARB Bias" value={fe.arbBias}
+              onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
+              centered={true}
+              hint="Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."
+              readout={`F ${Math.round((1-(physics.arbBalance/100))*100)}% / R ${Math.round(physics.arbBalance/100*100)}%`}/>
+            <ArbRangeSlider
+              floor={fe.arbFloor??6} ceil={fe.arbCeil??65}
+              onFloor={pFe('arbFloor')} onCeil={pFe('arbCeil')}/>
+            <div style={{display:'flex',alignItems:'center',gap:6,
+                         padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
+                         border:'1px solid #1e293b',marginBottom:10,marginTop:-6}}>
+              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ROLL</span>
+              <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,
+                            color:tune.rollClamped?'#f59e0b':'#e2e8f0'}}>{tune.rollDeg.toFixed(1)}</span>
+              <span style={{fontSize:10,color:'#4b5563'}}>°</span>
+              <svg width="100%" height="24" viewBox="0 0 100 24" style={{flex:1,overflow:'visible',margin:'0 4px'}}>
+                <line x1="5" y1="20" x2="95" y2="20" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
+                {(fe.arbMode??'auto')==='roll'&&(
+                  <g transform={`rotate(${-Math.min(tune.rollTarget*4,25)} 50 20)`}>
+                    <line x1="15" y1="14" x2="85" y2="14" stroke="#3b82f6" strokeWidth="1.5"
+                      strokeDasharray="3 2" opacity="0.4" strokeLinecap="round"/>
+                  </g>
+                )}
+                <g transform={`rotate(${-Math.min(tune.rollDeg*4,25)} 50 20)`}
+                   style={{transition:'transform 0.15s ease-out'}}>
+                  <line x1="20" y1="14" x2="80" y2="14"
+                    stroke={tune.rollClamped?'#f59e0b':'#e2e8f0'} strokeWidth="1.5" strokeLinecap="round"/>
+                  <rect x="15" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
+                    stroke={tune.rollClamped?'#f59e0b':'#64748b'} strokeWidth="1.5"/>
+                  <rect x="80" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
+                    stroke={tune.rollClamped?'#f59e0b':'#64748b'} strokeWidth="1.5"/>
+                </g>
+              </svg>
+              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SHARE</span>
+              <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{Math.round(tune.arbShare)}</span>
+              <span style={{fontSize:10,color:'#4b5563'}}>%</span>
+            </div>            <div style={{marginBottom:10}}>
+              <span style={{fontSize:12,color:'#6b7280',display:'inline-block',marginBottom:4}}>Stiffness Mode</span>
+              <Hint text="AUTO derives ARB stiffness from the car's natural roll tendency — heavier, taller, softer cars get more ARB contribution. ROLL ° targets a specific body roll angle. SHARE % directly sets ARBs as a fraction of total roll stiffness."/>
+              <div style={{display:'flex',gap:3}}>
+                <button className={`tog${(fe.arbMode??'auto')==='auto'?' on':''}`}
+                  onClick={()=>pFe('arbMode')('auto')}>AUTO</button>
+                <button className={`tog${(fe.arbMode??'auto')==='roll'?' on':''}`}
+                  onClick={()=>{
+                    setFe(p=>({...p,arbMode:'roll',
+                      arbTargetRollMan:Math.round(physics.arbTargetRoll*10)/10}));
+                  }}>ROLL °</button>
+                <button className={`tog${(fe.arbMode??'auto')==='share'?' on':''}`}
+                  onClick={()=>{
+                    setFe(p=>({...p,arbMode:'share',
+                      arbShareMan:Math.round(tune.arbShare)}));
+                  }}>SHARE %</button>
+              </div>
+
+            </div>
+            {(fe.arbMode??'auto')==='roll'&&
+              <Field label="Target Roll Angle" value={fe.arbTargetRollMan} onChange={pFe('arbTargetRollMan')}
+                min={0.3} max={5.0} step={0.1} unit="° @ 1g"
+                hint="Body roll the anti-roll bars are solved to allow. Low (≈0.5–1°) = stiff bars, flat cornering. High (≈3–5°) = soft bars that let the suspension articulate over terrain."/>}
+            {(fe.arbMode??'auto')==='share'&&
+              <Field label="ARB Share" value={fe.arbShareMan??15} onChange={pFe('arbShareMan')}
+                min={0} max={80} step={1} unit="%"
+                hint="Fraction of total roll stiffness supplied by ARBs. 0% = springs handle all roll resistance. 20–30% is typical sport. Higher = stiffer bars relative to springs, more abrupt load transfer."/>}
+          </Sec>
+
+          <Sec title="ALIGNMENT" open={open.alignment} onToggle={tog('alignment')}
+            onReset={()=>{if(window.confirm('Reset ALIGNMENT to defaults?'))setAl({...DEF_AL})}}>
+            <div style={{marginBottom:10}}>
+              <span style={{fontSize:12,color:'#6b7280',display:'inline-block',marginBottom:4}}>Alignment Mode</span>
+              <Hint text="AUTO derives camber, toe, and caster from build type, layout, CG height, and roll angle. MANUAL lets you enter specific values — seeds from the current AUTO recommendation when switching."/>
+              <div style={{display:'flex',gap:3}}>
+                <button className={`tog${!al.alignManual?' on':''}`}
+                  onClick={()=>setAl(p=>({...p,alignManual:false}))}>AUTO</button>
+                <button className={`tog${al.alignManual?' on':''}`}
+                  onClick={()=>setAl(p=>({...p,alignManual:true,
+                    camberF:autoAlign.recCamberF,camberR:autoAlign.recCamberR,
+                    toeF:autoAlign.recToeF,toeR:autoAlign.recToeR,
+                    caster:autoAlign.recCaster}))}>MANUAL</button>
+              </div>
+
+            </div>
+            {al.alignManual&&<>
+              <div style={{fontSize:10,color:'#4b5563',letterSpacing:2,marginBottom:6}}>CAMBER</div>
+              <Field label="Front" value={al.camberF} onChange={pAl('camberF')}
+                min={-4.0} max={0.0} step={0.1} unit="°"
+                hint="Static front camber. Negative camber tilts the top of the tyre inward. Compensates for camber gain during body roll — outer tyre stays flat through corners."/>
+              <Field label="Rear" value={al.camberR} onChange={pAl('camberR')}
+                min={-3.5} max={0.0} step={0.1} unit="°"
+                hint="Static rear camber. Rear typically needs less than front since body roll is shared more evenly and rear suspension often has lower camber gain."/>
+              <div style={{fontSize:10,color:'#4b5563',letterSpacing:2,marginBottom:6,marginTop:4}}>TOE</div>
+              <Field label="Front" value={al.toeF} onChange={pAl('toeF')}
+                min={-0.2} max={0.2} step={0.1} unit="°"
+                hint="Front toe angle. Negative = toe-out (improves turn-in, can cause instability). Positive = toe-in (more stable, slower turn-in). FWD typically toe-in, RWD typically slight toe-out."/>
+              <Field label="Rear" value={al.toeR} onChange={pAl('toeR')}
+                min={0.0} max={0.3} step={0.1} unit="°"
+                hint="Rear toe angle. Positive = toe-in (increases stability, reduces rotation). Near zero for drift/rotation, higher for stability builds."/>
+              <div style={{fontSize:10,color:'#4b5563',letterSpacing:2,marginBottom:6,marginTop:4}}>CASTER</div>
+              <Field label="Caster" value={al.caster} onChange={pAl('caster')}
+                min={4.0} max={7.5} step={0.1} unit="°"
+                hint="Steering axis tilt. Higher caster improves straight-line stability and adds camber gain through steering input. Lower caster reduces steering effort (useful for FWD). 5.0–6.5° is typical."/>
+            </>}
+          </Sec>
+
+          <Sec title="DRIVETRAIN" open={open.drivetrain} onToggle={tog('drivetrain')}
+            onReset={()=>setDr(p=>({...p,
+              diffManual:DEF_DR.diffManual,
+              diffBiasExit:DEF_DR.diffBiasExit,
+              diffBiasEntry:DEF_DR.diffBiasEntry,
+              diffAccel:DEF_DR.diffAccel,
+              diffDecel:DEF_DR.diffDecel,
+              diffFrontAccel:DEF_DR.diffFrontAccel,
+              diffFrontDecel:DEF_DR.diffFrontDecel,
+              diffRearAccel:DEF_DR.diffRearAccel,
+              diffRearDecel:DEF_DR.diffRearDecel,
+              diffCenter:DEF_DR.diffCenter}))}>
+            <Toggle label="" value={dr.layout} onChange={pDr('layout')}
+              options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
+            <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
+              options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}/>
+            <div style={{marginTop:8,marginBottom:10}}>
+              <span style={{fontSize:12,color:'#6b7280',display:'inline-block',marginBottom:4}}>Differential Mode</span>
+              <Hint text="AUTO derives lock values from layout, build type, weight bias, and the Corner Exit/Entry sliders. MANUAL exposes all individual lock percentages."/>
+              <div style={{display:'flex',gap:3}}>
+                <button className={`tog${!dr.diffManual?' on':''}`}
+                  onClick={()=>pDr('diffManual')(false)}>AUTO</button>
+                <button className={`tog${dr.diffManual?' on':''}`}
+                  onClick={()=>{
+                    const d=diff;
+                    setDr(p=>({...p,diffManual:true,
+                      ...(d.layout==='AWD'
+                        ?{diffFrontAccel:d.frontAccel,diffFrontDecel:d.frontDecel,
+                          diffRearAccel:d.rearAccel,diffRearDecel:d.rearDecel,
+                          diffCenter:d.center}
+                        :{diffAccel:d.accel,diffDecel:d.decel})}));
+                  }}>MANUAL</button>
+              </div>
+
+            </div>
+            {!dr.diffManual&&<>
+              <FeelSlider label="Corner Exit" value={dr.diffBiasExit??0}
+                onChange={pDr('diffBiasExit')} min={-50} max={50} leftLabel="UNDERSTEER" rightLabel="OVERSTEER"
+                centered={true}
+                hint="Shifts accel lock values. Toward OVERSTEER increases rear accel lock (RWD) or decreases front accel lock (FWD/AWD) — more rotation on exit. Toward UNDERSTEER does the reverse."
+                readout={diff.layout==='AWD'
+                  ?`FA ${diff.frontAccel}% / RA ${diff.rearAccel}%`
+                  :`Accel ${diff.accel}%`}/>
+              <FeelSlider label="Corner Entry" value={dr.diffBiasEntry??0}
+                onChange={pDr('diffBiasEntry')} min={-50} max={50} leftLabel="ROTATION" rightLabel="STABILITY"
+                centered={true}
+                hint="Shifts decel lock values. Toward STABILITY increases decel lock — more resistance to rotation on corner entry. Toward ROTATION decreases decel lock — freer entry rotation."
+                readout={diff.layout==='AWD'
+                  ?`RD ${diff.rearDecel}%`
+                  :`Decel ${diff.decel}%`}/>
+            </>}
+            {dr.diffManual&&(dr.layout==='AWD'?(
+              <>
+                <div style={{fontSize:10,color:'#4b5563',letterSpacing:2,marginBottom:6,marginTop:2}}>FRONT AXLE</div>
+                <Field label="Accel" value={dr.diffFrontAccel} onChange={pDr('diffFrontAccel')}
+                  min={0} max={100} step={1} unit="%"
+                  hint="Front axle lock under power. Higher = more front pull out of corners but risks understeer. 20–35% typical."/>
+                <Field label="Decel" value={dr.diffFrontDecel} onChange={pDr('diffFrontDecel')}
+                  min={0} max={100} step={1} unit="%"
+                  hint="Front axle lock off throttle. 0 is strongly recommended — anything above strongly increases understeer on corner entry."/>
+                <div style={{fontSize:10,color:'#4b5563',letterSpacing:2,marginBottom:6,marginTop:4}}>REAR AXLE</div>
+                <Field label="Accel" value={dr.diffRearAccel} onChange={pDr('diffRearAccel')}
+                  min={0} max={100} step={1} unit="%"
+                  hint="Rear axle lock under power. Higher = more oversteer on exit. 40–60% typical."/>
+                <Field label="Decel" value={dr.diffRearDecel} onChange={pDr('diffRearDecel')}
+                  min={0} max={100} step={1} unit="%"
+                  hint="Rear axle lock off throttle. Low values improve corner entry rotation. 0–15% typical."/>
+                <div style={{fontSize:10,color:'#4b5563',letterSpacing:2,marginBottom:6,marginTop:4}}>CENTER</div>
+                <Field label="Split" value={dr.diffCenter} onChange={pDr('diffCenter')}
+                  min={0} max={100} step={1} unit="% rear"
+                  hint="Power distribution rear bias. Higher = more oversteer. 60–70% typical for track."/>
+              </>
+            ):(
+              <>
+                <Field label="Accel Lock" value={dr.diffAccel} onChange={pDr('diffAccel')}
+                  min={0} max={100} step={1} unit="%"
+                  hint={dr.layout==='RWD'
+                    ?"RWD rear accel lock. Higher = more exit oversteer. 25–45% typical."
+                    :"FWD front accel lock. Higher = more understeer on exit. 15–25% typical."}/>
+                <Field label="Decel Lock" value={dr.diffDecel} onChange={pDr('diffDecel')}
+                  min={0} max={100} step={1} unit="%"
+                  hint={dr.layout==='RWD'
+                    ?"RWD rear decel lock. Lower = better corner entry rotation, less lift-off oversteer. 0–20% typical."
+                    :"FWD front decel lock. Lower = less understeer on entry. 0–10% typical."}/>
+              </>
+            ))}
+          </Sec>
+        </div>
+
+        {/* OUTPUT PANEL */}
+        <div style={{flex:1,display:'flex',flexDirection:'column',background:'#020617',minHeight:0}}>
+
+          {/* cards — scrollable */}
+          <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',overscrollBehavior:'contain',padding:'8px 10px 6px',minHeight:0}}>
+
+          {/* 1 — ALIGNMENT */}
+          <Card title={`ALIGNMENT${al.alignManual?' · MANUAL':''}`}
+            hint={dr.layout==='FWD'
+              ?`${al.alignManual?'Manual values.':'Recommended starting point.'} Camber targets ${({street:'-1.0°',track:'-1.5°',drift:'-2.5°'})[dr.buildType??'track']} dynamic. FWD front camber reduced for traction. Toe-in front and rear for stability.`
+              :dr.layout==='RWD'
+              ?`${al.alignManual?'Manual values.':'Recommended starting point.'} Camber targets ${({street:'-1.0°',track:'-1.5°',drift:'-2.5°'})[dr.buildType??'track']} dynamic at ${tune.rollDeg.toFixed(1)}° roll. Front toe-out for turn-in, rear toe-in for stability.`
+              :`${al.alignManual?'Manual values.':'Recommended starting point.'} Camber targets ${({street:'-1.0°',track:'-1.5°',drift:'-2.5°'})[dr.buildType??'track']} dynamic at ${tune.rollDeg.toFixed(1)}° roll. Front toe-out for turn-in, rear toe-in scaled to center bias.`}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr',gap:4}}>
+              <Readout label="CAMBER F" value={align.recCamberF} unit="°" decimals={1}/>
+              <Readout label="CAMBER R" value={align.recCamberR} unit="°" decimals={1}/>
+              <Readout label="TOE F" value={align.recToeF} unit="°" decimals={1}/>
+              <Readout label="TOE R" value={align.recToeR} unit="°" decimals={1}/>
+              <Readout label="CASTER" value={align.recCaster} unit="°" decimals={1}/>
+            </div>
+          </Card>
+
+          {/* 2+3 — ANTI-ROLL BARS + SPRINGS side by side */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:6}}>
+          <Card title="ANTI-ROLL BARS" accent
+            hint="Click values to enter in Forza's ARB tuning menu. Roll angle and ARB share are shown in the ANTI-ROLL BARS section of inputs. Amber warn when above 88% of the game limit.">
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
+              <Readout label="FRONT" value={tune.arbF} warn={tune.arbF>lim.arb*0.88}
+                unit={`/ ${lim.arb}`} ctx={arbCtx(tune.arbF,lim.arb)} primary/>
+              <Readout label="REAR" value={tune.arbR} warn={tune.arbR>lim.arb*0.88}
+                unit={`/ ${lim.arb}`} ctx={arbCtx(tune.arbR,lim.arb)} primary/>
+            </div>
+            {tune.rollClamped&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
+                 marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
+                 border:'1px solid #f5a62333'}}>
+              Target {tune.rollTarget.toFixed(1)}° couldn't be reached within the 1–{lim.arb} range —
+              achieved {tune.rollDeg.toFixed(1)}°. {tune.rollDeg>tune.rollTarget
+                ?'Bars are maxed; stiffer springs would reduce roll further.'
+                :'Springs alone already exceed the target; softer springs would allow the bars more authority.'}
+            </div>}
+          </Card>
+
+          <Card title="SPRINGS" accent
+            hint="Spring rates in lb/in to enter in Forza. The badge shows the frequency category — SOFT/ROAD/FIRM/RACE. Hz values are shown in the FEEL section of inputs.">
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
+              <Readout label="FRONT" value={tune.springF} unit="lb/in" decimals={0} ctx={hzCtx(tune.fHz)} primary/>
+              <Readout label="REAR"  value={tune.springR} unit="lb/in" decimals={0} ctx={hzCtx(tune.rHz)} primary/>
+            </div>
+            {physics.rearHzClamped&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
+                 marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
+                 border:'1px solid #f5a62333'}}>
+              Rear Hz capped at 1.6× front ({tune.rHz.toFixed(2)} Hz). Raise Target Speed or increase Ride Stiffness to bring the natural ratio within range.
+            </div>}
+          </Card>
+          </div>
+
+          {/* 4 — DAMPERS */}
+          <Card title="DAMPERS" accent
+            hint="Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in Forza's damping tuning menu. Amber warn when above 88% of the game limit.">
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:4}}>
+              <Readout label="REB F"  value={tune.rebF}  warn={tune.rebF >lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
+              <Readout label="REB R"  value={tune.rebR}  warn={tune.rebR >lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
+              <Readout label="BUMP F" value={tune.bumpF} unit={`/ ${lim.damping}`} primary/>
+              <Readout label="BUMP R" value={tune.bumpR} unit={`/ ${lim.damping}`} primary/>
+            </div>
+          </Card>
+
+          {/* 5 — DIFFERENTIAL */}
+          <Card title="DIFFERENTIAL"
+            hint={diff.layout==='FWD'
+              ?'Starting point — fine-tune by feel in 1% steps. Accel lock controls exit traction and understeer. Decel near zero improves corner entry rotation.'
+              :diff.layout==='RWD'
+              ?'Starting point — fine-tune by feel in 1% steps. Accel lock aids exit rotation. Decel low for better corner entry; raise for stability under lift-off.'
+              :`Starting point — fine-tune by feel in 1% steps. Front decel at 0 minimises entry understeer. Rear decel low for rotation. Center ${diff.center}% rear.`}>
+            {diff.layout==='AWD'?(
+              <>
+                <div style={{fontSize:9,color:'#374151',letterSpacing:2,marginBottom:3}}>FRONT AXLE</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
+                  <Readout label="ACCEL" value={diff.frontAccel} unit="%" decimals={0} ctx={diffCtx(diff.frontAccel)}/>
+                  <Readout label="DECEL" value={diff.frontDecel} unit="%" decimals={0} ctx={diffCtx(diff.frontDecel)}/>
+                </div>
+                <div style={{fontSize:9,color:'#374151',letterSpacing:2,marginBottom:3}}>REAR AXLE</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
+                  <Readout label="ACCEL" value={diff.rearAccel} unit="%" decimals={0} ctx={diffCtx(diff.rearAccel)}/>
+                  <Readout label="DECEL" value={diff.rearDecel} unit="%" decimals={0} ctx={diffCtx(diff.rearDecel)}/>
+                </div>
+                <div style={{fontSize:9,color:'#374151',letterSpacing:2,marginBottom:3}}>CENTER</div>
+                <Readout label="SPLIT" value={diff.center} unit="% rear" decimals={0} ctx={diffCtx(diff.center)}/>
+              </>
+            ):(
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
+                <Readout label="ACCEL LOCK" value={diff.accel} unit="%" decimals={0} ctx={diffCtx(diff.accel)}/>
+                <Readout label="DECEL LOCK" value={diff.decel} unit="%" decimals={0} ctx={diffCtx(diff.decel)}/>
+              </div>
+            )}
+            {/* diff handling summary strip */}
+            {(()=>{
+              const fmtBias=(v,label)=>{
+                const abs=Math.abs(v).toFixed(1);
+                const isOS=v<-0.05, isUS=v>0.05, neutral=Math.abs(v)<=0.05;
+                const col=neutral?'#4b5563':isOS?'#ef4444':'#3b82f6';
+                const arrow=neutral?'±':isOS?'→OS':'→US';
+                return(
+                  <div style={{display:'flex',alignItems:'baseline',gap:4}}>
+                    <span style={{fontSize:9,color:'#374151',letterSpacing:1}}>{label}</span>
+                    <span style={{fontFamily:'Courier New',fontSize:12,fontWeight:700,color:col}}>
+                      {arrow} {neutral?'0.0':abs}
+                    </span>
+                  </div>
+                );
+              };
+              return(
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+                             marginTop:8,padding:'5px 8px',background:'#0f172a',borderRadius:2,
+                             border:'1px solid #1e293b'}}>
+                  {fmtBias(diff.bDiffAccel,'EXIT')}
+                  <div style={{height:1,flex:1,background:'#1e293b',margin:'0 8px'}}/>
+                  {fmtBias(diff.bDiffDecel,'ENTRY')}
+                </div>
+              );
+            })()}
+          </Card>
+
+          </div>{/* end cards */}
+
+          {/* AT-A-GLANCE STRIP — collapsible */}
+          <div style={{flexShrink:0,borderTop:'1px solid #0f172a',background:'#020617'}}>
+            <div onClick={()=>setOpen(p=>({...p,statsOpen:!p.statsOpen}))}
+                 style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+                         padding:'4px 12px',cursor:'pointer',userSelect:'none'}}>
+              <span style={{fontSize:9,color:'#374151',letterSpacing:2}}>RAW VALUES</span>
+              <span style={{fontSize:9,color:'#374151'}}>{open.statsOpen?'▲':'▼'}</span>
+            </div>
+            {open.statsOpen&&<div style={{padding:'0 12px 6px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+              {[
+                {l:'SP F', v:`${tune.springF.toFixed(0)}`},
+                {l:'SP R', v:`${tune.springR.toFixed(0)}`},
+                {l:'ARB F', v:`${tune.arbF}`},
+                {l:'ARB R', v:`${tune.arbR}`},
+                {l:'REB F', v:`${tune.rebF}`},
+                {l:'REB R', v:`${tune.rebR}`},
+                {l:'BMP F', v:`${tune.bumpF}`},
+                {l:'BMP R', v:`${tune.bumpR}`},
+              ].map(({l,v})=>(
+                <div key={l} style={{display:'flex',alignItems:'baseline',gap:3}}>
+                  <span style={{fontSize:9,color:'#374151',letterSpacing:1}}>{l}</span>
+                  <span style={{fontFamily:'Courier New',fontSize:12,color:'#6b7280',fontWeight:700}}>{v}</span>
+                </div>
+              ))}
+            </div>}
+          </div>
+
+          {/* TOOLBAR — saves, check, share, import */}
+          <div style={{flexShrink:0,borderTop:'1px solid #0f172a',padding:'6px 12px',
+                       display:'flex',gap:3,alignItems:'center',background:'#020617'}}>
+            {[1,2,3].map(i=>(
+              <SaveSlot key={i} i={i} s={saves[i]}
+                onLoad={()=>handleSlot(i)}
+                onSave={()=>handleSlot(i)}
+                onClear={()=>clearSlot(i)}
+                onRename={renameSlot}/>
+            ))}
+            <div style={{flex:1}}/>
+            <button className="tbtn" onClick={()=>setShowChecker(true)} style={{fontSize:11}}>CHECK</button>
+            <button className="tbtn" style={{fontSize:11}} onClick={()=>{
+              try{
+                const payload=encodeTune(ch,fe,dr);
+                if(navigator.clipboard&&navigator.clipboard.writeText){
+                  navigator.clipboard.writeText(payload).then(()=>{
+                    alert('Tune code copied to clipboard. Share it with anyone running SUSP OS.');
+                  }).catch(()=>prompt('Copy this tune code:',payload));
+                } else {
+                  prompt('Copy this tune code:',payload);
+                }
+              }catch(e){console.error('Share failed',e);}
+            }}>SHARE</button>
+            <button className="tbtn" style={{fontSize:11}} onClick={()=>{
+              const code=prompt('Paste a tune code:');
+              if(!code)return;
+              try{
+                const{ch:ic,fe:ife,dr:idr}=decodeTune(code);
+                if(ic)setCh({...DEF_CH,...ic});
+                if(ife)setFe({...DEF_FE,...ife});
+                if(idr)setDr({...DEF_DR,...idr});
+              }catch(e){
+                alert('Invalid tune code. Make sure you pasted the full string.');
+              }
+            }}>IMPORT</button>
+          </div>
+
+          {/* PINNED — HANDLING BALANCE */}
+          <div style={{flexShrink:0,borderTop:'1px solid #1e293b',background:'#020617'}}>
+            {/* compact header row — tap to expand */}
+            <div onClick={()=>setOpen(p=>({...p,balanceExpanded:!p.balanceExpanded}))}
+                 style={{padding:'10px 14px',cursor:'pointer'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
+                <span style={{fontSize:10,color:'#4b5563',letterSpacing:2}}>HANDLING BALANCE</span>
+                <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>·</span>
+                <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,
+                              color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#3b82f6':'#ef4444'}}>
+                  {Math.abs(bTotFull)<3?'±0.0':`${bTotFull>=0?'+':''}${bTotFull.toFixed(1)}`}
+                </span>
+                <span style={{fontSize:11,letterSpacing:2,
+                              color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#3b82f6':'#ef4444'}}>
+                  {Math.abs(bTotFull)<3?'NEUTRAL':bTotFull>0?'UNDERSTEER':'OVERSTEER'}
+                </span>
+                {tune.mechBalance!=null&&<>
+                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1,marginLeft:'auto'}}>MECH BALANCE</span>
+                  <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
+                    {tune.mechBalance.toFixed(2)}
+                  </span>
+                </>}
+                <span style={{fontSize:10,color:'#374151',marginLeft:tune.mechBalance!=null?6:'auto'}}>
+                  {open.balanceExpanded?'▲':'▼'}
+                </span>
+              </div>
+              {/* compact bias bar */}
+              <div style={{position:'relative',height:14,background:'#0a0f1a',border:'1px solid #1e293b',
+                           borderRadius:2,overflow:'hidden'}}>
+                <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#1e293b'}}/>
+                {(()=>{
+                  const cl=v=>Math.max(-50,Math.min(50,v));
+                  const p=cl(-bTotFull);
+                  const fs=p>=0?{left:'50%',width:`${p}%`}:{left:`${50+p}%`,width:`${-p}%`};
+                  const fc=p>=0?'#ef444440':'#3b82f640';
+                  return p!==0&&<div style={{position:'absolute',top:2,bottom:2,borderRadius:1,background:fc,...fs}}/>;
+                })()}
+                <div style={{position:'absolute',left:5,top:'50%',transform:'translateY(-50%)',
+                             fontSize:9,color:'#3b82f6',letterSpacing:1,fontWeight:700}}>US</div>
+                <div style={{position:'absolute',right:5,top:'50%',transform:'translateY(-50%)',
+                             fontSize:9,color:'#ef4444',letterSpacing:1,fontWeight:700}}>OS</div>
+              </div>
+            </div>
+            {/* expanded full verdict */}
+            {open.balanceExpanded&&
+              <div style={{padding:'0 14px 12px',borderTop:'1px solid #0f172a'}}>
+                <HandlingVerdict total={bTotFull} bSp={tune.bSp} bAb={tune.bAb}
+                  bDiffAccel={diff.bDiffAccel} bDiffDecel={diff.bDiffDecel}
+                  mechBalance={null}/>
+              </div>}
+          </div>
+
+        </div>{/* end output panel */}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <ErrorBoundary><App/></ErrorBoundary>
+);
+</script>
+<script>
+(function(){
+  var preload=document.getElementById('pre-load');
+  function showError(msg,detail){
+    if(preload){
+      preload.style.display='block';
+      preload.innerHTML='<div style="color:#e2e8f0;font-size:14px;margin-bottom:8px">SUSP.OS \u2014 Failed to load</div>'
+        +'<div style="color:#6b7280;margin-bottom:12px">'+msg+'</div>'
+        +'<div style="background:#0f172a;padding:12px;border-radius:4px;color:#ef4444;word-break:break-all;line-height:1.6;font-size:11px">'+(detail||'')+'</div>'
+        +'<button onclick="location.reload()" style="margin-top:16px;padding:8px 16px;background:#0f172a;border:1px solid #1e293b;color:#e2e8f0;border-radius:4px;cursor:pointer;font-family:Courier New;font-size:12px">RELOAD</button>';
+    }
+  }
+  try{
+    if(typeof Babel==='undefined'){showError('Babel failed to load','Check your internet connection and reload.');return;}
+    var src=document.getElementById('app-source').textContent;
+    var compiled;
+    try{
+      compiled=Babel.transform(src,{
+        presets:['env','react'],
+        plugins:['transform-optional-chaining','transform-nullish-coalescing-operator','transform-logical-assignment-operators'],
+        filename:'susp-os.jsx'
+      }).code;
+    }catch(e){
+      showError('Babel compilation failed',e.message||String(e));
+      return;
+    }
+    // Use indirect eval so errors are catchable on all browsers including iOS WebKit.
+    // Direct script injection loses the error context on WebKit.
+    try{
+      (0,eval)(compiled);
+    }catch(e){
+      showError('Runtime error',e.message||String(e));
+    }
+  }catch(e){
+    showError('Load failed',e.message||String(e));
+  }
+})();
+</script>
+</body>
+</html>
