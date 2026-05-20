@@ -8,7 +8,9 @@ A single-file suspension tuning calculator for **Forza Horizon 6** and **Forza M
 
 ## Quick Start
 
-Download `susp-os-v6.html` and open it in any browser. No install, no server, no dependencies — it runs entirely offline from a single file.
+Download `index.html` and open it in any browser. No install, no server — it runs from a single file.
+
+> **Offline note:** the app loads React and Babel from a CDN on first use. Once those scripts are cached by your browser, it works offline. For a fully air-gapped setup, open the file once with internet access, then it will work without a connection.
 
 **Or open directly from GitHub Pages / your host URL.**
 

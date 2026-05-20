@@ -110,6 +110,8 @@ window.addEventListener('DOMContentLoaded',function(){
 const {useState,useMemo,useRef,useEffect,useLayoutEffect,useCallback}=React;
 
 const KG_TO_LB=2.204622622,LB_IN_TO_NM=175.126790921,MPH_TO_MS=0.44704;
+const KMH_PER_MPH=1.60934;
+const NMM_PER_LBIN=LB_IN_TO_NM/100; // ≈1.751 N/mm per lb/in
 const ARB_RS_SCALE=240,CAMBER_GAIN=0.7;
 const ROLL_CENTER_HEIGHT=0.09;
 const DAMPING_CALIBRATION=0.001;
@@ -141,6 +143,7 @@ const solveDamp=(hz,mass,z,lim)=>{
 };
 
 const feelToPhysics=(ch,fe)=>{
+  const gameLim=GAME_LIMITS[fe.gameMode??'horizon']?.arb??65;
   const frontHz=0.8+(fe.rideStiffness/100)*2.7;
   const rearHzResult=flatRideRearHz(frontHz,ch.wheelbase,fe.targetSpeed);
   const rearHz=rearHzResult.hz;
@@ -156,8 +159,8 @@ const feelToPhysics=(ch,fe)=>{
     ? Math.max(0.3,Math.min(5.0,fe.arbTargetRollMan))
     : 2.6-(fe.rideStiffness/100)*1.8;   // used only in roll mode now
   const arbShareMan=Math.max(0,Math.min(80,fe.arbShareMan??15));
-  const arbFloor=Math.max(1,Math.min(fe.arbFloor??6,fe.arbCeil??65));
-  const arbCeil =Math.max(arbFloor+1,Math.min(65,fe.arbCeil??65));
+  const arbFloor=Math.max(1,Math.min(fe.arbFloor??6,fe.arbCeil??gameLim));
+  const arbCeil =Math.max(arbFloor+1,Math.min(gameLim,fe.arbCeil??gameLim));
   return{frontHz,rearHz,rearHzClamped,reboundZeta,bumpZeta,dampingMode,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil};
 };
 
@@ -197,7 +200,7 @@ const computeTune=(ch,phys,gameMode)=>{
   const rsHeavyCeil=arbCeil*ARB_RS_SCALE*heavyTrack*heavyTrack;
   const rsHeavyBudget=rsAbBudget*heavyShare;
   if(rsHeavyBudget>rsHeavyCeil)rsAbBudget=rsHeavyCeil/heavyShare;
-  const clk=(rs,track)=>Math.min(Math.min(lim.arb,arbCeil),Math.max(1,rs/(ARB_RS_SCALE*track*track)));
+  const clk=(rs,track)=>{const v=Math.min(Math.min(lim.arb,arbCeil),Math.max(1,rs/(ARB_RS_SCALE*track*track)));return Math.round(v*10)/10;};
   const arbF=clk(rsAbBudget*(1-rF),ch.trackF);
   const arbR=clk(rsAbBudget*rF,ch.trackR);
   const rsAbF=arbF*ARB_RS_SCALE*ch.trackF*ch.trackF;
@@ -212,8 +215,11 @@ const computeTune=(ch,phys,gameMode)=>{
   const rsBalance=rsTotal>0?(rsSpR+rsAbR)/rsTotal:1-ch.frontBias/100;
   const mechBalance=MECH_BALANCE_STIFFNESS_WEIGHT*rsBalance
                    +(1-MECH_BALANCE_STIFFNESS_WEIGHT)*(1-ch.frontBias/100);
-  const settle=reboundZeta>0?2.302/((reboundZeta/100)*fHz*2*Math.PI):99;
-  return{springF,springR,rebF,rebR,bumpF,bumpR,arbF,arbR,
+  const settle=reboundZeta>0?2.302/((reboundZeta/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn): time to decay to 10%
+  return{springF,springR,
+         rebF:Math.round(rebF*10)/10,rebR:Math.round(rebR*10)/10,
+         bumpF:Math.round(bumpF*10)/10,bumpR:Math.round(bumpR*10)/10,
+         arbF,arbR,
          fHz,rHz,settle,rollDeg,rollTarget:arbTargetRoll,rollClamped,
          arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
          bSp,bAb,bTot,mechBalance};
@@ -754,7 +760,7 @@ const ArbRangeSlider=({floor,ceil,onFloor,onCeil,min=1,max=65})=>{
       </div>
       <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
         <span style={{fontSize:10,color:"#374151",letterSpacing:1}}>1 SOFT</span>
-        <span style={{fontSize:10,color:"#374151",letterSpacing:1}}>65 STIFF</span>
+        <span style={{fontSize:10,color:"#374151",letterSpacing:1}}>{max} STIFF</span>
       </div>
     </div>
   );
@@ -788,33 +794,41 @@ const Toggle=({label,value,onChange,options})=>(
   </div>
 );
 
-const Sec=({title,open,onToggle,onReset,children})=>(
-  <div style={{borderBottom:'1px solid #0f172a'}}>
-    <button className={`stog${open?' stog-open':''}`} onClick={onToggle}>
-      <div style={{display:'flex',alignItems:'center',gap:8}}>
-        <div style={{width:2,height:10,borderRadius:1,flexShrink:0,
-                     background:open?'#e2e8f0':'#1e293b',transition:'background .12s'}}/>
-        <span>{title}</span>
-      </div>
-      <div style={{display:'flex',alignItems:'center',gap:6}}>
-        {onReset&&<span
-          onClick={e=>{e.stopPropagation();if(window.confirm(`Reset ${title} to defaults?`))onReset();}}
-          title="Reset to defaults"
-          style={{fontSize:10,color:'#374151',padding:'1px 5px',borderRadius:2,
-                  border:'1px solid #1e293b',lineHeight:1.4,cursor:'pointer',
-                  transition:'color .12s,border-color .12s',userSelect:'none'}}
-          onMouseEnter={e=>{e.currentTarget.style.color='#6b7280';e.currentTarget.style.borderColor='#374151';}}
-          onMouseLeave={e=>{e.currentTarget.style.color='#374151';e.currentTarget.style.borderColor='#1e293b';}}>
-          RESET
-        </span>}
-        <span style={{fontSize:11,color:open?'#9ca3af':'#374151',transition:'color .12s'}}>
-          {open?'▲':'▼'}
-        </span>
-      </div>
-    </button>
-    {open&&<div style={{padding:'8px 12px 10px'}}>{children}</div>}
-  </div>
-);
+const Sec=({title,open,onToggle,onReset,children})=>{
+  const[pending,setPending]=useState(false);
+  const timer=useRef(null);
+  const handleReset=e=>{
+    e.stopPropagation();
+    if(pending){clearTimeout(timer.current);setPending(false);onReset();}
+    else{setPending(true);timer.current=setTimeout(()=>setPending(false),2000);}
+  };
+  useEffect(()=>()=>clearTimeout(timer.current),[]);
+  return(
+    <div style={{borderBottom:'1px solid #0f172a'}}>
+      <button className={`stog${open?' stog-open':''}`} onClick={onToggle}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:2,height:10,borderRadius:1,flexShrink:0,
+                       background:open?'#e2e8f0':'#1e293b',transition:'background .12s'}}/>
+          <span>{title}</span>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          {onReset&&<span
+            onClick={handleReset}
+            title={pending?'Click again to confirm':'Reset to defaults'}
+            style={{fontSize:10,color:pending?'#f59e0b':'#374151',padding:'1px 5px',borderRadius:2,
+                    border:`1px solid ${pending?'#f59e0b44':'#1e293b'}`,lineHeight:1.4,cursor:'pointer',
+                    transition:'color .12s,border-color .12s',userSelect:'none'}}>
+            {pending?'SURE?':'RESET'}
+          </span>}
+          <span style={{fontSize:11,color:open?'#9ca3af':'#374151',transition:'color .12s'}}>
+            {open?'▲':'▼'}
+          </span>
+        </div>
+      </button>
+      {open&&<div style={{padding:'8px 12px 10px'}}>{children}</div>}
+    </div>
+  );
+};
 
 const Readout=({label,value,unit,warn=false,decimals=1,ctx=null,primary=false})=>(
   <div className="ro" style={primary?{borderColor:'#e2e8f022'}:{}}>
@@ -919,7 +933,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,mechBalance})=>{
   );
 };
 
-const CheckerModal=({onClose,lim})=>{
+const CheckerModal=({onClose,lim,metricUnits})=>{
   const[ckSpr,setCkSpr]=useState({f:400,r:300});
   const[ckDmp,setCkDmp]=useState({rebF:5,rebR:5,bumpF:3,bumpR:3});
   const[ckMr,setCkMr]=useState({f:1.0,r:1.0});
@@ -947,14 +961,26 @@ const CheckerModal=({onClose,lim})=>{
         <div style={{padding:14}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
             <Card title="VEHICLE MASS">
-              <Field label="Weight" value={ckW} onChange={setCkW} min={100} max={18000} step={1} unit="lb" logScale={true} logMid={6000}/>
+              <Field label="Weight"
+                value={metricUnits?ckW/KG_TO_LB:ckW}
+                onChange={metricUnits?v=>setCkW(v*KG_TO_LB):setCkW}
+                min={metricUnits?45:100} max={metricUnits?8165:18000} step={1}
+                unit={metricUnits?'kg':'lb'} logScale={true} logMid={metricUnits?2722:6000}/>
               <Field label="Front Bias" value={ckB} onChange={setCkB} min={30} max={70} step={1} unit="%"/>
               <Stat label="Corner mass front" value={masses.front} unit="kg"/>
               <Stat label="Corner mass rear" value={masses.rear} unit="kg"/>
             </Card>
             <Card title="SPRING INPUTS">
-              <Field label="Spring Rate Front" value={ckSpr.f} onChange={pS('f')} min={50} max={2500} step={1} unit="lb/in"/>
-              <Field label="Spring Rate Rear" value={ckSpr.r} onChange={pS('r')} min={50} max={2500} step={1} unit="lb/in"/>
+              <Field label="Spring Rate Front"
+                value={metricUnits?ckSpr.f*NMM_PER_LBIN:ckSpr.f}
+                onChange={metricUnits?v=>pS('f')(v/NMM_PER_LBIN):pS('f')}
+                min={metricUnits?88:50} max={metricUnits?4380:2500} step={1}
+                unit={metricUnits?'N/mm':'lb/in'}/>
+              <Field label="Spring Rate Rear"
+                value={metricUnits?ckSpr.r*NMM_PER_LBIN:ckSpr.r}
+                onChange={metricUnits?v=>pS('r')(v/NMM_PER_LBIN):pS('r')}
+                min={metricUnits?88:50} max={metricUnits?4380:2500} step={1}
+                unit={metricUnits?'N/mm':'lb/in'}/>
               <Field label="Motion Ratio Front" value={ckMr.f} onChange={pM('f')} min={0.5} max={1.0} step={0.01}
                 hint="Default 1.0 matches the calculator. Only change if you know the car's real suspension geometry."/>
               <Field label="Motion Ratio Rear" value={ckMr.r} onChange={pM('r')} min={0.5} max={1.0} step={0.01}
@@ -1026,10 +1052,65 @@ const decodeTune=(code)=>{
   return{ch,fe,dr};
 };
 
+const sanitizeTune=({ch,fe,dr})=>{
+  const n=(v,def)=>(typeof v==='number'&&isFinite(v))?v:def;
+  const cl=(v,lo,hi,def)=>Math.max(lo,Math.min(hi,n(v,def)));
+  const sArbFloor=cl(fe?.arbFloor,1,64,DEF_FE.arbFloor);
+  const sArbCeil=Math.max(sArbFloor+1,cl(fe?.arbCeil,1,65,DEF_FE.arbCeil));
+  return{
+    ch:{
+      weight:       cl(ch?.weight,        100,  18000, DEF_CH.weight),
+      frontBias:    cl(ch?.frontBias,      30,   70,   DEF_CH.frontBias),
+      wheelbase:    cl(ch?.wheelbase,      0.4,  4.0,  DEF_CH.wheelbase),
+      cgHeight:     cl(ch?.cgHeight,       0.2,  0.9,  DEF_CH.cgHeight),
+      trackF:       cl(ch?.trackF,         1.0,  2.2,  DEF_CH.trackF),
+      trackR:       cl(ch?.trackR,         1.0,  2.2,  DEF_CH.trackR),
+      motionRatioF: cl(ch?.motionRatioF,   0.5,  1.0,  DEF_CH.motionRatioF),
+      motionRatioR: cl(ch?.motionRatioR,   0.5,  1.0,  DEF_CH.motionRatioR),
+    },
+    fe:{
+      rideStiffness:    cl(fe?.rideStiffness,    0,    100,  DEF_FE.rideStiffness),
+      arbBias:          cl(fe?.arbBias,          -50,   50,  DEF_FE.arbBias),
+      targetSpeed:      cl(fe?.targetSpeed,       40,  200,  DEF_FE.targetSpeed),
+      gameMode:         GAME_MODE_DEC.includes(fe?.gameMode)?fe.gameMode:DEF_FE.gameMode,
+      dampingMode:      DAMPING_MODE_DEC.includes(fe?.dampingMode)?fe.dampingMode:DEF_FE.dampingMode,
+      reboundZeta:      cl(fe?.reboundZeta,       10,  115,  DEF_FE.reboundZeta),
+      bumpRatio:        cl(fe?.bumpRatio,         10,  100,  DEF_FE.bumpRatio),
+      bumpZeta:         cl(fe?.bumpZeta,          10,  115,  DEF_FE.bumpZeta),
+      arbMode:          ARB_MODE_DEC.includes(fe?.arbMode)?fe.arbMode:DEF_FE.arbMode,
+      arbTargetRollMan: cl(fe?.arbTargetRollMan,  0.3,  5.0, DEF_FE.arbTargetRollMan),
+      arbShareMan:      cl(fe?.arbShareMan,        0,   80,  DEF_FE.arbShareMan),
+      arbFloor:         sArbFloor,
+      arbCeil:          sArbCeil,
+    },
+    dr:{
+      layout:         LAYOUT_DEC.includes(dr?.layout)?dr.layout:DEF_DR.layout,
+      buildType:      BUILD_DEC.includes(dr?.buildType)?dr.buildType:DEF_DR.buildType,
+      diffManual:     typeof dr?.diffManual==='boolean'?dr.diffManual:dr?.diffManual===1,
+      diffBiasExit:   cl(dr?.diffBiasExit,  -50,  50,  DEF_DR.diffBiasExit),
+      diffBiasEntry:  cl(dr?.diffBiasEntry, -50,  50,  DEF_DR.diffBiasEntry),
+      diffAccel:      cl(dr?.diffAccel,       0,  100,  DEF_DR.diffAccel),
+      diffDecel:      cl(dr?.diffDecel,       0,  100,  DEF_DR.diffDecel),
+      diffFrontAccel: cl(dr?.diffFrontAccel,  0,  100,  DEF_DR.diffFrontAccel),
+      diffFrontDecel: cl(dr?.diffFrontDecel,  0,  100,  DEF_DR.diffFrontDecel),
+      diffRearAccel:  cl(dr?.diffRearAccel,   0,  100,  DEF_DR.diffRearAccel),
+      diffRearDecel:  cl(dr?.diffRearDecel,   0,  100,  DEF_DR.diffRearDecel),
+      diffCenter:     cl(dr?.diffCenter,      0,  100,  DEF_DR.diffCenter),
+    },
+  };
+};
+
 const SaveSlot=({i,s,onLoad,onSave,onClear,onRename})=>{
   const[editing,setEditing]=useState(false);
   const[draft,setDraft]=useState('');
+  const[pendingClear,setPendingClear]=useState(false);
   const inputRef=useRef(null);
+  const clearTimer=useRef(null);
+  const handleClear=()=>{
+    if(pendingClear){clearTimeout(clearTimer.current);setPendingClear(false);onClear();}
+    else{setPendingClear(true);clearTimer.current=setTimeout(()=>setPendingClear(false),2000);}
+  };
+  useEffect(()=>()=>clearTimeout(clearTimer.current),[]);
 
   const startEdit=e=>{
     e.stopPropagation();
@@ -1072,11 +1153,11 @@ const SaveSlot=({i,s,onLoad,onSave,onClear,onRename})=>{
                 color:'#374151',cursor:'pointer',fontSize:9,padding:'0 3px',lineHeight:'22px',
                 flexShrink:0}}
         title="Rename">✎</button>}
-      <button onClick={()=>{if(window.confirm(`Clear "${s.name}"?`))onClear();}}
-        style={{background:'none',border:'1px solid #1e293b',borderRadius:2,
-                color:'#374151',cursor:'pointer',fontSize:10,padding:'0 3px',lineHeight:'22px',
-                flexShrink:0}}
-        title="Clear slot">✕</button>
+      <button onClick={handleClear}
+        style={{background:'none',border:`1px solid ${pendingClear?'#f59e0b44':'#1e293b'}`,borderRadius:2,
+                color:pendingClear?'#f59e0b':'#374151',cursor:'pointer',fontSize:10,padding:'0 3px',lineHeight:'22px',
+                flexShrink:0,transition:'color .12s,border-color .12s'}}
+        title={pendingClear?'Click again to clear':'Clear slot'}>{pendingClear?'✓':'✕'}</button>
     </div>
   );
 };
@@ -1109,6 +1190,7 @@ function App(){
   const[fe,setFe]=usePersist('suspos_fe_v8',DEF_FE);
   const[dr,setDr]=usePersist('suspos_dr_v8',DEF_DR);
   const[al,setAl]=usePersist('suspos_al_v2',DEF_AL);
+  const[metricUnits,setMetricUnits]=usePersist('suspos_units_v1',false);
   const[saves,setSaves]=usePersist('suspos_saves_v9',PRESET_SAVES);
   const[open,setOpen]=useState({chassis:true,feel:true,arb:true,alignment:true,drivetrain:true,chassisAdv:false,balanceExpanded:true,statsOpen:false});
   const[showChecker,setShowChecker]=useState(false);
@@ -1161,7 +1243,7 @@ function App(){
 
   return(
     <div style={{display:'flex',flexDirection:'column',height:'100vh',minHeight:'-webkit-fill-available',overflow:'hidden'}}>
-      {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim}/>}
+      {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits}/>}
 
       {/* HEADER */}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
@@ -1179,7 +1261,12 @@ function App(){
             SUSP<span style={{color:'#374151'}}>.</span>OS
           </div>
         </div>
-        <div style={{display:'flex',gap:3}}>
+        <div style={{display:'flex',gap:3,alignItems:'center'}}>
+          <button className={`tbtn${!metricUnits?' on':''}`}
+            onClick={()=>setMetricUnits(false)} style={{fontSize:11}}>IMP</button>
+          <button className={`tbtn${metricUnits?' on':''}`}
+            onClick={()=>setMetricUnits(true)} style={{fontSize:11}}>MET</button>
+          <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
           {['horizon','motorsport'].map(m=>(
             <button key={m} className={`tbtn${fe.gameMode===m?' on':''}`}
               onClick={()=>pFe('gameMode')(m)} style={{fontSize:11}}>{m.toUpperCase()}</button>
@@ -1211,8 +1298,14 @@ function App(){
 
           <Sec title="CHASSIS" open={open.chassis} onToggle={tog('chassis')}
             onReset={()=>setCh({...DEF_CH})}>
-            <Field label="Weight" value={ch.weight} onChange={pCh('weight')} min={100} max={18000} step={1} unit="lb" logScale={true} logMid={6000}
-              hint="Total vehicle weight in pounds. Find this on the car's stat page in Forza. Affects spring rates, damper forces, and ARB stiffness directly."/>
+            <Field label="Weight"
+              value={metricUnits?ch.weight/KG_TO_LB:ch.weight}
+              onChange={metricUnits?v=>pCh('weight')(v*KG_TO_LB):pCh('weight')}
+              min={metricUnits?45:100} max={metricUnits?8165:18000} step={1}
+              unit={metricUnits?'kg':'lb'} logScale={true} logMid={metricUnits?2722:6000}
+              hint={metricUnits
+                ?"Total vehicle weight in kg. Find this on the car's stat page in Forza. Affects spring rates, damper forces, and ARB stiffness directly."
+                :"Total vehicle weight in pounds. Find this on the car's stat page in Forza. Affects spring rates, damper forces, and ARB stiffness directly."}/>
             <Field label="Front Weight Bias" value={ch.frontBias} onChange={pCh('frontBias')} min={30} max={70} step={1} unit="%"
               hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance. Most front-engined cars are 52–58% front."/>
             <Field label="Wheelbase" value={ch.wheelbase} onChange={pCh('wheelbase')} min={0.4} max={4.0} step={0.01} unit="m"
@@ -1254,7 +1347,9 @@ function App(){
               leftLabel="CITY" rightLabel="OFF"
               readout={fe.targetSpeed>=200
                 ? `FLAT RIDE OFF · ${physics.rearHz.toFixed(2)} Hz rear`
-                : `${fe.targetSpeed} mph · ${physics.rearHz.toFixed(2)} Hz rear${physics.rearHzClamped?' ⚠':''}`}
+                : metricUnits
+                  ? `${Math.round(fe.targetSpeed*KMH_PER_MPH)} km/h · ${physics.rearHz.toFixed(2)} Hz rear${physics.rearHzClamped?' ⚠':''}`
+                  : `${fe.targetSpeed} mph · ${physics.rearHz.toFixed(2)} Hz rear${physics.rearHzClamped?' ⚠':''}`}
               hint="The speed at which front and rear wheels hit bumps in phase (flat ride). Lower = rear spring tuned for city/low-speed feel. Higher = tuned for motorway/track. OFF disables the flat-ride correction — rear Hz matches front Hz adjusted for mass only."/>
             <div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
@@ -1344,8 +1439,9 @@ function App(){
               hint="Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."
               readout={`F ${Math.round((1-(physics.arbBalance/100))*100)}% / R ${Math.round(physics.arbBalance/100*100)}%`}/>
             <ArbRangeSlider
-              floor={fe.arbFloor??6} ceil={fe.arbCeil??65}
-              onFloor={pFe('arbFloor')} onCeil={pFe('arbCeil')}/>
+              floor={fe.arbFloor??6} ceil={fe.arbCeil??lim.arb}
+              onFloor={pFe('arbFloor')} onCeil={pFe('arbCeil')}
+              max={lim.arb}/>
             <div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
                          border:'1px solid #1e293b',marginBottom:10,marginTop:-6}}>
@@ -1404,7 +1500,7 @@ function App(){
           </Sec>
 
           <Sec title="ALIGNMENT" open={open.alignment} onToggle={tog('alignment')}
-            onReset={()=>{if(window.confirm('Reset ALIGNMENT to defaults?'))setAl({...DEF_AL})}}>
+            onReset={()=>setAl({...DEF_AL})}>
             <div style={{marginBottom:10}}>
               <span style={{fontSize:12,color:'#6b7280',display:'inline-block',marginBottom:4}}>Alignment Mode</span>
               <Hint text="AUTO derives camber, toe, and caster from build type, layout, CG height, and roll angle. MANUAL lets you enter specific values — seeds from the current AUTO recommendation when switching."/>
@@ -1575,8 +1671,14 @@ function App(){
           <Card title="SPRINGS" accent
             hint="Spring rates in lb/in to enter in Forza. The badge shows the frequency category — SOFT/ROAD/FIRM/RACE. Hz values are shown in the FEEL section of inputs.">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
-              <Readout label="FRONT" value={tune.springF} unit="lb/in" decimals={0} ctx={hzCtx(tune.fHz)} primary/>
-              <Readout label="REAR"  value={tune.springR} unit="lb/in" decimals={0} ctx={hzCtx(tune.rHz)} primary/>
+              <Readout label="FRONT"
+                value={metricUnits?tune.springF*NMM_PER_LBIN:tune.springF}
+                unit={metricUnits?'N/mm':'lb/in'} decimals={metricUnits?1:0}
+                ctx={hzCtx(tune.fHz)} primary/>
+              <Readout label="REAR"
+                value={metricUnits?tune.springR*NMM_PER_LBIN:tune.springR}
+                unit={metricUnits?'N/mm':'lb/in'} decimals={metricUnits?1:0}
+                ctx={hzCtx(tune.rHz)} primary/>
             </div>
             {physics.rearHzClamped&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
                  marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
@@ -1665,8 +1767,8 @@ function App(){
             </div>
             {open.statsOpen&&<div style={{padding:'0 12px 6px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
               {[
-                {l:'SP F', v:`${tune.springF.toFixed(0)}`},
-                {l:'SP R', v:`${tune.springR.toFixed(0)}`},
+                {l:'SP F', v:metricUnits?`${(tune.springF*NMM_PER_LBIN).toFixed(1)}`:`${tune.springF.toFixed(0)}`},
+                {l:'SP R', v:metricUnits?`${(tune.springR*NMM_PER_LBIN).toFixed(1)}`:`${tune.springR.toFixed(0)}`},
                 {l:'ARB F', v:`${tune.arbF}`},
                 {l:'ARB R', v:`${tune.arbR}`},
                 {l:'REB F', v:`${tune.rebF}`},
@@ -1710,10 +1812,10 @@ function App(){
               const code=prompt('Paste a tune code:');
               if(!code)return;
               try{
-                const{ch:ic,fe:ife,dr:idr}=decodeTune(code);
-                if(ic)setCh({...DEF_CH,...ic});
-                if(ife)setFe({...DEF_FE,...ife});
-                if(idr)setDr({...DEF_DR,...idr});
+                const{ch:ic,fe:ife,dr:idr}=sanitizeTune(decodeTune(code));
+                setCh({...DEF_CH,...ic});
+                setFe({...DEF_FE,...ife});
+                setDr({...DEF_DR,...idr});
               }catch(e){
                 alert('Invalid tune code. Make sure you pasted the full string.');
               }
