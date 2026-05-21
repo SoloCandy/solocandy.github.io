@@ -924,7 +924,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bBrakeEntry,mechBala
       </div>
       <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:5}}>
         <span style={{fontFamily:'Courier New',fontSize:20,fontWeight:700,color:col,lineHeight:1}}>
-          {abs<3?'±0.0':`${total>=0?'+':''}${total.toFixed(1)}`}
+          {`${total>=0?'+':''}${total.toFixed(1)}`}
         </span>
         <span style={{fontSize:11,color:col,letterSpacing:2}}>{label}</span>
       </div>
@@ -1886,7 +1886,7 @@ function App(){
                 <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>·</span>
                 <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,
                               color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#3b82f6':'#ef4444'}}>
-                  {Math.abs(bTotFull)<3?'±0.0':`${bTotFull>=0?'+':''}${bTotFull.toFixed(1)}`}
+                  {`${bTotFull>=0?'+':''}${bTotFull.toFixed(1)}`}
                 </span>
                 <span style={{fontSize:11,letterSpacing:2,
                               color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#3b82f6':'#ef4444'}}>
@@ -1911,7 +1911,7 @@ function App(){
                   const p=cl(-bTotFull);
                   const fs=p>=0?{left:'50%',width:`${p}%`}:{left:`${50+p}%`,width:`${-p}%`};
                   const fc=p>=0?'#ef444440':'#3b82f640';
-                  return Math.abs(bTotFull)>=3&&<div style={{position:'absolute',top:2,bottom:2,borderRadius:1,background:fc,...fs}}/>;
+                  return p!==0&&<div style={{position:'absolute',top:2,bottom:2,borderRadius:1,background:fc,...fs}}/>;
                 })()}
                 <div style={{position:'absolute',left:5,top:'50%',transform:'translateY(-50%)',
                              fontSize:9,color:'#3b82f6',letterSpacing:1,fontWeight:700}}>US</div>
