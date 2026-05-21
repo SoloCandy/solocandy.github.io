@@ -390,6 +390,8 @@ const DEF_DR={layout:'RWD',buildType:'track',
               diffRearAccel:48,diffRearDecel:8,diffCenter:65};
 const DEF_AL={alignManual:false,
               camberF:-2.3,camberR:-1.8,toeF:-0.1,toeR:0.1,caster:5.5};
+const DEF_BR={brakeManual:false,brakeBias:50,brakePressure:100};
+const BRAKE_BIAS_SCALE=0.08;
 
 const PRESET_SAVES={
   1:{name:'STREET',
@@ -882,7 +884,7 @@ const BiasSeg=({label,val,hint})=>{
   );
 };
 
-const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,mechBalance})=>{
+const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bBrakeEntry,mechBalance})=>{
   const cl=v=>Math.max(-50,Math.min(50,v));
   const abs=Math.abs(total);
   const label=abs<3?'NEUTRAL':total>0?'UNDERSTEER':'OVERSTEER';
@@ -908,7 +910,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,mechBalance})=>{
             <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>0=FRONT · 1=REAR</span>
           </div>
         </div>}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:5,marginBottom:5}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr',gap:5,marginBottom:5}}>
         <BiasSeg label="SPRINGS" val={bSp}
           hint="How much the front/rear spring rates bias roll stiffness, relative to weight distribution. + = understeer."/>
         <BiasSeg label="ARB" val={bAb}
@@ -917,6 +919,8 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,mechBalance})=>{
           hint="Estimated accel-lock contribution to exit balance. Rear accel lock = oversteer tendency (−). Front accel lock = understeer (+). Magnitude is calibrated, not derived."/>
         <BiasSeg label="DIFF DECEL" val={bDiffDecel}
           hint="Estimated decel-lock contribution to entry balance. Higher decel lock = understeer on entry (+). Front decel especially strong. Magnitude is calibrated, not derived."/>
+        <BiasSeg label="BRAKES" val={bBrakeEntry??0}
+          hint="Estimated brake-balance contribution to entry balance. High front bias = more understeer on entry (+). Low front bias (rear-biased) = oversteer tendency on entry (−). Based on deviation from 50% neutral."/>
       </div>
       <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:5}}>
         <span style={{fontFamily:'Courier New',fontSize:20,fontWeight:700,color:col,lineHeight:1}}>
@@ -1020,7 +1024,7 @@ const LAYOUT_DEC=['FWD','RWD','AWD'];
 const BUILD_ENC={'street':0,'track':1,'drift':2};
 const BUILD_DEC=['street','track','drift'];
 
-const encodeTune=(ch,fe,dr)=>{
+const encodeTune=(ch,fe,dr,br)=>{
   const arr=[
     ch.weight,ch.frontBias,ch.wheelbase,ch.cgHeight,ch.trackF,ch.trackR,ch.motionRatioF,ch.motionRatioR,
     fe.rideStiffness,fe.arbBias??0,fe.targetSpeed,GAME_MODE_ENC[fe.gameMode]??0,
@@ -1030,6 +1034,7 @@ const encodeTune=(ch,fe,dr)=>{
     dr.diffBiasExit??0,dr.diffAccel??35,dr.diffDecel??10,
     dr.diffFrontAccel??28,dr.diffFrontDecel??0,dr.diffRearAccel??48,dr.diffRearDecel??8,dr.diffCenter??65,
     dr.diffBiasEntry??0,
+    (br?.brakeManual?1:0),br?.brakeBias??DEF_BR.brakeBias,br?.brakePressure??DEF_BR.brakePressure,
   ];
   return btoa(arr.join('|'));
 };
@@ -1049,7 +1054,10 @@ const decodeTune=(code)=>{
             diffBiasExit:v[24]??0,diffAccel:v[25],diffDecel:v[26],
             diffFrontAccel:v[27],diffFrontDecel:v[28],diffRearAccel:v[29],diffRearDecel:v[30],diffCenter:v[31],
             diffBiasEntry:v[32]??0};
-  return{ch,fe,dr};
+  const br=v.length>=36
+    ?{brakeManual:v[33]===1,brakeBias:v[34],brakePressure:v[35]}
+    :{...DEF_BR};
+  return{ch,fe,dr,br};
 };
 
 const sanitizeTune=({ch,fe,dr})=>{
@@ -1096,6 +1104,11 @@ const sanitizeTune=({ch,fe,dr})=>{
       diffRearAccel:  cl(dr?.diffRearAccel,   0,  100,  DEF_DR.diffRearAccel),
       diffRearDecel:  cl(dr?.diffRearDecel,   0,  100,  DEF_DR.diffRearDecel),
       diffCenter:     cl(dr?.diffCenter,      0,  100,  DEF_DR.diffCenter),
+    },
+    br:{
+      brakeManual:    typeof br?.brakeManual==='boolean'?br.brakeManual:br?.brakeManual===1,
+      brakeBias:      cl(br?.brakeBias,       45,  70,  DEF_BR.brakeBias),
+      brakePressure:  cl(br?.brakePressure,   50, 200,  DEF_BR.brakePressure),
     },
   };
 };
@@ -1190,9 +1203,10 @@ function App(){
   const[fe,setFe]=usePersist('suspos_fe_v8',DEF_FE);
   const[dr,setDr]=usePersist('suspos_dr_v8',DEF_DR);
   const[al,setAl]=usePersist('suspos_al_v2',DEF_AL);
+  const[br,setBr]=usePersist('suspos_br_v1',DEF_BR);
   const[metricUnits,setMetricUnits]=usePersist('suspos_units_v1',false);
   const[saves,setSaves]=usePersist('suspos_saves_v9',PRESET_SAVES);
-  const[open,setOpen]=useState({chassis:true,feel:true,arb:true,alignment:true,drivetrain:true,chassisAdv:false,balanceExpanded:true,statsOpen:false});
+  const[open,setOpen]=useState({chassis:true,feel:true,arb:true,alignment:true,drivetrain:true,brakes:true,chassisAdv:false,balanceExpanded:true,statsOpen:false});
   const[showChecker,setShowChecker]=useState(false);
   const[sidebarOpen,setSidebarOpen]=useState(true);
   const[isMobile,setIsMobile]=useState(false);
@@ -1213,6 +1227,7 @@ function App(){
   const pFe=k=>v=>setFe(p=>({...p,[k]:v}));
   const pDr=k=>v=>setDr(p=>({...p,[k]:v}));
   const pAl=k=>v=>setAl(p=>({...p,[k]:v}));
+  const pBr=k=>v=>setBr(p=>({...p,[k]:v}));
   const tog=k=>()=>setOpen(p=>({...p,[k]:!p[k]}));
 
   const physics=useMemo(()=>feelToPhysics(ch,fe),[ch,fe]);
@@ -1223,7 +1238,12 @@ function App(){
       recToeF:al.toeF,recToeR:al.toeR,recCaster:al.caster}
     :autoAlign;
   const diff=useMemo(()=>computeDiff(ch,fe,dr),[ch,fe,dr]);
-  const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel;
+  const recBrakeBias=Math.round(Math.max(45,Math.min(65,
+    ch.frontBias+(dr.buildType==='drift'?-8:dr.buildType==='track'?-3:0))));
+  const brakeBias=br.brakeManual?(br.brakeBias??DEF_BR.brakeBias):recBrakeBias;
+  const brakePressure=br.brakeManual?(br.brakePressure??DEF_BR.brakePressure):100;
+  const bBrakeEntry=(brakeBias-50)*BRAKE_BIAS_SCALE;
+  const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry;
   const lim=GAME_LIMITS[fe.gameMode];
 
   const handleSlot=i=>{
@@ -1624,6 +1644,29 @@ function App(){
               </>
             ))}
           </Sec>
+
+          <Sec title="BRAKES" open={open.brakes} onToggle={tog('brakes')}
+            onReset={()=>setBr({...DEF_BR})}>
+            <div style={{marginBottom:10}}>
+              <span style={{fontSize:12,color:'#6b7280',display:'inline-block',marginBottom:4}}>Brake Mode</span>
+              <Hint text="AUTO derives a recommended brake balance from your front weight bias and build type. MANUAL lets you set specific values."/>
+              <div style={{display:'flex',gap:3}}>
+                <button className={`tog${!br.brakeManual?' on':''}`}
+                  onClick={()=>setBr(p=>({...p,brakeManual:false}))}>AUTO</button>
+                <button className={`tog${br.brakeManual?' on':''}`}
+                  onClick={()=>setBr(p=>({...p,brakeManual:true,
+                    brakeBias:recBrakeBias,brakePressure:100}))}>MANUAL</button>
+              </div>
+            </div>
+            {br.brakeManual&&<>
+              <Field label="Brake Balance" value={br.brakeBias??DEF_BR.brakeBias}
+                onChange={pBr('brakeBias')} min={45} max={70} step={1} unit="% front"
+                hint="Front brake bias. Higher front bias = stronger front braking, more resistance to corner entry rotation (understeer). Lower = more rear braking, more rotation tendency (oversteer). Start at your front weight distribution and adjust by feel."/>
+              <Field label="Brake Pressure" value={br.brakePressure??DEF_BR.brakePressure}
+                onChange={pBr('brakePressure')} min={50} max={200} step={5} unit="%"
+                hint="Overall brake force multiplier. 100% is the default. Increase if the car doesn't slow down fast enough; decrease if the wheels lock under light braking. Tune this to match your tyre grip level."/>
+            </>}
+          </Sec>
         </div>
 
         {/* OUTPUT PANEL */}
@@ -1755,6 +1798,16 @@ function App(){
             })()}
           </Card>
 
+          {/* 6 — BRAKES */}
+          <Card title={`BRAKES${br.brakeManual?' · MANUAL':''}`}
+            hint="Brake balance and pressure starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. Fine-tune in 1% steps by feel.">
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
+              <Readout label="BALANCE" value={brakeBias} unit="% F" decimals={0}
+                ctx={brakeBias>55?['FRONT',null]:brakeBias<50?['REAR',null]:['NEUTRAL',null]}/>
+              <Readout label="PRESSURE" value={brakePressure} unit="%" decimals={0}/>
+            </div>
+          </Card>
+
           </div>{/* end cards */}
 
           {/* AT-A-GLANCE STRIP — collapsible */}
@@ -1798,7 +1851,7 @@ function App(){
             <button className="tbtn" onClick={()=>setShowChecker(true)} style={{fontSize:11}}>CHECK</button>
             <button className="tbtn" style={{fontSize:11}} onClick={()=>{
               try{
-                const payload=encodeTune(ch,fe,dr);
+                const payload=encodeTune(ch,fe,dr,br);
                 if(navigator.clipboard&&navigator.clipboard.writeText){
                   navigator.clipboard.writeText(payload).then(()=>{
                     alert('Tune code copied to clipboard. Share it with anyone running SUSP OS.');
@@ -1812,10 +1865,11 @@ function App(){
               const code=prompt('Paste a tune code:');
               if(!code)return;
               try{
-                const{ch:ic,fe:ife,dr:idr}=sanitizeTune(decodeTune(code));
+                const{ch:ic,fe:ife,dr:idr,br:ibr}=sanitizeTune(decodeTune(code));
                 setCh({...DEF_CH,...ic});
                 setFe({...DEF_FE,...ife});
                 setDr({...DEF_DR,...idr});
+                setBr({...DEF_BR,...ibr});
               }catch(e){
                 alert('Invalid tune code. Make sure you pasted the full string.');
               }
@@ -1870,6 +1924,7 @@ function App(){
               <div style={{padding:'0 14px 12px',borderTop:'1px solid #0f172a'}}>
                 <HandlingVerdict total={bTotFull} bSp={tune.bSp} bAb={tune.bAb}
                   bDiffAccel={diff.bDiffAccel} bDiffDecel={diff.bDiffDecel}
+                  bBrakeEntry={bBrakeEntry}
                   mechBalance={null}/>
               </div>}
           </div>
