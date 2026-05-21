@@ -1742,7 +1742,17 @@ function App(){
             </div>
           </Card>
 
-          {/* 5 — DIFFERENTIAL */}
+          {/* 5 — BRAKES */}
+          <Card title={`BRAKES${br.brakeManual?' · MANUAL':''}`}
+            hint="Brake balance and pressure starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. Fine-tune in 1% steps by feel.">
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
+              <Readout label="BALANCE" value={brakeBias} unit="% F" decimals={0}
+                ctx={brakeBias>55?['FRONT',null]:brakeBias<50?['REAR',null]:['NEUTRAL',null]}/>
+              <Readout label="PRESSURE" value={brakePressure} unit="%" decimals={0}/>
+            </div>
+          </Card>
+
+          {/* 6 — DIFFERENTIAL */}
           <Card title="DIFFERENTIAL"
             hint={diff.layout==='FWD'
               ?'Starting point — fine-tune by feel in 1% steps. Accel lock controls exit traction and understeer. Decel near zero improves corner entry rotation.'
@@ -1796,16 +1806,6 @@ function App(){
                 </div>
               );
             })()}
-          </Card>
-
-          {/* 6 — BRAKES */}
-          <Card title={`BRAKES${br.brakeManual?' · MANUAL':''}`}
-            hint="Brake balance and pressure starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. Fine-tune in 1% steps by feel.">
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
-              <Readout label="BALANCE" value={brakeBias} unit="% F" decimals={0}
-                ctx={brakeBias>55?['FRONT',null]:brakeBias<50?['REAR',null]:['NEUTRAL',null]}/>
-              <Readout label="PRESSURE" value={brakePressure} unit="%" decimals={0}/>
-            </div>
           </Card>
 
           </div>{/* end cards */}
