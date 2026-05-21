@@ -1580,10 +1580,10 @@ function App(){
                 readout={diff.layout==='AWD'
                   ?`FA ${diff.frontAccel}% / RA ${diff.rearAccel}%`
                   :`Accel ${diff.accel}%`}/>
-              <FeelSlider label="Corner Entry" value={dr.diffBiasEntry??0}
-                onChange={pDr('diffBiasEntry')} min={-50} max={50} leftLabel="ROTATION" rightLabel="STABILITY"
+              <FeelSlider label="Corner Entry" value={-(dr.diffBiasEntry??0)}
+                onChange={v=>pDr('diffBiasEntry')(-v)} min={-50} max={50} leftLabel="STABILITY" rightLabel="ROTATION"
                 centered={true}
-                hint="Shifts decel lock values. Toward STABILITY increases decel lock — more resistance to rotation on corner entry. Toward ROTATION decreases decel lock — freer entry rotation."
+                hint="Shifts decel lock values. Toward ROTATION decreases decel lock — freer entry rotation. Toward STABILITY increases decel lock — more resistance to rotation on corner entry."
                 readout={diff.layout==='AWD'
                   ?`RD ${diff.rearDecel}%`
                   :`Decel ${diff.decel}%`}/>
