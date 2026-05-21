@@ -1747,7 +1747,7 @@ function App(){
             hint="Brake balance and pressure starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. Fine-tune in 1% steps by feel.">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               <Readout label="BALANCE" value={brakeBias} unit="% F" decimals={0}
-                ctx={brakeBias>55?['FRONT',null]:brakeBias<50?['REAR',null]:['NEUTRAL',null]}/>
+                ctx={brakeBias>55?['FRONT','#3b82f6']:brakeBias<50?['REAR','#ef4444']:['NEUTRAL','#64748b']}/>
               <Readout label="PRESSURE" value={brakePressure} unit="%" decimals={0}/>
             </div>
           </Card>
@@ -1911,7 +1911,7 @@ function App(){
                   const p=cl(-bTotFull);
                   const fs=p>=0?{left:'50%',width:`${p}%`}:{left:`${50+p}%`,width:`${-p}%`};
                   const fc=p>=0?'#ef444440':'#3b82f640';
-                  return p!==0&&<div style={{position:'absolute',top:2,bottom:2,borderRadius:1,background:fc,...fs}}/>;
+                  return Math.abs(bTotFull)>=3&&<div style={{position:'absolute',top:2,bottom:2,borderRadius:1,background:fc,...fs}}/>;
                 })()}
                 <div style={{position:'absolute',left:5,top:'50%',transform:'translateY(-50%)',
                              fontSize:9,color:'#3b82f6',letterSpacing:1,fontWeight:700}}>US</div>
