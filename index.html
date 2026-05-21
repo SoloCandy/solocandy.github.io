@@ -926,7 +926,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bBrakeEntry,bAero,me
         <BiasSeg label="BRAKES" val={bBrakeEntry??0}
           hint="Estimated brake-balance contribution to entry balance. High front bias = more understeer on entry (+). Low front bias (rear-biased) = oversteer tendency on entry (−). Based on deviation from 50% neutral."/>
         <BiasSeg label="AERO" val={bAero??0}
-          hint="Aero balance contribution. Rear-biased downforce (above 0.50) = understeer tendency (+). Front-biased (below 0.50) = oversteer tendency (−). Enter the aero balance from Forza's tuning menu in the CHASSIS section, then tune mechanical balance to push this total toward zero."/>
+          hint="Aero balance contribution. Rear-biased downforce (above 0.50) = oversteer tendency (−). Front-biased (below 0.50) = understeer tendency (+). Enter the aero balance from Forza's tuning menu in the CHASSIS section, then tune mechanical balance to push this total toward zero."/>
       </div>
       <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:5}}>
         <span style={{fontFamily:'Courier New',fontSize:20,fontWeight:700,color:col,lineHeight:1}}>
@@ -1256,7 +1256,7 @@ function App(){
   const brakePressure=br.brakeManual?(br.brakePressure??DEF_BR.brakePressure):100;
   const bBrakeEntry=(brakeBias-50)*BRAKE_BIAS_SCALE;
   const aeroEff=Math.max(0.1,ch.aeroEfficiency??0.9);
-  const bAero=((ch.aeroBalance??0.5)-0.5)*AERO_BALANCE_SCALE*(0.9/aeroEff);
+  const bAero=(0.5-(ch.aeroBalance??0.5))*AERO_BALANCE_SCALE*(0.9/aeroEff);
   const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bAero;
   const lim=GAME_LIMITS[fe.gameMode];
 
@@ -1344,7 +1344,7 @@ function App(){
               hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance. Most front-engined cars are 52–58% front."/>
             <Field label="Aero Balance" value={ch.aeroBalance??0.5} onChange={pCh('aeroBalance')}
               min={0} max={1} step={0.01}
-              hint="Aero balance as shown in Forza's tuning menu (0.00–1.00, same scale as Mech Balance). 0.50 = neutral / no aero. Above 0.50 = rear-biased downforce (understeer tendency). Below 0.50 = front-biased (oversteer tendency). Method: set all aero to max cornering, read the number from Forza, enter it here — then tune mechanical balance to cancel it."/>
+              hint="Aero balance as shown in Forza's tuning menu (0.00–1.00, same scale as Mech Balance). 0.50 = neutral / no aero. Above 0.50 = rear-biased downforce (oversteer tendency). Below 0.50 = front-biased (understeer tendency). Method: set all aero to max cornering, read the number from Forza, enter it here — then tune mechanical balance to cancel it."/>
             <Field label="Aero Efficiency" value={ch.aeroEfficiency??0.9} onChange={pCh('aeroEfficiency')}
               min={0.1} max={1.0} step={0.001}
               hint="Aero efficiency from Forza's tuning menu (typically 0.300–0.900). Lower = more total downforce. Scales how strongly the aero balance affects the overall handling total — a high-downforce car at 0.30 has 3× the aero load of a stock car at 0.90, so its balance bias matters proportionally more."/>
