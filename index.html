@@ -942,7 +942,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bBrakeEntry,bAero,me
         <BiasSeg label="DIFF ACCEL" val={bDiffAccel}
           hint="Estimated accel-lock contribution to exit balance. Rear accel lock = oversteer tendency (−). Front accel lock = understeer (+). Magnitude is calibrated, not derived."/>
         <BiasSeg label="DIFF DECEL" val={bDiffDecel}
-          hint="Estimated decel-lock contribution to entry balance. Higher decel lock = understeer on entry (+). Front decel especially strong. Magnitude is calibrated, not derived."/>
+          hint="Estimated decel-lock contribution to entry balance. RWD: higher decel lock = lift-off oversteer tendency (−). FWD/AWD: higher decel lock = understeer on entry (+). Magnitude is calibrated, not derived."/>
         <BiasSeg label="BRAKES" val={bBrakeEntry??0}
           hint="Estimated brake-balance contribution to entry balance. High front bias = more understeer on entry (+). Low front bias (rear-biased) = oversteer tendency on entry (−). Based on deviation from 50% neutral."/>
         <BiasSeg label="AERO" val={bAero??0}
@@ -1406,7 +1406,7 @@ function App(){
                 : metricUnits
                   ? `${Math.round(fe.targetSpeed*KMH_PER_MPH)} km/h · ${physics.rearHz.toFixed(2)} Hz rear${physics.rearHzClamped?' ⚠':''}`
                   : `${fe.targetSpeed} mph · ${physics.rearHz.toFixed(2)} Hz rear${physics.rearHzClamped?' ⚠':''}`}
-              hint="The speed at which front and rear wheels hit bumps in phase (flat ride). Right (CITY) = lower speed tuning, softer rear, more oversteer feel. Left (OFF) = higher speed tuning, flat-ride correction disabled — rear Hz matches front Hz adjusted for mass only."/>
+              hint="The speed at which front and rear wheels hit bumps in phase (flat ride). Right (CITY) = lower speed, softer rear, more oversteer feel. Left (OFF) = flat-ride correction disabled — rear Hz matches front Hz adjusted for mass only, useful for very high-speed circuits."/>
             <div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
                          border:'1px solid #1e293b',marginBottom:10,marginTop:-6}}>
@@ -1445,7 +1445,7 @@ function App(){
               ? <FeelSlider label="Bump Ratio" value={fe.bumpRatio??56}
                   onChange={pFe('bumpRatio')} min={10} max={100} step={1}
                   leftLabel="10%" rightLabel="100%"
-                  hint="Bump damping as a percentage of rebound. Lower = softer over sharp hits, more compliant on rough roads. Higher = more consistent feel between bump and rebound strokes. 40–65% is the typical real-world range. Readout shows ratio / resulting bump ζ."
+                  hint="Bump damping as a percentage of rebound. Lower = softer over sharp hits, more compliant on rough roads. Higher = more consistent feel between bump and rebound strokes. 40–65% is the typical range for most builds. Readout shows ratio / resulting bump ζ."
                   markers={[{value:65,color:'#f59e0b',label:'FIRM'}]}
                   readout={(()=>{
                     const ratio=Math.min(100,fe.bumpRatio??56);
@@ -1769,7 +1769,7 @@ function App(){
 
           {/* 4 — DAMPERS */}
           <Card title="DAMPERS" accent
-            hint="Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in Forza's damping tuning menu. Amber warn when above 88% of the game limit.">
+            hint="Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in Forza's damping tuning menu. Amber warn when above 88% of the game limit. F/R balance is preserved — if either end exceeds the limit, both are scaled proportionally so the ratio is maintained.">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:4}}>
               <Readout label="REB F"  value={tune.rebF}  warn={tune.rebF >lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
               <Readout label="REB R"  value={tune.rebR}  warn={tune.rebR >lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
