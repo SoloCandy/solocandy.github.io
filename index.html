@@ -143,7 +143,7 @@ const solveDamp=(hz,mass,z,lim)=>{
 };
 const solveDampRaw=(hz,mass,z)=>{
   const wr=Math.pow(hz*2*Math.PI,2)*mass,cc=2*Math.sqrt(wr*mass);
-  return Math.max(1,cc*(z/100)*DAMPING_CALIBRATION);
+  return cc*(z/100)*DAMPING_CALIBRATION; // truly unclamped — bounds applied after proportional scaling
 };
 
 const feelToPhysics=(ch,fe)=>{
@@ -177,13 +177,22 @@ const computeTune=(ch,phys,gameMode)=>{
   const rawRebR=solveDampRaw(rHz,m.rear,reboundZeta);
   const rawBmpF=solveDampRaw(fHz,m.front,bumpZeta);
   const rawBmpR=solveDampRaw(rHz,m.rear,bumpZeta);
-  const rebScale=Math.min(1,lim.damping/Math.max(rawRebF,rawRebR));
-  const bmpScale=Math.min(1,lim.damping/Math.max(rawBmpF,rawBmpR));
-  const rebF=Math.max(1,Math.round(rawRebF*rebScale*10)/10);
-  const rebR=Math.max(1,Math.round(rawRebR*rebScale*10)/10);
-  const bumpF=Math.max(1,Math.round(rawBmpF*bmpScale*10)/10);
-  const bumpR=Math.max(1,Math.round(rawBmpR*bmpScale*10)/10);
-  const dampingClamped=rebScale<1||bmpScale<1;
+  // Proportional scale: if max exceeds limit → scale down; if min below 1 → scale up.
+  // Preserves F/R ratio at both bounds.
+  const dampScale=(a,b)=>{
+    const hi=Math.max(a,b),lo=Math.min(a,b);
+    if(hi>lim.damping)return lim.damping/hi;
+    if(lo<1)return 1/lo;
+    return 1;
+  };
+  const rebScale=dampScale(rawRebF,rawRebR);
+  const bmpScale=dampScale(rawBmpF,rawBmpR);
+  const clampDamp=(v,s)=>Math.min(lim.damping,Math.max(1,Math.round(v*s*10)/10));
+  const rebF=clampDamp(rawRebF,rebScale);
+  const rebR=clampDamp(rawRebR,rebScale);
+  const bumpF=clampDamp(rawBmpF,bmpScale);
+  const bumpR=clampDamp(rawBmpR,bmpScale);
+  const dampingClamped=rebScale!==1||bmpScale!==1;
   const wrFN=Math.pow(fHz*2*Math.PI,2)*m.front,wrRN=Math.pow(rHz*2*Math.PI,2)*m.rear;
   const rsSpF=(wrFN*ch.trackF*ch.trackF)/2,rsSpR=(wrRN*ch.trackR*ch.trackR)/2;
   const rsSp=rsSpF+rsSpR;
