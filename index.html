@@ -1348,16 +1348,12 @@ function App(){
             <Field label="Aero Efficiency" value={ch.aeroEfficiency??0.9} onChange={pCh('aeroEfficiency')}
               min={0.1} max={1.0} step={0.001}
               hint="Aero efficiency from Forza's tuning menu (typically 0.300–0.900). Lower = more total downforce. Scales how strongly the aero balance affects the overall handling total — a high-downforce car at 0.30 has 3× the aero load of a stock car at 0.90, so its balance bias matters proportionally more."/>
-            <Field label="Wheelbase" value={ch.wheelbase} onChange={pCh('wheelbase')} min={0.4} max={4.0} step={0.01} unit="m"
-              hint="Distance between front and rear axles in metres. Used by the flat-ride formula to match rear spring frequency to your target speed. Typical cars: 2.4–2.9m."/>
-            <Field label="CG Height" value={ch.cgHeight} onChange={pCh('cgHeight')} min={0.2} max={0.9} step={0.01} unit="m"
-              hint="Estimated height of the centre of gravity above ground. Forza doesn't expose this — use 0.40–0.46m for sports cars, 0.48–0.55m for sedans, 0.58–0.70m for SUVs. Affects roll moment and ARB stiffness."/>
+            <Field label="Wheelbase" value={Math.round(ch.wheelbase*1000)} onChange={v=>pCh('wheelbase')(v/1000)} min={400} max={4000} step={5} unit="mm"              hint="Distance between front and rear axles in millimetres. Used by the flat-ride formula to match rear spring frequency to your target speed. Typical cars: 2400–2900 mm."/>
+            <Field label="CG Height" value={Math.round(ch.cgHeight*1000)} onChange={v=>pCh('cgHeight')(v/1000)} min={200} max={900} step={5} unit="mm"              hint="Estimated height of the centre of gravity above ground. Forza doesn't expose this — use 400–460 mm for sports cars, 480–550 mm for sedans, 580–700 mm for SUVs. Affects roll moment and ARB stiffness."/>
             <AdvancedToggle open={open.chassisAdv} onToggle={()=>setOpen(p=>({...p,chassisAdv:!p.chassisAdv}))}/>
             {open.chassisAdv&&<>
-              <Field label="Track Width Front" value={ch.trackF} onChange={pCh('trackF')} min={1.0} max={2.2} step={0.01} unit="m"
-                hint="Distance between left and right wheels. Typical: 1.4–1.8m. Wider = more roll resistance."/>
-              <Field label="Track Width Rear" value={ch.trackR} onChange={pCh('trackR')} min={1.0} max={2.2} step={0.01} unit="m"
-                hint="Distance between left and right wheels. Typical: 1.4–1.8m. Often slightly wider than front."/>
+              <Field label="Track Width Front" value={Math.round(ch.trackF*1000)} onChange={v=>pCh('trackF')(v/1000)} min={1000} max={2200} step={5} unit="mm"                hint="Distance between left and right wheels. Typical: 1400–1800 mm. Wider = more roll resistance."/>
+              <Field label="Track Width Rear" value={Math.round(ch.trackR*1000)} onChange={v=>pCh('trackR')(v/1000)} min={1000} max={2200} step={5} unit="mm"                hint="Distance between left and right wheels. Typical: 1400–1800 mm. Often slightly wider than front."/>
               <Field label="Motion Ratio Front" value={ch.motionRatioF} onChange={pCh('motionRatioF')} min={0.5} max={1.0} step={0.01}
                 hint="Spring compression per inch of wheel travel. Default 1.0 = no correction (matches simplified calculator). Real values: MacPherson ~0.85–0.95, Wishbone ~0.75–0.90."/>
               <Field label="Motion Ratio Rear" value={ch.motionRatioR} onChange={pCh('motionRatioR')} min={0.5} max={1.0} step={0.01}
@@ -1766,8 +1762,7 @@ function App(){
           <Card title={`BRAKES${br.brakeManual?' · MANUAL':''}`}
             hint="Brake balance and pressure starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. Fine-tune in 1% steps by feel.">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
-              <Readout label="BALANCE" value={brakeBias} unit="% F" decimals={0}
-                ctx={brakeBias>55?['FRONT','#3b82f6']:brakeBias<50?['REAR','#ef4444']:['NEUTRAL','#64748b']}/>
+              <Readout label="BALANCE" value={brakeBias} unit="% F"                ctx={brakeBias>55?['FRONT','#3b82f6']:brakeBias<50?['REAR','#ef4444']:['NEUTRAL','#64748b']}/>
               <Readout label="PRESSURE" value={brakePressure} unit="%" decimals={0}/>
             </div>
           </Card>
