@@ -63,7 +63,7 @@ console.log('\ncornerMasses');
   assert('front === rear at 50%', m.front - m.rear, 0);
 
   const m2 = cornerMasses({ weight: 3200, frontBias: 60 });
-  assert('60% front heavier than rear', m2.front - m2.rear, kg * 0.1 / 2);
+  assert('60% front heavier than rear', m2.front - m2.rear, kg * 0.1);
 }
 
 // ── flatRideRearHz ────────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ console.log('\nflatRideRearHz');
   assertEq('70mph not clamped', r3.clamped, false);
 
   // cap at 1.6× when formula overshoots
-  const r4 = flatRideRearHz(1.0, 2.7, 45); // low fHz + low speed → formula gives huge rear
+  const r4 = flatRideRearHz(1.0, 2.7, 25); // low speed → formula overshoots 1.6× cap
   assert('cap at 1.6× front', r4.hz, 1.0 * 1.6, 0.001);
   assertEq('clamped flag set', r4.clamped, true);
 }

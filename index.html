@@ -124,6 +124,8 @@ const cornerMasses=ch=>{
   const kg=ch.weight/KG_TO_LB;
   return{front:(kg*(ch.frontBias/100))/2,rear:(kg*(1-ch.frontBias/100))/2};
 };
+const rsToHz=rs=>0.8+(rs/100)*2.7;
+const hzToRs=hz=>Math.round(Math.max(0,Math.min(100,(hz-0.8)/2.7*100)));
 const flatRideRearHz=(fHz,wb,mph)=>{
   if(mph>=200)return{hz:fHz,clamped:false};
   const ms=mph*MPH_TO_MS;
@@ -148,7 +150,7 @@ const solveDampRaw=(hz,mass,z)=>{
 
 const feelToPhysics=(ch,fe)=>{
   const gameLim=GAME_LIMITS[fe.gameMode??'horizon']?.arb??65;
-  const frontHz=0.8+(fe.rideStiffness/100)*2.7;
+  const frontHz=rsToHz(fe.rideStiffness);
   const rearHzMode=fe.rearHzMode??'flatRide';
   let rearHz,rearHzClamped;
   if(rearHzMode==='independent'){
@@ -181,8 +183,8 @@ const feelToPhysics=(ch,fe)=>{
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
   const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil}=phys;
-  const springF=solveSpring(fHz,m.front,ch.motionRatioF);
-  const springR=solveSpring(rHz,m.rear,ch.motionRatioR);
+  const springF=solveSpring(fHz,m.front,1);
+  const springR=solveSpring(rHz,m.rear,1);
   const rawRebF=solveDampRaw(fHz,m.front,reboundZeta);
   const rawRebR=solveDampRaw(rHz,m.rear,reboundZeta);
   const rawBmpF=solveDampRaw(fHz,m.front,bumpZeta);
@@ -379,8 +381,8 @@ const diffCtx=v=>{
   return['MAX','#ef4444'];
 };
 
-const computeCheck=(spr,damp,masses,mr)=>{
-  const wrF=spr.f*LB_IN_TO_NM*mr.f*mr.f,wrR=spr.r*LB_IN_TO_NM*mr.r*mr.r;
+const computeCheck=(spr,damp,masses)=>{
+  const wrF=spr.f*LB_IN_TO_NM,wrR=spr.r*LB_IN_TO_NM;
   const hF=wrF>0?Math.sqrt(wrF/masses.front)/(2*Math.PI):0;
   const hR=wrR>0?Math.sqrt(wrR/masses.rear)/(2*Math.PI):0;
   const ccF=2*Math.sqrt(wrF*masses.front),ccR=2*Math.sqrt(wrR*masses.rear);
@@ -426,20 +428,36 @@ const DEF_BR={brakeManual:false,brakeBias:50,brakePressure:100};
 const BRAKE_BIAS_SCALE=0.20;
 const AERO_BALANCE_SCALE=15;
 
-const PRESET_SAVES={
-  1:{name:'STREET',
-     fe:{...DEF_FE,rideStiffness:31,targetSpeed:60,reboundZeta:60,bumpRatio:50,
-         arbFloor:4,arbCeil:30},
-     dr:{...DEF_DR,buildType:'street',diffBiasExit:-10,diffBiasEntry:10}},
-  2:{name:'TRACK',
-     fe:{...DEF_FE,rideStiffness:55,targetSpeed:120,reboundZeta:72,bumpRatio:58,
-         arbFloor:6,arbCeil:55},
-     dr:{...DEF_DR,buildType:'track',diffBiasExit:5,diffBiasEntry:0}},
-  3:{name:'RALLY',
-     fe:{...DEF_FE,rideStiffness:18,targetSpeed:80,reboundZeta:65,bumpRatio:45,
-         arbFloor:3,arbCeil:20,arbBias:-10},
-     dr:{...DEF_DR,buildType:'street',diffBiasExit:-5,diffBiasEntry:-15}},
-};
+const PRESET_SAVES=(()=>{
+  const ref=Math.round(cornerMasses(DEF_CH).front);
+  return{
+    1:{name:'STREET',refCornerMassF:ref,notes:'',
+       fe:{...DEF_FE,rideStiffness:31,targetSpeed:60,reboundZeta:60,bumpRatio:50,
+           arbFloor:4,arbCeil:30},
+       dr:{...DEF_DR,buildType:'street',diffBiasExit:-10,diffBiasEntry:10}},
+    2:{name:'TRACK',refCornerMassF:ref,notes:'',
+       fe:{...DEF_FE,rideStiffness:55,targetSpeed:120,reboundZeta:72,bumpRatio:58,
+           arbFloor:6,arbCeil:55},
+       dr:{...DEF_DR,buildType:'track',diffBiasExit:5,diffBiasEntry:0}},
+    3:{name:'RALLY',refCornerMassF:ref,notes:'',
+       fe:{...DEF_FE,rideStiffness:18,targetSpeed:80,reboundZeta:65,bumpRatio:45,
+           arbFloor:3,arbCeil:20,arbBias:-10},
+       dr:{...DEF_DR,buildType:'street',diffBiasExit:-5,diffBiasEntry:-15}},
+    4:{name:'DRIFT',refCornerMassF:ref,notes:'',
+       fe:{...DEF_FE,rideStiffness:22,targetSpeed:65,reboundZeta:63,bumpRatio:46,
+           arbFloor:3,arbCeil:22,arbBias:-18},
+       dr:{...DEF_DR,buildType:'street',layout:'RWD',
+           diffBiasExit:22,diffBiasEntry:-18,diffRearAccel:65,diffRearDecel:15}},
+    5:{name:'MOTORSPT',refCornerMassF:ref,notes:'',
+       fe:{...DEF_FE,rideStiffness:75,targetSpeed:145,reboundZeta:77,bumpRatio:62,
+           arbFloor:8,arbCeil:65},
+       dr:{...DEF_DR,buildType:'track',diffBiasExit:10,diffBiasEntry:5}},
+    6:{name:'COMFORT',refCornerMassF:ref,notes:'',
+       fe:{...DEF_FE,rideStiffness:12,targetSpeed:55,reboundZeta:57,bumpRatio:43,
+           arbFloor:2,arbCeil:12},
+       dr:{...DEF_DR,buildType:'street'}},
+  };
+})();
 
 const Hint=({text})=>{
   const[pos,setPos]=useState(null);
@@ -722,6 +740,48 @@ const DampingDial=({rebound,bump})=>{
   );
 };
 
+const SagDial=({defF,defR})=>{
+  const[hover,setHover]=useState(null);
+  const SIZE=120,CX=60,CY=58,R=46;
+  const GAP_DEG=60;
+  const START=180+GAP_DEG/2;
+  const SWEEP=360-GAP_DEG;
+  const MAX_DEF=150;
+  const defToAngle=d=>START+(Math.min(d,MAX_DEF)/MAX_DEF)*SWEEP;
+  const polar=(deg,r=R)=>{const rad=((deg-90)*Math.PI)/180;return[CX+r*Math.cos(rad),CY+r*Math.sin(rad)];};
+  const arcPath=(a1,a2,r=R)=>{
+    const[x1,y1]=polar(a1,r);const[x2,y2]=polar(a2,r);
+    const sweep=((a2-a1)+360)%360;const large=sweep>180?1:0;
+    return`M${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)}`;
+  };
+  const a50=defToAngle(50),a100=defToAngle(100),aEnd=START+SWEEP;
+  const fA=defToAngle(defF),rA=defToAngle(defR);
+  const[fxSvg,fySvg]=polar(fA);const[rxSvg,rySvg]=polar(rA);
+  const maxDef=Math.max(defF,defR);
+  const labelColor=maxDef<50?'#22c55e':maxDef<100?'#eab308':maxDef<150?'#f97316':'#ef4444';
+  const dispVal=hover==='front'?Math.round(defF):hover==='rear'?Math.round(defR):Math.round(maxDef);
+  const sub=hover==='front'?'F SAG':hover==='rear'?'R SAG':'SAG mm';
+  return(
+    <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
+      <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
+        <path d={arcPath(START,a50)}  fill="none" stroke="#166534" strokeWidth={4} strokeLinecap="round"/>
+        <path d={arcPath(a50,a100)}   fill="none" stroke="#854d0e" strokeWidth={4} strokeLinecap="round"/>
+        <path d={arcPath(a100,aEnd)}  fill="none" stroke="#7f1d1d" strokeWidth={4} strokeLinecap="round"/>
+        <circle cx={fxSvg} cy={fySvg} r={5} fill="#818cf8" stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
+          onMouseEnter={()=>setHover('front')} onMouseLeave={()=>setHover(null)}
+          onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='front'?null:'front');}}/>
+        <circle cx={rxSvg} cy={rySvg} r={5} fill="#38bdf8" stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
+          onMouseEnter={()=>setHover('rear')} onMouseLeave={()=>setHover(null)}
+          onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='rear'?null:'rear');}}/>
+        <text x={CX} y={CY-4} textAnchor="middle" fill={hover?'#e2e8f0':labelColor}
+          fontSize={16} fontFamily="Courier New" fontWeight="700">{dispVal}</text>
+        <text x={CX} y={CY+11} textAnchor="middle" fill="#475569"
+          fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{sub}</text>
+      </svg>
+    </div>
+  );
+};
+
 const ArbRangeSlider=({floor,ceil,onFloor,onCeil,min=1,max=65})=>{
   const trackRef=useRef(null);
   const floorRef=useRef(floor); floorRef.current=floor;
@@ -804,23 +864,6 @@ const ArbRangeSlider=({floor,ceil,onFloor,onCeil,min=1,max=65})=>{
   );
 };
 
-const AdvancedToggle=({open,onToggle,active=false})=>(
-  <div onClick={onToggle}
-       style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',
-               margin:'4px -12px 2px',padding:'8px 12px',
-               borderTop:'1px solid #0f172a',borderBottom:open?'1px solid #0f172a':'none',
-               background:open?'#0a0f1a':'none',transition:'background .12s',userSelect:'none'}}>
-    <span style={{fontSize:10,letterSpacing:2,color:active?'#e2e8f0':open?'#6b7280':'#4b5563',
-                  transition:'color .12s',whiteSpace:'nowrap'}}>
-      ADVANCED
-    </span>
-    {active&&<div style={{width:4,height:4,borderRadius:'50%',background:'#e2e8f0',flexShrink:0}}/>}
-    <div style={{flex:1,height:1,background:'#0f172a'}}/>
-    <span style={{fontSize:10,color:active?'#9ca3af':open?'#6b7280':'#374151',transition:'color .12s'}}>
-      {open?'▲':'▼'}
-    </span>
-  </div>
-);
 
 const Toggle=({label,value,onChange,options})=>(
   <div style={{marginBottom:9}}>
@@ -980,15 +1023,13 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bBrakeEntry,bAero,me
 const CheckerModal=({onClose,lim,metricUnits})=>{
   const[ckSpr,setCkSpr]=useState({f:400,r:300});
   const[ckDmp,setCkDmp]=useState({rebF:5,rebR:5,bumpF:3,bumpR:3});
-  const[ckMr,setCkMr]=useState({f:1.0,r:1.0});
   const[ckW,setCkW]=useState(3200);
   const[ckB,setCkB]=useState(52);
   const pS=k=>v=>setCkSpr(p=>({...p,[k]:v}));
   const pD=k=>v=>setCkDmp(p=>({...p,[k]:v}));
-  const pM=k=>v=>setCkMr(p=>({...p,[k]:v}));
   const masses=useMemo(()=>{const kg=ckW/KG_TO_LB;
     return{front:(kg*(ckB/100))/2,rear:(kg*(1-ckB/100))/2};},[ckW,ckB]);
-  const ck=useMemo(()=>computeCheck(ckSpr,ckDmp,masses,ckMr),[ckSpr,ckDmp,masses,ckMr]);
+  const ck=useMemo(()=>computeCheck(ckSpr,ckDmp,masses),[ckSpr,ckDmp,masses]);
   return(
     <div style={{position:'fixed',inset:0,background:'#000c',zIndex:999,
                  display:'flex',alignItems:'center',justifyContent:'center'}}
@@ -1025,10 +1066,6 @@ const CheckerModal=({onClose,lim,metricUnits})=>{
                 onChange={metricUnits?v=>pS('r')(v/NMM_PER_LBIN):pS('r')}
                 min={metricUnits?88:50} max={metricUnits?4380:2500} step={1}
                 unit={metricUnits?'N/mm':'lb/in'}/>
-              <Field label="Motion Ratio Front" value={ckMr.f} onChange={pM('f')} min={0.5} max={1.0} step={0.01}
-                hint="Default 1.0 matches the calculator. Only change if you know the car's real suspension geometry."/>
-              <Field label="Motion Ratio Rear" value={ckMr.r} onChange={pM('r')} min={0.5} max={1.0} step={0.01}
-                hint="Default 1.0 matches the calculator. Only change if you know the car's real suspension geometry."/>
             </Card>
             <Card title="DAMPING INPUTS">
               <Field label="Rebound Front" value={ckDmp.rebF} onChange={pD('rebF')} min={1} max={lim.damping} step={0.1} unit={`/ ${lim.damping}`}/>
@@ -1170,17 +1207,30 @@ const sanitizeTune=({ch,fe,dr,br})=>{
   };
 };
 
-const SaveSlot=({i,s,onLoad,onSave,onClear,onRename})=>{
+const useTwoTap=(callback,delay=2000)=>{
+  const[pending,setPending]=useState(false);
+  const timer=useRef(null);
+  useEffect(()=>()=>clearTimeout(timer.current),[]);
+  const handle=()=>{
+    if(pending){clearTimeout(timer.current);setPending(false);callback();}
+    else{setPending(true);timer.current=setTimeout(()=>setPending(false),delay);}
+  };
+  return[pending,handle];
+};
+
+const IconBtn=({onClick,color='#374151',activeBorder,activeColor,title,char,active=false})=>
+  <button onClick={onClick}
+    style={{background:'none',border:`1px solid ${active?activeBorder:'#1e293b'}`,borderRadius:2,
+            color:active?activeColor:color,cursor:'pointer',fontSize:9,
+            padding:'0 2px',lineHeight:'22px',flexShrink:0,transition:'color .12s,border-color .12s'}}
+    title={title}>{char}</button>;
+
+const SaveSlot=({i,s,onLoad,onSave,onClear,onRename,onNotes,onSaveOver})=>{
   const[editing,setEditing]=useState(false);
   const[draft,setDraft]=useState('');
-  const[pendingClear,setPendingClear]=useState(false);
+  const[pendingClear,handleClear]=useTwoTap(onClear);
+  const[pendingOver,handleOver]=useTwoTap(onSaveOver);
   const inputRef=useRef(null);
-  const clearTimer=useRef(null);
-  const handleClear=()=>{
-    if(pendingClear){clearTimeout(clearTimer.current);setPendingClear(false);onClear();}
-    else{setPendingClear(true);clearTimer.current=setTimeout(()=>setPendingClear(false),2000);}
-  };
-  useEffect(()=>()=>clearTimeout(clearTimer.current),[]);
 
   const startEdit=e=>{
     e.stopPropagation();
@@ -1195,39 +1245,40 @@ const SaveSlot=({i,s,onLoad,onSave,onClear,onRename})=>{
   };
 
   if(!s) return(
-    <button className="tbtn" style={{fontSize:10,color:'#374151',borderStyle:'dashed'}}
-      onClick={onSave} title={`Save current feel & drivetrain to slot ${i}`}>
-      + SLOT {i}
+    <button className="tbtn" style={{fontSize:10,color:'#374151',borderStyle:'dashed',width:'100%'}}
+      onClick={onSave} title={`Save current tune to slot ${i}`}>
+      + {i}
     </button>
   );
 
+  const notesTip=s.notes?` — ${s.notes}`:'';
   return(
-    <div style={{display:'flex',gap:1,alignItems:'center'}}>
+    <div style={{display:'flex',gap:1,alignItems:'center',width:'100%',minWidth:0}}>
       {editing
         ? <input ref={inputRef} autoFocus
             value={draft} onChange={e=>setDraft(e.target.value)}
             onBlur={commit}
             onKeyDown={e=>{if(e.key==='Enter')commit();if(e.key==='Escape'){setEditing(false);}}}
-            style={{width:72,background:'#0a0f1a',border:'1px solid #e2e8f033',borderRadius:2,
+            style={{flex:1,minWidth:0,background:'#0a0f1a',border:'1px solid #e2e8f033',borderRadius:2,
                     color:'#e2e8f0',fontFamily:'Courier New',fontSize:10,padding:'2px 5px',
                     outline:'none',textTransform:'uppercase'}}/>
-        : <button className="tbtn saved" style={{fontSize:10,maxWidth:80,overflow:'hidden',
+        : <button className="tbtn saved" style={{fontSize:10,flex:1,minWidth:0,overflow:'hidden',
                     textOverflow:'ellipsis',whiteSpace:'nowrap'}}
             onClick={onLoad}
-            onDoubleClick={startEdit}
-            title={`Load: ${s.name} — double-click to rename`}>
-            {s.name.slice(0,12).toUpperCase()}
+            title={`${s.name}${notesTip}`}>
+            {s.name.slice(0,10).toUpperCase()}
           </button>}
-      {!editing&&<button onClick={startEdit}
-        style={{background:'none',border:'1px solid #1e293b',borderRadius:2,
-                color:'#374151',cursor:'pointer',fontSize:9,padding:'0 3px',lineHeight:'22px',
-                flexShrink:0}}
-        title="Rename">✎</button>}
-      <button onClick={handleClear}
-        style={{background:'none',border:`1px solid ${pendingClear?'#f59e0b44':'#1e293b'}`,borderRadius:2,
-                color:pendingClear?'#f59e0b':'#374151',cursor:'pointer',fontSize:10,padding:'0 3px',lineHeight:'22px',
-                flexShrink:0,transition:'color .12s,border-color .12s'}}
-        title={pendingClear?'Click again to clear':'Clear slot'}>{pendingClear?'✓':'✕'}</button>
+      {!editing&&<IconBtn onClick={startEdit} title="Rename" char="✎"/>}
+      {!editing&&<IconBtn
+        onClick={()=>{const n=prompt('Notes (shown on hover):',s.notes??'');if(n!==null)onNotes(i,n.slice(0,80));}}
+        color={s.notes?'#60a5fa':'#374151'} activeBorder="#60a5fa44" activeColor="#60a5fa"
+        title={s.notes||'Add notes'} char="ⓘ" active={!!s.notes}/>}
+      {!editing&&<IconBtn onClick={handleOver} activeBorder="#34d39944" activeColor="#34d399"
+        title={pendingOver?'Click again to overwrite with current tune':'Overwrite with current tune'}
+        char="↺" active={pendingOver}/>}
+      {!editing&&<IconBtn onClick={handleClear} activeBorder="#f59e0b44" activeColor="#f59e0b"
+        title={pendingClear?'Click again to clear':'Clear slot'}
+        char={pendingClear?'✓':'✕'} active={pendingClear}/>}
     </div>
   );
 };
@@ -1263,7 +1314,8 @@ function App(){
   const[br,setBr]=usePersist('suspos_br_v1',DEF_BR);
   const[metricUnits,setMetricUnits]=usePersist('suspos_units_v1',false);
   const[saves,setSaves]=usePersist('suspos_saves_v9',PRESET_SAVES);
-  const[open,setOpen]=useState({chassis:true,feel:true,arb:true,alignment:true,drivetrain:true,brakes:true,chassisAdv:false,balanceExpanded:true,statsOpen:false});
+  const[loadMode,setLoadMode]=useState('all'); // 'all'=feel+drivetrain, 'fe'=feel only
+  const[open,setOpen]=useState({chassis:true,feel:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:true,statsOpen:false});
   const[showChecker,setShowChecker]=useState(false);
   const[hzDraft,setHzDraft]=useState(null);     // transient: direct front Hz entry
   const[rearHzDraft,setRearHzDraft]=useState(null); // transient: direct rear Hz entry (independent mode)
@@ -1294,6 +1346,8 @@ function App(){
   const pBr=k=>v=>setBr(p=>({...p,[k]:v}));
   const tog=k=>()=>setOpen(p=>({...p,[k]:!p[k]}));
 
+  const cm=useMemo(()=>cornerMasses(ch),[ch]);
+  const dispMass=kg=>metricUnits?`${Math.round(kg)} kg`:`${Math.round(kg/KG_TO_LB)} lb`;
   const physics=useMemo(()=>feelToPhysics(ch,fe),[ch,fe]);
   const tune=useMemo(()=>computeTune(ch,physics,fe.gameMode),[ch,physics,fe.gameMode]);
   const autoAlign=useMemo(()=>computeAlignment(ch,tune,dr.layout,dr.buildType),[ch,tune,dr.layout,dr.buildType]);
@@ -1315,17 +1369,28 @@ function App(){
   const handleSlot=i=>{
     const s=saves[i];
     if(s){
-      setFe({...DEF_FE,...s.fe});
-      setDr({...DEF_DR,...s.dr});
+      let adjustedFe={...DEF_FE,...s.fe};
+      if(s.refCornerMassF){
+        const scale=Math.sqrt(s.refCornerMassF/cm.front);
+        const scaledHz=Math.max(0.80,Math.min(3.50,rsToHz(s.fe.rideStiffness)*scale));
+        adjustedFe.rideStiffness=hzToRs(scaledHz);
+      }
+      setFe(adjustedFe);
+      if(loadMode!=='fe') setDr({...DEF_DR,...s.dr});
     }
     else{
-      const hz=physics.frontHz.toFixed(1);
+      const hz=physics.frontHz.toFixed(2);
       const build=(dr.buildType??'track').toUpperCase();
-      setSaves(p=>({...p,[i]:{fe,dr,name:`${build} ${hz}`}}));
+      setSaves(p=>({...p,[i]:{fe,dr,
+        name:`${build} ${hz}`,
+        refCornerMassF:Math.round(cm.front),
+        notes:''}}));
     }
   };
   const clearSlot=i=>setSaves(p=>{const n={...p};delete n[i];return n;});
   const renameSlot=(i,name)=>setSaves(p=>({...p,[i]:{...p[i],name}}));
+  const notesSlot=(i,notes)=>setSaves(p=>({...p,[i]:{...p[i],notes}}));
+  const overwriteSlot=i=>setSaves(p=>({...p,[i]:{...p[i],fe,dr,refCornerMassF:Math.round(cm.front)}}));
 
   return(
     <div style={{display:'flex',flexDirection:'column',height:'100vh',minHeight:'-webkit-fill-available',overflow:'hidden'}}>
@@ -1404,20 +1469,47 @@ function App(){
                 :"Total vehicle weight in pounds. Find this on the car's stat page in Forza. Affects spring rates, damper forces, and ARB stiffness directly."}/>
             <Field label="Front Weight Bias" value={ch.frontBias} onChange={pCh('frontBias')} min={30} max={70} step={1} unit="%"
               hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance. Most front-engined cars are 52–58% front."/>
+            <div style={{display:'flex',alignItems:'center',gap:6,
+                         padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
+                         border:'1px solid #1e293b',marginBottom:10,marginTop:-4}}>
+              <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>F CORNER</span>
+              <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.front)}</span>
+              <div style={{flex:1,height:1,background:'#1e293b'}}/>
+              <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>R CORNER</span>
+              <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.rear)}</span>
+            </div>
             {(()=>{
-              const cm=cornerMasses(ch);
-              const disp=(kg)=>metricUnits?`${Math.round(kg)} kg`:`${Math.round(kg/KG_TO_LB)} lb`;
-              return(
+              const xferF=cm.front*ch.cgHeight/ch.trackF;
+              const xferR=cm.rear*ch.cgHeight/ch.trackR;
+              return(<>
                 <div style={{display:'flex',alignItems:'center',gap:6,
                              padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
-                             border:'1px solid #1e293b',marginBottom:10,marginTop:-4}}>
-                  <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>F CORNER</span>
-                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{disp(cm.front)}</span>
+                             border:'1px solid #1e293b',marginBottom:4,marginTop:-6}}>
+                  <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>XFER F</span>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(xferF)}/g</span>
                   <div style={{flex:1,height:1,background:'#1e293b'}}/>
-                  <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>R CORNER</span>
-                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{disp(cm.rear)}</span>
+                  <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>XFER R</span>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(xferR)}/g</span>
                 </div>
-              );
+                <div style={{display:'flex',alignItems:'center',gap:6,
+                             padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
+                             border:'1px solid #1e293b',marginBottom:4}}>
+                  <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>OUT F</span>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.front+xferF)}</span>
+                  <div style={{flex:1,height:1,background:'#1e293b'}}/>
+                  <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>OUT R</span>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.rear+xferR)}</span>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:6,
+                             padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
+                             border:'1px solid #1e293b',marginBottom:10}}>
+                  <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>IN F</span>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(Math.max(0,cm.front-xferF))}</span>
+                  <div style={{flex:1,height:1,background:'#1e293b'}}/>
+                  <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>IN R</span>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(Math.max(0,cm.rear-xferR))}</span>
+                </div>
+              </>);
             })()}
             <Field label="Aero Balance" value={ch.aeroBalance??0.5} onChange={pCh('aeroBalance')}
               min={0} max={1.5} step={0.01}
@@ -1427,19 +1519,12 @@ function App(){
               hint="Aero efficiency from Forza's tuning menu (typically 0.300–0.900). Lower = more total downforce. Scales how strongly the aero balance affects the overall handling total — a high-downforce car at 0.30 has 3× the aero load of a stock car at 0.90, so its balance bias matters proportionally more."/>
             <Field label="Wheelbase" value={Math.round(ch.wheelbase*1000)} onChange={v=>pCh('wheelbase')(v/1000)} min={400} max={4000} step={5} unit="mm"
               hint="Distance between front and rear axles in millimetres. Used by the flat-ride formula to match rear spring frequency to your target speed. Typical cars: 2400–2900 mm."/>
+            <Field label="Track Width Front" value={Math.round(ch.trackF*1000)} onChange={v=>pCh('trackF')(v/1000)} min={1000} max={2200} step={5} unit="mm"
+              hint="Distance between left and right wheels at the front. Typical: 1400–1800 mm. Wider = more roll resistance."/>
+            <Field label="Track Width Rear" value={Math.round(ch.trackR*1000)} onChange={v=>pCh('trackR')(v/1000)} min={1000} max={2200} step={5} unit="mm"
+              hint="Distance between left and right wheels at the rear. Typical: 1400–1800 mm. Often slightly wider than front."/>
             <Field label="CG Height" value={Math.round(ch.cgHeight*1000)} onChange={v=>pCh('cgHeight')(v/1000)} min={200} max={900} step={5} unit="mm"
               hint="Estimated height of the centre of gravity above ground. Forza doesn't expose this — use 400–460 mm for sports cars, 480–550 mm for sedans, 580–700 mm for SUVs. Affects roll moment and ARB stiffness."/>
-            <AdvancedToggle open={open.chassisAdv} onToggle={()=>setOpen(p=>({...p,chassisAdv:!p.chassisAdv}))}/>
-            {open.chassisAdv&&<>
-              <Field label="Track Width Front" value={Math.round(ch.trackF*1000)} onChange={v=>pCh('trackF')(v/1000)} min={1000} max={2200} step={5} unit="mm"
-                hint="Distance between left and right wheels at the front. Typical: 1400–1800 mm. Wider = more roll resistance."/>
-              <Field label="Track Width Rear" value={Math.round(ch.trackR*1000)} onChange={v=>pCh('trackR')(v/1000)} min={1000} max={2200} step={5} unit="mm"
-                hint="Distance between left and right wheels at the rear. Typical: 1400–1800 mm. Often slightly wider than front."/>
-              <Field label="Motion Ratio Front" value={ch.motionRatioF} onChange={pCh('motionRatioF')} min={0.5} max={1.0} step={0.01}
-                hint="Front spring compression per unit of wheel travel. Default 1.0 = no correction. Real values: MacPherson ~0.85–0.95, Wishbone ~0.75–0.90."/>
-              <Field label="Motion Ratio Rear" value={ch.motionRatioR} onChange={pCh('motionRatioR')} min={0.5} max={1.0} step={0.01}
-                hint="Rear spring compression per unit of wheel travel. Default 1.0 = no correction. Real values: MacPherson ~0.85–0.95, Wishbone ~0.75–0.90."/>
-            </>}
           </Sec>
 
           <Sec title="FEEL" open={open.feel} onToggle={tog('feel')}
@@ -1454,7 +1539,7 @@ function App(){
               bumpRatio:DEF_FE.bumpRatio,
               bumpZeta:DEF_FE.bumpZeta}))}>
             <FeelSlider label="Ride Stiffness" value={physics.frontHz}
-              onChange={v=>{const rs=Math.round(Math.max(0,Math.min(100,(v-0.8)/2.7*100)));pFe('rideStiffness')(rs);}}
+              onChange={v=>pFe('rideStiffness')(hzToRs(v))}
               min={0.80} max={3.50} step={0.01} leftLabel="0.80" rightLabel="3.50"
               readout={<span style={{display:'flex',alignItems:'center',gap:3}}>
                 <input type="number" className="num"
@@ -1469,15 +1554,14 @@ function App(){
                   onBlur={()=>{
                     const v=parseFloat(hzDraft);
                     if(!isNaN(v)){
-                      const rs=Math.round(Math.max(0,Math.min(100,(v-0.8)/2.7*100)));
-                      pFe('rideStiffness')(rs);
+                      pFe('rideStiffness')(hzToRs(v));
                     }
                     setHzDraft(null);
                   }}
                   onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}/>
                 <span style={{fontSize:11,color:'#6b7280',fontFamily:'Courier New'}}>Hz</span>
               </span>}
-              hint="Front spring frequency. 0.80 Hz = very soft/comfort, 3.50 Hz = stiff/race. Rear Hz derived automatically. Click the value to type a target frequency directly."/>
+              hint="Front spring frequency. Click the Hz value to type a target frequency directly. Typical range: 1.0–1.8 Hz for street, 1.8–2.6 Hz for track, 2.2–3.2 Hz for race."/>
             {/* rear Hz mode toggle */}
             <div style={{display:'flex',gap:3,marginBottom:10,marginTop:-4}}>
               <button className={`tog${(fe.rearHzMode??'flatRide')==='flatRide'?' on':''}`}
@@ -1560,7 +1644,17 @@ function App(){
                   :`${Math.round(tune.springR)} lb/in`}
               </span>
             </div>
-            <DampingDial rebound={fe.reboundZeta??70} bump={physics.bumpZeta}/>
+            {/* sag + damping dials */}
+            {(()=>{
+              const defF=1000*9.81/(4*Math.PI*Math.PI*physics.frontHz*physics.frontHz);
+              const defR=1000*9.81/(4*Math.PI*Math.PI*physics.rearHz*physics.rearHz);
+              return(
+                <div style={{display:'flex',justifyContent:'center'}}>
+                  <SagDial defF={defF} defR={defR}/>
+                  <DampingDial rebound={fe.reboundZeta??70} bump={physics.bumpZeta}/>
+                </div>
+              );
+            })()}
             {/* damping mode toggle */}
             <div style={{display:'flex',gap:3,marginBottom:10}}>
               <button className={`tog${(fe.dampingMode??'ratio')==='ratio'?' on':''}`}
@@ -2030,44 +2124,58 @@ function App(){
           </div>
 
           {/* TOOLBAR — saves, check, share, import */}
-          <div style={{flexShrink:0,borderTop:'1px solid #0f172a',padding:'6px 12px',
-                       display:'flex',gap:3,alignItems:'center',background:'#020617'}}>
-            {[1,2,3].map(i=>(
-              <SaveSlot key={i} i={i} s={saves[i]}
-                onLoad={()=>handleSlot(i)}
-                onSave={()=>handleSlot(i)}
-                onClear={()=>clearSlot(i)}
-                onRename={renameSlot}/>
-            ))}
-            <div style={{flex:1}}/>
-            <button className="tbtn" onClick={()=>setShowChecker(true)} style={{fontSize:11}}>CHECK</button>
-            <button className="tbtn" style={{fontSize:11}} onClick={()=>{
-              try{
-                const payload=encodeTune(ch,fe,dr,br);
-                if(navigator.clipboard&&navigator.clipboard.writeText){
-                  navigator.clipboard.writeText(payload).then(()=>{
-                    alert('Tune code copied to clipboard. Share it with anyone running SUSP OS.');
-                  }).catch(()=>prompt('Copy this tune code:',payload));
-                } else {
-                  prompt('Copy this tune code:',payload);
+          <div style={{flexShrink:0,borderTop:'1px solid #0f172a',padding:'5px 12px 6px',background:'#020617'}}>
+            {/* 2×3 slot grid */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:3,marginBottom:4}}>
+              {[1,2,3,4,5,6].map(i=>(
+                <SaveSlot key={i} i={i} s={saves[i]}
+                  onLoad={()=>handleSlot(i)}
+                  onSave={()=>handleSlot(i)}
+                  onClear={()=>clearSlot(i)}
+                  onRename={renameSlot}
+                  onNotes={notesSlot}
+                  onSaveOver={()=>overwriteSlot(i)}/>
+              ))}
+            </div>
+            {/* action row */}
+            <div style={{display:'flex',gap:3,alignItems:'center'}}>
+              <button className={`tbtn${loadMode==='fe'?' on':''}`} style={{fontSize:10,letterSpacing:0.5}}
+                onClick={()=>setLoadMode(m=>m==='all'?'fe':'all')}
+                title={loadMode==='all'
+                  ?'Loading feel + drivetrain. Click to load feel only (keeps your current drivetrain).'
+                  :'Loading feel only. Click to restore full feel + drivetrain loading.'}>
+                {loadMode==='all'?'FE+DR':'FE'}
+              </button>
+              <div style={{flex:1}}/>
+              <button className="tbtn" onClick={()=>setShowChecker(true)} style={{fontSize:11}}>CHECK</button>
+              <button className="tbtn" style={{fontSize:11}} onClick={()=>{
+                try{
+                  const payload=encodeTune(ch,fe,dr,br);
+                  if(navigator.clipboard&&navigator.clipboard.writeText){
+                    navigator.clipboard.writeText(payload).then(()=>{
+                      alert('Tune code copied to clipboard. Share it with anyone running SUSP OS.');
+                    }).catch(()=>prompt('Copy this tune code:',payload));
+                  } else {
+                    prompt('Copy this tune code:',payload);
+                  }
+                }catch(e){console.error('Share failed',e);}
+              }}>SHARE</button>
+              <button className="tbtn" style={{fontSize:11}} onClick={()=>{
+                const raw=prompt('Paste a tune code:');
+                if(!raw)return;
+                const code=raw.replace(/\s/g,'');
+                try{
+                  const{ch:ic,fe:ife,dr:idr,br:ibr}=sanitizeTune(decodeTune(code));
+                  setCh({...DEF_CH,...ic});
+                  setFe({...DEF_FE,...ife});
+                  setDr({...DEF_DR,...idr});
+                  setBr({...DEF_BR,...ibr});
+                }catch(e){
+                  console.error('Import failed:',e,code);
+                  alert('Invalid tune code: '+e.message+'\n\nMake sure you pasted the full string.');
                 }
-              }catch(e){console.error('Share failed',e);}
-            }}>SHARE</button>
-            <button className="tbtn" style={{fontSize:11}} onClick={()=>{
-              const raw=prompt('Paste a tune code:');
-              if(!raw)return;
-              const code=raw.replace(/\s/g,''); // strip any whitespace/linebreaks from paste
-              try{
-                const{ch:ic,fe:ife,dr:idr,br:ibr}=sanitizeTune(decodeTune(code));
-                setCh({...DEF_CH,...ic});
-                setFe({...DEF_FE,...ife});
-                setDr({...DEF_DR,...idr});
-                setBr({...DEF_BR,...ibr});
-              }catch(e){
-                console.error('Import failed:',e,code);
-                alert('Invalid tune code: '+e.message+'\n\nMake sure you pasted the full string.');
-              }
-            }}>IMPORT</button>
+              }}>IMPORT</button>
+            </div>
           </div>
 
           {/* PINNED — HANDLING BALANCE */}

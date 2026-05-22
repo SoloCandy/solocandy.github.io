@@ -36,19 +36,38 @@ The result is a tune that starts from a principled baseline rather than trial-an
 |---|---|
 | Weight | Total vehicle weight (lb or kg) — from Forza's car stats screen |
 | Front Weight Bias | % weight on the front axle |
-| Aero Balance | Forza's aero balance readout (0.00–1.00). Enter after setting aero to max cornering — SUSP.OS factors it into the handling balance so you can tune mechanics to cancel it |
+| Aero Balance | Forza's aero balance readout (0.00–1.50). Enter after setting aero to max cornering — SUSP.OS factors it into the handling balance so you can tune mechanics to cancel it |
 | Aero Efficiency | Forza's aero efficiency readout (0.100–0.900). Lower = more total downforce — scales the aero's contribution to balance proportionally |
-| Wheelbase | Axle-to-axle distance in metres |
-| CG Height | Centre-of-gravity height in metres |
-| Track widths, motion ratios | In the Advanced section — affect roll stiffness calculations |
+| Wheelbase | Axle-to-axle distance in mm |
+| CG Height | Centre-of-gravity height in mm |
+| Track widths | In the Advanced section — affect lateral weight transfer and ARB calculations |
+
+**Derived info strips** (shown automatically below inputs):
+- **F CORNER / R CORNER** — per-wheel corner mass at rest
+- **XFER F / XFER R** — lateral weight transfer per g of cornering, per axle (corner mass × CG height ÷ track width)
+- **OUT F / OUT R** — outer wheel load at 1g cornering (corner mass + transfer)
+- **IN F / IN R** — inner wheel load at 1g cornering (corner mass − transfer)
 
 ### FEEL
 | Field | Description |
 |---|---|
-| Ride Stiffness | Master stiffness slider (0–100). Maps to 0.80–3.50 Hz front frequency. Higher = firmer, faster transient response |
-| Target Speed | The speed at which flat-ride theory aligns front and rear wheel impulses. Lower speed = softer rear relative to front. **OFF** disables the correction. Slider runs right (CITY, softer rear, more rotation) to left (OFF) |
+| Ride Stiffness | Front spring frequency slider, 0.80–3.50 Hz. Click the Hz readout to type a target frequency directly. Green **ROAD** and **RACE** tick marks show the typical band for this car's corner weight — lighter cars sit higher on the scale |
+| Rear Hz mode | Three-button toggle controlling how rear frequency is derived |
 | Rebound ζ | Damping ratio for the rebound stroke. 70% = Butterworth (critically tuned). >100% = overdamped |
-| Bump | Either a ratio of rebound (linked mode) or independent ζ |
+| Bump | Either a ratio of rebound (BUMP RATIO mode) or independent ζ (INDEPENDENT mode) |
+
+**Rear Hz modes:**
+| Mode | Behaviour |
+|---|---|
+| **FLAT RIDE** | Rear Hz derived from the flat-ride formula: front Hz, wheelbase, and a Target Speed slider. Lower speed = softer rear. **OFF** disables the correction |
+| **MULTIPLIER** | Rear Hz = front Hz × a multiplier (0.50–3.00). ×1.20 is a common starting point |
+| **INDEPENDENT** | Rear Hz set directly (0.80–4.00 Hz), fully decoupled from front |
+
+**Derived info strips** (shown automatically):
+- **FRONT / ×ratio / REAR Hz** — live front and rear frequencies with the rear/front multiplier
+- **SPR F / SPR R** — computed spring rates in lb/in or N/mm
+- **DEF F / DEF R** — static spring deflection in mm under the car's own weight (`g ÷ (2π·Hz)²`). Cross-check that your spring travel isn't bottoming
+- **REB · BUMP · SETTLE** — damping ratios and settle time with a category badge: **STIFF** / **SPORT** / **ROAD** / **SOFT** / **FLOAT**
 
 ### ANTI-ROLL BARS
 - **ARB Bias** — shifts roll stiffness front/rear without changing total stiffness
@@ -112,7 +131,22 @@ Reverse-calculate natural frequency and damping ratios from existing in-game spr
 Encodes the full tune (chassis + feel + ARBs + drivetrain + brakes + aero) as a compact Base64 string (~150 chars). Paste into IMPORT on any device running SUSP.OS. Old codes from earlier versions decode safely — new fields default gracefully.
 
 ### Save Slots
-Three persistent template slots storing feel + drivetrain configuration. Pre-loaded with **STREET**, **TRACK**, and **RALLY** presets. Double-click a slot name to rename. Click ✕ twice to clear.
+Six persistent slots arranged in a 2×3 grid, storing feel + drivetrain configuration. Pre-loaded with **STREET**, **TRACK**, **RALLY**, **DRIFT**, **MOTORSPT**, and **COMFORT** presets.
+
+**Car-aware scaling:** each slot stores the corner mass at save time. When loading onto a different-weight car, Ride Stiffness is scaled by `√(savedMass / currentMass)` so the tune maintains the same relative feel rather than applying the raw Hz value.
+
+**Slot controls:**
+| Button | Action |
+|---|---|
+| Slot name | Load tune into current session |
+| ✎ | Rename the slot (inline edit) |
+| ⓘ | Add/edit notes (shown in hover tooltip; blue when notes exist) |
+| ↺ | Overwrite slot with current tune — tap once to arm (turns green), tap again within 2s to confirm |
+| ✕ | Clear slot — tap once to arm (turns amber), tap again within 2s to confirm |
+
+**FE / FE+DR toggle** (bottom-left of toolbar): switches between loading feel + drivetrain together (default) and loading feel only, leaving your current drivetrain settings untouched.
+
+**Auto-naming:** new saves are named `BUILD Hz` (e.g. `TRACK 2.14`) from the current build type and front frequency.
 
 ### Section Resets
 Each sidebar section has a RESET button (two-click confirmation) that restores defaults for that section only.
@@ -144,8 +178,8 @@ Key empirical constants calibrated from real Forza data:
 | `DAMPING_CALIBRATION` | 0.001 | Maps damper click → critical damping coefficient |
 | `MECH_BALANCE_STIFFNESS_WEIGHT` | 0.698 | FH blends 70% roll-stiffness balance + 30% weight balance |
 | `DIFF_BIAS_SCALE` | 0.08 | Diff lock % → handling bias contribution |
-| `BRAKE_BIAS_SCALE` | 0.08 | Brake balance deviation → handling bias contribution |
-| `AERO_BALANCE_SCALE` | 20 | Aero balance deviation → handling bias contribution (before efficiency scaling) |
+| `BRAKE_BIAS_SCALE` | 0.20 | Brake balance deviation → handling bias contribution |
+| `AERO_BALANCE_SCALE` | 15 | Aero balance deviation → handling bias contribution (before efficiency scaling) |
 
 Mechanical balance calibrated across 4 data points on a Lexus LC 500 at ride stiffness 29–75 (1.58–2.83 Hz). Error ±0.004 across all points.
 
@@ -166,7 +200,7 @@ The entire app is a single HTML file containing:
 - **Physics engine** — `flatRideRearHz`, `computeTune`, `computeAlignment`, `computeDiff` — pure JS, no React dependency
 - **React UI** — in-browser JSX transpilation via `@babel/standalone`
 - **Persistence** — `localStorage` via a custom `usePersist` hook; degrades gracefully in private browsing
-- **Share codec** — pipe-delimited numeric array, Base64-encoded (38 values, fully backward-compatible)
+- **Share codec** — pipe-delimited numeric array, Base64-encoded (41 values, fully backward-compatible)
 
 The physics functions are at the top of the `<script>` block and can be read, tested, or extracted independently. A standalone test suite is included in `tests.js` — run with `node tests.js`.
 
