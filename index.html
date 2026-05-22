@@ -1070,7 +1070,7 @@ const decodeTune=(code)=>{
   return{ch,fe,dr,br};
 };
 
-const sanitizeTune=({ch,fe,dr})=>{
+const sanitizeTune=({ch,fe,dr,br})=>{
   const n=(v,def)=>(typeof v==='number'&&isFinite(v))?v:def;
   const cl=(v,lo,hi,def)=>Math.max(lo,Math.min(hi,n(v,def)));
   const sArbFloor=cl(fe?.arbFloor,1,64,DEF_FE.arbFloor);
