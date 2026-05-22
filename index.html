@@ -604,7 +604,9 @@ const FeelSlider=({label,value,onChange,min,max,step=1,leftLabel,rightLabel,read
                       textOverflow:'ellipsis',whiteSpace:'nowrap',marginRight:6}}>{label}{hint&&<Hint text={hint}/>}</span>
         <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
           {locked&&<span style={{fontSize:10,color:'#94a3b888',letterSpacing:1}}>MANUAL</span>}
-          {readout&&<span style={{fontSize:11,color:'#6b7280',fontFamily:'Courier New'}}>{readout}</span>}
+          {readout&&(typeof readout==='string'
+            ?<span style={{fontSize:11,color:'#6b7280',fontFamily:'Courier New'}}>{readout}</span>
+            :readout)}
         </div>
       </div>
       <div style={{position:'relative'}}>
@@ -1427,8 +1429,28 @@ function App(){
               bumpZeta:DEF_FE.bumpZeta}))}>
             <FeelSlider label="Ride Stiffness" value={fe.rideStiffness}
               onChange={pFe('rideStiffness')} min={0} max={100} leftLabel="COMFORT" rightLabel="RACE"
-              readout={`${physics.frontHz.toFixed(2)} Hz`}
-              hint="Sets the front spring frequency. COMFORT (0) = 0.80 Hz, street-soft. RACE (100) = 3.50 Hz, track-stiff. Rear frequency is derived automatically via the flat-ride formula. The Hz readout updates live."
+              readout={<span style={{display:'flex',alignItems:'center',gap:3}}>
+                <input type="number" className="num"
+                  style={{width:44,fontSize:11,fontWeight:700,color:'#6b7280',
+                          background:'transparent',fontFamily:'Courier New',
+                          borderRadius:2,textAlign:'right',padding:'0 2px',
+                          border:hzDraft!==null?'1px solid #334155':'1px solid transparent'}}
+                  min={0.80} max={3.50} step={0.01}
+                  value={hzDraft??physics.frontHz.toFixed(2)}
+                  onFocus={()=>setHzDraft(physics.frontHz.toFixed(2))}
+                  onChange={e=>setHzDraft(e.target.value)}
+                  onBlur={()=>{
+                    const v=parseFloat(hzDraft);
+                    if(!isNaN(v)){
+                      const rs=Math.round(Math.max(0,Math.min(100,(v-0.8)/2.7*100)));
+                      pFe('rideStiffness')(rs);
+                    }
+                    setHzDraft(null);
+                  }}
+                  onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}/>
+                <span style={{fontSize:11,color:'#6b7280',fontFamily:'Courier New'}}>Hz</span>
+              </span>}
+              hint="Sets the front spring frequency. COMFORT (0) = 0.80 Hz, street-soft. RACE (100) = 3.50 Hz, track-stiff. Rear frequency is derived automatically via the flat-ride formula. Click the Hz value to type directly."
               markers={[
                 {value:19,color:'#64748b',label:'ROAD'},
                 {value:44,color:'#f59e0b',label:'FIRM'},
@@ -1447,24 +1469,7 @@ function App(){
                          padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
                          border:'1px solid #1e293b',marginBottom:10,marginTop:-6}}>
               <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>FRONT</span>
-              <input type="number" className="num"
-                style={{width:44,fontSize:13,fontWeight:700,color:'#e2e8f0',
-                        background:'transparent',fontFamily:'Courier New',
-                        borderRadius:2,textAlign:'right',padding:'0 2px',
-                        border:hzDraft!==null?'1px solid #334155':'1px solid transparent'}}
-                min={0.80} max={3.50} step={0.01}
-                value={hzDraft??physics.frontHz.toFixed(2)}
-                onFocus={()=>setHzDraft(physics.frontHz.toFixed(2))}
-                onChange={e=>setHzDraft(e.target.value)}
-                onBlur={()=>{
-                  const v=parseFloat(hzDraft);
-                  if(!isNaN(v)){
-                    const rs=Math.round(Math.max(0,Math.min(100,(v-0.8)/2.7*100)));
-                    pFe('rideStiffness')(rs);
-                  }
-                  setHzDraft(null);
-                }}
-                onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}/>
+              <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{physics.frontHz.toFixed(2)}</span>
               <span style={{fontSize:10,color:'#4b5563'}}>Hz</span>
               <div style={{flex:1,height:1,background:'#1e293b'}}/>
               <span style={{fontSize:10,color:'#64748b',letterSpacing:0.5,fontFamily:'Courier New'}}>
