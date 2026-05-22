@@ -1241,6 +1241,7 @@ function App(){
   const[saves,setSaves]=usePersist('suspos_saves_v9',PRESET_SAVES);
   const[open,setOpen]=useState({chassis:true,feel:true,arb:true,alignment:true,drivetrain:true,brakes:true,chassisAdv:false,balanceExpanded:true,statsOpen:false});
   const[showChecker,setShowChecker]=useState(false);
+  const[hzDraft,setHzDraft]=useState(null); // transient: direct Hz entry in FEEL strip
   const[sidebarOpen,setSidebarOpen]=useState(true);
   const[isMobile,setIsMobile]=useState(false);
   const[windowWidth,setWindowWidth]=useState(window.innerWidth);
@@ -1446,7 +1447,24 @@ function App(){
                          padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
                          border:'1px solid #1e293b',marginBottom:10,marginTop:-6}}>
               <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>FRONT</span>
-              <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{physics.frontHz.toFixed(2)}</span>
+              <input type="number" className="num"
+                style={{width:44,fontSize:13,fontWeight:700,color:'#e2e8f0',
+                        background:'transparent',fontFamily:'Courier New',
+                        borderRadius:2,textAlign:'right',padding:'0 2px',
+                        border:hzDraft!==null?'1px solid #334155':'1px solid transparent'}}
+                min={0.80} max={3.50} step={0.01}
+                value={hzDraft??physics.frontHz.toFixed(2)}
+                onFocus={()=>setHzDraft(physics.frontHz.toFixed(2))}
+                onChange={e=>setHzDraft(e.target.value)}
+                onBlur={()=>{
+                  const v=parseFloat(hzDraft);
+                  if(!isNaN(v)){
+                    const rs=Math.round(Math.max(0,Math.min(100,(v-0.8)/2.7*100)));
+                    pFe('rideStiffness')(rs);
+                  }
+                  setHzDraft(null);
+                }}
+                onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}/>
               <span style={{fontSize:10,color:'#4b5563'}}>Hz</span>
               <div style={{flex:1,height:1,background:'#1e293b'}}/>
               <span style={{fontSize:10,color:'#64748b',letterSpacing:0.5,fontFamily:'Courier New'}}>
@@ -1456,6 +1474,24 @@ function App(){
               <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>REAR</span>
               <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{physics.rearHz.toFixed(2)}</span>
               <span style={{fontSize:10,color:'#4b5563'}}>Hz</span>
+            </div>
+            {/* spring rate strip */}
+            <div style={{display:'flex',alignItems:'center',gap:6,
+                         padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
+                         border:'1px solid #1e293b',marginBottom:8,marginTop:-4}}>
+              <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>SPR F</span>
+              <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>
+                {metricUnits
+                  ?`${(tune.springF*NMM_PER_LBIN).toFixed(1)} N/mm`
+                  :`${Math.round(tune.springF)} lb/in`}
+              </span>
+              <div style={{flex:1,height:1,background:'#1e293b'}}/>
+              <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>SPR R</span>
+              <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>
+                {metricUnits
+                  ?`${(tune.springR*NMM_PER_LBIN).toFixed(1)} N/mm`
+                  :`${Math.round(tune.springR)} lb/in`}
+              </span>
             </div>
             <DampingDial rebound={fe.reboundZeta??70} bump={physics.bumpZeta}/>
             {/* damping mode toggle */}
@@ -1516,7 +1552,15 @@ function App(){
               <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{Math.round(physics.bumpZeta)}%</span>
               <span style={{fontSize:10,color:'#1e293b',flex:1,textAlign:'center'}}>·</span>
               <span style={{fontSize:10,color:'#4b5563',letterSpacing:1,whiteSpace:'nowrap'}}>SETTLE</span>
-              <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{tune.settle.toFixed(2)}s</span>
+              {(()=>{
+                const s=tune.settle;
+                const[cat,col]=s<0.25?['STIFF','#ef4444']:s<0.50?['SPORT','#f59e0b']:
+                               s<0.80?['ROAD','#9ca3af']:s<1.20?['SOFT','#60a5fa']:['FLOAT','#818cf8'];
+                return<>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{s.toFixed(2)}s</span>
+                  <span style={{fontSize:8,color:col,letterSpacing:1}}>{cat}</span>
+                </>;
+              })()}
             </div>
           </Sec>
 
