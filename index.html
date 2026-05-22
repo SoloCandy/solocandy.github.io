@@ -1882,8 +1882,9 @@ function App(){
               }catch(e){console.error('Share failed',e);}
             }}>SHARE</button>
             <button className="tbtn" style={{fontSize:11}} onClick={()=>{
-              const code=prompt('Paste a tune code:');
-              if(!code)return;
+              const raw=prompt('Paste a tune code:');
+              if(!raw)return;
+              const code=raw.replace(/\s/g,''); // strip any whitespace/linebreaks from paste
               try{
                 const{ch:ic,fe:ife,dr:idr,br:ibr}=sanitizeTune(decodeTune(code));
                 setCh({...DEF_CH,...ic});
@@ -1891,7 +1892,8 @@ function App(){
                 setDr({...DEF_DR,...idr});
                 setBr({...DEF_BR,...ibr});
               }catch(e){
-                alert('Invalid tune code. Make sure you pasted the full string.');
+                console.error('Import failed:',e,code);
+                alert('Invalid tune code: '+e.message+'\n\nMake sure you pasted the full string.');
               }
             }}>IMPORT</button>
           </div>
