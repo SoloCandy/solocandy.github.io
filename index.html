@@ -270,7 +270,7 @@ const computeAlignment=(ch,tune,layout,buildType)=>{
   return{recCamberF,recCamberR,recToeF,recToeR,recCaster};
 };
 
-const DIFF_BIAS_SCALE=0.08;
+const DIFF_BIAS_SCALE=0.12;
 
 const computeDiff=(ch,fe,dr)=>{
   const rB=1-ch.frontBias/100;
@@ -319,7 +319,7 @@ const computeDiff=(ch,fe,dr)=>{
     bDiffDecel=(vals.frontDecel*nf + vals.rearDecel*(1-nf))*DIFF_BIAS_SCALE;
   } else if(vals.layout==='RWD'){
     bDiffAccel=-vals.accel*(1-nf)*DIFF_BIAS_SCALE;
-    bDiffDecel= vals.decel*(1-nf)*DIFF_BIAS_SCALE;
+    bDiffDecel=-vals.decel*(1-nf)*DIFF_BIAS_SCALE;
   } else {
     bDiffAccel= vals.accel*nf*DIFF_BIAS_SCALE;
     bDiffDecel= vals.decel*nf*DIFF_BIAS_SCALE;
@@ -392,8 +392,8 @@ const DEF_DR={layout:'RWD',buildType:'track',
 const DEF_AL={alignManual:false,
               camberF:-2.3,camberR:-1.8,toeF:-0.1,toeR:0.1,caster:5.5};
 const DEF_BR={brakeManual:false,brakeBias:50,brakePressure:100};
-const BRAKE_BIAS_SCALE=0.08;
-const AERO_BALANCE_SCALE=20;
+const BRAKE_BIAS_SCALE=0.20;
+const AERO_BALANCE_SCALE=15;
 
 const PRESET_SAVES={
   1:{name:'STREET',
