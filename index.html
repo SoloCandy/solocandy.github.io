@@ -141,6 +141,10 @@ const solveDamp=(hz,mass,z,lim)=>{
   const wr=Math.pow(hz*2*Math.PI,2)*mass,cc=2*Math.sqrt(wr*mass);
   return Math.min(lim,Math.max(1,cc*(z/100)*DAMPING_CALIBRATION));
 };
+const solveDampRaw=(hz,mass,z)=>{
+  const wr=Math.pow(hz*2*Math.PI,2)*mass,cc=2*Math.sqrt(wr*mass);
+  return Math.max(1,cc*(z/100)*DAMPING_CALIBRATION);
+};
 
 const feelToPhysics=(ch,fe)=>{
   const gameLim=GAME_LIMITS[fe.gameMode??'horizon']?.arb??65;
@@ -169,10 +173,17 @@ const computeTune=(ch,phys,gameMode)=>{
   const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil}=phys;
   const springF=solveSpring(fHz,m.front,ch.motionRatioF);
   const springR=solveSpring(rHz,m.rear,ch.motionRatioR);
-  const rebF=solveDamp(fHz,m.front,reboundZeta,lim.damping);
-  const rebR=solveDamp(rHz,m.rear,reboundZeta,lim.damping);
-  const bumpF=solveDamp(fHz,m.front,bumpZeta,lim.damping);
-  const bumpR=solveDamp(rHz,m.rear,bumpZeta,lim.damping);
+  const rawRebF=solveDampRaw(fHz,m.front,reboundZeta);
+  const rawRebR=solveDampRaw(rHz,m.rear,reboundZeta);
+  const rawBmpF=solveDampRaw(fHz,m.front,bumpZeta);
+  const rawBmpR=solveDampRaw(rHz,m.rear,bumpZeta);
+  const rebScale=Math.min(1,lim.damping/Math.max(rawRebF,rawRebR));
+  const bmpScale=Math.min(1,lim.damping/Math.max(rawBmpF,rawBmpR));
+  const rebF=Math.max(1,Math.round(rawRebF*rebScale*10)/10);
+  const rebR=Math.max(1,Math.round(rawRebR*rebScale*10)/10);
+  const bumpF=Math.max(1,Math.round(rawBmpF*bmpScale*10)/10);
+  const bumpR=Math.max(1,Math.round(rawBmpR*bmpScale*10)/10);
+  const dampingClamped=rebScale<1||bmpScale<1;
   const wrFN=Math.pow(fHz*2*Math.PI,2)*m.front,wrRN=Math.pow(rHz*2*Math.PI,2)*m.rear;
   const rsSpF=(wrFN*ch.trackF*ch.trackF)/2,rsSpR=(wrRN*ch.trackR*ch.trackR)/2;
   const rsSp=rsSpF+rsSpR;
@@ -220,7 +231,7 @@ const computeTune=(ch,phys,gameMode)=>{
          rebF:Math.round(rebF*10)/10,rebR:Math.round(rebR*10)/10,
          bumpF:Math.round(bumpF*10)/10,bumpR:Math.round(bumpR*10)/10,
          arbF,arbR,
-         fHz,rHz,settle,rollDeg,rollTarget:arbTargetRoll,rollClamped,
+         fHz,rHz,settle,rollDeg,rollTarget:arbTargetRoll,rollClamped,dampingClamped,
          arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
          bSp,bAb,bTot,mechBalance};
 };
@@ -1753,9 +1764,15 @@ function App(){
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:4}}>
               <Readout label="REB F"  value={tune.rebF}  warn={tune.rebF >lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
               <Readout label="REB R"  value={tune.rebR}  warn={tune.rebR >lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
-              <Readout label="BUMP F" value={tune.bumpF} unit={`/ ${lim.damping}`} primary/>
-              <Readout label="BUMP R" value={tune.bumpR} unit={`/ ${lim.damping}`} primary/>
+              <Readout label="BUMP F" value={tune.bumpF} warn={tune.bumpF>lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
+              <Readout label="BUMP R" value={tune.bumpR} warn={tune.bumpR>lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
             </div>
+            {tune.dampingClamped&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
+                 marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
+                 border:'1px solid #f5a62333'}}>
+              F/R balance preserved — damper values scaled proportionally to fit within 1–{lim.damping}.
+              Reduce Rebound ζ or Bump Ratio to achieve target damping character.
+            </div>}
           </Card>
 
           {/* 5 — BRAKES */}
