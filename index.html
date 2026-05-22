@@ -561,6 +561,12 @@ const Field=({label,value,onChange,min,max,step=0.01,unit='',hint=null,logScale=
   );
 };
 
+const FieldPair=({children})=>(
+  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+    {children}
+  </div>
+);
+
 const FeelSlider=({label,value,onChange,min,max,step=1,leftLabel,rightLabel,readout=null,centered=false,locked=false,hint=null,markers=null})=>{
   const pct=((value-min)/(max-min))*100;
   const cPct=((0-min)/(max-min))*100;
@@ -1350,34 +1356,75 @@ function App(){
           })
         }}>
 
+          {/* collapse / expand all */}
+          <div style={{display:'flex',justifyContent:'flex-end',gap:3,
+                       padding:'5px 12px 4px',borderBottom:'1px solid #0f172a'}}>
+            <span style={{fontSize:9,color:'#374151',letterSpacing:1,alignSelf:'center',marginRight:4}}>SECTIONS</span>
+            <button className="tbtn" style={{fontSize:10,padding:'2px 7px'}}
+              onClick={()=>setOpen(p=>Object.fromEntries(Object.keys(p).map(k=>[k,false])))}>−</button>
+            <button className="tbtn" style={{fontSize:10,padding:'2px 7px'}}
+              onClick={()=>setOpen(p=>Object.fromEntries(Object.keys(p).map(k=>[k,true])))}>+</button>
+          </div>
+
           <Sec title="CHASSIS" open={open.chassis} onToggle={tog('chassis')}
             onReset={()=>setCh({...DEF_CH})}>
-            <Field label="Weight"
-              value={metricUnits?ch.weight/KG_TO_LB:ch.weight}
-              onChange={metricUnits?v=>pCh('weight')(v*KG_TO_LB):pCh('weight')}
-              min={metricUnits?45:100} max={metricUnits?8165:18000} step={1}
-              unit={metricUnits?'kg':'lb'} logScale={true} logMid={metricUnits?2722:6000}
-              hint={metricUnits
-                ?"Total vehicle weight in kg. Find this on the car's stat page in Forza. Affects spring rates, damper forces, and ARB stiffness directly."
-                :"Total vehicle weight in pounds. Find this on the car's stat page in Forza. Affects spring rates, damper forces, and ARB stiffness directly."}/>
-            <Field label="Front Weight Bias" value={ch.frontBias} onChange={pCh('frontBias')} min={30} max={70} step={1} unit="%"
-              hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance. Most front-engined cars are 52–58% front."/>
-            <Field label="Aero Balance" value={ch.aeroBalance??0.5} onChange={pCh('aeroBalance')}
-              min={0} max={1.5} step={0.01}
-              hint="Aero balance as shown in Forza's tuning menu (0.00–1.50, same scale as Mech Balance). 0.50 = neutral / no aero. Above 0.50 = rear-biased downforce (oversteer tendency). Below 0.50 = front-biased (understeer tendency). Method: set all aero to max cornering, read the number from Forza, enter it here — then tune mechanical balance to cancel it."/>
-            <Field label="Aero Efficiency" value={ch.aeroEfficiency??0.9} onChange={pCh('aeroEfficiency')}
-              min={0.1} max={1.0} step={0.001}
-              hint="Aero efficiency from Forza's tuning menu (typically 0.300–0.900). Lower = more total downforce. Scales how strongly the aero balance affects the overall handling total — a high-downforce car at 0.30 has 3× the aero load of a stock car at 0.90, so its balance bias matters proportionally more."/>
-            <Field label="Wheelbase" value={Math.round(ch.wheelbase*1000)} onChange={v=>pCh('wheelbase')(v/1000)} min={400} max={4000} step={5} unit="mm"              hint="Distance between front and rear axles in millimetres. Used by the flat-ride formula to match rear spring frequency to your target speed. Typical cars: 2400–2900 mm."/>
-            <Field label="CG Height" value={Math.round(ch.cgHeight*1000)} onChange={v=>pCh('cgHeight')(v/1000)} min={200} max={900} step={5} unit="mm"              hint="Estimated height of the centre of gravity above ground. Forza doesn't expose this — use 400–460 mm for sports cars, 480–550 mm for sedans, 580–700 mm for SUVs. Affects roll moment and ARB stiffness."/>
+            <FieldPair>
+              <Field label="Weight"
+                value={metricUnits?ch.weight/KG_TO_LB:ch.weight}
+                onChange={metricUnits?v=>pCh('weight')(v*KG_TO_LB):pCh('weight')}
+                min={metricUnits?45:100} max={metricUnits?8165:18000} step={1}
+                unit={metricUnits?'kg':'lb'} logScale={true} logMid={metricUnits?2722:6000}
+                hint={metricUnits
+                  ?"Total vehicle weight in kg. Find this on the car's stat page in Forza. Affects spring rates, damper forces, and ARB stiffness directly."
+                  :"Total vehicle weight in pounds. Find this on the car's stat page in Forza. Affects spring rates, damper forces, and ARB stiffness directly."}/>
+              <Field label="Front Bias" value={ch.frontBias} onChange={pCh('frontBias')} min={30} max={70} step={1} unit="%"
+                hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance. Most front-engined cars are 52–58% front."/>
+            </FieldPair>
+            {(()=>{
+              const cm=cornerMasses(ch);
+              const disp=(kg)=>metricUnits?`${Math.round(kg)} kg`:`${Math.round(kg/KG_TO_LB)} lb`;
+              return(
+                <div style={{display:'flex',alignItems:'center',gap:6,
+                             padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
+                             border:'1px solid #1e293b',marginBottom:10,marginTop:-4}}>
+                  <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>F</span>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{disp(cm.front)}</span>
+                  <span style={{fontSize:9,color:'#4b5563'}}>/ corner</span>
+                  <div style={{flex:1,height:1,background:'#1e293b'}}/>
+                  <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>R</span>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{disp(cm.rear)}</span>
+                  <span style={{fontSize:9,color:'#4b5563'}}>/ corner</span>
+                </div>
+              );
+            })()}
+            <FieldPair>
+              <Field label="Aero Balance" value={ch.aeroBalance??0.5} onChange={pCh('aeroBalance')}
+                min={0} max={1.5} step={0.01}
+                hint="Aero balance as shown in Forza's tuning menu (0.00–1.50, same scale as Mech Balance). 0.50 = neutral / no aero. Above 0.50 = rear-biased downforce (oversteer tendency). Below 0.50 = front-biased (understeer tendency). Method: set all aero to max cornering, read the number from Forza, enter it here — then tune mechanical balance to cancel it."/>
+              <Field label="Aero Eff." value={ch.aeroEfficiency??0.9} onChange={pCh('aeroEfficiency')}
+                min={0.1} max={1.0} step={0.001}
+                hint="Aero efficiency from Forza's tuning menu (typically 0.300–0.900). Lower = more total downforce. Scales how strongly the aero balance affects the overall handling total — a high-downforce car at 0.30 has 3× the aero load of a stock car at 0.90, so its balance bias matters proportionally more."/>
+            </FieldPair>
+            <FieldPair>
+              <Field label="Wheelbase" value={Math.round(ch.wheelbase*1000)} onChange={v=>pCh('wheelbase')(v/1000)} min={400} max={4000} step={5} unit="mm"
+                hint="Distance between front and rear axles in millimetres. Used by the flat-ride formula to match rear spring frequency to your target speed. Typical cars: 2400–2900 mm."/>
+              <Field label="CG Height" value={Math.round(ch.cgHeight*1000)} onChange={v=>pCh('cgHeight')(v/1000)} min={200} max={900} step={5} unit="mm"
+                hint="Estimated height of the centre of gravity above ground. Forza doesn't expose this — use 400–460 mm for sports cars, 480–550 mm for sedans, 580–700 mm for SUVs. Affects roll moment and ARB stiffness."/>
+            </FieldPair>
             <AdvancedToggle open={open.chassisAdv} onToggle={()=>setOpen(p=>({...p,chassisAdv:!p.chassisAdv}))}/>
             {open.chassisAdv&&<>
-              <Field label="Track Width Front" value={Math.round(ch.trackF*1000)} onChange={v=>pCh('trackF')(v/1000)} min={1000} max={2200} step={5} unit="mm"                hint="Distance between left and right wheels. Typical: 1400–1800 mm. Wider = more roll resistance."/>
-              <Field label="Track Width Rear" value={Math.round(ch.trackR*1000)} onChange={v=>pCh('trackR')(v/1000)} min={1000} max={2200} step={5} unit="mm"                hint="Distance between left and right wheels. Typical: 1400–1800 mm. Often slightly wider than front."/>
-              <Field label="Motion Ratio Front" value={ch.motionRatioF} onChange={pCh('motionRatioF')} min={0.5} max={1.0} step={0.01}
-                hint="Spring compression per inch of wheel travel. Default 1.0 = no correction (matches simplified calculator). Real values: MacPherson ~0.85–0.95, Wishbone ~0.75–0.90."/>
-              <Field label="Motion Ratio Rear" value={ch.motionRatioR} onChange={pCh('motionRatioR')} min={0.5} max={1.0} step={0.01}
-                hint="Spring compression per inch of wheel travel. Default 1.0 = no correction (matches simplified calculator). Real values: MacPherson ~0.85–0.95, Wishbone ~0.75–0.90."/>
+              <FieldPair>
+                <Field label="Track F" value={Math.round(ch.trackF*1000)} onChange={v=>pCh('trackF')(v/1000)} min={1000} max={2200} step={5} unit="mm"
+                  hint="Distance between left and right wheels at the front. Typical: 1400–1800 mm. Wider = more roll resistance."/>
+                <Field label="Track R" value={Math.round(ch.trackR*1000)} onChange={v=>pCh('trackR')(v/1000)} min={1000} max={2200} step={5} unit="mm"
+                  hint="Distance between left and right wheels at the rear. Typical: 1400–1800 mm. Often slightly wider than front."/>
+              </FieldPair>
+              <FieldPair>
+                <Field label="Motion F" value={ch.motionRatioF} onChange={pCh('motionRatioF')} min={0.5} max={1.0} step={0.01}
+                  hint="Front spring compression per unit of wheel travel. Default 1.0 = no correction. Real values: MacPherson ~0.85–0.95, Wishbone ~0.75–0.90."/>
+                <Field label="Motion R" value={ch.motionRatioR} onChange={pCh('motionRatioR')} min={0.5} max={1.0} step={0.01}
+                  hint="Rear spring compression per unit of wheel travel. Default 1.0 = no correction. Real values: MacPherson ~0.85–0.95, Wishbone ~0.75–0.90."/>
+              </FieldPair>
             </>}
           </Sec>
 
@@ -1504,7 +1551,7 @@ function App(){
               max={lim.arb}/>
             <div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
-                         border:'1px solid #1e293b',marginBottom:10,marginTop:-6}}>
+                         border:'1px solid #1e293b',marginBottom:6,marginTop:-6}}>
               <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ROLL</span>
               <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,
                             color:tune.rollClamped?'#f59e0b':'#e2e8f0'}}>{tune.rollDeg.toFixed(1)}</span>
@@ -1530,10 +1577,20 @@ function App(){
               <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SHARE</span>
               <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{Math.round(tune.arbShare)}</span>
               <span style={{fontSize:10,color:'#4b5563'}}>%</span>
-            </div>            <div style={{marginBottom:10}}>
-              <span style={{fontSize:12,color:'#6b7280',display:'inline-block',marginBottom:4}}>Stiffness Mode</span>
+            </div>
+            {/* roll stiffness split bar */}
+            <div style={{display:'flex',height:3,borderRadius:2,overflow:'hidden',marginBottom:2}}>
+              <div style={{flex:Math.max(0,100-tune.arbShare),background:'#3b82f6',opacity:0.55,transition:'flex .2s'}}/>
+              <div style={{flex:Math.max(0,tune.arbShare),background:'#f59e0b',opacity:0.75,transition:'flex .2s'}}/>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'#374151',marginBottom:10}}>
+              <span>SPRINGS {Math.round(100-tune.arbShare)}%</span>
+              <span>ARBs {Math.round(tune.arbShare)}%</span>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
+              <span style={{fontSize:12,color:'#6b7280'}}>Stiffness Mode</span>
               <Hint text="AUTO derives ARB stiffness from the car's natural roll tendency — heavier, taller, softer cars get more ARB contribution. ROLL ° targets a specific body roll angle. SHARE % directly sets ARBs as a fraction of total roll stiffness."/>
-              <div style={{display:'flex',gap:3}}>
+              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${(fe.arbMode??'auto')==='auto'?' on':''}`}
                   onClick={()=>pFe('arbMode')('auto')}>AUTO</button>
                 <button className={`tog${(fe.arbMode??'auto')==='roll'?' on':''}`}
@@ -1547,7 +1604,6 @@ function App(){
                       arbShareMan:Math.round(tune.arbShare)}));
                   }}>SHARE %</button>
               </div>
-
             </div>
             {(fe.arbMode??'auto')==='roll'&&
               <Field label="Target Roll Angle" value={fe.arbTargetRollMan} onChange={pFe('arbTargetRollMan')}
@@ -1561,10 +1617,10 @@ function App(){
 
           <Sec title="ALIGNMENT" open={open.alignment} onToggle={tog('alignment')}
             onReset={()=>setAl({...DEF_AL})}>
-            <div style={{marginBottom:10}}>
-              <span style={{fontSize:12,color:'#6b7280',display:'inline-block',marginBottom:4}}>Alignment Mode</span>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
+              <span style={{fontSize:12,color:'#6b7280'}}>Alignment Mode</span>
               <Hint text="AUTO derives camber, toe, and caster from build type, layout, CG height, and roll angle. MANUAL lets you enter specific values — seeds from the current AUTO recommendation when switching."/>
-              <div style={{display:'flex',gap:3}}>
+              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${!al.alignManual?' on':''}`}
                   onClick={()=>setAl(p=>({...p,alignManual:false}))}>AUTO</button>
                 <button className={`tog${al.alignManual?' on':''}`}
@@ -1573,24 +1629,24 @@ function App(){
                     toeF:autoAlign.recToeF,toeR:autoAlign.recToeR,
                     caster:autoAlign.recCaster}))}>MANUAL</button>
               </div>
-
             </div>
             {al.alignManual&&<>
-              <div style={{fontSize:10,color:'#4b5563',letterSpacing:2,marginBottom:6}}>CAMBER</div>
-              <Field label="Front" value={al.camberF} onChange={pAl('camberF')}
-                min={-4.0} max={0.0} step={0.1} unit="°"
-                hint="Static front camber. Negative camber tilts the top of the tyre inward. Compensates for camber gain during body roll — outer tyre stays flat through corners."/>
-              <Field label="Rear" value={al.camberR} onChange={pAl('camberR')}
-                min={-3.5} max={0.0} step={0.1} unit="°"
-                hint="Static rear camber. Rear typically needs less than front since body roll is shared more evenly and rear suspension often has lower camber gain."/>
-              <div style={{fontSize:10,color:'#4b5563',letterSpacing:2,marginBottom:6,marginTop:4}}>TOE</div>
-              <Field label="Front" value={al.toeF} onChange={pAl('toeF')}
-                min={-0.2} max={0.2} step={0.1} unit="°"
-                hint="Front toe angle. Negative = toe-out (improves turn-in, can cause instability). Positive = toe-in (more stable, slower turn-in). FWD typically toe-in, RWD typically slight toe-out."/>
-              <Field label="Rear" value={al.toeR} onChange={pAl('toeR')}
-                min={0.0} max={0.3} step={0.1} unit="°"
-                hint="Rear toe angle. Positive = toe-in (increases stability, reduces rotation). Near zero for drift/rotation, higher for stability builds."/>
-              <div style={{fontSize:10,color:'#4b5563',letterSpacing:2,marginBottom:6,marginTop:4}}>CASTER</div>
+              <FieldPair>
+                <Field label="Camber F" value={al.camberF} onChange={pAl('camberF')}
+                  min={-4.0} max={0.0} step={0.1} unit="°"
+                  hint="Static front camber. Negative camber tilts the top of the tyre inward. Compensates for camber gain during body roll — outer tyre stays flat through corners."/>
+                <Field label="Camber R" value={al.camberR} onChange={pAl('camberR')}
+                  min={-3.5} max={0.0} step={0.1} unit="°"
+                  hint="Static rear camber. Rear typically needs less than front since body roll is shared more evenly and rear suspension often has lower camber gain."/>
+              </FieldPair>
+              <FieldPair>
+                <Field label="Toe F" value={al.toeF} onChange={pAl('toeF')}
+                  min={-0.2} max={0.2} step={0.1} unit="°"
+                  hint="Front toe angle. Negative = toe-out (improves turn-in, can cause instability). Positive = toe-in (more stable, slower turn-in). FWD typically toe-in, RWD typically slight toe-out."/>
+                <Field label="Toe R" value={al.toeR} onChange={pAl('toeR')}
+                  min={0.0} max={0.3} step={0.1} unit="°"
+                  hint="Rear toe angle. Positive = toe-in (increases stability, reduces rotation). Near zero for drift/rotation, higher for stability builds."/>
+              </FieldPair>
               <Field label="Caster" value={al.caster} onChange={pAl('caster')}
                 min={4.0} max={7.5} step={0.1} unit="°"
                 hint="Steering axis tilt. Higher caster improves straight-line stability and adds camber gain through steering input. Lower caster reduces steering effort (useful for FWD). 5.0–6.5° is typical."/>
@@ -1613,10 +1669,10 @@ function App(){
               options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
             <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}/>
-            <div style={{marginTop:8,marginBottom:10}}>
-              <span style={{fontSize:12,color:'#6b7280',display:'inline-block',marginBottom:4}}>Differential Mode</span>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,marginBottom:10}}>
+              <span style={{fontSize:12,color:'#6b7280'}}>Differential Mode</span>
               <Hint text="AUTO derives lock values from layout, build type, weight bias, and the Corner Exit/Entry sliders. MANUAL exposes all individual lock percentages."/>
-              <div style={{display:'flex',gap:3}}>
+              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${!dr.diffManual?' on':''}`}
                   onClick={()=>pDr('diffManual')(false)}>AUTO</button>
                 <button className={`tog${dr.diffManual?' on':''}`}
@@ -1630,7 +1686,6 @@ function App(){
                         :{diffAccel:d.accel,diffDecel:d.decel})}));
                   }}>MANUAL</button>
               </div>
-
             </div>
             {!dr.diffManual&&<>
               <FeelSlider label="Corner Exit" value={dr.diffBiasExit??0}
@@ -1650,27 +1705,28 @@ function App(){
             </>}
             {dr.diffManual&&(dr.layout==='AWD'?(
               <>
-                <div style={{fontSize:10,color:'#4b5563',letterSpacing:2,marginBottom:6,marginTop:2}}>FRONT AXLE</div>
-                <Field label="Accel" value={dr.diffFrontAccel} onChange={pDr('diffFrontAccel')}
-                  min={0} max={100} step={1} unit="%"
-                  hint="Front axle lock under power. Higher = more front pull out of corners but risks understeer. 20–35% typical."/>
-                <Field label="Decel" value={dr.diffFrontDecel} onChange={pDr('diffFrontDecel')}
-                  min={0} max={100} step={1} unit="%"
-                  hint="Front axle lock off throttle. 0 is strongly recommended — anything above strongly increases understeer on corner entry."/>
-                <div style={{fontSize:10,color:'#4b5563',letterSpacing:2,marginBottom:6,marginTop:4}}>REAR AXLE</div>
-                <Field label="Accel" value={dr.diffRearAccel} onChange={pDr('diffRearAccel')}
-                  min={0} max={100} step={1} unit="%"
-                  hint="Rear axle lock under power. Higher = more oversteer on exit. 40–60% typical."/>
-                <Field label="Decel" value={dr.diffRearDecel} onChange={pDr('diffRearDecel')}
-                  min={0} max={100} step={1} unit="%"
-                  hint="Rear axle lock off throttle. Low values improve corner entry rotation. 0–15% typical."/>
-                <div style={{fontSize:10,color:'#4b5563',letterSpacing:2,marginBottom:6,marginTop:4}}>CENTER</div>
-                <Field label="Split" value={dr.diffCenter} onChange={pDr('diffCenter')}
+                <FieldPair>
+                  <Field label="Front Accel" value={dr.diffFrontAccel} onChange={pDr('diffFrontAccel')}
+                    min={0} max={100} step={1} unit="%"
+                    hint="Front axle lock under power. Higher = more front pull out of corners but risks understeer. 20–35% typical."/>
+                  <Field label="Front Decel" value={dr.diffFrontDecel} onChange={pDr('diffFrontDecel')}
+                    min={0} max={100} step={1} unit="%"
+                    hint="Front axle lock off throttle. 0 is strongly recommended — anything above strongly increases understeer on corner entry."/>
+                </FieldPair>
+                <FieldPair>
+                  <Field label="Rear Accel" value={dr.diffRearAccel} onChange={pDr('diffRearAccel')}
+                    min={0} max={100} step={1} unit="%"
+                    hint="Rear axle lock under power. Higher = more oversteer on exit. 40–60% typical."/>
+                  <Field label="Rear Decel" value={dr.diffRearDecel} onChange={pDr('diffRearDecel')}
+                    min={0} max={100} step={1} unit="%"
+                    hint="Rear axle lock off throttle. Low values improve corner entry rotation. 0–15% typical."/>
+                </FieldPair>
+                <Field label="Center Split" value={dr.diffCenter} onChange={pDr('diffCenter')}
                   min={0} max={100} step={1} unit="% rear"
                   hint="Power distribution rear bias. Higher = more oversteer. 60–70% typical for track."/>
               </>
             ):(
-              <>
+              <FieldPair>
                 <Field label="Accel Lock" value={dr.diffAccel} onChange={pDr('diffAccel')}
                   min={0} max={100} step={1} unit="%"
                   hint={dr.layout==='RWD'
@@ -1681,16 +1737,16 @@ function App(){
                   hint={dr.layout==='RWD'
                     ?"RWD rear decel lock. Lower = better corner entry rotation, less lift-off oversteer. 0–20% typical."
                     :"FWD front decel lock. Lower = less understeer on entry. 0–10% typical."}/>
-              </>
+              </FieldPair>
             ))}
           </Sec>
 
           <Sec title="BRAKES" open={open.brakes} onToggle={tog('brakes')}
             onReset={()=>setBr({...DEF_BR})}>
-            <div style={{marginBottom:10}}>
-              <span style={{fontSize:12,color:'#6b7280',display:'inline-block',marginBottom:4}}>Brake Mode</span>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
+              <span style={{fontSize:12,color:'#6b7280'}}>Brake Mode</span>
               <Hint text="AUTO derives a recommended brake balance from your front weight bias and build type. MANUAL lets you set specific values."/>
-              <div style={{display:'flex',gap:3}}>
+              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${!br.brakeManual?' on':''}`}
                   onClick={()=>setBr(p=>({...p,brakeManual:false}))}>AUTO</button>
                 <button className={`tog${br.brakeManual?' on':''}`}
@@ -1698,14 +1754,15 @@ function App(){
                     brakeBias:recBrakeBias,brakePressure:100}))}>MANUAL</button>
               </div>
             </div>
-            {br.brakeManual&&<>
-              <Field label="Brake Balance" value={br.brakeBias??DEF_BR.brakeBias}
-                onChange={pBr('brakeBias')} min={45} max={70} step={1} unit="% front"
-                hint="Front brake bias. Higher front bias = stronger front braking, more resistance to corner entry rotation (understeer). Lower = more rear braking, more rotation tendency (oversteer). Start at your front weight distribution and adjust by feel."/>
-              <Field label="Brake Pressure" value={br.brakePressure??DEF_BR.brakePressure}
-                onChange={pBr('brakePressure')} min={50} max={200} step={5} unit="%"
-                hint="Overall brake force multiplier. 100% is the default. Increase if the car doesn't slow down fast enough; decrease if the wheels lock under light braking. Tune this to match your tyre grip level."/>
-            </>}
+            {br.brakeManual&&
+              <FieldPair>
+                <Field label="Brake Bal." value={br.brakeBias??DEF_BR.brakeBias}
+                  onChange={pBr('brakeBias')} min={45} max={70} step={1} unit="% F"
+                  hint="Front brake bias. Higher front bias = stronger front braking, more resistance to corner entry rotation (understeer). Lower = more rear braking, more rotation tendency (oversteer). Start at your front weight distribution and adjust by feel."/>
+                <Field label="Pressure" value={br.brakePressure??DEF_BR.brakePressure}
+                  onChange={pBr('brakePressure')} min={50} max={200} step={5} unit="%"
+                  hint="Overall brake force multiplier. 100% is the default. Increase if the car doesn't slow down fast enough; decrease if the wheels lock under light braking. Tune this to match your tyre grip level."/>
+              </FieldPair>}
           </Sec>
         </div>
 
