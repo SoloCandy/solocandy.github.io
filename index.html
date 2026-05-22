@@ -1446,8 +1446,9 @@ function App(){
               reboundZeta:DEF_FE.reboundZeta,
               bumpRatio:DEF_FE.bumpRatio,
               bumpZeta:DEF_FE.bumpZeta}))}>
-            <FeelSlider label="Ride Stiffness" value={fe.rideStiffness}
-              onChange={pFe('rideStiffness')} min={0} max={100} leftLabel="COMFORT" rightLabel="RACE"
+            <FeelSlider label="Ride Stiffness" value={physics.frontHz}
+              onChange={v=>{const rs=Math.round(Math.max(0,Math.min(100,(v-0.8)/2.7*100)));pFe('rideStiffness')(rs);}}
+              min={0.80} max={3.50} step={0.01} leftLabel="0.80" rightLabel="3.50"
               readout={<span style={{display:'flex',alignItems:'center',gap:3}}>
                 <input type="number" className="num"
                   style={{width:44,fontSize:11,fontWeight:700,color:'#6b7280',
@@ -1469,12 +1470,7 @@ function App(){
                   onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}/>
                 <span style={{fontSize:11,color:'#6b7280',fontFamily:'Courier New'}}>Hz</span>
               </span>}
-              hint="Sets the front spring frequency. COMFORT (0) = 0.80 Hz, street-soft. RACE (100) = 3.50 Hz, track-stiff. Rear frequency is derived automatically via the flat-ride formula. Click the Hz value to type directly."
-              markers={[
-                {value:19,color:'#64748b',label:'ROAD'},
-                {value:44,color:'#f59e0b',label:'FIRM'},
-                {value:74,color:'#ef4444',label:'RACE'},
-              ]}/>
+              hint="Front spring frequency. 0.80 Hz = very soft/comfort, 3.50 Hz = stiff/race. Rear Hz derived automatically. Click the value to type a target frequency directly."/>
             {/* rear Hz mode toggle */}
             <div style={{display:'flex',gap:3,marginBottom:10,marginTop:-4}}>
               <button className={`tog${(fe.rearHzMode??'flatRide')==='flatRide'?' on':''}`}
