@@ -561,8 +561,8 @@ const Field=({label,value,onChange,min,max,step=0.01,unit='',hint=null,logScale=
   );
 };
 
-const FieldPair=({children})=>(
-  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+const FieldPair=({children,wide=true})=>(
+  <div style={{display:'grid',gridTemplateColumns:wide?'1fr 1fr':'1fr',gap:wide?8:0}}>
     {children}
   </div>
 );
@@ -1248,18 +1248,25 @@ function App(){
   const[showChecker,setShowChecker]=useState(false);
   const[sidebarOpen,setSidebarOpen]=useState(true);
   const[isMobile,setIsMobile]=useState(false);
+  const[windowWidth,setWindowWidth]=useState(window.innerWidth);
   useEffect(()=>{
     const preload=document.getElementById('pre-load');
     if(preload)preload.style.display='none';
     const check=()=>{
-      const mobile=window.innerWidth<768;
+      const w=window.innerWidth;
+      const mobile=w<768;
       setIsMobile(mobile);
+      setWindowWidth(w);
       setSidebarOpen(!mobile);
     };
     check();
     window.addEventListener('resize',check);
     return()=>window.removeEventListener('resize',check);
   },[]);
+  // sidebar grows with the display: 300px baseline, up to 440px at very wide screens.
+  // FieldPair goes 2-col only when each column is comfortably wide enough (sidebar ≥ 380px).
+  const sidebarWidth=isMobile?300:Math.min(440,Math.max(300,Math.floor(windowWidth*0.25)));
+  const sidebarWide=!isMobile&&sidebarWidth>=380;
 
   const pCh=k=>v=>setCh(p=>({...p,[k]:v}));
   const pFe=k=>v=>setFe(p=>({...p,[k]:v}));
@@ -1344,7 +1351,7 @@ function App(){
 
         {/* SIDEBAR */}
         <div className="sidebar-scroll" style={{WebkitOverflowScrolling:'touch',overscrollBehavior:'contain',
-          width:300,flexShrink:0,overflowY:'auto',
+          width:sidebarWidth,flexShrink:0,overflowY:'auto',transition:'width .2s ease',
           borderRight:'1px solid #0f172a',background:'#020617',
           ...(isMobile?{
             position:'absolute',top:0,left:0,bottom:0,zIndex:200,
@@ -1405,13 +1412,13 @@ function App(){
               hint="Estimated height of the centre of gravity above ground. Forza doesn't expose this — use 400–460 mm for sports cars, 480–550 mm for sedans, 580–700 mm for SUVs. Affects roll moment and ARB stiffness."/>
             <AdvancedToggle open={open.chassisAdv} onToggle={()=>setOpen(p=>({...p,chassisAdv:!p.chassisAdv}))}/>
             {open.chassisAdv&&<>
-              <FieldPair>
+              <FieldPair wide={sidebarWide}>
                 <Field label="Track F" value={Math.round(ch.trackF*1000)} onChange={v=>pCh('trackF')(v/1000)} min={1000} max={2200} step={5} unit="mm"
                   hint="Distance between left and right wheels at the front. Typical: 1400–1800 mm. Wider = more roll resistance."/>
                 <Field label="Track R" value={Math.round(ch.trackR*1000)} onChange={v=>pCh('trackR')(v/1000)} min={1000} max={2200} step={5} unit="mm"
                   hint="Distance between left and right wheels at the rear. Typical: 1400–1800 mm. Often slightly wider than front."/>
               </FieldPair>
-              <FieldPair>
+              <FieldPair wide={sidebarWide}>
                 <Field label="Motion F" value={ch.motionRatioF} onChange={pCh('motionRatioF')} min={0.5} max={1.0} step={0.01}
                   hint="Front spring compression per unit of wheel travel. Default 1.0 = no correction. Real values: MacPherson ~0.85–0.95, Wishbone ~0.75–0.90."/>
                 <Field label="Motion R" value={ch.motionRatioR} onChange={pCh('motionRatioR')} min={0.5} max={1.0} step={0.01}
@@ -1623,7 +1630,7 @@ function App(){
               </div>
             </div>
             {al.alignManual&&<>
-              <FieldPair>
+              <FieldPair wide={sidebarWide}>
                 <Field label="Camber F" value={al.camberF} onChange={pAl('camberF')}
                   min={-4.0} max={0.0} step={0.1} unit="°"
                   hint="Static front camber. Negative camber tilts the top of the tyre inward. Compensates for camber gain during body roll — outer tyre stays flat through corners."/>
@@ -1631,7 +1638,7 @@ function App(){
                   min={-3.5} max={0.0} step={0.1} unit="°"
                   hint="Static rear camber. Rear typically needs less than front since body roll is shared more evenly and rear suspension often has lower camber gain."/>
               </FieldPair>
-              <FieldPair>
+              <FieldPair wide={sidebarWide}>
                 <Field label="Toe F" value={al.toeF} onChange={pAl('toeF')}
                   min={-0.2} max={0.2} step={0.1} unit="°"
                   hint="Front toe angle. Negative = toe-out (improves turn-in, can cause instability). Positive = toe-in (more stable, slower turn-in). FWD typically toe-in, RWD typically slight toe-out."/>
@@ -1697,7 +1704,7 @@ function App(){
             </>}
             {dr.diffManual&&(dr.layout==='AWD'?(
               <>
-                <FieldPair>
+                <FieldPair wide={sidebarWide}>
                   <Field label="Front Accel" value={dr.diffFrontAccel} onChange={pDr('diffFrontAccel')}
                     min={0} max={100} step={1} unit="%"
                     hint="Front axle lock under power. Higher = more front pull out of corners but risks understeer. 20–35% typical."/>
@@ -1705,7 +1712,7 @@ function App(){
                     min={0} max={100} step={1} unit="%"
                     hint="Front axle lock off throttle. 0 is strongly recommended — anything above strongly increases understeer on corner entry."/>
                 </FieldPair>
-                <FieldPair>
+                <FieldPair wide={sidebarWide}>
                   <Field label="Rear Accel" value={dr.diffRearAccel} onChange={pDr('diffRearAccel')}
                     min={0} max={100} step={1} unit="%"
                     hint="Rear axle lock under power. Higher = more oversteer on exit. 40–60% typical."/>
@@ -1718,7 +1725,7 @@ function App(){
                   hint="Power distribution rear bias. Higher = more oversteer. 60–70% typical for track."/>
               </>
             ):(
-              <FieldPair>
+              <FieldPair wide={sidebarWide}>
                 <Field label="Accel Lock" value={dr.diffAccel} onChange={pDr('diffAccel')}
                   min={0} max={100} step={1} unit="%"
                   hint={dr.layout==='RWD'
@@ -1747,7 +1754,7 @@ function App(){
               </div>
             </div>
             {br.brakeManual&&
-              <FieldPair>
+              <FieldPair wide={sidebarWide}>
                 <Field label="Brake Bal." value={br.brakeBias??DEF_BR.brakeBias}
                   onChange={pBr('brakeBias')} min={45} max={70} step={1} unit="% F"
                   hint="Front brake bias. Higher front bias = stronger front braking, more resistance to corner entry rotation (understeer). Lower = more rear braking, more rotation tendency (oversteer). Start at your front weight distribution and adjust by feel."/>
