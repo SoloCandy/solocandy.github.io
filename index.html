@@ -1085,7 +1085,7 @@ const sanitizeTune=({ch,fe,dr})=>{
       trackR:       cl(ch?.trackR,         1.0,  2.2,  DEF_CH.trackR),
       motionRatioF: cl(ch?.motionRatioF,   0.5,  1.0,  DEF_CH.motionRatioF),
       motionRatioR: cl(ch?.motionRatioR,   0.5,  1.0,  DEF_CH.motionRatioR),
-      aeroBalance:  cl(ch?.aeroBalance,    0,    1,    DEF_CH.aeroBalance),
+      aeroBalance:  cl(ch?.aeroBalance,    0,    1.5,  DEF_CH.aeroBalance),
       aeroEfficiency:cl(ch?.aeroEfficiency,0.1,  1.0,  DEF_CH.aeroEfficiency),
     },
     fe:{
@@ -1343,8 +1343,8 @@ function App(){
             <Field label="Front Weight Bias" value={ch.frontBias} onChange={pCh('frontBias')} min={30} max={70} step={1} unit="%"
               hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance. Most front-engined cars are 52–58% front."/>
             <Field label="Aero Balance" value={ch.aeroBalance??0.5} onChange={pCh('aeroBalance')}
-              min={0} max={1} step={0.01}
-              hint="Aero balance as shown in Forza's tuning menu (0.00–1.00, same scale as Mech Balance). 0.50 = neutral / no aero. Above 0.50 = rear-biased downforce (oversteer tendency). Below 0.50 = front-biased (understeer tendency). Method: set all aero to max cornering, read the number from Forza, enter it here — then tune mechanical balance to cancel it."/>
+              min={0} max={1.5} step={0.01}
+              hint="Aero balance as shown in Forza's tuning menu (0.00–1.50, same scale as Mech Balance). 0.50 = neutral / no aero. Above 0.50 = rear-biased downforce (oversteer tendency). Below 0.50 = front-biased (understeer tendency). Method: set all aero to max cornering, read the number from Forza, enter it here — then tune mechanical balance to cancel it."/>
             <Field label="Aero Efficiency" value={ch.aeroEfficiency??0.9} onChange={pCh('aeroEfficiency')}
               min={0.1} max={1.0} step={0.001}
               hint="Aero efficiency from Forza's tuning menu (typically 0.300–0.900). Lower = more total downforce. Scales how strongly the aero balance affects the overall handling total — a high-downforce car at 0.30 has 3× the aero load of a stock car at 0.90, so its balance bias matters proportionally more."/>
