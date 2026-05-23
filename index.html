@@ -1479,6 +1479,19 @@ function App(){
     window.addEventListener('resize',check);
     return()=>window.removeEventListener('resize',check);
   },[]);
+  // Auto-scale chassis geometry with weight in BEG/INT modes
+  useEffect(()=>{
+    if(uiMode==='pro')return;
+    const r=ch.weight/DEF_CH.weight; // weight ratio vs default 3200 lb
+    const r5=v=>Math.round(v/0.005)*0.005; // round to nearest 5 mm
+    setCh(p=>({...p,
+      wheelbase: r5(DEF_CH.wheelbase * Math.pow(r,0.20)),
+      trackF:    r5(DEF_CH.trackF    * Math.pow(r,0.15)),
+      trackR:    r5(DEF_CH.trackR    * Math.pow(r,0.15)),
+      cgHeight:  r5(DEF_CH.cgHeight  * Math.pow(r,0.25)),
+    }));
+  },[ch.weight,uiMode]); // eslint-disable-line
+
   // sidebar grows with the display: 300px baseline, up to 440px at very wide screens.
   const sidebarWidth=isMobile?300:Math.min(440,Math.max(300,Math.floor(windowWidth*0.25)));
 
