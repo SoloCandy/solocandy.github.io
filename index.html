@@ -1539,7 +1539,7 @@ function App(){
                 :"Total vehicle weight in pounds. Find this on the car's stat page in Forza. Affects spring rates, damper forces, and ARB stiffness directly."}/>
             <Field label="Front Weight Bias" value={ch.frontBias} onChange={pCh('frontBias')} min={30} max={70} step={1} unit="%"
               hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance. Most front-engined cars are 52–58% front."/>
-            <div style={{display:'flex',alignItems:'center',gap:6,
+            {uiMode==='pro'&&<div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
                          border:'1px solid #1e293b',marginBottom:10,marginTop:-4}}>
               <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>F CORNER</span>
@@ -1547,7 +1547,7 @@ function App(){
               <div style={{flex:1,height:1,background:'#1e293b'}}/>
               <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>R CORNER</span>
               <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.rear)}</span>
-            </div>
+            </div>}
             {uiMode==='pro'&&(()=>{
               const xferF=cm.front*ch.cgHeight/ch.trackF;
               const xferR=cm.rear*ch.cgHeight/ch.trackR;
@@ -1904,7 +1904,7 @@ function App(){
                 hint="Fraction of total roll stiffness supplied by ARBs. 0% = springs handle all roll resistance. 20–30% is typical sport. Higher = stiffer bars relative to springs, more abrupt load transfer."/>}
           </Sec>
 
-          <Sec title="ALIGNMENT" open={open.alignment} onToggle={tog('alignment')}
+          {uiMode==='pro'&&<Sec title="ALIGNMENT" open={open.alignment} onToggle={tog('alignment')}
             onReset={()=>setAl({...DEF_AL})}>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
               <span style={{fontSize:12,color:'#6b7280'}}>Alignment Mode</span>
@@ -1936,7 +1936,7 @@ function App(){
                 min={4.0} max={7.5} step={0.1} unit="°"
                 hint="Steering axis tilt. Higher caster improves straight-line stability and adds camber gain through steering input. Lower caster reduces steering effort (useful for FWD). 5.0–6.5° is typical."/>
             </>}
-          </Sec>
+          </Sec>}
 
           <Sec title="DRIVETRAIN" open={open.drivetrain} onToggle={tog('drivetrain')}
             onReset={()=>setDr(p=>({...p,
@@ -1954,13 +1954,13 @@ function App(){
               options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
             <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}/>
-            <div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,marginBottom:10}}>
+            {uiMode==='pro'&&<div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,marginBottom:10}}>
               <span style={{fontSize:12,color:'#6b7280'}}>Differential Mode</span>
               <Hint text="AUTO derives lock values from layout, build type, weight bias, and the Corner Exit/Entry sliders. MANUAL exposes all individual lock percentages."/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${!dr.diffManual?' on':''}`}
                   onClick={()=>pDr('diffManual')(false)}>AUTO</button>
-                {uiMode==='pro'&&<button className={`tog${dr.diffManual?' on':''}`}
+                <button className={`tog${dr.diffManual?' on':''}`}
                   onClick={()=>{
                     const d=diff;
                     setDr(p=>({...p,diffManual:true,
@@ -1969,10 +1969,10 @@ function App(){
                           diffRearAccel:d.rearAccel,diffRearDecel:d.rearDecel,
                           diffCenter:d.center}
                         :{diffAccel:d.accel,diffDecel:d.decel})}));
-                  }}>MANUAL</button>}
+                  }}>MANUAL</button>
               </div>
-            </div>
-            {!dr.diffManual&&<>
+            </div>}
+            {uiMode==='pro'&&!dr.diffManual&&<>
               <FeelSlider label="Corner Exit" value={dr.diffBiasExit??0}
                 onChange={pDr('diffBiasExit')} min={-50} max={50} leftLabel="UNDERSTEER" rightLabel="OVERSTEER"
                 centered={true}
@@ -1988,7 +1988,7 @@ function App(){
                   ?`RD ${diff.rearDecel}%`
                   :`Decel ${diff.decel}%`}/>
             </>}
-            {dr.diffManual&&(dr.layout==='AWD'?(
+            {uiMode==='pro'&&dr.diffManual&&(dr.layout==='AWD'?(
               <>
                 <Field label="Front Accel" value={dr.diffFrontAccel} onChange={pDr('diffFrontAccel')}
                   min={0} max={100} step={1} unit="%"
@@ -2022,7 +2022,7 @@ function App(){
             ))}
           </Sec>
 
-          <Sec title="BRAKES" open={open.brakes} onToggle={tog('brakes')}
+          {uiMode==='pro'&&<Sec title="BRAKES" open={open.brakes} onToggle={tog('brakes')}
             onReset={()=>setBr({...DEF_BR})}>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
               <span style={{fontSize:12,color:'#6b7280'}}>Brake Mode</span>
@@ -2043,7 +2043,7 @@ function App(){
                 onChange={pBr('brakePressure')} min={50} max={200} step={5} unit="%"
                 hint="Overall brake force multiplier. 100% is the default. Increase if the car doesn't slow down fast enough; decrease if the wheels lock under light braking. Tune this to match your tyre grip level."/>
             </>}
-          </Sec>
+          </Sec>}
           </>}
         </div>
 
