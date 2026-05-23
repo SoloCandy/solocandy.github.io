@@ -4,7 +4,7 @@
     {
       "name": "npx serve",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", ".", "--no-clipboard"],
+      "runtimeArgs": ["serve", "C:\\Users\\User\\susp-os", "--no-clipboard"],
       "autoPort": true,
       "port": 3000
     }

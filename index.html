@@ -2604,7 +2604,17 @@ function App(){
                 const hzNorm=Math.min(1,Math.max(0,(physics.frontHz-0.8)/2.7));
                 const arbNorm=lim.arb>0?(tune.arbF+tune.arbR)/(2*lim.arb):0;
                 const dampNorm=Math.min(1,Math.max(0,(physics.reboundZeta-10)/105));
-                const score=hzNorm*0.5+arbNorm*0.3+(1-dampNorm)*0.2; // 0=max stable, 1=max agile
+                // front toe-out = agile; range -1.0 (full toe-out) to +0.5 (toe-in)
+                const toeNorm=Math.min(1,Math.max(0,(-( align.recToeF??-0.1)+0.5)/1.5));
+                // lower caster = more agile; range 4.0–7.5°
+                const casterNorm=Math.min(1,Math.max(0,(7.5-(align.recCaster??5.5))/3.5));
+                // stiffer rear relative to front = more rotation tendency = agile
+                const rearFrontRatio=physics.frontHz>0?physics.rearHz/physics.frontHz:1;
+                const rearHzNorm=Math.min(1,Math.max(0,(rearFrontRatio-0.7)/1.1));
+                // more rear weight = lower polar moment = more agile; range 40–65% front
+                const biasNorm=Math.min(1,Math.max(0,(65-(ch.frontBias??55))/25));
+                const score=hzNorm*0.35+arbNorm*0.25+(1-dampNorm)*0.15
+                           +toeNorm*0.12+casterNorm*0.08+rearHzNorm*0.04+biasNorm*0.01; // 0=stable,1=agile
                 const p=Math.max(-50,Math.min(50,(score-0.5)*100));
                 const fs=p>=0?{left:'50%',width:`${p}%`}:{left:`${50+p}%`,width:`${-p}%`};
                 return(
