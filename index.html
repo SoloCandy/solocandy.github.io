@@ -1972,7 +1972,7 @@ function App(){
                   }}>MANUAL</button>
               </div>
             </div>}
-            {uiMode==='pro'&&!dr.diffManual&&<>
+            {!dr.diffManual&&<>
               <FeelSlider label="Corner Exit" value={dr.diffBiasExit??0}
                 onChange={pDr('diffBiasExit')} min={-50} max={50} leftLabel="UNDERSTEER" rightLabel="OVERSTEER"
                 centered={true}
