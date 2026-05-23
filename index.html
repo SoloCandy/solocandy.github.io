@@ -1326,6 +1326,117 @@ class ErrorBoundary extends React.Component{
   }
 }
 
+// ── Tutorial content ────────────────────────────────────────────────────────
+const TUTORIALS={
+  beginner:[
+    {title:'Welcome to SUSP.OS',
+     body:'This app calculates exact Forza suspension values from your car\'s stats and a handling target. As a beginner you only need a few inputs — the physics engine handles the rest. Use the arrows to step through what each control does.'},
+    {title:'Start From a Preset',
+     body:'Tap one of the six preset buttons at the top of the sidebar to load a baseline tune. STREET, TRACK, RALLY, DRIFT, MOTORSPT, and COMFORT are ready-made starting points — pick the closest to your build, then adjust from there.'},
+    {title:'Layout & Build Type',
+     body:'Select your drive layout (FWD / RWD / AWD) and build style. Layout affects differential outputs. Build type shifts alignment and diff lock recommendations toward street, track, or drift behaviour.'},
+    {title:'Weight & Front Bias',
+     body:'Enter your car\'s total weight and front weight bias percentage from Forza\'s car stat screen (the selection screen, not the tuning menu). These two numbers drive almost every calculation.'},
+    {title:'Ride Stiffness',
+     body:'Controls overall suspension stiffness. SOFT is comfortable and forgiving on rough surfaces. ROAD is a balanced starting point. FIRM is responsive sport. RACE is a stiff competition setup. The badge updates as you move the slider.'},
+    {title:'Rear Stiffness',
+     body:'Adjusts rear spring frequency relative to the front. Softer rear improves rear traction and bump compliance — good for street and rally. Stiffer rear sharpens rotation response and platform stability — better for track.'},
+    {title:'Balance',
+     body:'Shifts understeer/oversteer tendency by adjusting the anti-roll bar distribution front to rear. Centre is neutral. Push toward UNDERSTEER for more stable corner entry. Push toward OVERSTEER for more rotation and rear-end freedom.'},
+    {title:'Character',
+     body:'Controls damping feel — how quickly the suspension settles. STABLE means more damped: planted, predictable, and slow to react. AGILE means lighter damping: livelier, more reactive to inputs, quicker direction changes.'},
+    {title:'Reading the Results',
+     body:'The right panel shows exact in-game values — Springs, Dampers, ARBs, and Alignment. Enter them in Forza\'s tuning menu. The Handling Balance bar at the bottom shows your overall bias. Tune it toward zero for a neutral baseline.'},
+  ],
+  intermediate:[
+    {title:'Welcome — Intermediate Mode',
+     body:'Intermediate mode gives you full control over springs, damping, and drivetrain without requiring detailed chassis geometry. All the key physics, less setup.'},
+    {title:'CHASSIS',
+     body:'Enter weight, front bias, and aero values. Aero Balance and Efficiency affect the Handling Balance output — read them from Forza\'s aero tuning screen after setting aero to max cornering, then enter them here.'},
+    {title:'Ride Stiffness & Rear Hz Mode',
+     body:'Front Hz sets baseline stiffness. Three rear Hz modes: FLAT RIDE derives rear frequency from wheelbase and a target speed for optimal pitch response. MULTIPLIER sets a ratio to front. INDEPENDENT fully decouples rear.'},
+    {title:'Rebound & Bump Damping',
+     body:'Rebound ζ at 70% is the Butterworth critical point — the ideal balance of body control and compliance. Bump Ratio sets compression damping as a fraction of rebound. Higher bump ratio = snappier response to inputs.'},
+    {title:'Damping Bias',
+     body:'Shifts damping weight front or rear. More front bias resists weight transfer on turn-in, adding an understeer tendency. More rear bias softens entry feel and helps exit traction. Shown as a DAMP segment in Handling Balance.'},
+    {title:'Anti-Roll Bars',
+     body:'ARB Bias shifts roll stiffness front/rear without changing total stiffness. AUTO mode targets natural roll from spring stiffness and car geometry. ROLL° targets a specific body roll angle. SHARE% sets ARBs as a fraction of total roll stiffness.'},
+    {title:'Drivetrain',
+     body:'Select layout and build type, then use Corner Exit and Corner Entry sliders to tune differential aggression. Exit controls power-on rotation tendency. Entry controls trail-braking stability.'},
+    {title:'Output Cards',
+     body:'Springs, Dampers, ARBs, and Alignment show exact in-game click values. Enter them in Forza\'s tuning menu. Amber warnings appear when values approach game limits — adjust inputs to bring them down.'},
+    {title:'Handling Balance',
+     body:'The pinned bar at the bottom shows how springs, ARBs, diff, brakes, and aero combine into a total balance. Tune toward zero for a neutral baseline, then bias deliberately if desired. Tap the bar to expand per-segment detail.'},
+    {title:'Presets & Share',
+     body:'Use the PRESETS section to save and load tuning setups. SHARE generates a portable code — paste it into IMPORT on any device running SUSP.OS. Old codes decode safely with sensible defaults for any missing fields.'},
+  ],
+  pro:[
+    {title:'Welcome — Pro Mode',
+     body:'Pro mode exposes the full physics surface: geometry inputs, manual alignment, differential lock percentages, and brake balance. Every parameter that affects the output is accessible here.'},
+    {title:'CHASSIS Geometry',
+     body:'Wheelbase, track widths, and CG height feed roll stiffness, lateral weight transfer, and alignment calculations. Defaults (2700 / 1550 / 1520 / 450 mm) suit most sports cars if you don\'t have exact values.'},
+    {title:'Weight Transfer Strips',
+     body:'XFER F/R shows lateral load transfer per axle per g of cornering. OUT/IN show outer and inner wheel loads at 1g. These inform how aggressively to tune ARBs and how much camber the outer tyre needs.'},
+    {title:'Spring Frequencies',
+     body:'Front Hz sets baseline stiffness. FLAT RIDE derives rear Hz from wheelbase and target speed for optimal pitch balance at that speed. MULTIPLIER and INDEPENDENT give progressively more direct control over the rear.'},
+    {title:'Damping in Depth',
+     body:'70% rebound ζ is critically damped. BUMP RATIO mode locks the bump/rebound relationship as you change rebound. INDEPENDENT sets bump ζ directly. Damping Bias then splits front and rear zeta independently around the base value.'},
+    {title:'ARB Range Slider',
+     body:'The floor and ceiling range slider clamps how extreme the ARB solver can go. Use it to keep click values in a playable band. Amber warning appears above 88% of the game limit. Horizon max is 65, Motorsport max is 40.'},
+    {title:'Alignment',
+     body:'AUTO derives camber, toe, and caster from build type, layout, CG height, and roll angle. Switch to MANUAL to seed from the current AUTO values and override each axis independently.'},
+    {title:'Manual Differential',
+     body:'MANUAL diff exposes individual accel/decel lock per axle. AWD adds front axle, rear axle, and center power split controls. AUTO mode uses the Corner Exit/Entry bias sliders to derive all values from layout and build type.'},
+    {title:'Brakes',
+     body:'AUTO recommends brake balance from front weight bias and build type. MANUAL lets you set balance and pressure directly. Both contribute to the BRAKES segment in the Handling Balance bar.'},
+    {title:'Tune Check',
+     body:'Enter existing in-game spring and damper values to reverse-calculate their natural frequency and damping ratios. Useful for verifying a manual tune or understanding a setup shared by another player.'},
+    {title:'Handling & Stability Bars',
+     body:'Two pinned bars: the US/OS Handling Balance (springs, ARBs, diff, brakes, aero, damping bias) and the STABLE/AGILE bar (ride Hz, total ARB stiffness, damping). Tap to expand for per-segment breakdown and colour-coded contributions.'},
+    {title:'Share & Import',
+     body:'SHARE encodes the full tune as a ~150-char Base64 string. IMPORT decodes it on any device — backward compatible with all previous versions. Missing fields default gracefully, so old codes always load cleanly.'},
+  ],
+};
+
+const TutorialPanel=({mode,step,onNext,onPrev,onClose})=>{
+  const steps=TUTORIALS[mode]??[];
+  const total=steps.length;
+  const t=steps[step];
+  if(!t)return null;
+  const mLabel={beginner:'BEG',intermediate:'INT',pro:'PRO'}[mode]??mode.toUpperCase();
+  const btnStyle={background:'none',border:'1px solid #1e293b',borderRadius:2,color:'#9ca3af',
+    fontFamily:'Courier New',fontSize:10,padding:'4px 10px',cursor:'pointer',letterSpacing:1};
+  return(
+    <div style={{position:'fixed',bottom:0,left:0,right:0,zIndex:700,
+                 background:'#080e1a',borderTop:'1px solid #1e293b',
+                 boxShadow:'0 -6px 24px rgba(0,0,0,0.6)',padding:'12px 16px 14px',
+                 fontFamily:'Courier New'}}>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:6}}>
+        <div>
+          <span style={{fontSize:9,color:'#334155',letterSpacing:2}}>{mLabel} GUIDE  ·  {step+1} / {total}</span>
+          <div style={{fontSize:13,color:'#e2e8f0',fontWeight:700,marginTop:3,letterSpacing:0.5}}>{t.title}</div>
+        </div>
+        <button onClick={onClose} style={{...btnStyle,padding:'3px 8px',marginTop:2,color:'#4b5563'}}>✕</button>
+      </div>
+      {/* progress dots */}
+      <div style={{display:'flex',gap:3,marginBottom:8}}>
+        {steps.map((_,i)=>(
+          <div key={i} style={{height:2,flex:1,borderRadius:1,transition:'background .2s',
+            background:i<step?'#334155':i===step?'#6366f1':'#1e293b'}}/>
+        ))}
+      </div>
+      <p style={{fontSize:11,color:'#94a3b8',lineHeight:1.65,margin:'0 0 10px'}}>{t.body}</p>
+      <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+        {step>0&&<button style={btnStyle} onClick={onPrev}>← PREV</button>}
+        {step<total-1
+          ?<button style={{...btnStyle,borderColor:'#4f46e5',color:'#818cf8'}} onClick={onNext}>NEXT →</button>
+          :<button style={{...btnStyle,borderColor:'#16a34a',color:'#4ade80'}} onClick={onClose}>DONE ✓</button>}
+      </div>
+    </div>
+  );
+};
+
+// ────────────────────────────────────────────────────────────────────────────
 function App(){
   const[ch,setCh]=usePersist('suspos_ch_v8',DEF_CH);
   const[fe,setFe]=usePersist('suspos_fe_v8',DEF_FE);
@@ -1335,6 +1446,17 @@ function App(){
   const[metricUnits,setMetricUnits]=usePersist('suspos_units_v1',false);
   const[saves,setSaves]=usePersist('suspos_saves_v9',PRESET_SAVES);
   const[uiMode,setUiMode]=usePersist('suspos_uimode_v1','pro');
+  const[tutSeen,setTutSeen]=usePersist('suspos_tutorial_seen_v1',{beginner:false,intermediate:false,pro:false});
+  const[tutMode,setTutMode]=useState(null);
+  const[tutStep,setTutStep]=useState(0);
+  const openTut=mode=>{setTutMode(mode);setTutStep(0);};
+  const closeTut=()=>setTutMode(null);
+  useEffect(()=>{
+    if(!tutSeen[uiMode]){
+      setTutSeen(p=>({...p,[uiMode]:true}));
+      openTut(uiMode);
+    }
+  },[uiMode]); // eslint-disable-line
   const[loadMode,setLoadMode]=useState('all'); // 'all'=feel+drivetrain, 'fe'=feel only
   const[open,setOpen]=useState({chassis:true,feel:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:true,presetsOpen:true});
   const[showChecker,setShowChecker]=useState(false);
@@ -1418,6 +1540,10 @@ function App(){
   return(
     <div style={{display:'flex',flexDirection:'column',height:'100vh',minHeight:'-webkit-fill-available',overflow:'hidden'}}>
       {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits}/>}
+      {tutMode&&<TutorialPanel mode={tutMode} step={tutStep}
+        onNext={()=>setTutStep(s=>Math.min(s+1,(TUTORIALS[tutMode]?.length??1)-1))}
+        onPrev={()=>setTutStep(s=>Math.max(s-1,0))}
+        onClose={closeTut}/>}
 
       {/* HEADER */}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
@@ -1450,6 +1576,9 @@ function App(){
             <button key={mode} className={`tbtn${uiMode===mode?' on':''}`}
               onClick={()=>setUiMode(mode)} style={{fontSize:11}}>{label}</button>
           ))}
+          <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
+          <button className="tbtn" style={{fontSize:11}}
+            onClick={()=>openTut(uiMode)}>?</button>
         </div>
       </div>
 
