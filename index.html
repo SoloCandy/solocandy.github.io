@@ -1498,7 +1498,7 @@ function App(){
     }
   },[uiMode]); // eslint-disable-line
   const[loadMode,setLoadMode]=useState('all'); // 'all'=feel+drivetrain, 'fe'=feel only
-  const[open,setOpen]=useState({chassis:true,feel:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:true,presetsOpen:true});
+  const[open,setOpen]=useState({chassis:true,feel:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:false,presetsOpen:false});
   const[showChecker,setShowChecker]=useState(false);
   const[hzDraft,setHzDraft]=useState(null);     // transient: direct front Hz entry
   const[rearHzDraft,setRearHzDraft]=useState(null); // transient: direct rear Hz entry (independent mode)
