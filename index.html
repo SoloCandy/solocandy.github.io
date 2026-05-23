@@ -1518,6 +1518,22 @@ function App(){
                     <span style={{fontSize:10,color:'#4b5563',fontFamily:'Courier New'}}>{physics.frontHz.toFixed(2)} Hz</span>
                   </span>}
                   hint="How stiff the suspension feels. SOFT = comfortable street ride. ROAD = balanced. FIRM = responsive sport. RACE = stiff competition setup."/>
+                {(()=>{
+                  const rearMult=fe.rearHzMode==='multiplier'?(fe.rearHzMult??1.20)
+                    :parseFloat((physics.rearHz/physics.frontHz).toFixed(2));
+                  const[rHzCat,rHzCol]=hzCtx(physics.rearHz);
+                  return(
+                    <FeelSlider label="Rear Stiffness" value={rearMult}
+                      onChange={v=>setFe(p=>({...p,rearHzMode:'multiplier',rearHzMult:v}))}
+                      min={0.80} max={1.60} step={0.01}
+                      leftLabel="SOFTER" rightLabel="STIFFER"
+                      readout={<span style={{display:'flex',alignItems:'center',gap:5}}>
+                        <span style={{fontSize:11,color:rHzCol,fontFamily:'Courier New',fontWeight:700,letterSpacing:1}}>{rHzCat}</span>
+                        <span style={{fontSize:10,color:'#4b5563',fontFamily:'Courier New'}}>{physics.rearHz.toFixed(2)} Hz</span>
+                      </span>}
+                      hint="Rear spring stiffness relative to front. SOFTER rear = more traction and compliance over bumps (good for street/rally). STIFFER rear = more platform rigidity and oversteer responsiveness (track/drift). Most builds sit near ×1.2 front."/>
+                  );
+                })()}
                 <FeelSlider label="Balance" value={fe.arbBias??0}
                   onChange={pFe('arbBias')}
                   min={-50} max={50} step={1}
