@@ -1476,8 +1476,10 @@ function App(){
   const[br,setBr]=usePersist('suspos_br_v1',DEF_BR);
   const[metricUnits,setMetricUnits]=usePersist('suspos_units_v1',false);
   const[saves,setSaves]=usePersist('suspos_saves_v9',PRESET_SAVES);
-  const[uiMode,setUiMode]=usePersist('suspos_uimode_v1','pro');
+  const[uiMode,setUiMode]=usePersist('suspos_uimode_v1','beginner');
   const[tutSeen,setTutSeen]=usePersist('suspos_tutorial_seen_v1',{beginner:false,intermediate:false,pro:false});
+  const[onboardSeen,setOnboardSeen]=usePersist('suspos_onboard_v1',false);
+  const closeOnboard=()=>setOnboardSeen(true);
   const[tutMode,setTutMode]=useState(null);
   const[tutStep,setTutStep]=useState(0);
   const openTut=mode=>{setTutMode(mode);setTutStep(0);};
@@ -1595,6 +1597,44 @@ function App(){
         onNext={()=>setTutStep(s=>Math.min(s+1,(TUTORIALS[tutMode]?.length??1)-1))}
         onPrev={()=>setTutStep(s=>Math.max(s-1,0))}
         onClose={closeTut}/>}
+
+      {/* ONBOARDING POPUP */}
+      {!onboardSeen&&(
+        <div onClick={closeOnboard}
+          style={{position:'fixed',inset:0,zIndex:800,background:'rgba(0,0,0,0.72)'}}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{position:'absolute',top:50,right:14,width:258,
+                    background:'#0f172a',border:'1px solid #334155',borderRadius:4,
+                    padding:'16px 16px 14px',boxShadow:'0 8px 40px #000d'}}>
+            {/* arrow pointing up toward header buttons */}
+            <div style={{position:'absolute',top:-8,right:14,width:0,height:0,
+                         borderLeft:'8px solid transparent',borderRight:'8px solid transparent',
+                         borderBottom:'8px solid #334155'}}/>
+            <div style={{position:'absolute',top:-6,right:15,width:0,height:0,
+                         borderLeft:'7px solid transparent',borderRight:'7px solid transparent',
+                         borderBottom:'7px solid #0f172a'}}/>
+            <div style={{fontSize:9,color:'#4b5563',letterSpacing:2,marginBottom:10}}>COMPLEXITY LEVEL</div>
+            {/* preview of the header buttons */}
+            <div style={{display:'flex',gap:4,alignItems:'center',marginBottom:12}}>
+              {[['BEG',true],['INT',false],['PRO',false]].map(([lbl,active])=>(
+                <span key={lbl} style={{padding:'3px 9px',border:`1px solid ${active?'#e2e8f0':'#1e293b'}`,
+                  borderRadius:2,fontSize:11,color:active?'#e2e8f0':'#374151',fontFamily:'Courier New'}}>{lbl}</span>
+              ))}
+              <div style={{width:1,height:14,background:'#1e293b',margin:'0 3px'}}/>
+              <span style={{padding:'3px 8px',border:'1px solid #1e293b',borderRadius:2,
+                fontSize:11,color:'#374151',fontFamily:'Courier New'}}>?</span>
+            </div>
+            <div style={{fontSize:11,color:'#6b7280',lineHeight:1.7,marginBottom:14}}>
+              Choose how much of the app to show. <span style={{color:'#e2e8f0'}}>BEG</span> is the best starting point — fewer controls, guided outputs.
+              Press <span style={{color:'#e2e8f0',fontFamily:'Courier New'}}>?</span> at any time to open a step-by-step tutorial.
+            </div>
+            <button onClick={closeOnboard}
+              style={{width:'100%',padding:'7px 0',background:'#1e293b',border:'1px solid #334155',
+                      borderRadius:2,color:'#e2e8f0',fontSize:11,letterSpacing:1.5,
+                      cursor:'pointer',fontFamily:'Courier New'}}>GOT IT</button>
+          </div>
+        </div>
+      )}
 
       {/* HEADER */}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
