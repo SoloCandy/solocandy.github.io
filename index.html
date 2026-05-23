@@ -1526,10 +1526,10 @@ function App(){
                   readout={fe.arbBias===0?'NEUTRAL':fe.arbBias>0?`US +${fe.arbBias}`:`OS ${fe.arbBias}`}
                   hint="Shifts the front/rear anti-roll bar balance. Push right (understeer) for more stability into corners. Push left (oversteer) for more rotation and rear-end freedom. Start at centre for most builds."/>
                 <FeelSlider label="Character" value={stAgVal}
-                  onChange={v=>{
-                    pFe('reboundZeta')(Math.max(10,Math.min(115,70-v*0.5)));
-                    pFe('bumpRatio')(Math.max(10,Math.min(100,Math.round(56+v*0.22))));
-                  }}
+                  onChange={v=>setFe(p=>({...p,
+                    reboundZeta:Math.max(10,Math.min(115,70-v*0.5)),
+                    bumpRatio:Math.max(10,Math.min(100,Math.round(56+v*0.22)))
+                  }))}
                   min={-50} max={50} step={1}
                   leftLabel="STABLE" rightLabel="AGILE"
                   centered={true}
