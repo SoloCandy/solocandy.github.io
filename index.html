@@ -118,6 +118,7 @@ const DAMPING_CALIBRATION=0.001;
 //
 //
 const MECH_BALANCE_STIFFNESS_WEIGHT=0.60;
+const MECH_BALANCE_TARGET=0.65;
 const GAME_LIMITS={horizon:{damping:20,arb:65},motorsport:{damping:40,arb:40}};
 
 const cornerMasses=ch=>{
@@ -191,12 +192,13 @@ const feelToPhysics=(ch,fe)=>{
   const arbShareMan=Math.max(0,Math.min(80,fe.arbShareMan??15));
   const arbFloor=Math.max(1,Math.min(fe.arbFloor??6,fe.arbCeil??gameLim));
   const arbCeil =Math.max(arbFloor+1,Math.min(gameLim,fe.arbCeil??gameLim));
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil};
+  const arbBalTarget=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget};
 };
 
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
-  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil}=phys;
+  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget}=phys;
   const springF=solveSpring(fHz,m.front,1);
   const springR=solveSpring(rHz,m.rear,1);
   const rawRebF=solveDampRaw(fHz,m.front,zetaF);
@@ -233,7 +235,14 @@ const computeTune=(ch,phys,gameMode)=>{
   let rsAbBudget=arbMode==='roll'
     ? rsTotalTarget-rsSpF-rsSpR        // roll mode: invert roll equation as before
     : rsSp*(shareTarget/(1-shareTarget)); // auto + share: target a fraction directly
-  const rF=arbBalance/100;
+  const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
+  let rF=arbBalance/100;
+  if(arbMode==='balance'&&rsAbBudget>0){
+    const k=MECH_BALANCE_STIFFNESS_WEIGHT;
+    const rsBalTarget=Math.max(0.001,Math.min(0.999,(arbBalTarget-(1-k)*(1-ch.frontBias/100))/k));
+    const K=rsBalTarget/(1-rsBalTarget);
+    rF=Math.max(0,Math.min(1,(K*(rsSpF+rsAbBudget)*twF-rsSpR*twR)/(rsAbBudget*(twR+K*twF))));
+  }
   //
   const lightShare=Math.min(rF,1-rF);                          // smaller fraction
   const heavyShare=Math.max(rF,1-rF);                          // larger fraction
@@ -258,7 +267,6 @@ const computeTune=(ch,phys,gameMode)=>{
   const bSp=(rsSpF+rsSpR)>0?((rsSpF/(rsSpF+rsSpR))-nf)*100:0;
   const bAb=(rsAbF+rsAbR)>0?((rsAbF/(rsAbF+rsAbR))-nf)*100:0;
   const bTot=bSp+bAb;
-  const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
   const rsWF=(rsSpF+rsAbF)*twF,rsWR=(rsSpR+rsAbR)*twR;
   const rsBalance=rsWF+rsWR>0?rsWR/(rsWF+rsWR):1-ch.frontBias/100;
   const mechBalance=MECH_BALANCE_STIFFNESS_WEIGHT*rsBalance
@@ -271,7 +279,8 @@ const computeTune=(ch,phys,gameMode)=>{
          arbF,arbR,
          fHz,rHz,settle:settleF,settleR,rollDeg,rollTarget:arbTargetRoll,rollClamped,dampingClamped,
          arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
-         bSp,bAb,bTot,mechBalance};
+         bSp,bAb,bTot,mechBalance,
+         balArbSplit:arbMode==='balance'?Math.round(rF*100):null};
 };
 
 const computeAlignment=(ch,tune,layout,buildType)=>{
@@ -434,6 +443,7 @@ const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,arbFloor:6,arbCeil:65,
+              arbBalTarget:0.65,
               rearHzMode:'flatRide',rearHzMan:1.5,rearHzMult:1.20};
 const DEF_DR={layout:'RWD',buildType:'track',
               diffManual:false,diffBiasExit:0,diffBiasEntry:0,
@@ -1116,8 +1126,8 @@ const DAMPING_MODE_ENC={'ratio':0,'independent':1};
 const DAMPING_MODE_DEC=['ratio','independent'];
 const REAR_HZ_MODE_ENC={'flatRide':0,'independent':1,'multiplier':2};
 const REAR_HZ_MODE_DEC=['flatRide','independent','multiplier'];
-const ARB_MODE_ENC={'auto':0,'roll':1,'share':2};
-const ARB_MODE_DEC=['auto','roll','share'];
+const ARB_MODE_ENC={'auto':0,'roll':1,'share':2,'balance':3};
+const ARB_MODE_DEC=['auto','roll','share','balance'];
 const LAYOUT_ENC={'FWD':0,'RWD':1,'AWD':2};
 const LAYOUT_DEC=['FWD','RWD','AWD'];
 const BUILD_ENC={'street':0,'track':1,'drift':2};
@@ -1142,6 +1152,7 @@ const encodeTune=(ch,fe,dr,br)=>{
     fe.dampingBias??0,
     ...(()=>{const f=parseTyre(ch.tyreF),r=parseTyre(ch.tyreR);
       return[f?.width??265,r?.width??265,f?.aspectRatio??35,f?.rimDiameter??18,r?.aspectRatio??35,r?.rimDiameter??18];})(),
+    fe.arbBalTarget??DEF_FE.arbBalTarget,
   ];
   return btoa(arr.join('|'));
 };
@@ -1162,7 +1173,8 @@ const decodeTune=(code)=>{
             rearHzMode:v.length>=39?REAR_HZ_MODE_DEC[v[38]]??'flatRide':'flatRide',
             rearHzMan:v.length>=40?v[39]:DEF_FE.rearHzMan,
             rearHzMult:v.length>=41?v[40]:DEF_FE.rearHzMult,
-            dampingBias:v.length>=42?v[41]:0};
+            dampingBias:v.length>=42?v[41]:0,
+            arbBalTarget:v.length>=49?v[48]:DEF_FE.arbBalTarget};
   const _fW=v.length>=43?v[42]:265,_rW=v.length>=44?v[43]:265;
   const _fA=v.length>=45?v[44]:35, _fR=v.length>=46?v[45]:18;
   const _rA=v.length>=47?v[46]:35, _rR=v.length>=48?v[47]:18;
@@ -1201,6 +1213,7 @@ const sanitizeTune=({ch,fe,dr,br})=>{
     fe:{
       rideStiffness:    (()=>{const rs=n(fe?.rideStiffness,DEF_FE.rideStiffness);const hz=rs>3.5?0.8+(rs/100)*2.7:rs;return Math.max(0.80,Math.min(3.50,Math.round(hz*100)/100));})(),
       arbBias:          cl(fe?.arbBias,          -50,   50,  DEF_FE.arbBias),
+      arbBalTarget:     cl(fe?.arbBalTarget,     0.40, 0.90, DEF_FE.arbBalTarget),
       dampingBias:      cl(fe?.dampingBias,      -50,   50,  DEF_FE.dampingBias),
       targetSpeed:      cl(fe?.targetSpeed,       40,  200,  DEF_FE.targetSpeed),
       gameMode:         GAME_MODE_DEC.includes(fe?.gameMode)?fe.gameMode:DEF_FE.gameMode,
@@ -2162,15 +2175,33 @@ function App(){
             onReset={()=>setFe(p=>({...p,
               arbBias:DEF_FE.arbBias,
               arbMode:DEF_FE.arbMode,
+              arbBalTarget:DEF_FE.arbBalTarget,
               arbTargetRollMan:DEF_FE.arbTargetRollMan,
               arbShareMan:DEF_FE.arbShareMan,
               arbFloor:DEF_FE.arbFloor,
               arbCeil:DEF_FE.arbCeil}))}>
-            <FeelSlider label="ARB Bias" value={fe.arbBias}
-              onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
-              centered={true}
-              hint="Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."
-              readout={`F ${Math.round((1-(physics.arbBalance/100))*100)}% / R ${Math.round(physics.arbBalance/100*100)}%`}/>
+            {(fe.arbMode??'auto')!=='balance'
+              ?<FeelSlider label="ARB Bias" value={fe.arbBias}
+                  onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
+                  centered={true}
+                  hint="Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."
+                  readout={`F ${Math.round((1-(physics.arbBalance/100))*100)}% / R ${Math.round(physics.arbBalance/100*100)}%`}/>
+              :<div style={{display:'flex',alignItems:'center',gap:8,
+                            padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
+                            border:'1px solid #1e293b',marginBottom:10}}>
+                <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SPLIT</span>
+                <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
+                  F {tune.balArbSplit!=null?100-tune.balArbSplit:'—'}% / R {tune.balArbSplit??'—'}%
+                </span>
+                <span style={{fontSize:9,color:'#4b5563',marginLeft:'auto',letterSpacing:1}}>TARGET</span>
+                <input type="number" value={fe.arbBalTarget??0.65}
+                  onChange={e=>{const v=parseFloat(e.target.value);if(isFinite(v))pFe('arbBalTarget')(Math.max(0.40,Math.min(0.90,Math.round(v*100)/100)));}}
+                  min={0.40} max={0.90} step={0.01}
+                  style={{width:46,background:'#020617',border:'1px solid #1e293b',borderRadius:2,
+                          color:'#e2e8f0',fontFamily:'Courier New',fontSize:12,
+                          padding:'2px 4px',outline:'none',textAlign:'center'}}/>
+              </div>
+            }
             {uiMode==='pro'&&<ArbRangeSlider
               floor={fe.arbFloor??6} ceil={fe.arbCeil??lim.arb}
               onFloor={pFe('arbFloor')} onCeil={pFe('arbCeil')}
@@ -2215,7 +2246,7 @@ function App(){
             </div>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
               <span style={{fontSize:12,color:'#6b7280'}}>Stiffness Mode</span>
-              <Hint text="AUTO derives ARB stiffness from the car's natural roll tendency — heavier, taller, softer cars get more ARB contribution. ROLL ° targets a specific body roll angle. SHARE % directly sets ARBs as a fraction of total roll stiffness."/>
+              <Hint text="AUTO derives ARB stiffness from the car's natural roll tendency — heavier, taller, softer cars get more ARB contribution. ROLL ° targets a specific body roll angle. SHARE % directly sets ARBs as a fraction of total roll stiffness. BAL solves the front/rear ARB split to target mech balance 0.65."/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${(fe.arbMode??'auto')==='auto'?' on':''}`}
                   onClick={()=>pFe('arbMode')('auto')}>AUTO</button>
@@ -2229,6 +2260,8 @@ function App(){
                     setFe(p=>({...p,arbMode:'share',
                       arbShareMan:Math.round(tune.arbShare)}));
                   }}>SHARE %</button>
+                <button className={`tog${(fe.arbMode??'auto')==='balance'?' on':''}`}
+                  onClick={()=>pFe('arbMode')('balance')}>BAL</button>
               </div>
             </div>
             {(fe.arbMode??'auto')==='roll'&&
