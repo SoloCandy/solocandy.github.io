@@ -124,6 +124,13 @@ const cornerMasses=ch=>{
   const kg=ch.weight/KG_TO_LB;
   return{front:(kg*(ch.frontBias/100))/2,rear:(kg*(1-ch.frontBias/100))/2};
 };
+const parseTyre=str=>{
+  const m=String(str??'').trim().match(/^(\d{2,3})\/(\d{2,3})[Rr](\d{1,2}(?:\.\d)?)$/);
+  if(!m)return null;
+  const width=+m[1],aspect=+m[2],rim=+m[3];
+  const diameter=rim*25.4+2*(width*aspect/100);
+  return{width,aspectRatio:aspect,rimDiameter:rim,diameter,radius:diameter/2};
+};
 // rideStiffness now stores Hz directly (0.80–3.50).
 // Old saves/shares stored integers 0–100 — detect and auto-migrate.
 const rsToHz=rs=>rs>3.5?0.8+(rs/100)*2.7:rs;
@@ -251,7 +258,7 @@ const computeTune=(ch,phys,gameMode)=>{
   const bSp=(rsSpF+rsSpR)>0?((rsSpF/(rsSpF+rsSpR))-nf)*100:0;
   const bAb=(rsAbF+rsAbR)>0?((rsAbF/(rsAbF+rsAbR))-nf)*100:0;
   const bTot=bSp+bAb;
-  const twF=ch.tyreWidthF??265,twR=ch.tyreWidthR??265;
+  const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
   const rsWF=(rsSpF+rsAbF)*twF,rsWR=(rsSpR+rsAbR)*twR;
   const rsBalance=rsWF+rsWR>0?rsWR/(rsWF+rsWR):1-ch.frontBias/100;
   const mechBalance=MECH_BALANCE_STIFFNESS_WEIGHT*rsBalance
@@ -423,7 +430,7 @@ const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
               motionRatioF:1.0,motionRatioR:1.0,
               aeroBalance:0.5,aeroEfficiency:0.9,
-              tyreWidthF:265,tyreWidthR:265};
+              tyreF:'265/35R18',tyreR:'265/35R18'};
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,arbFloor:6,arbCeil:65,
@@ -1133,8 +1140,8 @@ const encodeTune=(ch,fe,dr,br)=>{
     fe.rearHzMan??1.5,
     fe.rearHzMult??1.20,
     fe.dampingBias??0,
-    ch.tyreWidthF??265,
-    ch.tyreWidthR??265,
+    ...(()=>{const f=parseTyre(ch.tyreF),r=parseTyre(ch.tyreR);
+      return[f?.width??265,r?.width??265,f?.aspectRatio??35,f?.rimDiameter??18,r?.aspectRatio??35,r?.rimDiameter??18];})(),
   ];
   return btoa(arr.join('|'));
 };
@@ -1156,8 +1163,11 @@ const decodeTune=(code)=>{
             rearHzMan:v.length>=40?v[39]:DEF_FE.rearHzMan,
             rearHzMult:v.length>=41?v[40]:DEF_FE.rearHzMult,
             dampingBias:v.length>=42?v[41]:0};
-  ch.tyreWidthF=v.length>=43?v[42]:265;
-  ch.tyreWidthR=v.length>=44?v[43]:265;
+  const _fW=v.length>=43?v[42]:265,_rW=v.length>=44?v[43]:265;
+  const _fA=v.length>=45?v[44]:35, _fR=v.length>=46?v[45]:18;
+  const _rA=v.length>=47?v[46]:35, _rR=v.length>=48?v[47]:18;
+  ch.tyreF=`${_fW}/${_fA}R${_fR}`;
+  ch.tyreR=`${_rW}/${_rA}R${_rR}`;
   const dr={layout:LAYOUT_DEC[v[21]]??'RWD',buildType:BUILD_DEC[v[22]]??'track',diffManual:v[23]===1,
             diffBiasExit:v[24]??0,diffAccel:v[25],diffDecel:v[26],
             diffFrontAccel:v[27],diffFrontDecel:v[28],diffRearAccel:v[29],diffRearDecel:v[30],diffCenter:v[31],
@@ -1185,8 +1195,8 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       motionRatioR: cl(ch?.motionRatioR,   0.5,  1.0,  DEF_CH.motionRatioR),
       aeroBalance:  cl(ch?.aeroBalance,    0,    1.5,  DEF_CH.aeroBalance),
       aeroEfficiency:cl(ch?.aeroEfficiency,0.1,  1.0,  DEF_CH.aeroEfficiency),
-      tyreWidthF:   cl(ch?.tyreWidthF,    100,  400,  DEF_CH.tyreWidthF),
-      tyreWidthR:   cl(ch?.tyreWidthR,    100,  400,  DEF_CH.tyreWidthR),
+      tyreF: parseTyre(ch?.tyreF)?ch.tyreF:DEF_CH.tyreF,
+      tyreR: parseTyre(ch?.tyreR)?ch.tyreR:DEF_CH.tyreR,
     },
     fe:{
       rideStiffness:    (()=>{const rs=n(fe?.rideStiffness,DEF_FE.rideStiffness);const hz=rs>3.5?0.8+(rs/100)*2.7:rs;return Math.max(0.80,Math.min(3.50,Math.round(hz*100)/100));})(),
@@ -1883,12 +1893,33 @@ function App(){
             <Field label="Aero Efficiency" value={ch.aeroEfficiency??0.9} onChange={pCh('aeroEfficiency')}
               min={0.1} max={1.0} step={0.001}
               hint="Aero efficiency from Forza's tuning menu (typically 0.300–0.900). Lower = more total downforce. Scales how strongly the aero balance affects the overall handling total — a high-downforce car at 0.30 has 3× the aero load of a stock car at 0.90, so its balance bias matters proportionally more."/>
-            <Field label="Tyre Width F" value={ch.tyreWidthF??265} onChange={pCh('tyreWidthF')}
-              min={100} max={400} step={5} unit="mm"
-              hint="Front tyre section width in mm — the first number in the tyre size (e.g. 265 from 265/30R19). Affects mech balance when front and rear widths differ. Equal widths cancel out."/>
-            <Field label="Tyre Width R" value={ch.tyreWidthR??265} onChange={pCh('tyreWidthR')}
-              min={100} max={400} step={5} unit="mm"
-              hint="Rear tyre section width in mm — the first number in the tyre size (e.g. 325 from 325/25R19). Wider rear tyres shift mech balance toward the rear (higher number)."/>
+            {(()=>{
+              const tyreInput=(key,label)=>{
+                const val=ch[key]??DEF_CH[key];
+                const parsed=parseTyre(val);
+                return(
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:10,color:'#4b5563',letterSpacing:1,marginBottom:4}}>{label}</div>
+                    <input type="text" value={val}
+                      onChange={e=>pCh(key)(e.target.value)}
+                      placeholder="265/30R19"
+                      style={{width:'100%',boxSizing:'border-box',background:'#020617',
+                              border:`1px solid ${parsed?'#1e293b':'#7f1d1d'}`,borderRadius:2,
+                              color:'#e2e8f0',fontFamily:'Courier New',fontSize:12,
+                              padding:'4px 6px',outline:'none'}}/>
+                    <div style={{fontSize:9,color:'#4b5563',marginTop:3,fontFamily:'Courier New'}}>
+                      {parsed?`Ø ${parsed.diameter.toFixed(0)} mm · r ${parsed.radius.toFixed(1)} mm`:'invalid format'}
+                    </div>
+                  </div>
+                );
+              };
+              return(
+                <div style={{display:'flex',gap:8,marginBottom:8}}>
+                  {tyreInput('tyreF','TYRE F')}
+                  {tyreInput('tyreR','TYRE R')}
+                </div>
+              );
+            })()}
             {uiMode==='pro'&&<>
             <Field label="Wheelbase" value={Math.round(ch.wheelbase*1000)} onChange={v=>pCh('wheelbase')(v/1000)} min={400} max={4000} step={5} unit="mm"
               hint="Distance between front and rear axles in millimetres. Used by the flat-ride formula to match rear spring frequency to your target speed. Typical cars: 2400–2900 mm."/>
