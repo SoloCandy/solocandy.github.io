@@ -124,8 +124,10 @@ const cornerMasses=ch=>{
   const kg=ch.weight/KG_TO_LB;
   return{front:(kg*(ch.frontBias/100))/2,rear:(kg*(1-ch.frontBias/100))/2};
 };
-const rsToHz=rs=>0.8+(rs/100)*2.7;
-const hzToRs=hz=>Math.round(Math.max(0,Math.min(100,(hz-0.8)/2.7*100)));
+// rideStiffness now stores Hz directly (0.80–3.50).
+// Old saves/shares stored integers 0–100 — detect and auto-migrate.
+const rsToHz=rs=>rs>3.5?0.8+(rs/100)*2.7:rs;
+const hzToRs=hz=>Math.round(Math.max(0.80,Math.min(3.50,hz))*100)/100;
 const flatRideRearHz=(fHz,wb,mph)=>{
   if(mph>=200)return{hz:fHz,clamped:false};
   const ms=mph*MPH_TO_MS;
@@ -178,7 +180,7 @@ const feelToPhysics=(ch,fe)=>{
   const arbMode=fe.arbMode??'auto';
   const arbTargetRoll=arbMode==='roll'
     ? Math.max(0.3,Math.min(5.0,fe.arbTargetRollMan))
-    : 2.6-(fe.rideStiffness/100)*1.8;   // used only in roll mode now
+    : 2.6-((frontHz-0.8)/2.7)*1.8;   // used only in roll mode now
   const arbShareMan=Math.max(0,Math.min(80,fe.arbShareMan??15));
   const arbFloor=Math.max(1,Math.min(fe.arbFloor??6,fe.arbCeil??gameLim));
   const arbCeil =Math.max(arbFloor+1,Math.min(gameLim,fe.arbCeil??gameLim));
@@ -419,7 +421,7 @@ const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
               motionRatioF:1.0,motionRatioR:1.0,
               aeroBalance:0.5,aeroEfficiency:0.9};
-const DEF_FE={rideStiffness:35,arbBias:0,dampingBias:0,targetSpeed:70,gameMode:'horizon',
+const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,arbFloor:6,arbCeil:65,
               rearHzMode:'flatRide',rearHzMan:1.5,rearHzMult:1.20};
@@ -438,28 +440,28 @@ const PRESET_SAVES=(()=>{
   const ref=Math.round(cornerMasses(DEF_CH).front);
   return{
     1:{name:'STREET',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:31,targetSpeed:60,reboundZeta:60,bumpRatio:50,
+       fe:{...DEF_FE,rideStiffness:1.64,targetSpeed:60,reboundZeta:60,bumpRatio:50,
            dampingBias:8,arbFloor:4,arbCeil:30},
        dr:{...DEF_DR,buildType:'street',diffBiasExit:-10,diffBiasEntry:10}},
     2:{name:'TRACK',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:55,targetSpeed:120,reboundZeta:72,bumpRatio:58,
+       fe:{...DEF_FE,rideStiffness:2.29,targetSpeed:120,reboundZeta:72,bumpRatio:58,
            dampingBias:12,arbFloor:6,arbCeil:55},
        dr:{...DEF_DR,buildType:'track',diffBiasExit:5,diffBiasEntry:0}},
     3:{name:'RALLY',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:18,targetSpeed:80,reboundZeta:65,bumpRatio:45,
+       fe:{...DEF_FE,rideStiffness:1.29,targetSpeed:80,reboundZeta:65,bumpRatio:45,
            dampingBias:-12,arbFloor:3,arbCeil:20,arbBias:-10},
        dr:{...DEF_DR,buildType:'street',diffBiasExit:-5,diffBiasEntry:-15}},
     4:{name:'DRIFT',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:22,targetSpeed:65,reboundZeta:63,bumpRatio:46,
+       fe:{...DEF_FE,rideStiffness:1.39,targetSpeed:65,reboundZeta:63,bumpRatio:46,
            dampingBias:15,arbFloor:3,arbCeil:22,arbBias:20},
        dr:{...DEF_DR,buildType:'drift',layout:'RWD',
            diffBiasExit:22,diffBiasEntry:-18,diffRearAccel:65,diffRearDecel:15}},
     5:{name:'MOTORSPT',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:75,targetSpeed:145,reboundZeta:77,bumpRatio:62,
+       fe:{...DEF_FE,rideStiffness:2.83,targetSpeed:145,reboundZeta:77,bumpRatio:62,
            dampingBias:18,arbFloor:8,arbCeil:65},
        dr:{...DEF_DR,buildType:'track',diffBiasExit:10,diffBiasEntry:-5}},
     6:{name:'COMFORT',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:12,targetSpeed:55,reboundZeta:57,bumpRatio:43,
+       fe:{...DEF_FE,rideStiffness:1.12,targetSpeed:55,reboundZeta:57,bumpRatio:43,
            dampingBias:0,arbFloor:2,arbCeil:12},
        dr:{...DEF_DR,buildType:'street'}},
   };
@@ -1178,7 +1180,7 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       aeroEfficiency:cl(ch?.aeroEfficiency,0.1,  1.0,  DEF_CH.aeroEfficiency),
     },
     fe:{
-      rideStiffness:    cl(fe?.rideStiffness,    0,    100,  DEF_FE.rideStiffness),
+      rideStiffness:    (()=>{const rs=n(fe?.rideStiffness,DEF_FE.rideStiffness);const hz=rs>3.5?0.8+(rs/100)*2.7:rs;return Math.max(0.80,Math.min(3.50,Math.round(hz*100)/100));})(),
       arbBias:          cl(fe?.arbBias,          -50,   50,  DEF_FE.arbBias),
       dampingBias:      cl(fe?.dampingBias,      -50,   50,  DEF_FE.dampingBias),
       targetSpeed:      cl(fe?.targetSpeed,       40,  200,  DEF_FE.targetSpeed),
