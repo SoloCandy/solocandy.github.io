@@ -1486,10 +1486,10 @@ function App(){
   const closeTut=()=>setTutMode(null);
   const tutFocus=tutMode?(TUTORIALS[tutMode]?.[tutStep]?.focus??null):null;
   const dim=(...zones)=>{
-    if(!tutFocus)return{};
-    return zones.some(z=>tutFocus.includes(z))
-      ?{transition:'opacity 0.3s ease'}
-      :{opacity:0.12,pointerEvents:'none',transition:'opacity 0.3s ease'};
+    if(!tutMode)return{};
+    if(!tutFocus||!zones.some(z=>tutFocus.includes(z)))
+      return{opacity:0.12,pointerEvents:'none',transition:'opacity 0.3s ease'};
+    return{transition:'opacity 0.3s ease'};
   };
   useEffect(()=>{
     if(!tutSeen[uiMode]){
