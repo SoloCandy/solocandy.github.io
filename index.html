@@ -1477,11 +1477,27 @@ function App(){
 
           {/* BEGINNER panel */}
           {uiMode==='beginner'&&(()=>{
-            // OS/US → arbBias directly; STABLE/AGILE → reboundZeta (inverted)
             const stAgVal=Math.max(-50,Math.min(50,Math.round((70-(fe.reboundZeta??70))*2)));
+            const[hzCat,hzCol]=hzCtx(physics.frontHz);
             return(
               <div style={{padding:'14px 12px 20px'}}>
+                {/* START FROM presets */}
+                <div style={{fontSize:9,color:'#374151',letterSpacing:2,marginBottom:8}}>START FROM</div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:3,marginBottom:18}}>
+                  {[1,2,3,4,5,6].map(i=>(
+                    <button key={i} className={`tbtn`}
+                      style={{fontSize:10,padding:'5px 2px',textAlign:'center'}}
+                      onClick={()=>handleSlot(i)}>
+                      {saves[i]?.name??`SLOT ${i}`}
+                    </button>
+                  ))}
+                </div>
+
                 <div style={{fontSize:9,color:'#374151',letterSpacing:2,marginBottom:14}}>CHASSIS</div>
+                <Toggle label="Layout" value={dr.layout} onChange={pDr('layout')}
+                  options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
+                <Toggle label="Build" value={dr.buildType??'track'} onChange={pDr('buildType')}
+                  options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}/>
                 <Field label="Weight"
                   value={metricUnits?ch.weight/KG_TO_LB:ch.weight}
                   onChange={metricUnits?v=>pCh('weight')(v*KG_TO_LB):pCh('weight')}
@@ -1491,13 +1507,17 @@ function App(){
                 <Field label="Front Weight Bias" value={ch.frontBias} onChange={pCh('frontBias')}
                   min={30} max={70} step={1} unit="%"
                   hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance."/>
+
                 <div style={{fontSize:9,color:'#374151',letterSpacing:2,margin:'16px 0 14px'}}>FEEL</div>
                 <FeelSlider label="Ride Stiffness" value={physics.frontHz}
                   onChange={v=>pFe('rideStiffness')(hzToRs(v))}
                   min={0.80} max={3.50} step={0.01}
                   leftLabel="SOFT" rightLabel="STIFF"
-                  readout={`${physics.frontHz.toFixed(2)} Hz`}
-                  hint="How stiff the suspension feels. Lower = more comfortable, absorbs bumps better. Higher = more responsive, better cornering but harsher ride. Street: 1.0–1.8 Hz, Track: 1.8–2.6 Hz, Race: 2.2–3.2 Hz."/>
+                  readout={<span style={{display:'flex',alignItems:'center',gap:5}}>
+                    <span style={{fontSize:11,color:hzCol,fontFamily:'Courier New',fontWeight:700,letterSpacing:1}}>{hzCat}</span>
+                    <span style={{fontSize:10,color:'#4b5563',fontFamily:'Courier New'}}>{physics.frontHz.toFixed(2)} Hz</span>
+                  </span>}
+                  hint="How stiff the suspension feels. SOFT = comfortable street ride. ROAD = balanced. FIRM = responsive sport. RACE = stiff competition setup."/>
                 <FeelSlider label="Balance" value={fe.arbBias??0}
                   onChange={pFe('arbBias')}
                   min={-50} max={50} step={1}
