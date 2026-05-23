@@ -2063,9 +2063,9 @@ function App(){
                     if(z>70) return`${z}% · BUTTERWORTH${cross}`;
                     return`${z}%${cross}`;
                   })()}/>}
-            <FeelSlider label="Damping Bias" value={fe.dampingBias??0}
-              onChange={pFe('dampingBias')} min={-50} max={50} step={1}
-              leftLabel="REAR" rightLabel="FRONT"
+            <FeelSlider label="Damping Bias" value={-(fe.dampingBias??0)}
+              onChange={v=>pFe('dampingBias')(-v)} min={-50} max={50} step={1}
+              leftLabel="FRONT" rightLabel="REAR"
               centered={true}
               readout={`F ${Math.round(physics.zetaF)}% / R ${Math.round(physics.zetaR)}%`}
               hint="Shifts damping weight front/rear. Positive = more front rebound and bump damping. At ±50 the heavier end is 25% above and the lighter end is 25% below the base rebound ζ. Front-heavy: more entry stability, better trail-braking. Rear-heavy: more exit traction, softer entry."/>
