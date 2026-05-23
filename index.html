@@ -1330,70 +1330,101 @@ class ErrorBoundary extends React.Component{
 const TUTORIALS={
   beginner:[
     {title:'Welcome to SUSP.OS',
+     focus:null,
      body:'This app calculates exact Forza suspension values from your car\'s stats and a handling target. As a beginner you only need a few inputs — the physics engine handles the rest. Use the arrows to step through what each control does.'},
     {title:'Start From a Preset',
+     focus:['presets'],
      body:'Tap one of the six preset buttons at the top of the sidebar to load a baseline tune. STREET, TRACK, RALLY, DRIFT, MOTORSPT, and COMFORT are ready-made starting points — pick the closest to your build, then adjust from there.'},
     {title:'Layout & Build Type',
+     focus:['layout-build'],
      body:'Select your drive layout (FWD / RWD / AWD) and build style. Layout affects differential outputs. Build type shifts alignment and diff lock recommendations toward street, track, or drift behaviour.'},
     {title:'Weight & Front Bias',
+     focus:['weight'],
      body:'Enter your car\'s total weight and front weight bias percentage from Forza\'s car stat screen (the selection screen, not the tuning menu). These two numbers drive almost every calculation.'},
     {title:'Ride Stiffness',
+     focus:['ride-stiffness'],
      body:'Controls overall suspension stiffness. SOFT is comfortable and forgiving on rough surfaces. ROAD is a balanced starting point. FIRM is responsive sport. RACE is a stiff competition setup. The badge updates as you move the slider.'},
     {title:'Rear Stiffness',
+     focus:['rear-stiffness'],
      body:'Adjusts rear spring frequency relative to the front. Softer rear improves rear traction and bump compliance — good for street and rally. Stiffer rear sharpens rotation response and platform stability — better for track.'},
     {title:'Balance',
+     focus:['balance'],
      body:'Shifts understeer/oversteer tendency by adjusting the anti-roll bar distribution front to rear. Centre is neutral. Push toward UNDERSTEER for more stable corner entry. Push toward OVERSTEER for more rotation and rear-end freedom.'},
     {title:'Character',
+     focus:['character'],
      body:'Controls damping feel — how quickly the suspension settles. STABLE means more damped: planted, predictable, and slow to react. AGILE means lighter damping: livelier, more reactive to inputs, quicker direction changes.'},
     {title:'Reading the Results',
+     focus:['output'],
      body:'The right panel shows exact in-game values — Springs, Dampers, ARBs, and Alignment. Enter them in Forza\'s tuning menu. The Handling Balance bar at the bottom shows your overall bias. Tune it toward zero for a neutral baseline.'},
   ],
   intermediate:[
     {title:'Welcome — Intermediate Mode',
+     focus:null,
      body:'Intermediate mode gives you full control over springs, damping, and drivetrain without requiring detailed chassis geometry. All the key physics, less setup.'},
     {title:'CHASSIS',
+     focus:['chassis'],
      body:'Enter weight, front bias, and aero values. Aero Balance and Efficiency affect the Handling Balance output — read them from Forza\'s aero tuning screen after setting aero to max cornering, then enter them here.'},
     {title:'Ride Stiffness & Rear Hz Mode',
+     focus:['feel'],
      body:'Front Hz sets baseline stiffness. Three rear Hz modes: FLAT RIDE derives rear frequency from wheelbase and a target speed for optimal pitch response. MULTIPLIER sets a ratio to front. INDEPENDENT fully decouples rear.'},
     {title:'Rebound & Bump Damping',
+     focus:['damping'],
      body:'Rebound ζ at 70% is the Butterworth critical point — the ideal balance of body control and compliance. Bump Ratio sets compression damping as a fraction of rebound. Higher bump ratio = snappier response to inputs.'},
     {title:'Damping Bias',
+     focus:['damping'],
      body:'Shifts damping weight front or rear. More front bias resists weight transfer on turn-in, adding an understeer tendency. More rear bias softens entry feel and helps exit traction. Shown as a DAMP segment in Handling Balance.'},
     {title:'Anti-Roll Bars',
+     focus:['arb'],
      body:'ARB Bias shifts roll stiffness front/rear without changing total stiffness. AUTO mode targets natural roll from spring stiffness and car geometry. ROLL° targets a specific body roll angle. SHARE% sets ARBs as a fraction of total roll stiffness.'},
     {title:'Drivetrain',
+     focus:['drivetrain'],
      body:'Select layout and build type, then use Corner Exit and Corner Entry sliders to tune differential aggression. Exit controls power-on rotation tendency. Entry controls trail-braking stability.'},
     {title:'Output Cards',
+     focus:['output'],
      body:'Springs, Dampers, ARBs, and Alignment show exact in-game click values. Enter them in Forza\'s tuning menu. Amber warnings appear when values approach game limits — adjust inputs to bring them down.'},
     {title:'Handling Balance',
+     focus:['balance-bar'],
      body:'The pinned bar at the bottom shows how springs, ARBs, diff, brakes, and aero combine into a total balance. Tune toward zero for a neutral baseline, then bias deliberately if desired. Tap the bar to expand per-segment detail.'},
     {title:'Presets & Share',
+     focus:['presets'],
      body:'Use the PRESETS section to save and load tuning setups. SHARE generates a portable code — paste it into IMPORT on any device running SUSP.OS. Old codes decode safely with sensible defaults for any missing fields.'},
   ],
   pro:[
     {title:'Welcome — Pro Mode',
+     focus:null,
      body:'Pro mode exposes the full physics surface: geometry inputs, manual alignment, differential lock percentages, and brake balance. Every parameter that affects the output is accessible here.'},
     {title:'CHASSIS Geometry',
+     focus:['chassis'],
      body:'Wheelbase, track widths, and CG height feed roll stiffness, lateral weight transfer, and alignment calculations. Defaults (2700 / 1550 / 1520 / 450 mm) suit most sports cars if you don\'t have exact values.'},
     {title:'Weight Transfer Strips',
+     focus:['chassis'],
      body:'XFER F/R shows lateral load transfer per axle per g of cornering. OUT/IN show outer and inner wheel loads at 1g. These inform how aggressively to tune ARBs and how much camber the outer tyre needs.'},
     {title:'Spring Frequencies',
+     focus:['feel'],
      body:'Front Hz sets baseline stiffness. FLAT RIDE derives rear Hz from wheelbase and target speed for optimal pitch balance at that speed. MULTIPLIER and INDEPENDENT give progressively more direct control over the rear.'},
     {title:'Damping in Depth',
+     focus:['damping'],
      body:'70% rebound ζ is critically damped. BUMP RATIO mode locks the bump/rebound relationship as you change rebound. INDEPENDENT sets bump ζ directly. Damping Bias then splits front and rear zeta independently around the base value.'},
     {title:'ARB Range Slider',
+     focus:['arb'],
      body:'The floor and ceiling range slider clamps how extreme the ARB solver can go. Use it to keep click values in a playable band. Amber warning appears above 88% of the game limit. Horizon max is 65, Motorsport max is 40.'},
     {title:'Alignment',
+     focus:['alignment'],
      body:'AUTO derives camber, toe, and caster from build type, layout, CG height, and roll angle. Switch to MANUAL to seed from the current AUTO values and override each axis independently.'},
     {title:'Manual Differential',
+     focus:['drivetrain'],
      body:'MANUAL diff exposes individual accel/decel lock per axle. AWD adds front axle, rear axle, and center power split controls. AUTO mode uses the Corner Exit/Entry bias sliders to derive all values from layout and build type.'},
     {title:'Brakes',
+     focus:['brakes'],
      body:'AUTO recommends brake balance from front weight bias and build type. MANUAL lets you set balance and pressure directly. Both contribute to the BRAKES segment in the Handling Balance bar.'},
     {title:'Tune Check',
+     focus:null,
      body:'Enter existing in-game spring and damper values to reverse-calculate their natural frequency and damping ratios. Useful for verifying a manual tune or understanding a setup shared by another player.'},
     {title:'Handling & Stability Bars',
+     focus:['balance-bar'],
      body:'Two pinned bars: the US/OS Handling Balance (springs, ARBs, diff, brakes, aero, damping bias) and the STABLE/AGILE bar (ride Hz, total ARB stiffness, damping). Tap to expand for per-segment breakdown and colour-coded contributions.'},
     {title:'Share & Import',
+     focus:['presets'],
      body:'SHARE encodes the full tune as a ~150-char Base64 string. IMPORT decodes it on any device — backward compatible with all previous versions. Missing fields default gracefully, so old codes always load cleanly.'},
   ],
 };
@@ -1451,6 +1482,13 @@ function App(){
   const[tutStep,setTutStep]=useState(0);
   const openTut=mode=>{setTutMode(mode);setTutStep(0);};
   const closeTut=()=>setTutMode(null);
+  const tutFocus=tutMode?(TUTORIALS[tutMode]?.[tutStep]?.focus??null):null;
+  const dim=(...zones)=>{
+    if(!tutFocus)return{};
+    return zones.some(z=>tutFocus.includes(z))
+      ?{transition:'opacity 0.3s ease'}
+      :{opacity:0.12,pointerEvents:'none',transition:'opacity 0.3s ease'};
+  };
   useEffect(()=>{
     if(!tutSeen[uiMode]){
       setTutSeen(p=>({...p,[uiMode]:true}));
@@ -1624,6 +1662,7 @@ function App(){
             return(
               <div style={{padding:'14px 12px 20px'}}>
                 {/* START FROM presets */}
+                <div style={dim('presets')}>
                 <div style={{fontSize:9,color:'#374151',letterSpacing:2,marginBottom:8}}>START FROM</div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:3,marginBottom:18}}>
                   {[1,2,3,4,5,6].map(i=>(
@@ -1634,12 +1673,16 @@ function App(){
                     </button>
                   ))}
                 </div>
+                </div>
 
+                <div style={dim('layout-build')}>
                 <div style={{fontSize:9,color:'#374151',letterSpacing:2,marginBottom:14}}>CHASSIS</div>
                 <Toggle label="Layout" value={dr.layout} onChange={pDr('layout')}
                   options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
                 <Toggle label="Build" value={dr.buildType??'track'} onChange={pDr('buildType')}
                   options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}/>
+                </div>
+                <div style={dim('weight')}>
                 <Field label="Weight"
                   value={metricUnits?ch.weight/KG_TO_LB:ch.weight}
                   onChange={metricUnits?v=>pCh('weight')(v*KG_TO_LB):pCh('weight')}
@@ -1649,7 +1692,9 @@ function App(){
                 <Field label="Front Weight Bias" value={ch.frontBias} onChange={pCh('frontBias')}
                   min={30} max={70} step={1} unit="%"
                   hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance."/>
+                </div>
 
+                <div style={dim('ride-stiffness')}>
                 <div style={{fontSize:9,color:'#374151',letterSpacing:2,margin:'16px 0 14px'}}>FEEL</div>
                 <FeelSlider label="Ride Stiffness" value={physics.frontHz}
                   onChange={v=>pFe('rideStiffness')(hzToRs(v))}
@@ -1660,6 +1705,8 @@ function App(){
                     <span style={{fontSize:10,color:'#4b5563',fontFamily:'Courier New'}}>{physics.frontHz.toFixed(2)} Hz</span>
                   </span>}
                   hint="How stiff the suspension feels. SOFT = comfortable street ride. ROAD = balanced. FIRM = responsive sport. RACE = stiff competition setup."/>
+                </div>
+                <div style={dim('rear-stiffness')}>
                 {(()=>{
                   const rearMult=fe.rearHzMode==='multiplier'?(fe.rearHzMult??1.20)
                     :parseFloat((physics.rearHz/physics.frontHz).toFixed(2));
@@ -1676,6 +1723,8 @@ function App(){
                       hint="Rear spring stiffness relative to front. SOFTER rear = more traction and compliance over bumps (good for street/rally). STIFFER rear = more platform rigidity and oversteer responsiveness (track/drift). Most builds sit near ×1.2 front."/>
                   );
                 })()}
+                </div>
+                <div style={dim('balance')}>
                 <FeelSlider label="Balance" value={fe.arbBias??0}
                   onChange={pFe('arbBias')}
                   min={-50} max={50} step={1}
@@ -1683,6 +1732,8 @@ function App(){
                   centered={true}
                   readout={fe.arbBias===0?'NEUTRAL':fe.arbBias>0?`US +${fe.arbBias}`:`OS ${fe.arbBias}`}
                   hint="Shifts the front/rear anti-roll bar balance. Push right (understeer) for more stability into corners. Push left (oversteer) for more rotation and rear-end freedom. Start at centre for most builds."/>
+                </div>
+                <div style={dim('character')}>
                 <FeelSlider label="Character" value={stAgVal}
                   onChange={v=>setFe(p=>({...p,
                     reboundZeta:Math.max(10,Math.min(115,70-v*0.5)),
@@ -1693,6 +1744,7 @@ function App(){
                   centered={true}
                   readout={stAgVal===0?'NEUTRAL':stAgVal>0?'AGILE':'STABLE'}
                   hint="Controls damping character. Stable (left) = higher damping, settles quickly, more predictable. Agile (right) = lighter damping, more lively and responsive, quicker direction changes. Start at centre."/>
+                </div>
               </div>
             );
           })()}
@@ -1708,7 +1760,7 @@ function App(){
           </div>}
 
           {uiMode!=='beginner'&&<>
-          <Sec title="CHASSIS" open={open.chassis} onToggle={tog('chassis')}
+          <div style={dim('chassis')}><Sec title="CHASSIS" open={open.chassis} onToggle={tog('chassis')}
             onReset={()=>setCh({...DEF_CH})}>
             <Field label="Weight"
               value={metricUnits?ch.weight/KG_TO_LB:ch.weight}
@@ -1778,9 +1830,9 @@ function App(){
             <Field label="CG Height" value={Math.round(ch.cgHeight*1000)} onChange={v=>pCh('cgHeight')(v/1000)} min={200} max={900} step={5} unit="mm"
               hint="Estimated height of the centre of gravity above ground. Forza doesn't expose this — use 400–460 mm for sports cars, 480–550 mm for sedans, 580–700 mm for SUVs. Affects roll moment and ARB stiffness."/>
             </> }
-          </Sec>
+          </Sec></div>
 
-          <Sec title="FEEL" open={open.feel} onToggle={tog('feel')}
+          <div style={dim('feel','damping')}><Sec title="FEEL" open={open.feel} onToggle={tog('feel')}
             onReset={()=>setFe(p=>({...p,
               rideStiffness:DEF_FE.rideStiffness,
               targetSpeed:DEF_FE.targetSpeed,
@@ -1792,6 +1844,7 @@ function App(){
               reboundZeta:DEF_FE.reboundZeta,
               bumpRatio:DEF_FE.bumpRatio,
               bumpZeta:DEF_FE.bumpZeta}))}>
+            <div style={dim('feel')}>
             <FeelSlider label="Ride Stiffness" value={physics.frontHz}
               onChange={v=>pFe('rideStiffness')(hzToRs(v))}
               min={0.80} max={3.50} step={0.01} leftLabel="0.80" rightLabel="3.50"
@@ -1898,6 +1951,8 @@ function App(){
                   :`${Math.round(tune.springR)} lb/in`}
               </span>
             </div>
+            </div>
+            <div style={dim('damping')}>
             {/* sag + damping dials */}
             {(()=>{
               const defF=1000*9.81/(4*Math.PI*Math.PI*physics.frontHz*physics.frontHz);
@@ -2000,9 +2055,10 @@ function App(){
                 </div>
               );
             })()}
-          </Sec>
+            </div>
+          </Sec></div>
 
-          <Sec title="ANTI-ROLL BARS" open={open.arb} onToggle={tog('arb')}
+          <div style={dim('arb')}><Sec title="ANTI-ROLL BARS" open={open.arb} onToggle={tog('arb')}
             onReset={()=>setFe(p=>({...p,
               arbBias:DEF_FE.arbBias,
               arbMode:DEF_FE.arbMode,
@@ -2083,9 +2139,9 @@ function App(){
               <Field label="ARB Share" value={fe.arbShareMan??15} onChange={pFe('arbShareMan')}
                 min={0} max={80} step={1} unit="%"
                 hint="Fraction of total roll stiffness supplied by ARBs. 0% = springs handle all roll resistance. 20–30% is typical sport. Higher = stiffer bars relative to springs, more abrupt load transfer."/>}
-          </Sec>
+          </Sec></div>
 
-          {uiMode==='pro'&&<Sec title="ALIGNMENT" open={open.alignment} onToggle={tog('alignment')}
+          {uiMode==='pro'&&<div style={dim('alignment')}><Sec title="ALIGNMENT" open={open.alignment} onToggle={tog('alignment')}
             onReset={()=>setAl({...DEF_AL})}>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
               <span style={{fontSize:12,color:'#6b7280'}}>Alignment Mode</span>
@@ -2117,9 +2173,9 @@ function App(){
                 min={4.0} max={7.5} step={0.1} unit="°"
                 hint="Steering axis tilt. Higher caster improves straight-line stability and adds camber gain through steering input. Lower caster reduces steering effort (useful for FWD). 5.0–6.5° is typical."/>
             </>}
-          </Sec>}
+          </Sec></div>}
 
-          <Sec title="DRIVETRAIN" open={open.drivetrain} onToggle={tog('drivetrain')}
+          <div style={dim('drivetrain')}><Sec title="DRIVETRAIN" open={open.drivetrain} onToggle={tog('drivetrain')}
             onReset={()=>setDr(p=>({...p,
               diffManual:DEF_DR.diffManual,
               diffBiasExit:DEF_DR.diffBiasExit,
@@ -2201,9 +2257,9 @@ function App(){
                     :"FWD front decel lock. Lower = less understeer on entry. 0–10% typical."}/>
               </>
             ))}
-          </Sec>
+          </Sec></div>
 
-          {uiMode==='pro'&&<Sec title="BRAKES" open={open.brakes} onToggle={tog('brakes')}
+          {uiMode==='pro'&&<div style={dim('brakes')}><Sec title="BRAKES" open={open.brakes} onToggle={tog('brakes')}
             onReset={()=>setBr({...DEF_BR})}>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
               <span style={{fontSize:12,color:'#6b7280'}}>Brake Mode</span>
@@ -2224,7 +2280,7 @@ function App(){
                 onChange={pBr('brakePressure')} min={50} max={200} step={5} unit="%"
                 hint="Overall brake force multiplier. 100% is the default. Increase if the car doesn't slow down fast enough; decrease if the wheels lock under light braking. Tune this to match your tyre grip level."/>
             </>}
-          </Sec>}
+          </Sec></div>}
           </>}
         </div>
 
@@ -2232,7 +2288,7 @@ function App(){
         <div style={{flex:1,display:'flex',flexDirection:'column',background:'#020617',minHeight:0}}>
 
           {/* cards — scrollable */}
-          <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',overscrollBehavior:'contain',padding:'8px 10px 6px',minHeight:0}}>
+          <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',overscrollBehavior:'contain',padding:'8px 10px 6px',minHeight:0,...dim('output')}}>
 
           {/* 1 — ALIGNMENT */}
           <Card title={`ALIGNMENT${al.alignManual?' · MANUAL':''}`}
@@ -2376,7 +2432,7 @@ function App(){
 
           {/* AT-A-GLANCE STRIP — collapsible */}
           {/* TOOLBAR — saves, check, share, import */}
-          <div style={{flexShrink:0,borderTop:'1px solid #0f172a',background:'#020617'}}>
+          <div style={{flexShrink:0,borderTop:'1px solid #0f172a',background:'#020617',...dim('presets')}}>
             {/* presets header — collapsible */}
             <div onClick={()=>setOpen(p=>({...p,presetsOpen:!p.presetsOpen}))}
                  style={{display:'flex',alignItems:'center',justifyContent:'space-between',
@@ -2441,7 +2497,7 @@ function App(){
           </div>
 
           {/* PINNED — HANDLING BALANCE */}
-          <div style={{flexShrink:0,borderTop:'1px solid #1e293b',background:'#020617'}}>
+          <div style={{flexShrink:0,borderTop:'1px solid #1e293b',background:'#020617',...dim('balance-bar')}}>
             {/* compact header row — tap to expand */}
             <div onClick={()=>setOpen(p=>({...p,balanceExpanded:!p.balanceExpanded}))}
                  style={{padding:'10px 14px',cursor:'pointer'}}>
