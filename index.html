@@ -1560,7 +1560,8 @@ function App(){
   const brakePressure=br.brakeManual?(br.brakePressure??DEF_BR.brakePressure):100;
   const bBrakeEntry=(brakeBias-50)*BRAKE_BIAS_SCALE;
   const aeroEff=Math.max(0.1,ch.aeroEfficiency??0.9);
-  const bAero=(0.5-(ch.aeroBalance??0.5))*AERO_BALANCE_SCALE*(0.9/aeroEff);
+  const effectiveAeroBalance=(ch.aeroBalance??0.5)<0.05?0.5:ch.aeroBalance??0.5;
+  const bAero=(0.5-effectiveAeroBalance)*AERO_BALANCE_SCALE*(0.9/aeroEff);
   const bDampBias=(fe.dampingBias??0)*0.08;
   const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bAero+bDampBias;
   const lim=GAME_LIMITS[fe.gameMode];
@@ -1869,7 +1870,7 @@ function App(){
             })()}
             <Field label="Aero Balance" value={ch.aeroBalance??0.5} onChange={pCh('aeroBalance')}
               min={0} max={1.5} step={0.01}
-              hint="Aero balance as shown in Forza's tuning menu (0.00–1.50, same scale as Mech Balance). 0.50 = neutral / no aero. Above 0.50 = rear-biased downforce (oversteer tendency). Below 0.50 = front-biased (understeer tendency). Method: set all aero to max cornering, read the number from Forza, enter it here — then tune mechanical balance to cancel it."/>
+              hint="Aero balance as shown in Forza's tuning menu (0.00–1.50, same scale as Mech Balance). 0.50 = neutral. Above 0.50 = rear-biased downforce (oversteer tendency). Below 0.50 = front-biased (understeer tendency). 0.00 means no aero package installed — treated as neutral automatically. Method: set all aero to max cornering, read the number from Forza, enter it here."/>
             <Field label="Aero Efficiency" value={ch.aeroEfficiency??0.9} onChange={pCh('aeroEfficiency')}
               min={0.1} max={1.0} step={0.001}
               hint="Aero efficiency from Forza's tuning menu (typically 0.300–0.900). Lower = more total downforce. Scales how strongly the aero balance affects the overall handling total — a high-downforce car at 0.30 has 3× the aero load of a stock car at 0.90, so its balance bias matters proportionally more."/>
@@ -2571,7 +2572,7 @@ function App(){
                     {tune.mechBalance.toFixed(2)}
                   </span>
                 </>}
-                {(ch.aeroBalance??0.5)!==0.5&&<>
+                {(ch.aeroBalance??0.5)!==0.5&&(ch.aeroBalance??0.5)>=0.05&&<>
                   <span style={{fontSize:10,color:'#4b5563',letterSpacing:1,marginLeft:tune.mechBalance!=null?0:'auto'}}>AERO</span>
                   <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#94a3b8'}}>
                     {(ch.aeroBalance??0.5).toFixed(2)}
