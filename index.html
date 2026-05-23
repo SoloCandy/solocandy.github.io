@@ -2180,27 +2180,12 @@ function App(){
               arbShareMan:DEF_FE.arbShareMan,
               arbFloor:DEF_FE.arbFloor,
               arbCeil:DEF_FE.arbCeil}))}>
-            {(fe.arbMode??'auto')!=='balance'
-              ?<FeelSlider label="ARB Bias" value={fe.arbBias}
-                  onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
-                  centered={true}
-                  hint="Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."
-                  readout={`F ${Math.round((1-(physics.arbBalance/100))*100)}% / R ${Math.round(physics.arbBalance/100*100)}%`}/>
-              :<div style={{display:'flex',alignItems:'center',gap:8,
-                            padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
-                            border:'1px solid #1e293b',marginBottom:10}}>
-                <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SPLIT</span>
-                <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
-                  F {tune.balArbSplit!=null?100-tune.balArbSplit:'—'}% / R {tune.balArbSplit??'—'}%
-                </span>
-                <span style={{fontSize:9,color:'#4b5563',marginLeft:'auto',letterSpacing:1}}>TARGET</span>
-                <input type="number" value={fe.arbBalTarget??0.65}
-                  onChange={e=>{const v=parseFloat(e.target.value);if(isFinite(v))pFe('arbBalTarget')(Math.max(0.40,Math.min(0.90,Math.round(v*100)/100)));}}
-                  min={0.40} max={0.90} step={0.01}
-                  style={{width:46,background:'#020617',border:'1px solid #1e293b',borderRadius:2,
-                          color:'#e2e8f0',fontFamily:'Courier New',fontSize:12,
-                          padding:'2px 4px',outline:'none',textAlign:'center'}}/>
-              </div>
+            {(fe.arbMode??'auto')!=='balance'&&
+              <FeelSlider label="ARB Bias" value={fe.arbBias}
+                onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
+                centered={true}
+                hint="Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."
+                readout={`F ${Math.round((1-(physics.arbBalance/100))*100)}% / R ${Math.round(physics.arbBalance/100*100)}%`}/>
             }
             {uiMode==='pro'&&<ArbRangeSlider
               floor={fe.arbFloor??6} ceil={fe.arbCeil??lim.arb}
@@ -2272,6 +2257,19 @@ function App(){
               <Field label="ARB Share" value={fe.arbShareMan??15} onChange={pFe('arbShareMan')}
                 min={0} max={80} step={1} unit="%"
                 hint="Fraction of total roll stiffness supplied by ARBs. 0% = springs handle all roll resistance. 20–30% is typical sport. Higher = stiffer bars relative to springs, more abrupt load transfer."/>}
+            {(fe.arbMode??'auto')==='balance'&&<>
+              <div style={{display:'flex',alignItems:'center',gap:8,
+                           padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
+                           border:'1px solid #1e293b',marginBottom:10}}>
+                <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SPLIT</span>
+                <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
+                  F {tune.balArbSplit!=null?100-tune.balArbSplit:'—'}% / R {tune.balArbSplit??'—'}%
+                </span>
+              </div>
+              <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
+                min={0.40} max={0.90} step={0.01}
+                hint="Target mech balance the ARB split will be solved to achieve. 0.65 is a good starting point for most builds. Higher = more rear grip bias (oversteer tendency). Lower = more front grip bias (understeer tendency)."/>
+            </>}
           </Sec></div>
 
           {uiMode==='pro'&&<div style={dim('alignment')}><Sec title="ALIGNMENT" open={open.alignment} onToggle={tog('alignment')}
