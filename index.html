@@ -169,6 +169,11 @@ const feelToPhysics=(ch,fe)=>{
   const bumpZeta=dampingMode==='ratio'
     ? Math.max(10,Math.min(reboundZeta,reboundZeta*Math.min(100,fe.bumpRatio??56)/100))
     : Math.max(10,Math.min(115,fe.bumpZeta??39));
+  const dampingBias=fe.dampingBias??0;
+  const zetaF=Math.max(10,Math.min(115,reboundZeta*(1+dampingBias/200)));
+  const zetaR=Math.max(10,Math.min(115,reboundZeta*(1-dampingBias/200)));
+  const bumpZetaF=Math.max(10,Math.min(115,bumpZeta*(1+dampingBias/200)));
+  const bumpZetaR=Math.max(10,Math.min(115,bumpZeta*(1-dampingBias/200)));
   const arbBalance=Math.max(20,Math.min(80,(100-ch.frontBias)+fe.arbBias*0.4));
   const arbMode=fe.arbMode??'auto';
   const arbTargetRoll=arbMode==='roll'
@@ -177,18 +182,18 @@ const feelToPhysics=(ch,fe)=>{
   const arbShareMan=Math.max(0,Math.min(80,fe.arbShareMan??15));
   const arbFloor=Math.max(1,Math.min(fe.arbFloor??6,fe.arbCeil??gameLim));
   const arbCeil =Math.max(arbFloor+1,Math.min(gameLim,fe.arbCeil??gameLim));
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,reboundZeta,bumpZeta,dampingMode,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil};
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil};
 };
 
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
-  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil}=phys;
+  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil}=phys;
   const springF=solveSpring(fHz,m.front,1);
   const springR=solveSpring(rHz,m.rear,1);
-  const rawRebF=solveDampRaw(fHz,m.front,reboundZeta);
-  const rawRebR=solveDampRaw(rHz,m.rear,reboundZeta);
-  const rawBmpF=solveDampRaw(fHz,m.front,bumpZeta);
-  const rawBmpR=solveDampRaw(rHz,m.rear,bumpZeta);
+  const rawRebF=solveDampRaw(fHz,m.front,zetaF);
+  const rawRebR=solveDampRaw(rHz,m.rear,zetaR);
+  const rawBmpF=solveDampRaw(fHz,m.front,bumpZetaF);
+  const rawBmpR=solveDampRaw(rHz,m.rear,bumpZetaR);
   // Proportional scale: if max exceeds limit → scale down; if min below 1 → scale up.
   // Preserves F/R ratio at both bounds.
   const dampScale=(a,b)=>{
@@ -247,12 +252,13 @@ const computeTune=(ch,phys,gameMode)=>{
   const rsBalance=rsTotal>0?(rsSpR+rsAbR)/rsTotal:1-ch.frontBias/100;
   const mechBalance=MECH_BALANCE_STIFFNESS_WEIGHT*rsBalance
                    +(1-MECH_BALANCE_STIFFNESS_WEIGHT)*(1-ch.frontBias/100);
-  const settle=reboundZeta>0?2.302/((reboundZeta/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn): time to decay to 10%
+  const settleF=zetaF>0?2.302/((zetaF/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn)
+  const settleR=zetaR>0?2.302/((zetaR/100)*rHz*2*Math.PI):99;
   return{springF,springR,
          rebF:Math.round(rebF*10)/10,rebR:Math.round(rebR*10)/10,
          bumpF:Math.round(bumpF*10)/10,bumpR:Math.round(bumpR*10)/10,
          arbF,arbR,
-         fHz,rHz,settle,rollDeg,rollTarget:arbTargetRoll,rollClamped,dampingClamped,
+         fHz,rHz,settle:settleF,settleR,rollDeg,rollTarget:arbTargetRoll,rollClamped,dampingClamped,
          arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
          bSp,bAb,bTot,mechBalance};
 };
@@ -413,7 +419,7 @@ const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
               motionRatioF:1.0,motionRatioR:1.0,
               aeroBalance:0.5,aeroEfficiency:0.9};
-const DEF_FE={rideStiffness:35,arbBias:0,targetSpeed:70,gameMode:'horizon',
+const DEF_FE={rideStiffness:35,arbBias:0,dampingBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,arbFloor:6,arbCeil:65,
               rearHzMode:'flatRide',rearHzMan:1.5,rearHzMult:1.20};
@@ -433,28 +439,28 @@ const PRESET_SAVES=(()=>{
   return{
     1:{name:'STREET',refCornerMassF:ref,notes:'',
        fe:{...DEF_FE,rideStiffness:31,targetSpeed:60,reboundZeta:60,bumpRatio:50,
-           arbFloor:4,arbCeil:30},
+           dampingBias:8,arbFloor:4,arbCeil:30},
        dr:{...DEF_DR,buildType:'street',diffBiasExit:-10,diffBiasEntry:10}},
     2:{name:'TRACK',refCornerMassF:ref,notes:'',
        fe:{...DEF_FE,rideStiffness:55,targetSpeed:120,reboundZeta:72,bumpRatio:58,
-           arbFloor:6,arbCeil:55},
+           dampingBias:12,arbFloor:6,arbCeil:55},
        dr:{...DEF_DR,buildType:'track',diffBiasExit:5,diffBiasEntry:0}},
     3:{name:'RALLY',refCornerMassF:ref,notes:'',
        fe:{...DEF_FE,rideStiffness:18,targetSpeed:80,reboundZeta:65,bumpRatio:45,
-           arbFloor:3,arbCeil:20,arbBias:-10},
+           dampingBias:-12,arbFloor:3,arbCeil:20,arbBias:-10},
        dr:{...DEF_DR,buildType:'street',diffBiasExit:-5,diffBiasEntry:-15}},
     4:{name:'DRIFT',refCornerMassF:ref,notes:'',
        fe:{...DEF_FE,rideStiffness:22,targetSpeed:65,reboundZeta:63,bumpRatio:46,
-           arbFloor:3,arbCeil:22,arbBias:-18},
+           dampingBias:-22,arbFloor:3,arbCeil:22,arbBias:-18},
        dr:{...DEF_DR,buildType:'street',layout:'RWD',
            diffBiasExit:22,diffBiasEntry:-18,diffRearAccel:65,diffRearDecel:15}},
     5:{name:'MOTORSPT',refCornerMassF:ref,notes:'',
        fe:{...DEF_FE,rideStiffness:75,targetSpeed:145,reboundZeta:77,bumpRatio:62,
-           arbFloor:8,arbCeil:65},
+           dampingBias:18,arbFloor:8,arbCeil:65},
        dr:{...DEF_DR,buildType:'track',diffBiasExit:10,diffBiasEntry:5}},
     6:{name:'COMFORT',refCornerMassF:ref,notes:'',
        fe:{...DEF_FE,rideStiffness:12,targetSpeed:55,reboundZeta:57,bumpRatio:43,
-           arbFloor:2,arbCeil:12},
+           dampingBias:0,arbFloor:2,arbCeil:12},
        dr:{...DEF_DR,buildType:'street'}},
   };
 })();
@@ -965,7 +971,7 @@ const BiasSeg=({label,val,hint})=>{
 
 const aeroLoadCtx=eff=>eff<0.5?['HIGH','#ef4444']:eff<0.7?['MED','#f59e0b']:['LOW','#64748b'];
 
-const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bBrakeEntry,bAero,mechBalance})=>{
+const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bBrakeEntry,bAero,bDampBias,mechBalance})=>{
   const cl=v=>Math.max(-50,Math.min(50,v));
   const abs=Math.abs(total);
   const label=abs<3?'NEUTRAL':total>0?'UNDERSTEER':'OVERSTEER';
@@ -991,7 +997,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bBrakeEntry,bAero,me
             <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>0=FRONT · 1=REAR</span>
           </div>
         </div>}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:5,marginBottom:5}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:5,marginBottom:5}}>
         <BiasSeg label="SPRINGS" val={bSp}
           hint="How much the front/rear spring rates bias roll stiffness, relative to weight distribution. + = understeer."/>
         <BiasSeg label="ARB" val={bAb}
@@ -1004,6 +1010,8 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bBrakeEntry,bAero,me
           hint="Estimated brake-balance contribution to entry balance. High front bias = more understeer on entry (+). Low front bias (rear-biased) = oversteer tendency on entry (−). Based on deviation from 50% neutral."/>
         <BiasSeg label="AERO" val={bAero??0}
           hint="Aero balance contribution. Rear-biased downforce (above 0.50) = oversteer tendency (−). Front-biased (below 0.50) = understeer tendency (+). Enter the aero balance from Forza's tuning menu in the CHASSIS section, then tune mechanical balance to push this total toward zero."/>
+        <BiasSeg label="DAMP" val={bDampBias??0}
+          hint="Damping bias contribution. More front rebound damping resists weight transfer off the front on turn-in, producing an understeer tendency (+). More rear damping does the opposite (−)."/>
       </div>
       <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:5}}>
         <span style={{fontFamily:'Courier New',fontSize:20,fontWeight:700,color:col,lineHeight:1}}>
@@ -1119,6 +1127,7 @@ const encodeTune=(ch,fe,dr,br)=>{
     REAR_HZ_MODE_ENC[fe.rearHzMode??'flatRide']??0,
     fe.rearHzMan??1.5,
     fe.rearHzMult??1.20,
+    fe.dampingBias??0,
   ];
   return btoa(arr.join('|'));
 };
@@ -1138,7 +1147,8 @@ const decodeTune=(code)=>{
             arbMode:ARB_MODE_DEC[v[16]]??'auto',arbTargetRollMan:v[17],arbShareMan:v[18],arbFloor:v[19],arbCeil:v[20],
             rearHzMode:v.length>=39?REAR_HZ_MODE_DEC[v[38]]??'flatRide':'flatRide',
             rearHzMan:v.length>=40?v[39]:DEF_FE.rearHzMan,
-            rearHzMult:v.length>=41?v[40]:DEF_FE.rearHzMult};
+            rearHzMult:v.length>=41?v[40]:DEF_FE.rearHzMult,
+            dampingBias:v.length>=42?v[41]:0};
   const dr={layout:LAYOUT_DEC[v[21]]??'RWD',buildType:BUILD_DEC[v[22]]??'track',diffManual:v[23]===1,
             diffBiasExit:v[24]??0,diffAccel:v[25],diffDecel:v[26],
             diffFrontAccel:v[27],diffFrontDecel:v[28],diffRearAccel:v[29],diffRearDecel:v[30],diffCenter:v[31],
@@ -1170,6 +1180,7 @@ const sanitizeTune=({ch,fe,dr,br})=>{
     fe:{
       rideStiffness:    cl(fe?.rideStiffness,    0,    100,  DEF_FE.rideStiffness),
       arbBias:          cl(fe?.arbBias,          -50,   50,  DEF_FE.arbBias),
+      dampingBias:      cl(fe?.dampingBias,      -50,   50,  DEF_FE.dampingBias),
       targetSpeed:      cl(fe?.targetSpeed,       40,  200,  DEF_FE.targetSpeed),
       gameMode:         GAME_MODE_DEC.includes(fe?.gameMode)?fe.gameMode:DEF_FE.gameMode,
       dampingMode:      DAMPING_MODE_DEC.includes(fe?.dampingMode)?fe.dampingMode:DEF_FE.dampingMode,
@@ -1218,18 +1229,19 @@ const useTwoTap=(callback,delay=2000)=>{
   return[pending,handle];
 };
 
-const IconBtn=({onClick,color='#374151',activeBorder,activeColor,title,char,active=false})=>
+const IconBtn=({onClick,color='#374151',activeBorder,activeColor,title,char,active=false,style:xStyle={}})=>
   <button onClick={onClick}
     style={{background:'none',border:`1px solid ${active?activeBorder:'#1e293b'}`,borderRadius:2,
-            color:active?activeColor:color,cursor:'pointer',fontSize:9,
-            padding:'0 2px',lineHeight:'22px',flexShrink:0,transition:'color .12s,border-color .12s'}}
+            color:active?activeColor:color,cursor:'pointer',fontSize:10,
+            padding:0,lineHeight:'22px',flexShrink:0,transition:'color .12s,border-color .12s',...xStyle}}
     title={title}>{char}</button>;
 
-const SaveSlot=({i,s,onLoad,onSave,onClear,onRename,onNotes,onSaveOver})=>{
+const SaveSlot=({i,s,onLoad,onSave,onClear,onRename,onNotes,onSaveOver,onResetDefault})=>{
   const[editing,setEditing]=useState(false);
   const[draft,setDraft]=useState('');
   const[pendingClear,handleClear]=useTwoTap(onClear);
   const[pendingOver,handleOver]=useTwoTap(onSaveOver);
+  const[pendingReset,handleReset]=useTwoTap(onResetDefault);
   const inputRef=useRef(null);
 
   const startEdit=e=>{
@@ -1244,8 +1256,11 @@ const SaveSlot=({i,s,onLoad,onSave,onClear,onRename,onNotes,onSaveOver})=>{
     setEditing(false);
   };
 
+  const btnRow={display:'flex',gap:2,width:'100%'};
+  const iconStyle={flex:1,lineHeight:'20px',textAlign:'center'};
+
   if(!s) return(
-    <button className="tbtn" style={{fontSize:10,color:'#374151',borderStyle:'dashed',width:'100%'}}
+    <button className="tbtn" style={{fontSize:11,color:'#374151',borderStyle:'dashed',width:'100%',padding:'10px 8px'}}
       onClick={onSave} title={`Save current tune to slot ${i}`}>
       + {i}
     </button>
@@ -1253,32 +1268,37 @@ const SaveSlot=({i,s,onLoad,onSave,onClear,onRename,onNotes,onSaveOver})=>{
 
   const notesTip=s.notes?` — ${s.notes}`:'';
   return(
-    <div style={{display:'flex',gap:1,alignItems:'center',width:'100%',minWidth:0}}>
+    <div style={{display:'flex',flexDirection:'column',gap:2,width:'100%'}}>
       {editing
         ? <input ref={inputRef} autoFocus
             value={draft} onChange={e=>setDraft(e.target.value)}
             onBlur={commit}
             onKeyDown={e=>{if(e.key==='Enter')commit();if(e.key==='Escape'){setEditing(false);}}}
-            style={{flex:1,minWidth:0,background:'#0a0f1a',border:'1px solid #e2e8f033',borderRadius:2,
-                    color:'#e2e8f0',fontFamily:'Courier New',fontSize:10,padding:'2px 5px',
-                    outline:'none',textTransform:'uppercase'}}/>
-        : <button className="tbtn saved" style={{fontSize:10,flex:1,minWidth:0,overflow:'hidden',
+            style={{width:'100%',background:'#0a0f1a',border:'1px solid #e2e8f033',borderRadius:2,
+                    color:'#e2e8f0',fontFamily:'Courier New',fontSize:11,padding:'7px 8px',
+                    outline:'none',textTransform:'uppercase',boxSizing:'border-box'}}/>
+        : <button className="tbtn saved"
+            style={{fontSize:11,width:'100%',padding:'9px 8px',overflow:'hidden',
                     textOverflow:'ellipsis',whiteSpace:'nowrap'}}
-            onClick={onLoad}
-            title={`${s.name}${notesTip}`}>
-            {s.name.slice(0,10).toUpperCase()}
+            onClick={onLoad} title={`${s.name}${notesTip}`}>
+            {s.name.slice(0,12).toUpperCase()}
           </button>}
-      {!editing&&<IconBtn onClick={startEdit} title="Rename" char="✎"/>}
-      {!editing&&<IconBtn
-        onClick={()=>{const n=prompt('Notes (shown on hover):',s.notes??'');if(n!==null)onNotes(i,n.slice(0,80));}}
-        color={s.notes?'#60a5fa':'#374151'} activeBorder="#60a5fa44" activeColor="#60a5fa"
-        title={s.notes||'Add notes'} char="ⓘ" active={!!s.notes}/>}
-      {!editing&&<IconBtn onClick={handleOver} activeBorder="#34d39944" activeColor="#34d399"
-        title={pendingOver?'Click again to overwrite with current tune':'Overwrite with current tune'}
-        char="↺" active={pendingOver}/>}
-      {!editing&&<IconBtn onClick={handleClear} activeBorder="#f59e0b44" activeColor="#f59e0b"
-        title={pendingClear?'Click again to clear':'Clear slot'}
-        char={pendingClear?'✓':'✕'} active={pendingClear}/>}
+      <div style={btnRow}>
+        <IconBtn onClick={startEdit} title="Rename" char="✎" style={iconStyle}/>
+        <IconBtn
+          onClick={()=>{const n=prompt('Notes (shown on hover):',s.notes??'');if(n!==null)onNotes(i,n.slice(0,80));}}
+          color={s.notes?'#60a5fa':'#374151'} activeBorder="#60a5fa44" activeColor="#60a5fa"
+          title={s.notes||'Add notes'} char="ⓘ" active={!!s.notes} style={iconStyle}/>
+        <IconBtn onClick={handleOver} activeBorder="#34d39944" activeColor="#34d399"
+          title={pendingOver?'Click again to overwrite with current tune':'Overwrite with current tune'}
+          char="↺" active={pendingOver} style={iconStyle}/>
+        <IconBtn onClick={handleReset} activeBorder="#818cf844" activeColor="#818cf8"
+          title={pendingReset?'Click again to restore default preset':'Reset to default preset'}
+          char="↩" active={pendingReset} style={iconStyle}/>
+        <IconBtn onClick={handleClear} activeBorder="#f59e0b44" activeColor="#f59e0b"
+          title={pendingClear?'Click again to clear':'Clear slot'}
+          char={pendingClear?'✓':'✕'} active={pendingClear} style={iconStyle}/>
+      </div>
     </div>
   );
 };
@@ -1315,7 +1335,7 @@ function App(){
   const[metricUnits,setMetricUnits]=usePersist('suspos_units_v1',false);
   const[saves,setSaves]=usePersist('suspos_saves_v9',PRESET_SAVES);
   const[loadMode,setLoadMode]=useState('all'); // 'all'=feel+drivetrain, 'fe'=feel only
-  const[open,setOpen]=useState({chassis:true,feel:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:true,statsOpen:false});
+  const[open,setOpen]=useState({chassis:true,feel:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:true,presetsOpen:true});
   const[showChecker,setShowChecker]=useState(false);
   const[hzDraft,setHzDraft]=useState(null);     // transient: direct front Hz entry
   const[rearHzDraft,setRearHzDraft]=useState(null); // transient: direct rear Hz entry (independent mode)
@@ -1363,7 +1383,8 @@ function App(){
   const bBrakeEntry=(brakeBias-50)*BRAKE_BIAS_SCALE;
   const aeroEff=Math.max(0.1,ch.aeroEfficiency??0.9);
   const bAero=(0.5-(ch.aeroBalance??0.5))*AERO_BALANCE_SCALE*(0.9/aeroEff);
-  const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bAero;
+  const bDampBias=(fe.dampingBias??0)*0.08;
+  const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bAero+bDampBias;
   const lim=GAME_LIMITS[fe.gameMode];
 
   const handleSlot=i=>{
@@ -1391,6 +1412,7 @@ function App(){
   const renameSlot=(i,name)=>setSaves(p=>({...p,[i]:{...p[i],name}}));
   const notesSlot=(i,notes)=>setSaves(p=>({...p,[i]:{...p[i],notes}}));
   const overwriteSlot=i=>setSaves(p=>({...p,[i]:{...p[i],fe,dr,refCornerMassF:Math.round(cm.front)}}));
+  const resetSlot=i=>setSaves(p=>({...p,[i]:PRESET_SAVES[i]}));
 
   return(
     <div style={{display:'flex',flexDirection:'column',height:'100vh',minHeight:'-webkit-fill-available',overflow:'hidden'}}>
@@ -1535,6 +1557,7 @@ function App(){
               rearHzMan:DEF_FE.rearHzMan,
               rearHzMult:DEF_FE.rearHzMult,
               dampingMode:DEF_FE.dampingMode,
+              dampingBias:DEF_FE.dampingBias,
               reboundZeta:DEF_FE.reboundZeta,
               bumpRatio:DEF_FE.bumpRatio,
               bumpZeta:DEF_FE.bumpZeta}))}>
@@ -1703,26 +1726,49 @@ function App(){
                     if(z>70) return`${z}% · BUTTERWORTH${cross}`;
                     return`${z}%${cross}`;
                   })()}/>}
-            <div style={{display:'flex',alignItems:'center',gap:6,
-                         padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
-                         border:'1px solid #1e293b',marginBottom:4,marginTop:-6}}>
-              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1,whiteSpace:'nowrap'}}>REB</span>
-              <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{Math.round(physics.reboundZeta)}%</span>
-              <span style={{fontSize:10,color:'#1e293b',flex:1,textAlign:'center'}}>·</span>
-              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1,whiteSpace:'nowrap'}}>BUMP</span>
-              <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{Math.round(physics.bumpZeta)}%</span>
-              <span style={{fontSize:10,color:'#1e293b',flex:1,textAlign:'center'}}>·</span>
-              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1,whiteSpace:'nowrap'}}>SETTLE</span>
-              {(()=>{
-                const s=tune.settle;
-                const[cat,col]=s<0.25?['STIFF','#ef4444']:s<0.50?['SPORT','#f59e0b']:
-                               s<0.80?['ROAD','#9ca3af']:s<1.20?['SOFT','#60a5fa']:['FLOAT','#818cf8'];
-                return<>
-                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{s.toFixed(2)}s</span>
-                  <span style={{fontSize:8,color:col,letterSpacing:1}}>{cat}</span>
-                </>;
-              })()}
-            </div>
+            <FeelSlider label="Damping Bias" value={fe.dampingBias??0}
+              onChange={pFe('dampingBias')} min={-50} max={50} step={1}
+              leftLabel="REAR" rightLabel="FRONT"
+              centered={true}
+              readout={`F ${Math.round(physics.zetaF)}% / R ${Math.round(physics.zetaR)}%`}
+              hint="Shifts damping weight front/rear. Positive = more front rebound and bump damping. At ±50 the heavier end is 25% above and the lighter end is 25% below the base rebound ζ. Front-heavy: more entry stability, better trail-braking. Rear-heavy: more exit traction, softer entry."/>
+            {(()=>{
+              const biased=(fe.dampingBias??0)!==0;
+              const worst=Math.max(tune.settle,tune.settleR);
+              const[cat,col]=worst<0.25?['STIFF','#ef4444']:worst<0.50?['SPORT','#f59e0b']:
+                             worst<0.80?['ROAD','#9ca3af']:worst<1.20?['SOFT','#60a5fa']:['FLOAT','#818cf8'];
+              const lbl=t=><span style={{fontSize:9,color:'#4b5563',letterSpacing:1,width:44,flexShrink:0}}>{t}</span>;
+              const val=v=><span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{v}</span>;
+              return(
+                <div style={{padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
+                             border:'1px solid #1e293b',marginBottom:4,marginTop:-6}}>
+                  {biased&&(
+                    <div style={{display:'flex',marginBottom:3}}>
+                      <span style={{width:44,flexShrink:0}}/>
+                      <span style={{flex:1,fontSize:9,color:'#6b7280',letterSpacing:1}}>FRONT</span>
+                      <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>REAR</span>
+                    </div>
+                  )}
+                  <div style={{display:'flex',alignItems:'center',marginBottom:biased?2:0}}>
+                    {lbl('REB')}
+                    {biased?<>{val(`${Math.round(physics.zetaF)}%`)}<div style={{flex:1}}/>{val(`${Math.round(physics.zetaR)}%`)}</>
+                           :<>{val(`${Math.round(physics.reboundZeta)}%`)}<div style={{flex:1,height:1,background:'#1e293b',margin:'0 6px'}}/><span style={{fontSize:9,color:'#4b5563',letterSpacing:1,marginRight:6}}>BUMP</span>{val(`${Math.round(physics.bumpZeta)}%`)}</>}
+                  </div>
+                  {biased&&(
+                    <div style={{display:'flex',alignItems:'center',marginBottom:2}}>
+                      {lbl('BUMP')}
+                      {val(`${Math.round(physics.bumpZetaF)}%`)}<div style={{flex:1}}/>{val(`${Math.round(physics.bumpZetaR)}%`)}
+                    </div>
+                  )}
+                  <div style={{display:'flex',alignItems:'center',marginTop:biased?0:-2}}>
+                    {lbl('SETTLE')}
+                    {biased?<>{val(`${tune.settle.toFixed(2)}s`)}<div style={{flex:1}}/>{val(`${tune.settleR.toFixed(2)}s`)}</>
+                           :<>{val(`${tune.settle.toFixed(2)}s`)}</>}
+                    <span style={{fontSize:8,color:col,letterSpacing:1,marginLeft:biased?4:6}}>{cat}</span>
+                  </div>
+                </div>
+              );
+            })()}
           </Sec>
 
           <Sec title="ANTI-ROLL BARS" open={open.arb} onToggle={tog('arb')}
@@ -2097,48 +2143,32 @@ function App(){
           </div>{/* end cards */}
 
           {/* AT-A-GLANCE STRIP — collapsible */}
-          <div style={{flexShrink:0,borderTop:'1px solid #0f172a',background:'#020617'}}>
-            <div onClick={()=>setOpen(p=>({...p,statsOpen:!p.statsOpen}))}
-                 style={{display:'flex',alignItems:'center',justifyContent:'space-between',
-                         padding:'4px 12px',cursor:'pointer',userSelect:'none'}}>
-              <span style={{fontSize:9,color:'#374151',letterSpacing:2}}>RAW VALUES</span>
-              <span style={{fontSize:9,color:'#374151'}}>{open.statsOpen?'▲':'▼'}</span>
-            </div>
-            {open.statsOpen&&<div style={{padding:'0 12px 6px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-              {[
-                {l:'SP F', v:metricUnits?`${(tune.springF*NMM_PER_LBIN).toFixed(1)}`:`${tune.springF.toFixed(0)}`},
-                {l:'SP R', v:metricUnits?`${(tune.springR*NMM_PER_LBIN).toFixed(1)}`:`${tune.springR.toFixed(0)}`},
-                {l:'ARB F', v:`${tune.arbF}`},
-                {l:'ARB R', v:`${tune.arbR}`},
-                {l:'REB F', v:`${tune.rebF}`},
-                {l:'REB R', v:`${tune.rebR}`},
-                {l:'BMP F', v:`${tune.bumpF}`},
-                {l:'BMP R', v:`${tune.bumpR}`},
-              ].map(({l,v})=>(
-                <div key={l} style={{display:'flex',alignItems:'baseline',gap:3}}>
-                  <span style={{fontSize:9,color:'#374151',letterSpacing:1}}>{l}</span>
-                  <span style={{fontFamily:'Courier New',fontSize:12,color:'#6b7280',fontWeight:700}}>{v}</span>
-                </div>
-              ))}
-            </div>}
-          </div>
-
           {/* TOOLBAR — saves, check, share, import */}
-          <div style={{flexShrink:0,borderTop:'1px solid #0f172a',padding:'5px 12px 6px',background:'#020617'}}>
-            {/* 2×3 slot grid */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:3,marginBottom:4}}>
-              {[1,2,3,4,5,6].map(i=>(
-                <SaveSlot key={i} i={i} s={saves[i]}
-                  onLoad={()=>handleSlot(i)}
-                  onSave={()=>handleSlot(i)}
-                  onClear={()=>clearSlot(i)}
-                  onRename={renameSlot}
-                  onNotes={notesSlot}
-                  onSaveOver={()=>overwriteSlot(i)}/>
-              ))}
+          <div style={{flexShrink:0,borderTop:'1px solid #0f172a',background:'#020617'}}>
+            {/* presets header — collapsible */}
+            <div onClick={()=>setOpen(p=>({...p,presetsOpen:!p.presetsOpen}))}
+                 style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+                         padding:'5px 12px',cursor:'pointer',userSelect:'none'}}>
+              <span style={{fontSize:9,color:'#4b5563',letterSpacing:2}}>PRESETS</span>
+              <span style={{fontSize:9,color:'#374151'}}>{open.presetsOpen?'▲':'▼'}</span>
             </div>
-            {/* action row */}
-            <div style={{display:'flex',gap:3,alignItems:'center'}}>
+            {/* 3×2 slot grid (2 cols, 3 rows) */}
+            {open.presetsOpen&&<div style={{padding:'0 12px 8px'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
+                {[1,2,3,4,5,6].map(i=>(
+                  <SaveSlot key={i} i={i} s={saves[i]}
+                    onLoad={()=>handleSlot(i)}
+                    onSave={()=>handleSlot(i)}
+                    onClear={()=>clearSlot(i)}
+                    onRename={renameSlot}
+                    onNotes={notesSlot}
+                    onSaveOver={()=>overwriteSlot(i)}
+                    onResetDefault={()=>resetSlot(i)}/>
+                ))}
+              </div>
+            </div>}
+            {/* action row — always visible */}
+            <div style={{display:'flex',gap:3,alignItems:'center',padding:'0 12px 6px'}}>
               <button className={`tbtn${loadMode==='fe'?' on':''}`} style={{fontSize:10,letterSpacing:0.5}}
                 onClick={()=>setLoadMode(m=>m==='all'?'fe':'all')}
                 title={loadMode==='all'
@@ -2230,13 +2260,34 @@ function App(){
                 <div style={{position:'absolute',right:5,top:'50%',transform:'translateY(-50%)',
                              fontSize:9,color:'#ef4444',letterSpacing:1,fontWeight:700}}>OS</div>
               </div>
+              {/* stability / responsiveness bar */}
+              {(()=>{
+                const hzNorm=Math.min(1,Math.max(0,(physics.frontHz-0.8)/2.7));
+                const arbNorm=lim.arb>0?(tune.arbF+tune.arbR)/(2*lim.arb):0;
+                const dampNorm=Math.min(1,Math.max(0,(physics.reboundZeta-10)/105));
+                const score=hzNorm*0.5+arbNorm*0.3+(1-dampNorm)*0.2; // 0=max stable, 1=max agile
+                const p=Math.max(-50,Math.min(50,(score-0.5)*100));
+                const fs=p>=0?{left:'50%',width:`${p}%`}:{left:`${50+p}%`,width:`${-p}%`};
+                return(
+                  <div style={{position:'relative',height:14,background:'#0a0f1a',border:'1px solid #1e293b',
+                               borderRadius:2,overflow:'hidden',marginTop:3}}>
+                    <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#1e293b'}}/>
+                    {p!==0&&<div style={{position:'absolute',top:2,bottom:2,borderRadius:1,
+                                        background:p>0?'#f59e0b40':'#22c55e40',...fs}}/>}
+                    <div style={{position:'absolute',left:5,top:'50%',transform:'translateY(-50%)',
+                                 fontSize:9,color:'#22c55e',letterSpacing:1,fontWeight:700}}>STABLE</div>
+                    <div style={{position:'absolute',right:5,top:'50%',transform:'translateY(-50%)',
+                                 fontSize:9,color:'#f59e0b',letterSpacing:1,fontWeight:700}}>AGILE</div>
+                  </div>
+                );
+              })()}
             </div>
             {/* expanded full verdict */}
             {open.balanceExpanded&&
               <div style={{padding:'0 14px 12px',borderTop:'1px solid #0f172a'}}>
                 <HandlingVerdict total={bTotFull} bSp={tune.bSp} bAb={tune.bAb}
                   bDiffAccel={diff.bDiffAccel} bDiffDecel={diff.bDiffDecel}
-                  bBrakeEntry={bBrakeEntry} bAero={bAero}
+                  bBrakeEntry={bBrakeEntry} bAero={bAero} bDampBias={bDampBias}
                   mechBalance={null}/>
               </div>}
           </div>
