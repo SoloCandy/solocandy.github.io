@@ -117,7 +117,7 @@ const ROLL_CENTER_HEIGHT=0.09;
 const DAMPING_CALIBRATION=0.001;
 //
 //
-const MECH_BALANCE_STIFFNESS_WEIGHT=0.698;
+const MECH_BALANCE_STIFFNESS_WEIGHT=0.60;
 const GAME_LIMITS={horizon:{damping:20,arb:65},motorsport:{damping:40,arb:40}};
 
 const cornerMasses=ch=>{
@@ -251,7 +251,9 @@ const computeTune=(ch,phys,gameMode)=>{
   const bSp=(rsSpF+rsSpR)>0?((rsSpF/(rsSpF+rsSpR))-nf)*100:0;
   const bAb=(rsAbF+rsAbR)>0?((rsAbF/(rsAbF+rsAbR))-nf)*100:0;
   const bTot=bSp+bAb;
-  const rsBalance=rsTotal>0?(rsSpR+rsAbR)/rsTotal:1-ch.frontBias/100;
+  const twF=ch.tyreWidthF??265,twR=ch.tyreWidthR??265;
+  const rsWF=(rsSpF+rsAbF)*twF,rsWR=(rsSpR+rsAbR)*twR;
+  const rsBalance=rsWF+rsWR>0?rsWR/(rsWF+rsWR):1-ch.frontBias/100;
   const mechBalance=MECH_BALANCE_STIFFNESS_WEIGHT*rsBalance
                    +(1-MECH_BALANCE_STIFFNESS_WEIGHT)*(1-ch.frontBias/100);
   const settleF=zetaF>0?2.302/((zetaF/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn)
@@ -420,7 +422,8 @@ const usePersist=(key,initial)=>{
 const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
               motionRatioF:1.0,motionRatioR:1.0,
-              aeroBalance:0.5,aeroEfficiency:0.9};
+              aeroBalance:0.5,aeroEfficiency:0.9,
+              tyreWidthF:265,tyreWidthR:265};
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,arbFloor:6,arbCeil:65,
@@ -1130,6 +1133,8 @@ const encodeTune=(ch,fe,dr,br)=>{
     fe.rearHzMan??1.5,
     fe.rearHzMult??1.20,
     fe.dampingBias??0,
+    ch.tyreWidthF??265,
+    ch.tyreWidthR??265,
   ];
   return btoa(arr.join('|'));
 };
@@ -1151,6 +1156,8 @@ const decodeTune=(code)=>{
             rearHzMan:v.length>=40?v[39]:DEF_FE.rearHzMan,
             rearHzMult:v.length>=41?v[40]:DEF_FE.rearHzMult,
             dampingBias:v.length>=42?v[41]:0};
+  ch.tyreWidthF=v.length>=43?v[42]:265;
+  ch.tyreWidthR=v.length>=44?v[43]:265;
   const dr={layout:LAYOUT_DEC[v[21]]??'RWD',buildType:BUILD_DEC[v[22]]??'track',diffManual:v[23]===1,
             diffBiasExit:v[24]??0,diffAccel:v[25],diffDecel:v[26],
             diffFrontAccel:v[27],diffFrontDecel:v[28],diffRearAccel:v[29],diffRearDecel:v[30],diffCenter:v[31],
@@ -1178,6 +1185,8 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       motionRatioR: cl(ch?.motionRatioR,   0.5,  1.0,  DEF_CH.motionRatioR),
       aeroBalance:  cl(ch?.aeroBalance,    0,    1.5,  DEF_CH.aeroBalance),
       aeroEfficiency:cl(ch?.aeroEfficiency,0.1,  1.0,  DEF_CH.aeroEfficiency),
+      tyreWidthF:   cl(ch?.tyreWidthF,    100,  400,  DEF_CH.tyreWidthF),
+      tyreWidthR:   cl(ch?.tyreWidthR,    100,  400,  DEF_CH.tyreWidthR),
     },
     fe:{
       rideStiffness:    (()=>{const rs=n(fe?.rideStiffness,DEF_FE.rideStiffness);const hz=rs>3.5?0.8+(rs/100)*2.7:rs;return Math.max(0.80,Math.min(3.50,Math.round(hz*100)/100));})(),
@@ -1874,6 +1883,12 @@ function App(){
             <Field label="Aero Efficiency" value={ch.aeroEfficiency??0.9} onChange={pCh('aeroEfficiency')}
               min={0.1} max={1.0} step={0.001}
               hint="Aero efficiency from Forza's tuning menu (typically 0.300–0.900). Lower = more total downforce. Scales how strongly the aero balance affects the overall handling total — a high-downforce car at 0.30 has 3× the aero load of a stock car at 0.90, so its balance bias matters proportionally more."/>
+            <Field label="Tyre Width F" value={ch.tyreWidthF??265} onChange={pCh('tyreWidthF')}
+              min={100} max={400} step={5} unit="mm"
+              hint="Front tyre section width in mm — the first number in the tyre size (e.g. 265 from 265/30R19). Affects mech balance when front and rear widths differ. Equal widths cancel out."/>
+            <Field label="Tyre Width R" value={ch.tyreWidthR??265} onChange={pCh('tyreWidthR')}
+              min={100} max={400} step={5} unit="mm"
+              hint="Rear tyre section width in mm — the first number in the tyre size (e.g. 325 from 325/25R19). Wider rear tyres shift mech balance toward the rear (higher number)."/>
             {uiMode==='pro'&&<>
             <Field label="Wheelbase" value={Math.round(ch.wheelbase*1000)} onChange={v=>pCh('wheelbase')(v/1000)} min={400} max={4000} step={5} unit="mm"
               hint="Distance between front and rear axles in millimetres. Used by the flat-ride formula to match rear spring frequency to your target speed. Typical cars: 2400–2900 mm."/>
