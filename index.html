@@ -1584,6 +1584,17 @@ function App(){
         notes:''}}));
     }
   };
+  const loadPreset=i=>{
+    const s=PRESET_SAVES[i];if(!s)return;
+    let adjustedFe={...DEF_FE,...s.fe};
+    if(s.refCornerMassF){
+      const scale=Math.sqrt(s.refCornerMassF/cm.front);
+      const scaledHz=Math.max(0.80,Math.min(3.50,rsToHz(s.fe.rideStiffness)*scale));
+      adjustedFe.rideStiffness=hzToRs(scaledHz);
+    }
+    setFe(adjustedFe);
+    if(loadMode!=='fe')setDr({...DEF_DR,...s.dr});
+  };
   const clearSlot=i=>setSaves(p=>{const n={...p};delete n[i];return n;});
   const renameSlot=(i,name)=>setSaves(p=>({...p,[i]:{...p[i],name}}));
   const notesSlot=(i,notes)=>setSaves(p=>({...p,[i]:{...p[i],notes}}));
@@ -1706,10 +1717,10 @@ function App(){
                 <div style={{fontSize:9,color:'#374151',letterSpacing:2,marginBottom:8}}>START FROM</div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:3,marginBottom:18}}>
                   {[1,2,3,4,5,6].map(i=>(
-                    <button key={i} className={`tbtn`}
+                    <button key={i} className="tbtn"
                       style={{fontSize:10,padding:'5px 2px',textAlign:'center'}}
-                      onClick={()=>handleSlot(i)}>
-                      {saves[i]?.name??`SLOT ${i}`}
+                      onClick={()=>loadPreset(i)}>
+                      {PRESET_SAVES[i].name}
                     </button>
                   ))}
                 </div>
