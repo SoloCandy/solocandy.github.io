@@ -350,8 +350,7 @@ const computeDiff=(ch,fe,dr)=>{
       :{layout:dr.layout,
         accel:dr.diffAccel??35, decel:dr.diffDecel??10};
   } else if(dr.layout==='AWD'){
-    const bAdj=build==='drift'?10:build==='track'?5:0;
-    const center=cl(62+rB*10+bAdj,45,80);
+    const center=cl(dr.diffCenter??65,45,80); // slider-driven; default 65 is sensible across builds
     vals={layout:'AWD',
       frontAccel:cl(28-biasExit*0.10+frontExitBias*0.12,10,40),
       frontDecel:0,
@@ -367,8 +366,8 @@ const computeDiff=(ch,fe,dr)=>{
       ?{street:15,track:12,drift:3}[build]
       :{street:8, track:5, drift:2}[build];
     const accel=isRWD
-      ? cl(accelBase+biasExit*0.20, 10, 65)
-      : cl(accelBase-biasExit*0.15,  5, 35);
+      ? cl(accelBase+biasExit*0.20, 10, 65)  // right=ROTATE → more rear lock
+      : cl(accelBase+biasExit*0.15,  5, 35); // right=PUSH   → more front lock
     const decel=cl(decelBase+(rB-0.5)*(isRWD?15:5)+biasEntry*0.15, 0, isRWD?30:15);
     vals={layout:dr.layout,accel,decel};
   }
@@ -2418,11 +2417,11 @@ function App(){
                 value={dr.diffBiasExit??0}
                 onChange={pDr('diffBiasExit')}
                 min={-50} max={50}
-                leftLabel={dr.layout==='FWD'?'TRACTION':'GRIP'}
+                leftLabel={dr.layout==='FWD'?'ROTATION':'GRIP'}
                 rightLabel={dr.layout==='FWD'?'PUSH':'ROTATE'}
                 centered={true}
                 hint={dr.layout==='FWD'
-                  ?'Front diff accel lock. Toward PUSH increases lock — more traction but more understeer on corner exit. Toward TRACTION reduces lock for cleaner rotation.'
+                  ?'Front diff accel lock. Toward PUSH increases lock — more traction but more understeer on corner exit. Toward ROTATION reduces lock for cleaner pivot and less push.'
                   :dr.layout==='RWD'
                   ?'Rear diff accel lock. Toward ROTATE increases lock — more power oversteer on exit. Toward GRIP reduces lock for cleaner exit traction.'
                   :'Rear diff exit character. Toward ROTATE increases rear accel lock — more oversteer on exit. Toward GRIP reduces rear accel lock for traction.'}
@@ -2453,8 +2452,8 @@ function App(){
                   readout={`${diff.center??65}% rear`}/>}
               <FeelSlider
                 label="ENTRY"
-                value={-(dr.diffBiasEntry??0)}
-                onChange={v=>pDr('diffBiasEntry')(-v)}
+                value={dr.diffBiasEntry??0}
+                onChange={pDr('diffBiasEntry')}
                 min={-50} max={50}
                 leftLabel="LOOSE"
                 rightLabel="STABLE"
