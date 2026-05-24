@@ -2028,6 +2028,141 @@ function App(){
             </> }
           </Sec></div>
 
+          <div style={dim('arb')}><Sec title="ANTI-ROLL BARS" open={open.arb} onToggle={tog('arb')}
+            onReset={()=>setFe(p=>({...p,
+              arbBias:DEF_FE.arbBias,
+              arbMode:DEF_FE.arbMode,
+              arbBalTarget:DEF_FE.arbBalTarget,
+              arbBalMode:DEF_FE.arbBalMode,
+              springShare:DEF_FE.springShare,
+              arbTargetRollMan:DEF_FE.arbTargetRollMan,
+              arbShareMan:DEF_FE.arbShareMan,
+              arbFloor:DEF_FE.arbFloor,
+              arbCeil:DEF_FE.arbCeil}))}>
+            {(fe.arbBalMode??'weight')==='weight'&&
+              <FeelSlider label="ARB Bias" value={fe.arbBias}
+                onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
+                centered={true}
+                hint="Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."
+                readout={`F ${Math.round((1-(physics.arbBalance/100))*100)}% / R ${Math.round(physics.arbBalance/100*100)}%`}/>
+            }
+            {uiMode!=='beginner'&&<ArbRangeSlider
+              floor={fe.arbFloor??6} ceil={fe.arbCeil??lim.arb}
+              onFloor={pFe('arbFloor')} onCeil={pFe('arbCeil')}
+              max={lim.arb}/>}
+            <div style={{display:'flex',alignItems:'center',gap:6,
+                         padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
+                         border:'1px solid #1e293b',marginBottom:6,marginTop:-6}}>
+              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ROLL</span>
+              <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,
+                            color:tune.rollClamped?'#f59e0b':'#e2e8f0'}}>{tune.rollDeg.toFixed(1)}</span>
+              <span style={{fontSize:10,color:'#4b5563'}}>°</span>
+              <svg width="100%" height="24" viewBox="0 0 100 24" style={{flex:1,overflow:'visible',margin:'0 4px'}}>
+                <line x1="5" y1="20" x2="95" y2="20" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
+                {(fe.arbMode??'auto')==='roll'&&(
+                  <g transform={`rotate(${-Math.min(tune.rollTarget*4,25)} 50 20)`}>
+                    <line x1="15" y1="14" x2="85" y2="14" stroke="#3b82f6" strokeWidth="1.5"
+                      strokeDasharray="3 2" opacity="0.4" strokeLinecap="round"/>
+                  </g>
+                )}
+                <g transform={`rotate(${-Math.min(tune.rollDeg*4,25)} 50 20)`}
+                   style={{transition:'transform 0.15s ease-out'}}>
+                  <line x1="20" y1="14" x2="80" y2="14"
+                    stroke={tune.rollClamped?'#f59e0b':'#e2e8f0'} strokeWidth="1.5" strokeLinecap="round"/>
+                  <rect x="15" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
+                    stroke={tune.rollClamped?'#f59e0b':'#64748b'} strokeWidth="1.5"/>
+                  <rect x="80" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
+                    stroke={tune.rollClamped?'#f59e0b':'#64748b'} strokeWidth="1.5"/>
+                </g>
+              </svg>
+              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SHARE</span>
+              <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{Math.round(tune.arbShare)}</span>
+              <span style={{fontSize:10,color:'#4b5563'}}>%</span>
+            </div>
+            {/* roll stiffness split bar */}
+            <div style={{display:'flex',height:3,borderRadius:2,overflow:'hidden',marginBottom:2}}>
+              <div style={{flex:Math.max(0,100-tune.arbShare),background:'#3b82f6',opacity:0.55,transition:'flex .2s'}}/>
+              <div style={{flex:Math.max(0,tune.arbShare),background:'#f59e0b',opacity:0.75,transition:'flex .2s'}}/>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'#374151',marginBottom:10}}>
+              <span>SPRINGS {Math.round(100-tune.arbShare)}%</span>
+              <span>ARBs {Math.round(tune.arbShare)}%</span>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
+              <span style={{fontSize:12,color:'#6b7280'}}>Stiffness Mode</span>
+              <Hint text="AUTO derives ARB stiffness from the car's natural roll tendency — heavier, taller, softer cars get more ARB contribution. ROLL ° targets a specific body roll angle. SHARE % directly sets ARBs as a fraction of total roll stiffness."/>
+              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
+                <button className={`tog${(fe.arbMode??'auto')==='auto'?' on':''}`}
+                  onClick={()=>pFe('arbMode')('auto')}>AUTO</button>
+                <button className={`tog${(fe.arbMode??'auto')==='roll'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,arbMode:'roll',
+                    arbTargetRollMan:Math.round(physics.arbTargetRoll*10)/10}))}>ROLL °</button>
+                <button className={`tog${(fe.arbMode??'auto')==='share'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,arbMode:'share',
+                    arbShareMan:Math.round(tune.arbShare)}))}>SHARE %</button>
+              </div>
+            </div>
+            {(fe.arbMode??'auto')==='roll'&&
+              <Field label="Target Roll Angle" value={fe.arbTargetRollMan} onChange={pFe('arbTargetRollMan')}
+                min={0.3} max={5.0} step={0.1} unit="° @ 1g"
+                hint="Body roll the anti-roll bars are solved to allow. Low (≈0.5–1°) = stiff bars, flat cornering. High (≈3–5°) = soft bars that let the suspension articulate over terrain."/>}
+            {(fe.arbMode??'auto')==='share'&&
+              <Field label="ARB Share" value={fe.arbShareMan??15} onChange={pFe('arbShareMan')}
+                min={0} max={80} step={1} unit="%"
+                hint="Fraction of total roll stiffness supplied by ARBs. 0% = springs handle all roll resistance. 20–30% is typical sport. Higher = stiffer bars relative to springs, more abrupt load transfer."/>}
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10,marginTop:4}}>
+              <span style={{fontSize:12,color:'#6b7280'}}>Balance Mode</span>
+              <Hint text="WEIGHT splits front/rear ARB from the car's weight distribution, adjusted by the ARB Bias slider. MECH solves the ARB split to hit a target mech balance value. CO-SOLVE adjusts both rear spring stiffness and ARB split together — Spring Share controls how much each contributes."/>
+              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
+                <button className={`tog${(fe.arbBalMode??'weight')==='weight'?' on':''}`}
+                  onClick={()=>pFe('arbBalMode')('weight')}>WEIGHT</button>
+                <button className={`tog${(fe.arbBalMode??'weight')==='mech'?' on':''}`}
+                  onClick={()=>pFe('arbBalMode')('mech')}>MECH</button>
+                <button className={`tog${(fe.arbBalMode??'weight')==='coSolve'?' on':''}`}
+                  onClick={()=>pFe('arbBalMode')('coSolve')}>CO-SOLVE</button>
+              </div>
+            </div>
+            {(fe.arbBalMode??'weight')==='mech'&&<>
+              <div style={{display:'flex',alignItems:'center',gap:8,
+                           padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
+                           border:'1px solid #1e293b',marginBottom:10}}>
+                <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SPLIT</span>
+                <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
+                  F {tune.balArbSplit!=null?100-tune.balArbSplit:'—'}% / R {tune.balArbSplit??'—'}%
+                </span>
+              </div>
+              <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
+                min={0.40} max={0.90} step={0.01}
+                hint="Target mech balance the ARB split will be solved to achieve. 0.65 is a good starting point for most builds. Higher = more rear grip bias (oversteer tendency). Lower = more front grip bias (understeer tendency)."/>
+            </>}
+            {(fe.arbBalMode??'weight')==='coSolve'&&<>
+              <div style={{display:'flex',gap:8,marginBottom:10}}>
+                <div style={{flex:1,display:'flex',alignItems:'center',gap:8,
+                             padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
+                             border:'1px solid #1e293b'}}>
+                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SPLIT</span>
+                  <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
+                    F {tune.balArbSplit!=null?100-tune.balArbSplit:'—'}% / R {tune.balArbSplit??'—'}%
+                  </span>
+                </div>
+                <div style={{flex:1,display:'flex',alignItems:'center',gap:8,
+                             padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
+                             border:'1px solid #1e293b'}}>
+                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>SOLVED REAR Hz</span>
+                  <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
+                    {tune.rHz!=null?tune.rHz.toFixed(2):'—'} Hz
+                  </span>
+                </div>
+              </div>
+              <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
+                min={0.40} max={0.90} step={0.01}
+                hint="Target mech balance that both rear spring stiffness and ARB split are solved to achieve together. 0.65 is a good starting point for most builds. Higher = more rear grip bias. Lower = more front grip bias."/>
+              <FeelSlider label="SPRING SHARE" value={fe.springShare??50} onChange={pFe('springShare')}
+                min={0} max={100} leftLabel="ARB ONLY" rightLabel="SPRING ONLY"
+                hint="How much of the mechanical balance correction comes from rear spring stiffness vs ARB split. 0% = ARB handles all correction (rear Hz equals front Hz). 100% = springs handle all correction (ARB split near neutral). 50% = equal contribution from both."/>
+            </>}
+          </Sec></div>
+
           <div style={dim('ride','feel')}><Sec title="RIDE" open={open.ride} onToggle={tog('ride')}
             onReset={()=>setFe(p=>({...p,
               rideStiffness:DEF_FE.rideStiffness,
@@ -2251,141 +2386,6 @@ function App(){
                 </div>
               );
             })()}
-          </Sec></div>
-
-          <div style={dim('arb')}><Sec title="ANTI-ROLL BARS" open={open.arb} onToggle={tog('arb')}
-            onReset={()=>setFe(p=>({...p,
-              arbBias:DEF_FE.arbBias,
-              arbMode:DEF_FE.arbMode,
-              arbBalTarget:DEF_FE.arbBalTarget,
-              arbBalMode:DEF_FE.arbBalMode,
-              springShare:DEF_FE.springShare,
-              arbTargetRollMan:DEF_FE.arbTargetRollMan,
-              arbShareMan:DEF_FE.arbShareMan,
-              arbFloor:DEF_FE.arbFloor,
-              arbCeil:DEF_FE.arbCeil}))}>
-            {(fe.arbBalMode??'weight')==='weight'&&
-              <FeelSlider label="ARB Bias" value={fe.arbBias}
-                onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
-                centered={true}
-                hint="Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."
-                readout={`F ${Math.round((1-(physics.arbBalance/100))*100)}% / R ${Math.round(physics.arbBalance/100*100)}%`}/>
-            }
-            {uiMode!=='beginner'&&<ArbRangeSlider
-              floor={fe.arbFloor??6} ceil={fe.arbCeil??lim.arb}
-              onFloor={pFe('arbFloor')} onCeil={pFe('arbCeil')}
-              max={lim.arb}/>}
-            <div style={{display:'flex',alignItems:'center',gap:6,
-                         padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
-                         border:'1px solid #1e293b',marginBottom:6,marginTop:-6}}>
-              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ROLL</span>
-              <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,
-                            color:tune.rollClamped?'#f59e0b':'#e2e8f0'}}>{tune.rollDeg.toFixed(1)}</span>
-              <span style={{fontSize:10,color:'#4b5563'}}>°</span>
-              <svg width="100%" height="24" viewBox="0 0 100 24" style={{flex:1,overflow:'visible',margin:'0 4px'}}>
-                <line x1="5" y1="20" x2="95" y2="20" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
-                {(fe.arbMode??'auto')==='roll'&&(
-                  <g transform={`rotate(${-Math.min(tune.rollTarget*4,25)} 50 20)`}>
-                    <line x1="15" y1="14" x2="85" y2="14" stroke="#3b82f6" strokeWidth="1.5"
-                      strokeDasharray="3 2" opacity="0.4" strokeLinecap="round"/>
-                  </g>
-                )}
-                <g transform={`rotate(${-Math.min(tune.rollDeg*4,25)} 50 20)`}
-                   style={{transition:'transform 0.15s ease-out'}}>
-                  <line x1="20" y1="14" x2="80" y2="14"
-                    stroke={tune.rollClamped?'#f59e0b':'#e2e8f0'} strokeWidth="1.5" strokeLinecap="round"/>
-                  <rect x="15" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
-                    stroke={tune.rollClamped?'#f59e0b':'#64748b'} strokeWidth="1.5"/>
-                  <rect x="80" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
-                    stroke={tune.rollClamped?'#f59e0b':'#64748b'} strokeWidth="1.5"/>
-                </g>
-              </svg>
-              <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SHARE</span>
-              <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{Math.round(tune.arbShare)}</span>
-              <span style={{fontSize:10,color:'#4b5563'}}>%</span>
-            </div>
-            {/* roll stiffness split bar */}
-            <div style={{display:'flex',height:3,borderRadius:2,overflow:'hidden',marginBottom:2}}>
-              <div style={{flex:Math.max(0,100-tune.arbShare),background:'#3b82f6',opacity:0.55,transition:'flex .2s'}}/>
-              <div style={{flex:Math.max(0,tune.arbShare),background:'#f59e0b',opacity:0.75,transition:'flex .2s'}}/>
-            </div>
-            <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'#374151',marginBottom:10}}>
-              <span>SPRINGS {Math.round(100-tune.arbShare)}%</span>
-              <span>ARBs {Math.round(tune.arbShare)}%</span>
-            </div>
-            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
-              <span style={{fontSize:12,color:'#6b7280'}}>Stiffness Mode</span>
-              <Hint text="AUTO derives ARB stiffness from the car's natural roll tendency — heavier, taller, softer cars get more ARB contribution. ROLL ° targets a specific body roll angle. SHARE % directly sets ARBs as a fraction of total roll stiffness."/>
-              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
-                <button className={`tog${(fe.arbMode??'auto')==='auto'?' on':''}`}
-                  onClick={()=>pFe('arbMode')('auto')}>AUTO</button>
-                <button className={`tog${(fe.arbMode??'auto')==='roll'?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,arbMode:'roll',
-                    arbTargetRollMan:Math.round(physics.arbTargetRoll*10)/10}))}>ROLL °</button>
-                <button className={`tog${(fe.arbMode??'auto')==='share'?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,arbMode:'share',
-                    arbShareMan:Math.round(tune.arbShare)}))}>SHARE %</button>
-              </div>
-            </div>
-            {(fe.arbMode??'auto')==='roll'&&
-              <Field label="Target Roll Angle" value={fe.arbTargetRollMan} onChange={pFe('arbTargetRollMan')}
-                min={0.3} max={5.0} step={0.1} unit="° @ 1g"
-                hint="Body roll the anti-roll bars are solved to allow. Low (≈0.5–1°) = stiff bars, flat cornering. High (≈3–5°) = soft bars that let the suspension articulate over terrain."/>}
-            {(fe.arbMode??'auto')==='share'&&
-              <Field label="ARB Share" value={fe.arbShareMan??15} onChange={pFe('arbShareMan')}
-                min={0} max={80} step={1} unit="%"
-                hint="Fraction of total roll stiffness supplied by ARBs. 0% = springs handle all roll resistance. 20–30% is typical sport. Higher = stiffer bars relative to springs, more abrupt load transfer."/>}
-            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10,marginTop:4}}>
-              <span style={{fontSize:12,color:'#6b7280'}}>Balance Mode</span>
-              <Hint text="WEIGHT splits front/rear ARB from the car's weight distribution, adjusted by the ARB Bias slider. MECH solves the ARB split to hit a target mech balance value. CO-SOLVE adjusts both rear spring stiffness and ARB split together — Spring Share controls how much each contributes."/>
-              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
-                <button className={`tog${(fe.arbBalMode??'weight')==='weight'?' on':''}`}
-                  onClick={()=>pFe('arbBalMode')('weight')}>WEIGHT</button>
-                <button className={`tog${(fe.arbBalMode??'weight')==='mech'?' on':''}`}
-                  onClick={()=>pFe('arbBalMode')('mech')}>MECH</button>
-                <button className={`tog${(fe.arbBalMode??'weight')==='coSolve'?' on':''}`}
-                  onClick={()=>pFe('arbBalMode')('coSolve')}>CO-SOLVE</button>
-              </div>
-            </div>
-            {(fe.arbBalMode??'weight')==='mech'&&<>
-              <div style={{display:'flex',alignItems:'center',gap:8,
-                           padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
-                           border:'1px solid #1e293b',marginBottom:10}}>
-                <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SPLIT</span>
-                <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
-                  F {tune.balArbSplit!=null?100-tune.balArbSplit:'—'}% / R {tune.balArbSplit??'—'}%
-                </span>
-              </div>
-              <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
-                min={0.40} max={0.90} step={0.01}
-                hint="Target mech balance the ARB split will be solved to achieve. 0.65 is a good starting point for most builds. Higher = more rear grip bias (oversteer tendency). Lower = more front grip bias (understeer tendency)."/>
-            </>}
-            {(fe.arbBalMode??'weight')==='coSolve'&&<>
-              <div style={{display:'flex',gap:8,marginBottom:10}}>
-                <div style={{flex:1,display:'flex',alignItems:'center',gap:8,
-                             padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
-                             border:'1px solid #1e293b'}}>
-                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SPLIT</span>
-                  <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
-                    F {tune.balArbSplit!=null?100-tune.balArbSplit:'—'}% / R {tune.balArbSplit??'—'}%
-                  </span>
-                </div>
-                <div style={{flex:1,display:'flex',alignItems:'center',gap:8,
-                             padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
-                             border:'1px solid #1e293b'}}>
-                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>SOLVED REAR Hz</span>
-                  <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
-                    {tune.rHz!=null?tune.rHz.toFixed(2):'—'} Hz
-                  </span>
-                </div>
-              </div>
-              <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
-                min={0.40} max={0.90} step={0.01}
-                hint="Target mech balance that both rear spring stiffness and ARB split are solved to achieve together. 0.65 is a good starting point for most builds. Higher = more rear grip bias. Lower = more front grip bias."/>
-              <FeelSlider label="SPRING SHARE" value={fe.springShare??50} onChange={pFe('springShare')}
-                min={0} max={100} leftLabel="ARB ONLY" rightLabel="SPRING ONLY"
-                hint="How much of the mechanical balance correction comes from rear spring stiffness vs ARB split. 0% = ARB handles all correction (rear Hz equals front Hz). 100% = springs handle all correction (ARB split near neutral). 50% = equal contribution from both."/>
-            </>}
           </Sec></div>
 
           {uiMode==='pro'&&<div style={dim('alignment')}><Sec title="ALIGNMENT" open={open.alignment} onToggle={tog('alignment')}
