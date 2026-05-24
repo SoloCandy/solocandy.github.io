@@ -148,6 +148,20 @@ const flatRideRearHz=(fHz,wb,mph)=>{
   const clamped=raw>fHz*1.6;
   return{hz:clamped?fHz*1.6:raw,clamped};
 };
+// Shared ref: given avgHz = (fHz+rHz)/2 and flat-ride constraint, solve fHz.
+// Substituting rHz=1/(1/fHz−2t) into avg equation gives quadratic:
+//   t·fHz² − fHz·(1+2·avg·t) + avg = 0  →  smaller root = frontHz
+const flatRideSharedHz=(avgHz,wb,mph)=>{
+  if(mph>=200)return{fHz:avgHz,rHz:avgHz,clamped:false};
+  const ms=mph*MPH_TO_MS;
+  if(ms<1){const fHz=Math.max(0.8,avgHz/1.1);return{fHz,rHz:Math.max(0.8,2*avgHz-fHz),clamped:false};}
+  const t=wb/ms;
+  const B=-(1+2*avgHz*t),disc=B*B-4*t*avgHz;
+  if(disc<0)return{fHz:avgHz,rHz:avgHz,clamped:true};
+  const fHz=Math.max(0.8,(-B-Math.sqrt(disc))/(2*t));
+  const res=flatRideRearHz(fHz,wb,mph);
+  return{fHz,rHz:res.hz,clamped:fHz<0.8||res.clamped};
+};
 const solveSpring=(hz,mass,mr)=>{
   const wr=Math.pow(hz*2*Math.PI,2)*mass;
   return(wr/Math.pow(mr,2))/LB_IN_TO_NM;
@@ -169,53 +183,76 @@ const feelToPhysics=(ch,fe)=>{
   //          'rear'            = slider sets rearHz,  modes derive frontHz (inverted)
   // CO-SOLVE always uses front reference regardless of rideRef
   const arbBalModeEarly=ARB_BAL_MODE_DEC.includes(fe.arbBalMode)?fe.arbBalMode:'weight';
-  const rideRef=(fe.rideRef==='rear'&&arbBalModeEarly!=='coSolve')?'rear':'front';
-  const primaryHz=frontHz; // frontHz = rsToHz(fe.rideStiffness) — label kept for compat
-  let secondaryHz,secondaryHzClamped;
-  if(rearHzMode==='independent'){
-    secondaryHz=Math.max(0.8,Math.min(4.0,fe.rearHzMan??1.5));
-    secondaryHzClamped=false;
-  } else if(rearHzMode==='multiplier'){
-    const mult=fe.rearHzMult??1.20;
-    const raw=rideRef==='front'?primaryHz*mult:primaryHz/mult;
-    secondaryHz=Math.max(0.8,Math.min(4.0,raw));
-    secondaryHzClamped=false;
-  } else if(rearHzMode==='mech'){
-    const K=MECH_BALANCE_STIFFNESS_WEIGHT;
-    const twF_m=parseTyre(ch.tyreF)?.width??265,twR_m=parseTyre(ch.tyreR)?.width??265;
-    const m_m=cornerMasses(ch);
-    const arbBalTgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
-    const rsBalTgt=Math.max(0.05,Math.min(0.95,(arbBalTgt-(1-K)*(1-ch.frontBias/100))/K));
-    const R_m=rsBalTgt/(1-rsBalTgt);
-    const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF*twF_m/(m_m.rear*ch.trackR*ch.trackR*twR_m));
-    const raw_m=rideRef==='front'?primaryHz*mult_m:primaryHz/mult_m;
-    secondaryHz=Math.max(0.8,Math.min(4.0,raw_m));
-    secondaryHzClamped=raw_m<0.8||raw_m>4.0;
-  } else { // flatRide
-    if(rideRef==='front'){
-      const res=flatRideRearHz(primaryHz,ch.wheelbase,fe.targetSpeed);
-      secondaryHz=res.hz;secondaryHzClamped=res.clamped;
-    } else {
-      // Inverse flat ride: given rearHz, solve frontHz
-      // 1/frontHz = 1/rearHz + 2*(wheelbase/speed)
-      if(fe.targetSpeed>=200){
-        secondaryHz=primaryHz;secondaryHzClamped=false;
+  const rideRef=arbBalModeEarly==='coSolve'?'front':['front','rear','shared'].includes(fe.rideRef)?fe.rideRef:'front';
+  let rearHz,rearHzClamped;
+  if(rideRef==='shared'){
+    // Slider represents avgHz = (fHz+rHz)/2; mode sets the ratio
+    const avgHz=frontHz;
+    if(rearHzMode==='multiplier'){
+      const mult=fe.rearHzMult??1.20;
+      frontHz=Math.max(0.8,2*avgHz/(1+mult));
+      rearHz=Math.max(0.8,Math.min(4.0,2*avgHz*mult/(1+mult)));
+      rearHzClamped=false;
+    } else if(rearHzMode==='mech'){
+      const K=MECH_BALANCE_STIFFNESS_WEIGHT;
+      const twF_m=parseTyre(ch.tyreF)?.width??265,twR_m=parseTyre(ch.tyreR)?.width??265;
+      const m_m=cornerMasses(ch);
+      const arbBalTgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
+      const rsBalTgt=Math.max(0.05,Math.min(0.95,(arbBalTgt-(1-K)*(1-ch.frontBias/100))/K));
+      const R_m=rsBalTgt/(1-rsBalTgt);
+      const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF*twF_m/(m_m.rear*ch.trackR*ch.trackR*twR_m));
+      frontHz=Math.max(0.8,2*avgHz/(1+mult_m));
+      rearHz=Math.max(0.8,Math.min(4.0,2*avgHz*mult_m/(1+mult_m)));
+      rearHzClamped=frontHz<=0.8||rearHz>=4.0;
+    } else { // flatRide (independent collapses to equal in shared mode)
+      const res=flatRideSharedHz(avgHz,ch.wheelbase,fe.targetSpeed);
+      frontHz=res.fHz;rearHz=res.rHz;rearHzClamped=res.clamped;
+    }
+  } else {
+    const primaryHz=frontHz; // frontHz = rsToHz(fe.rideStiffness)
+    let secondaryHz,secondaryHzClamped;
+    if(rearHzMode==='independent'){
+      secondaryHz=Math.max(0.8,Math.min(4.0,fe.rearHzMan??1.5));
+      secondaryHzClamped=false;
+    } else if(rearHzMode==='multiplier'){
+      const mult=fe.rearHzMult??1.20;
+      const raw=rideRef==='front'?primaryHz*mult:primaryHz/mult;
+      secondaryHz=Math.max(0.8,Math.min(4.0,raw));
+      secondaryHzClamped=false;
+    } else if(rearHzMode==='mech'){
+      const K=MECH_BALANCE_STIFFNESS_WEIGHT;
+      const twF_m=parseTyre(ch.tyreF)?.width??265,twR_m=parseTyre(ch.tyreR)?.width??265;
+      const m_m=cornerMasses(ch);
+      const arbBalTgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
+      const rsBalTgt=Math.max(0.05,Math.min(0.95,(arbBalTgt-(1-K)*(1-ch.frontBias/100))/K));
+      const R_m=rsBalTgt/(1-rsBalTgt);
+      const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF*twF_m/(m_m.rear*ch.trackR*ch.trackR*twR_m));
+      const raw_m=rideRef==='front'?primaryHz*mult_m:primaryHz/mult_m;
+      secondaryHz=Math.max(0.8,Math.min(4.0,raw_m));
+      secondaryHzClamped=raw_m<0.8||raw_m>4.0;
+    } else { // flatRide
+      if(rideRef==='front'){
+        const res=flatRideRearHz(primaryHz,ch.wheelbase,fe.targetSpeed);
+        secondaryHz=res.hz;secondaryHzClamped=res.clamped;
       } else {
-        const ms=Math.max(1,fe.targetSpeed*MPH_TO_MS);
-        const raw=1/(1/primaryHz+2*(ch.wheelbase/ms));
-        secondaryHz=Math.max(0.8,raw);
-        secondaryHzClamped=raw<0.8;
+        // Inverse flat ride: given rearHz, solve frontHz
+        if(fe.targetSpeed>=200){
+          secondaryHz=primaryHz;secondaryHzClamped=false;
+        } else {
+          const ms=Math.max(1,fe.targetSpeed*MPH_TO_MS);
+          const raw=1/(1/primaryHz+2*(ch.wheelbase/ms));
+          secondaryHz=Math.max(0.8,raw);
+          secondaryHzClamped=raw<0.8;
+        }
       }
     }
-  }
-  // Assign primary/secondary to front/rear axes
-  let rearHz,rearHzClamped;
-  if(rideRef==='front'){
-    rearHz=secondaryHz;rearHzClamped=secondaryHzClamped;
-    // frontHz already set above
-  } else {
-    rearHz=primaryHz;rearHzClamped=false;
-    frontHz=secondaryHz; // re-assign: secondary is now front
+    // Assign primary/secondary to front/rear axes
+    if(rideRef==='front'){
+      rearHz=secondaryHz;rearHzClamped=secondaryHzClamped;
+    } else {
+      rearHz=primaryHz;rearHzClamped=false;
+      frontHz=secondaryHz; // re-assign: secondary is now front
+    }
   }
   const dampingMode=fe.dampingMode??'ratio';
   const reboundZeta=Math.max(10,Math.min(115,fe.reboundZeta??70));
@@ -1343,7 +1380,7 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       rearHzMode:       REAR_HZ_MODE_DEC.includes(fe?.rearHzMode)?fe.rearHzMode:DEF_FE.rearHzMode,
       rearHzMan:        cl(fe?.rearHzMan,          0.8,  4.0, DEF_FE.rearHzMan),
       rearHzMult:       cl(fe?.rearHzMult,         0.5,  3.0, DEF_FE.rearHzMult),
-      rideRef:          fe?.rideRef==='rear'?'rear':'front',
+      rideRef:          ['front','rear','shared'].includes(fe?.rideRef)?fe.rideRef:'front',
     },
     dr:{
       layout:         LAYOUT_DEC.includes(dr?.layout)?dr.layout:DEF_DR.layout,
@@ -2551,12 +2588,13 @@ function App(){
             <div style={dim('feel')}>
             {(()=>{
               const isCoSolve=(fe.arbBalMode??'weight')==='coSolve';
-              const rRef=physics.rideRef??'front'; // 'front' or 'rear'
-              const primaryHz=rRef==='rear'?physics.rearHz:physics.frontHz;
+              const rRef=physics.rideRef??'front'; // 'front', 'rear', or 'shared'
+              const avgHz=(physics.frontHz+physics.rearHz)/2;
+              const primaryHz=rRef==='rear'?physics.rearHz:rRef==='shared'?avgHz:physics.frontHz;
               const secLabel=rRef==='rear'?'front':'rear';
               const secHz=rRef==='rear'?physics.frontHz:physics.rearHz;
               return(<>
-                {/* Ride reference toggle — which axle the stiffness slider controls */}
+                {/* Ride reference toggle */}
                 {!isCoSolve&&<div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
                   <span style={{flex:1,fontSize:9,color:'#6b7280',letterSpacing:1}}>RIDE REF.</span>
                   <button className={`tog${rRef==='front'?' on':''}`}
@@ -2564,6 +2602,11 @@ function App(){
                       rideRef:'front',
                       rideStiffness:hzToRs(physics.frontHz),
                       ...(p.rearHzMode==='independent'?{rearHzMan:Math.round(physics.rearHz*100)/100}:{})}))}>FRONT</button>
+                  <button className={`tog${rRef==='shared'?' on':''}`}
+                    onClick={()=>setFe(p=>({...p,
+                      rideRef:'shared',
+                      rideStiffness:hzToRs((physics.frontHz+physics.rearHz)/2),
+                      ...(p.rearHzMode==='independent'?{rearHzMode:'flatRide'}:{})}))}>SHARED</button>
                   <button className={`tog${rRef==='rear'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,
                       rideRef:'rear',
@@ -2571,7 +2614,7 @@ function App(){
                       ...(p.rearHzMode==='independent'?{rearHzMan:Math.round(physics.frontHz*100)/100}:{})}))}>REAR</button>
                 </div>}
                 <FeelSlider
-                  label={rRef==='rear'?'Rear Stiffness':'Ride Stiffness'}
+                  label={rRef==='rear'?'Rear Stiffness':rRef==='shared'?'Avg Stiffness':'Ride Stiffness'}
                   value={primaryHz}
                   onChange={v=>pFe('rideStiffness')(hzToRs(v))}
                   min={0.80} max={3.50} step={0.01} leftLabel="0.80" rightLabel="3.50"
@@ -2594,49 +2637,64 @@ function App(){
                     <span style={{fontSize:11,color:'#6b7280',fontFamily:'Courier New'}}>Hz</span>
                   </span>}
                   hint={rRef==='rear'
-                    ?'Rear spring frequency — the fixed reference. The secondary mode below derives front Hz from it. Click the Hz value to type directly. Typical range: 1.0–1.8 Hz for street, 1.8–2.6 Hz for track.'
-                    :'Front spring frequency — the fixed reference. The secondary mode below derives rear Hz from it. Click the Hz value to type directly. Typical range: 1.0–1.8 Hz for street, 1.8–2.6 Hz for track.'}/>
+                    ?'Rear spring frequency — the fixed reference. The mode below derives front Hz from it. Click the Hz value to type directly. Typical range: 1.0–1.8 Hz for street, 1.8–2.6 Hz for track.'
+                    :rRef==='shared'
+                    ?'Average of front and rear spring frequency. Moving the slider scales both axles together while the mode below holds the front/rear ratio. Click the Hz value to type directly.'
+                    :'Front spring frequency — the fixed reference. The mode below derives rear Hz from it. Click the Hz value to type directly. Typical range: 1.0–1.8 Hz for street, 1.8–2.6 Hz for track.'}/>
               </>);
             })()}
             {/* secondary Hz mode toggle — hidden in CO-SOLVE (rear Hz solved automatically) */}
-            {(fe.arbBalMode??'weight')!=='coSolve'&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:3,marginBottom:10,marginTop:-4}}>
-              <button className={`tog${(fe.rearHzMode??'flatRide')==='flatRide'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,rearHzMode:'flatRide'}))}>FLAT RIDE</button>
-              <button className={`tog${(fe.rearHzMode??'flatRide')==='multiplier'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,rearHzMode:'multiplier',
-                  rearHzMult:Math.round(physics.rearHz/physics.frontHz*100)/100}))}>MULTIPLIER</button>
-              <button className={`tog${(fe.rearHzMode??'flatRide')==='mech'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,rearHzMode:'mech'}))}>MECH</button>
-              <button className={`tog${(fe.rearHzMode??'flatRide')==='independent'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,rearHzMode:'independent',
-                  rearHzMan:Math.round((physics.rideRef==='rear'?physics.frontHz:physics.rearHz)*100)/100}))}>INDEPENDENT</button>
-            </div>}
+            {(fe.arbBalMode??'weight')!=='coSolve'&&(()=>{
+              const isShared=(physics.rideRef??'front')==='shared';
+              return<div style={{display:'grid',gridTemplateColumns:isShared?'1fr 1fr 1fr':'1fr 1fr',gap:3,marginBottom:10,marginTop:-4}}>
+                <button className={`tog${(fe.rearHzMode??'flatRide')==='flatRide'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,rearHzMode:'flatRide'}))}>FLAT RIDE</button>
+                <button className={`tog${(fe.rearHzMode??'flatRide')==='multiplier'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,rearHzMode:'multiplier',
+                    rearHzMult:Math.round(physics.rearHz/physics.frontHz*100)/100}))}>MULTIPLIER</button>
+                <button className={`tog${(fe.rearHzMode??'flatRide')==='mech'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,rearHzMode:'mech'}))}>MECH</button>
+                {!isShared&&<button className={`tog${(fe.rearHzMode??'flatRide')==='independent'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,rearHzMode:'independent',
+                    rearHzMan:Math.round((physics.rideRef==='rear'?physics.frontHz:physics.rearHz)*100)/100}))}>INDEPENDENT</button>}
+              </div>;
+            })()}
             {(fe.arbBalMode??'weight')!=='coSolve'&&(()=>{
               const rRef=physics.rideRef??'front';
+              const isShared=rRef==='shared';
               const secLabel=rRef==='rear'?'front':'rear';
               const secHz=rRef==='rear'?physics.frontHz:physics.rearHz;
+              const sharedReadout=`F ${physics.frontHz.toFixed(2)} · R ${physics.rearHz.toFixed(2)} Hz${physics.rearHzClamped?' ⚠':''}`;
               return(fe.rearHzMode??'flatRide')==='flatRide'
               ? <FeelSlider label="Target Speed" value={240-fe.targetSpeed}
                   onChange={v=>pFe('targetSpeed')(240-v)} min={40} max={200} step={5}
                   leftLabel="OFF" rightLabel="CITY"
                   readout={fe.targetSpeed>=200
-                    ? `FLAT RIDE OFF · ${secHz.toFixed(2)} Hz ${secLabel}`
-                    : metricUnits
-                      ? `${Math.round(fe.targetSpeed*KMH_PER_MPH)} km/h · ${secHz.toFixed(2)} Hz ${secLabel}${physics.rearHzClamped?' ⚠':''}`
-                      : `${fe.targetSpeed} mph · ${secHz.toFixed(2)} Hz ${secLabel}${physics.rearHzClamped?' ⚠':''}`}
-                  hint={rRef==='rear'
+                    ? isShared?`FLAT RIDE OFF · ${physics.frontHz.toFixed(2)} Hz both`:`FLAT RIDE OFF · ${secHz.toFixed(2)} Hz ${secLabel}`
+                    : isShared
+                      ? (metricUnits?`${Math.round(fe.targetSpeed*KMH_PER_MPH)} km/h · `:`${fe.targetSpeed} mph · `)+sharedReadout
+                      : metricUnits
+                        ? `${Math.round(fe.targetSpeed*KMH_PER_MPH)} km/h · ${secHz.toFixed(2)} Hz ${secLabel}${physics.rearHzClamped?' ⚠':''}`
+                        : `${fe.targetSpeed} mph · ${secHz.toFixed(2)} Hz ${secLabel}${physics.rearHzClamped?' ⚠':''}`}
+                  hint={isShared
+                    ?"Scales both axles together using flat-ride timing. The average Hz is held by the Avg Stiffness slider above; this speed sets how the average is split between front and rear."
+                    :rRef==='rear'
                     ?"Solves front Hz so rear and front wheels hit the road's bumps in phase at your chosen speed. Right (CITY) = lower target speed, softer front. Left (OFF) = disabled, front Hz matches rear adjusted for mass only."
                     :"The speed at which front and rear wheels hit bumps in phase (flat ride). Right (CITY) = lower target speed, stiffer rear. Left (OFF) = flat-ride correction disabled — rear Hz matches front Hz adjusted for mass only, useful for very high-speed circuits."}/>
             : (fe.rearHzMode??'flatRide')==='multiplier'
               ? <FeelSlider
-                  label={rRef==='rear'?'Front Multiplier':'Rear Multiplier'}
+                  label={isShared?'F/R Ratio':rRef==='rear'?'Front Multiplier':'Rear Multiplier'}
                   value={fe.rearHzMult??1.20}
                   onChange={pFe('rearHzMult')} min={0.50} max={3.00} step={0.01}
                   leftLabel="×0.50" rightLabel="×3.00"
-                  readout={rRef==='rear'
+                  readout={isShared
+                    ?`×${(fe.rearHzMult??1.20).toFixed(2)} · ${sharedReadout}`
+                    :rRef==='rear'
                     ?`÷${(fe.rearHzMult??1.20).toFixed(2)} → ${secHz.toFixed(2)} Hz front`
                     :`×${(fe.rearHzMult??1.20).toFixed(2)} → ${secHz.toFixed(2)} Hz rear`}
-                  hint={rRef==='rear'
+                  hint={isShared
+                    ?"Rear-to-front Hz ratio. The average is held by the Avg Stiffness slider — changing the ratio shifts stiffness between axles without moving the average."
+                    :rRef==='rear'
                     ?"Front Hz as a fraction of rear Hz. ÷1.20 = front is 83% of rear stiffness. Useful when you want the front consistently softer."
                     :"Rear Hz as a multiple of front Hz. ×1.00 = matched. ×1.20 is a typical starting point for most builds."}/>
             : (fe.rearHzMode??'flatRide')==='mech'
@@ -2644,13 +2702,18 @@ function App(){
                              padding:'6px 10px',marginBottom:6}}>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
                     <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>
-                      SOLVED {secLabel.toUpperCase()} Hz
+                      {isShared?'SOLVED SPLIT':'SOLVED '+secLabel.toUpperCase()+' Hz'}
                     </span>
-                    <span style={{fontFamily:'Courier New',fontSize:14,fontWeight:700,
-                                  color:physics.rearHzClamped?'#f59e0b':'#e2e8f0'}}>
-                      {secHz.toFixed(2)}
-                    </span>
-                    <span style={{fontSize:10,color:'#6b7280'}}>Hz</span>
+                    {isShared
+                      ?<><span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:physics.rearHzClamped?'#f59e0b':'#e2e8f0'}}>F {physics.frontHz.toFixed(2)}</span>
+                        <span style={{fontSize:10,color:'#6b7280'}}>Hz</span>
+                        <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:physics.rearHzClamped?'#f59e0b':'#e2e8f0'}}>R {physics.rearHz.toFixed(2)}</span>
+                        <span style={{fontSize:10,color:'#6b7280'}}>Hz</span></>
+                      :<><span style={{fontFamily:'Courier New',fontSize:14,fontWeight:700,
+                                    color:physics.rearHzClamped?'#f59e0b':'#e2e8f0'}}>
+                          {secHz.toFixed(2)}
+                        </span>
+                        <span style={{fontSize:10,color:'#6b7280'}}>Hz</span></>}
                     {physics.rearHzClamped&&<span style={{fontSize:9,color:'#f59e0b',letterSpacing:1}}>CLAMPED</span>}
                     <span style={{flex:1}}/>
                     <span style={{fontFamily:'Courier New',fontSize:11,color:'#6b7280'}}>
@@ -2658,9 +2721,9 @@ function App(){
                     </span>
                   </div>
                   <div style={{fontSize:9,color:'#4b5563',lineHeight:1.4}}>
-                    {rRef==='rear'?'Front':'Rear'} spring stiffness solved to reach mech balance target{' '}
-                    <span style={{color:'#9ca3af',fontFamily:'Courier New'}}>{(fe.arbBalTarget??0.65).toFixed(2)}</span>
-                    {' '}via springs alone. Set target in CHASSIS above.
+                    {isShared?'Both springs solved from average to reach':'Rear spring stiffness solved to reach'} mech balance target{' '}
+                    <span style={{color:'#9ca3af',fontFamily:'Courier New'}}>{(fe.arbBalTarget??0.65).toFixed(2)}</span>.
+                    {' '}{isShared?'Avg Stiffness slider shifts both together.':'Set target in ARB section above.'}
                   </div>
                 </div>
               : <FeelSlider
