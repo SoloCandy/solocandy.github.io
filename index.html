@@ -1848,6 +1848,16 @@ function App(){
     return{score,hzNorm,arbNorm,dampNorm,toeNorm,casterNorm,rearHzNorm,biasNorm};
   })();
 
+  // Natural chassis mech balance — equal Hz, no ARBs, just weight+track+tire geometry
+  const natMechBalance=(()=>{
+    const twF_n=parseTyre(ch.tyreF)?.width??265,twR_n=parseTyre(ch.tyreR)?.width??265;
+    const mF=cm.front,mR=cm.rear; // corner mass in kg
+    const rsWF=mF*ch.trackF*ch.trackF*twF_n;
+    const rsWR=mR*ch.trackR*ch.trackR*twR_n;
+    const rsBalance=rsWR/(rsWF+rsWR);
+    return MECH_BALANCE_STIFFNESS_WEIGHT*rsBalance+(1-MECH_BALANCE_STIFFNESS_WEIGHT)*(1-ch.frontBias/100);
+  })();
+
   const handleSlot=i=>{
     const s=saves[i];
     if(s){
@@ -2192,12 +2202,30 @@ function App(){
                   </div>
                 );
               };
-              return(
-                <div style={{display:'flex',gap:8,marginBottom:8}}>
-                  {tyreInput('tyreF','TYRE F')}
-                  {tyreInput('tyreR','TYRE R')}
+              // chassis natural balance label + colour
+              const nm=natMechBalance;
+              const nmDelta=nm-0.5; // positive = understeer bias, negative = oversteer
+              const nmCol=Math.abs(nmDelta)<0.03?'#9ca3af':nmDelta>0?'#3b82f6':'#ef4444';
+              const nmLabel=Math.abs(nmDelta)<0.03?'NEUTRAL':nmDelta>0?'US':'OS';
+              return(<>
+                <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
+                  <span style={{fontSize:9,color:'#94a3b8',letterSpacing:2}}>TYRE SIZE</span>
+                  <Hint text="Enter tyre sizes in Forza format (e.g. 265/35R18). Width (first number, in mm) affects how roll stiffness is weighted between front and rear — wider tyres at one end increase that end's effective grip contribution. This shifts the mech balance target and the ARB split. Aspect ratio and rim size determine the tyre's rolling radius, which affects ride height geometry."/>
                 </div>
-              );
+                <div style={{display:'flex',gap:8,marginBottom:4}}>
+                  {tyreInput('tyreF','FRONT')}
+                  {tyreInput('tyreR','REAR')}
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                  fontSize:11,color:'#6b7280',padding:'4px 6px',marginBottom:8,
+                  background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2}}>
+                  <span style={{letterSpacing:1,fontSize:10}}>CHASSIS BALANCE</span>
+                  <span style={{display:'flex',alignItems:'baseline',gap:5}}>
+                    <span style={{color:nmCol,fontFamily:'Courier New',fontWeight:700}}>{nm.toFixed(2)}</span>
+                    <span style={{color:nmCol,fontSize:9,letterSpacing:1}}>{nmLabel}</span>
+                  </span>
+                </div>
+              </>);
             })()}
             {uiMode==='pro'&&<>
             <Field label="Wheelbase" value={Math.round(ch.wheelbase*1000)} onChange={v=>pCh('wheelbase')(v/1000)} min={400} max={4000} step={5} unit="mm"
