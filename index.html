@@ -1701,6 +1701,10 @@ function App(){
         const scaledHz=Math.max(0.80,Math.min(3.50,rsToHz(s.fe.rideStiffness)*scale));
         adjustedFe.rideStiffness=hzToRs(scaledHz);
       }
+      if(uiMode==='beginner'){
+        adjustedFe.arbBalMode='coSolve';
+        adjustedFe.arbBalTarget=Math.max(0.50,Math.min(0.80,0.65-(adjustedFe.arbBias??0)*0.003));
+      }
       setFe(adjustedFe);
       if(loadMode!=='fe') setDr({...DEF_DR,...s.dr});
     }
@@ -1720,6 +1724,10 @@ function App(){
       const scale=Math.sqrt(s.refCornerMassF/cm.front);
       const scaledHz=Math.max(0.80,Math.min(3.50,rsToHz(s.fe.rideStiffness)*scale));
       adjustedFe.rideStiffness=hzToRs(scaledHz);
+    }
+    if(uiMode==='beginner'){
+      adjustedFe.arbBalMode='coSolve';
+      adjustedFe.arbBalTarget=Math.max(0.50,Math.min(0.80,0.65-(adjustedFe.arbBias??0)*0.003));
     }
     setFe(adjustedFe);
     if(loadMode!=='fe')setDr({...DEF_DR,...s.dr});
