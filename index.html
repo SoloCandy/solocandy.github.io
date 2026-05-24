@@ -1967,7 +1967,7 @@ function App(){
             })()}
             <Field label="Aero Balance" value={ch.aeroBalance??0.5} onChange={pCh('aeroBalance')}
               min={0} max={1.5} step={0.01}
-              hint="Front downforce fraction from Forza's aero tuning screen (0.00–1.50). 0.50 = balanced. Above 0.50 = front-heavy aero → oversteer tendency. Below 0.50 = rear-heavy aero → understeer tendency. 0.00 means no aero installed — treated as neutral. Method: set all aero to max cornering, read the Aero Balance value from Forza, enter it here."/>
+              hint="Front downforce fraction from Forza's aero tuning screen (0.00–1.50). 0.50 = balanced. Above 0.50 = front-heavy aero → oversteer tendency. Below 0.50 = rear-heavy aero → understeer tendency. 0.00 means no aero installed — treated as neutral."/>
             <Field label="Aero Efficiency" value={ch.aeroEfficiency??0.9} onChange={pCh('aeroEfficiency')}
               min={0.1} max={1.0} step={0.001}
               hint="Aero efficiency from Forza's tuning menu (typically 0.300–0.900). Lower = more total downforce. Scales how strongly the aero balance affects the overall handling total — a high-downforce car at 0.30 has 3× the aero load of a stock car at 0.90, so its balance bias matters proportionally more."/>
