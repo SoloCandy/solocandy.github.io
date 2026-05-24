@@ -2189,25 +2189,12 @@ function App(){
               arbShareMan:DEF_FE.arbShareMan,
               arbFloor:DEF_FE.arbFloor,
               arbCeil:DEF_FE.arbCeil}))}>
-            {(fe.arbBalMode??'weight')==='weight'
-              ?<FeelSlider label="ARB Bias" value={fe.arbBias}
-                  onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
-                  centered={true}
-                  hint="Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."
-                  readout={`F ${Math.round((1-(physics.arbBalance/100))*100)}% / R ${Math.round(physics.arbBalance/100*100)}%`}/>
-              :<>
-                <div style={{display:'flex',alignItems:'center',gap:8,
-                             padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
-                             border:'1px solid #1e293b',marginBottom:10}}>
-                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SPLIT</span>
-                  <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
-                    F {tune.balArbSplit!=null?100-tune.balArbSplit:'—'}% / R {tune.balArbSplit??'—'}%
-                  </span>
-                </div>
-                <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
-                  min={0.40} max={0.90} step={0.01}
-                  hint="Target mech balance the ARB split will be solved to achieve. 0.65 is a good starting point for most builds. Higher = more rear grip bias (oversteer tendency). Lower = more front grip bias (understeer tendency)."/>
-              </>
+            {(fe.arbBalMode??'weight')==='weight'&&
+              <FeelSlider label="ARB Bias" value={fe.arbBias}
+                onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
+                centered={true}
+                hint="Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."
+                readout={`F ${Math.round((1-(physics.arbBalance/100))*100)}% / R ${Math.round(physics.arbBalance/100*100)}%`}/>
             }
             {uiMode!=='beginner'&&<ArbRangeSlider
               floor={fe.arbFloor??6} ceil={fe.arbCeil??lim.arb}
@@ -2283,6 +2270,19 @@ function App(){
                   onClick={()=>pFe('arbBalMode')('mech')}>MECH</button>
               </div>
             </div>
+            {(fe.arbBalMode??'weight')==='mech'&&<>
+              <div style={{display:'flex',alignItems:'center',gap:8,
+                           padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
+                           border:'1px solid #1e293b',marginBottom:10}}>
+                <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SPLIT</span>
+                <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
+                  F {tune.balArbSplit!=null?100-tune.balArbSplit:'—'}% / R {tune.balArbSplit??'—'}%
+                </span>
+              </div>
+              <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
+                min={0.40} max={0.90} step={0.01}
+                hint="Target mech balance the ARB split will be solved to achieve. 0.65 is a good starting point for most builds. Higher = more rear grip bias (oversteer tendency). Lower = more front grip bias (understeer tendency)."/>
+            </>}
           </Sec></div>
 
           {uiMode==='pro'&&<div style={dim('alignment')}><Sec title="ALIGNMENT" open={open.alignment} onToggle={tog('alignment')}
