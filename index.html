@@ -979,15 +979,23 @@ const Card=({title,accent=false,hint=null,children})=>(
 
 const BiasSeg=({label,val,hint})=>{
   const c=val>0.5?'#3b82f6':val<-0.5?'#ef4444':'#64748b';
+  const scale=15;
+  const pct=Math.min(50,Math.abs(val)/scale*50);
+  const barStyle=val>=0?{left:'50%',width:`${pct}%`}:{right:'50%',width:`${pct}%`};
   return(
-    <div style={{background:'#020617',padding:'5px 7px',borderRadius:2,border:'1px solid #0f172a'}}>
-      <div style={{display:'flex',alignItems:'center',gap:3}}>
-        <span style={{fontSize:10,color:'#374151',letterSpacing:1}}>{label}</span>
+    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
+      <div style={{width:72,display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
+        <span style={{fontSize:9,color:'#4b5563',letterSpacing:1,lineHeight:1.2}}>{label}</span>
         <Hint text={hint}/>
       </div>
-      <div style={{fontFamily:'Courier New',fontSize:13,color:c}}>
-        {val>=0?'+':''}{val.toFixed(1)}
+      <div style={{flex:1,position:'relative',height:8,background:'#0f172a',borderRadius:2}}>
+        <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#1e293b'}}/>
+        {Math.abs(val)>0.5&&<div style={{position:'absolute',top:1,bottom:1,borderRadius:1,
+          background:c+'bb',...barStyle}}/>}
       </div>
+      <span style={{fontFamily:'Courier New',fontSize:11,color:c,width:34,textAlign:'right',flexShrink:0}}>
+        {val>=0?'+':''}{val.toFixed(1)}
+      </span>
     </div>
   );
 };
@@ -1020,7 +1028,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bBrakeEntry,bAero,bD
             <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>0=FRONT · 1=REAR</span>
           </div>
         </div>}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:5,marginBottom:5}}>
+      <div style={{marginBottom:8}}>
         <BiasSeg label="SPRINGS" val={bSp}
           hint="How much the front/rear spring rates bias roll stiffness, relative to weight distribution. + = understeer."/>
         <BiasSeg label="ARB" val={bAb}
