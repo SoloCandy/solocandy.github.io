@@ -2257,11 +2257,11 @@ function App(){
               <span style={{fontSize:10,color:'#4b5563'}}>Hz</span>
               <div style={{flex:1,height:1,background:'#1e293b'}}/>
               <span style={{fontSize:10,color:'#64748b',letterSpacing:0.5,fontFamily:'Courier New'}}>
-                {`×${(physics.rearHz/physics.frontHz).toFixed(2)}`}
+                {`×${(tune.rHz/physics.frontHz).toFixed(2)}`}
               </span>
               <div style={{flex:1,height:1,background:'#1e293b'}}/>
               <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>REAR</span>
-              <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{physics.rearHz.toFixed(2)}</span>
+              <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{tune.rHz.toFixed(2)}</span>
               <span style={{fontSize:10,color:'#4b5563'}}>Hz</span>
             </div>
             {/* spring rate strip */}
