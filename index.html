@@ -172,6 +172,19 @@ const feelToPhysics=(ch,fe)=>{
   } else if(rearHzMode==='multiplier'){
     rearHz=Math.max(0.8,Math.min(4.0,frontHz*(fe.rearHzMult??1.20)));
     rearHzClamped=false;
+  } else if(rearHzMode==='mech'){
+    // Solve rear Hz so springs alone achieve the mech balance target
+    const K=MECH_BALANCE_STIFFNESS_WEIGHT;
+    const twF_m=parseTyre(ch.tyreF)?.width??265,twR_m=parseTyre(ch.tyreR)?.width??265;
+    const m_m=cornerMasses(ch);
+    const arbBalTgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
+    const rsBalTgt=Math.max(0.05,Math.min(0.95,(arbBalTgt-(1-K)*(1-ch.frontBias/100))/K));
+    const R_m=rsBalTgt/(1-rsBalTgt);
+    // rearHz = frontHz × sqrt(R × mF×trackF²×twF / (mR×trackR²×twR))
+    const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF*twF_m/(m_m.rear*ch.trackR*ch.trackR*twR_m));
+    const raw_m=frontHz*mult_m;
+    rearHz=Math.max(0.8,Math.min(4.0,raw_m));
+    rearHzClamped=raw_m<0.8||raw_m>4.0;
   } else {
     const rearHzResult=flatRideRearHz(frontHz,ch.wheelbase,fe.targetSpeed);
     rearHz=rearHzResult.hz;
@@ -2532,12 +2545,14 @@ function App(){
               </span>}
               hint="Front spring frequency. Click the Hz value to type a target frequency directly. Typical range: 1.0–1.8 Hz for street, 1.8–2.6 Hz for track, 2.2–3.2 Hz for race."/>
             {/* rear Hz mode toggle — hidden in CO-SOLVE mode (rear Hz is solved automatically) */}
-            {(fe.arbBalMode??'weight')!=='coSolve'&&<div style={{display:'flex',gap:3,marginBottom:10,marginTop:-4}}>
+            {(fe.arbBalMode??'weight')!=='coSolve'&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:3,marginBottom:10,marginTop:-4}}>
               <button className={`tog${(fe.rearHzMode??'flatRide')==='flatRide'?' on':''}`}
                 onClick={()=>setFe(p=>({...p,rearHzMode:'flatRide'}))}>FLAT RIDE</button>
               <button className={`tog${(fe.rearHzMode??'flatRide')==='multiplier'?' on':''}`}
                 onClick={()=>setFe(p=>({...p,rearHzMode:'multiplier',
                   rearHzMult:Math.round(physics.rearHz/physics.frontHz*100)/100}))}>MULTIPLIER</button>
+              <button className={`tog${(fe.rearHzMode??'flatRide')==='mech'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,rearHzMode:'mech'}))}>MECH</button>
               <button className={`tog${(fe.rearHzMode??'flatRide')==='independent'?' on':''}`}
                 onClick={()=>setFe(p=>({...p,rearHzMode:'independent',
                   rearHzMan:Math.round(physics.rearHz*100)/100}))}>INDEPENDENT</button>
@@ -2558,6 +2573,28 @@ function App(){
                   leftLabel="×0.50" rightLabel="×3.00"
                   readout={`×${(fe.rearHzMult??1.20).toFixed(2)} → ${physics.rearHz.toFixed(2)} Hz`}
                   hint="Rear Hz as a multiple of front Hz. ×1.00 = matched. ×1.20 is a typical starting point for most builds. Rear Hz is capped at 4.00 Hz regardless of multiplier."/>
+            : (fe.rearHzMode??'flatRide')==='mech'
+              ? <div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,
+                             padding:'6px 10px',marginBottom:6}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                    <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>SOLVED REAR Hz</span>
+                    <span style={{fontFamily:'Courier New',fontSize:14,fontWeight:700,
+                                  color:physics.rearHzClamped?'#f59e0b':'#e2e8f0'}}>
+                      {physics.rearHz.toFixed(2)}
+                    </span>
+                    <span style={{fontSize:10,color:'#6b7280'}}>Hz</span>
+                    {physics.rearHzClamped&&<span style={{fontSize:9,color:'#f59e0b',letterSpacing:1}}>CLAMPED</span>}
+                    <span style={{flex:1}}/>
+                    <span style={{fontFamily:'Courier New',fontSize:11,color:'#6b7280'}}>
+                      ×{(physics.rearHz/physics.frontHz).toFixed(2)}
+                    </span>
+                  </div>
+                  <div style={{fontSize:9,color:'#4b5563',lineHeight:1.4}}>
+                    Rear spring stiffness solved to reach mech balance target{' '}
+                    <span style={{color:'#9ca3af',fontFamily:'Courier New'}}>{(fe.arbBalTarget??0.65).toFixed(2)}</span>
+                    {' '}via springs alone. Set target in CHASSIS above.
+                  </div>
+                </div>
               : <FeelSlider label="Rear Hz" value={fe.rearHzMan??physics.rearHz}
                   onChange={pFe('rearHzMan')} min={0.8} max={4.0} step={0.01}
                   leftLabel="0.80" rightLabel="4.00"
