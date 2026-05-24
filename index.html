@@ -2430,13 +2430,13 @@ function App(){
               :dr.layout==='RWD'
               ?`${al.alignManual?'Manual values.':'Recommended starting point.'} Camber targets ${({street:'-1.0°',track:'-1.5°',drift:'-2.5°'})[dr.buildType??'track']} dynamic at ${tune.rollDeg.toFixed(1)}° roll. Front toe-out for turn-in, rear toe-in for stability.`
               :`${al.alignManual?'Manual values.':'Recommended starting point.'} Camber targets ${({street:'-1.0°',track:'-1.5°',drift:'-2.5°'})[dr.buildType??'track']} dynamic at ${tune.rollDeg.toFixed(1)}° roll. Front toe-out for turn-in, rear toe-in scaled to center bias.`}>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(62px,1fr))',gap:4}}>
-              <Readout label="CAMBER F" value={align.recCamberF} unit="°" decimals={1}/>
-              <Readout label="CAMBER R" value={align.recCamberR} unit="°" decimals={1}/>
-              <Readout label="TOE F" value={align.recToeF} unit="°" decimals={1}/>
-              <Readout label="TOE R" value={align.recToeR} unit="°" decimals={1}/>
-              <Readout label="CASTER" value={align.recCaster} unit="°" decimals={1}/>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:4}}>
+              <Readout label="CAMBER F" value={align.recCamberF} unit="°" decimals={1} primary/>
+              <Readout label="CAMBER R" value={align.recCamberR} unit="°" decimals={1} primary/>
+              <Readout label="TOE F"    value={align.recToeF}    unit="°" decimals={1} primary/>
+              <Readout label="TOE R"    value={align.recToeR}    unit="°" decimals={1} primary/>
             </div>
+            <Readout label="CASTER" value={align.recCaster} unit="°" decimals={1} primary/>
           </Card>
 
           {/* 2+3 — ANTI-ROLL BARS + SPRINGS side by side */}
