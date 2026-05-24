@@ -1025,7 +1025,7 @@ const BiasSeg=({label,val,hint})=>{
   );
 };
 
-const aeroLoadCtx=eff=>eff<0.5?['HIGH','#ef4444']:eff<0.7?['MED','#f59e0b']:['LOW','#64748b'];
+const aeroLoadCtx=eff=>eff<0.5?['HI DRAG','#ef4444']:eff<0.7?['MED DRAG','#f59e0b']:['LO DRAG','#64748b'];
 
 const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bAero,bDampBias,mechBalance})=>{
   const cl=v=>Math.max(-50,Math.min(50,v));
@@ -1659,9 +1659,8 @@ function App(){
   const brakePressure=br.brakeManual?(br.brakePressure??DEF_BR.brakePressure):100;
   // positive = oversteer, negative = understeer
   const bBrakeEntry=-(brakeBias-50)*BRAKE_BIAS_SCALE; // high front bias → understeer (−)
-  const aeroEff=Math.max(0.1,ch.aeroEfficiency??0.9);
-  const effectiveAeroBalance=(ch.aeroBalance??0.5)<0.05?0.5:ch.aeroBalance??0.5;
-  const bAero=(effectiveAeroBalance-0.5)*AERO_BALANCE_SCALE*(0.9/aeroEff); // front-heavy (>0.5) → oversteer (+), rear-heavy (<0.5) → understeer (−)
+  const effectiveAeroBalance=(ch.aeroBalance??0.5)<0.05?0.5:ch.aeroBalance??0.5; // <0.05 = no aero, treat as neutral
+  const bAero=(effectiveAeroBalance-0.5)*AERO_BALANCE_SCALE; // front-heavy (>0.5) → oversteer (+), rear-heavy (<0.5) → understeer (−)
   const bDampBias=-(fe.dampingBias??0)*0.08; // more front damping → understeer (−)
   const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bAero+bDampBias;
   // cross-solver recommendations (read-only display)
@@ -2002,7 +2001,7 @@ function App(){
             </div>}
             <Field label="Aero Efficiency" value={ch.aeroEfficiency??0.9} onChange={pCh('aeroEfficiency')}
               min={0.1} max={1.0} step={0.001}
-              hint="Aero efficiency from Forza's tuning menu (typically 0.300–0.900). Lower = more total downforce. Scales how strongly the aero balance affects the overall handling total — a high-downforce car at 0.30 has 3× the aero load of a stock car at 0.90, so its balance bias matters proportionally more."/>
+              hint="Aero efficiency from Forza's tuning menu. This is the downforce-to-drag ratio (L/D) — higher means more downforce per unit of drag and less top speed penalty. Does not affect the handling balance calculation. A car with large wings and an efficient aero design can show high efficiency and high downforce at the same time."/>
             {(()=>{
               const tyreInput=(key,label)=>{
                 const val=ch[key]??DEF_CH[key];
