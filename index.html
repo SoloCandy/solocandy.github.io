@@ -1706,7 +1706,9 @@ function App(){
           <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
           {['horizon','motorsport'].map(m=>(
             <button key={m} className={`tbtn${fe.gameMode===m?' on':''}`}
-              onClick={()=>pFe('gameMode')(m)} style={{fontSize:11}}>{m.toUpperCase()}</button>
+              onClick={()=>pFe('gameMode')(m)} style={{fontSize:11}}>
+              {isMobile?(m==='horizon'?'HZ':'MS'):m.toUpperCase()}
+            </button>
           ))}
           <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
           {[['beginner','BEG'],['intermediate','INT'],['pro','PRO']].map(([mode,label])=>(
@@ -2428,7 +2430,7 @@ function App(){
               :dr.layout==='RWD'
               ?`${al.alignManual?'Manual values.':'Recommended starting point.'} Camber targets ${({street:'-1.0°',track:'-1.5°',drift:'-2.5°'})[dr.buildType??'track']} dynamic at ${tune.rollDeg.toFixed(1)}° roll. Front toe-out for turn-in, rear toe-in for stability.`
               :`${al.alignManual?'Manual values.':'Recommended starting point.'} Camber targets ${({street:'-1.0°',track:'-1.5°',drift:'-2.5°'})[dr.buildType??'track']} dynamic at ${tune.rollDeg.toFixed(1)}° roll. Front toe-out for turn-in, rear toe-in scaled to center bias.`}>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr',gap:4}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(62px,1fr))',gap:4}}>
               <Readout label="CAMBER F" value={align.recCamberF} unit="°" decimals={1}/>
               <Readout label="CAMBER R" value={align.recCamberR} unit="°" decimals={1}/>
               <Readout label="TOE F" value={align.recToeF} unit="°" decimals={1}/>
@@ -2632,7 +2634,7 @@ function App(){
             {/* compact header row — tap to expand */}
             <div onClick={()=>setOpen(p=>({...p,balanceExpanded:!p.balanceExpanded}))}
                  style={{padding:'10px 14px',cursor:'pointer'}}>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5,flexWrap:'wrap',rowGap:4}}>
                 <span style={{fontSize:10,color:'#4b5563',letterSpacing:2}}>HANDLING BALANCE</span>
                 <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>·</span>
                 <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,
@@ -2643,14 +2645,15 @@ function App(){
                               color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#3b82f6':'#ef4444'}}>
                   {Math.abs(bTotFull)<3?'NEUTRAL':bTotFull>0?'UNDERSTEER':'OVERSTEER'}
                 </span>
+                <span style={{flex:1,minWidth:isMobile?'100%':0}}/>
                 {tune.mechBalance!=null&&<>
-                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1,marginLeft:'auto'}}>MECH</span>
+                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>MECH</span>
                   <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
                     {tune.mechBalance.toFixed(2)}
                   </span>
                 </>}
                 {(ch.aeroBalance??0.5)!==0.5&&(ch.aeroBalance??0.5)>=0.05&&<>
-                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1,marginLeft:tune.mechBalance!=null?0:'auto'}}>AERO</span>
+                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>AERO</span>
                   <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#94a3b8'}}>
                     {(ch.aeroBalance??0.5).toFixed(2)}
                   </span>
@@ -2659,7 +2662,7 @@ function App(){
                                   borderRadius:2,padding:'1px 4px',letterSpacing:1}}>{label}</span>
                   );})()}
                 </>}
-                <span style={{fontSize:10,color:'#374151',marginLeft:(ch.aeroBalance??0.5)!==0.5||tune.mechBalance!=null?6:'auto'}}>
+                <span style={{fontSize:10,color:'#374151',marginLeft:'auto'}}>
                   {open.balanceExpanded?'▲':'▼'}
                 </span>
               </div>
