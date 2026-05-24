@@ -194,18 +194,33 @@ const feelToPhysics=(ch,fe)=>{
   const arbCeil =Math.max(arbFloor+1,Math.min(gameLim,fe.arbCeil??gameLim));
   const arbBalTarget=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
   const arbBalMode=ARB_BAL_MODE_DEC.includes(fe.arbBalMode)?fe.arbBalMode:'weight';
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode};
+  const springShare=Math.max(0,Math.min(100,fe.springShare??50));
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode,springShare};
 };
 
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
   const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode}=phys;
+  // CO-SOLVE: solve rear Hz from spring share + mech balance target before anything else
+  let effectiveRHz=rHz;
+  if(arbBalMode==='coSolve'){
+    const twF_cs=parseTyre(ch.tyreF)?.width??265,twR_cs=parseTyre(ch.tyreR)?.width??265;
+    const rsSpF_cs=Math.pow(fHz*2*Math.PI,2)*m.front*ch.trackF*ch.trackF/2;
+    const k=MECH_BALANCE_STIFFNESS_WEIGHT;
+    const targetRsBalance=Math.max(0.001,Math.min(0.999,(arbBalTarget-(1-k)*(1-ch.frontBias/100))/k));
+    const rsSpR_base=Math.pow(fHz*2*Math.PI,2)*m.rear*ch.trackR*ch.trackR/2;
+    const R_baseline=rsSpR_base*twR_cs/(rsSpF_cs*twF_cs+rsSpR_base*twR_cs);
+    const S=(phys.springShare??50)/100;
+    const R_sp=Math.max(0.001,Math.min(0.999,R_baseline+S*(targetRsBalance-R_baseline)));
+    const rsSpR_tgt=R_sp*rsSpF_cs*twF_cs/((1-R_sp)*twR_cs);
+    effectiveRHz=Math.max(0.8,Math.min(4.0,Math.sqrt(2*rsSpR_tgt/(m.rear*ch.trackR*ch.trackR))/(2*Math.PI)));
+  }
   const springF=solveSpring(fHz,m.front,1);
-  const springR=solveSpring(rHz,m.rear,1);
+  const springR=solveSpring(effectiveRHz,m.rear,1);
   const rawRebF=solveDampRaw(fHz,m.front,zetaF);
-  const rawRebR=solveDampRaw(rHz,m.rear,zetaR);
+  const rawRebR=solveDampRaw(effectiveRHz,m.rear,zetaR);
   const rawBmpF=solveDampRaw(fHz,m.front,bumpZetaF);
-  const rawBmpR=solveDampRaw(rHz,m.rear,bumpZetaR);
+  const rawBmpR=solveDampRaw(effectiveRHz,m.rear,bumpZetaR);
   // Proportional scale: if max exceeds limit → scale down; if min below 1 → scale up.
   // Preserves F/R ratio at both bounds.
   const dampScale=(a,b)=>{
@@ -222,7 +237,7 @@ const computeTune=(ch,phys,gameMode)=>{
   const bumpF=clampDamp(rawBmpF,bmpScale);
   const bumpR=clampDamp(rawBmpR,bmpScale);
   const dampingClamped=rebScale!==1||bmpScale!==1;
-  const wrFN=Math.pow(fHz*2*Math.PI,2)*m.front,wrRN=Math.pow(rHz*2*Math.PI,2)*m.rear;
+  const wrFN=Math.pow(fHz*2*Math.PI,2)*m.front,wrRN=Math.pow(effectiveRHz*2*Math.PI,2)*m.rear;
   const rsSpF=(wrFN*ch.trackF*ch.trackF)/2,rsSpR=(wrRN*ch.trackR*ch.trackR)/2;
   const rsSp=rsSpF+rsSpR;
   const totalKg=ch.weight/KG_TO_LB,rollArm=ch.cgHeight-ROLL_CENTER_HEIGHT;
@@ -238,7 +253,7 @@ const computeTune=(ch,phys,gameMode)=>{
     : rsSp*(shareTarget/(1-shareTarget)); // auto + share: target a fraction directly
   const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
   let rF=arbBalance/100;
-  if(arbBalMode==='mech'&&rsAbBudget>0){
+  if((arbBalMode==='mech'||arbBalMode==='coSolve')&&rsAbBudget>0){
     const k=MECH_BALANCE_STIFFNESS_WEIGHT;
     const rsBalTarget=Math.max(0.001,Math.min(0.999,(arbBalTarget-(1-k)*(1-ch.frontBias/100))/k));
     const K=rsBalTarget/(1-rsBalTarget);
@@ -274,15 +289,15 @@ const computeTune=(ch,phys,gameMode)=>{
   const mechBalance=MECH_BALANCE_STIFFNESS_WEIGHT*rsBalance
                    +(1-MECH_BALANCE_STIFFNESS_WEIGHT)*(1-ch.frontBias/100);
   const settleF=zetaF>0?2.302/((zetaF/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn)
-  const settleR=zetaR>0?2.302/((zetaR/100)*rHz*2*Math.PI):99;
+  const settleR=zetaR>0?2.302/((zetaR/100)*effectiveRHz*2*Math.PI):99;
   return{springF,springR,
          rebF:Math.round(rebF*10)/10,rebR:Math.round(rebR*10)/10,
          bumpF:Math.round(bumpF*10)/10,bumpR:Math.round(bumpR*10)/10,
          arbF,arbR,
-         fHz,rHz,settle:settleF,settleR,rollDeg,rollTarget:arbTargetRoll,rollClamped,dampingClamped,
+         fHz,rHz:effectiveRHz,settle:settleF,settleR,rollDeg,rollTarget:arbTargetRoll,rollClamped,dampingClamped,
          arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
          bSp,bAb,bTot,mechBalance,
-         balArbSplit:arbBalMode==='mech'?Math.round(rF*100):null};
+         balArbSplit:(arbBalMode==='mech'||arbBalMode==='coSolve')?Math.round(rF*100):null};
 };
 
 const computeAlignment=(ch,tune,layout,buildType)=>{
@@ -453,7 +468,7 @@ const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,arbFloor:6,arbCeil:65,
-              arbBalTarget:0.65,arbBalMode:'weight',
+              arbBalTarget:0.65,arbBalMode:'weight',springShare:50,
               rearHzMode:'flatRide',rearHzMan:1.5,rearHzMult:1.20};
 const DEF_DR={layout:'RWD',buildType:'track',
               diffManual:false,diffBiasExit:0,diffBiasEntry:0,diffFrontExitBias:0,
@@ -1169,8 +1184,8 @@ const REAR_HZ_MODE_ENC={'flatRide':0,'independent':1,'multiplier':2};
 const REAR_HZ_MODE_DEC=['flatRide','independent','multiplier'];
 const ARB_MODE_ENC={'auto':0,'roll':1,'share':2};
 const ARB_MODE_DEC=['auto','roll','share','auto']; // index 3 was legacy 'balance' → auto
-const ARB_BAL_MODE_ENC={'weight':0,'mech':1};
-const ARB_BAL_MODE_DEC=['weight','mech'];
+const ARB_BAL_MODE_ENC={'weight':0,'mech':1,'coSolve':2};
+const ARB_BAL_MODE_DEC=['weight','mech','coSolve'];
 const LAYOUT_ENC={'FWD':0,'RWD':1,'AWD':2};
 const LAYOUT_DEC=['FWD','RWD','AWD'];
 const BUILD_ENC={'street':0,'track':1,'drift':2};
@@ -1198,6 +1213,7 @@ const encodeTune=(ch,fe,dr,br)=>{
     fe.arbBalTarget??DEF_FE.arbBalTarget,
     ARB_BAL_MODE_ENC[fe.arbBalMode??'weight']??0,
     dr.diffFrontExitBias??0,
+    fe.springShare??DEF_FE.springShare,
   ];
   return btoa(arr.join('|'));
 };
@@ -1220,7 +1236,8 @@ const decodeTune=(code)=>{
             rearHzMult:v.length>=41?v[40]:DEF_FE.rearHzMult,
             dampingBias:v.length>=42?v[41]:0,
             arbBalTarget:v.length>=49?v[48]:DEF_FE.arbBalTarget,
-            arbBalMode:v.length>=50?ARB_BAL_MODE_DEC[v[49]]??'weight':'weight'};
+            arbBalMode:v.length>=50?ARB_BAL_MODE_DEC[v[49]]??'weight':'weight',
+            springShare:v.length>=52?v[51]:DEF_FE.springShare};
   const _fW=v.length>=43?v[42]:265,_rW=v.length>=44?v[43]:265;
   const _fA=v.length>=45?v[44]:35, _fR=v.length>=46?v[45]:18;
   const _rA=v.length>=47?v[46]:35, _rR=v.length>=48?v[47]:18;
@@ -1262,6 +1279,7 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       arbBias:          cl(fe?.arbBias,          -50,   50,  DEF_FE.arbBias),
       arbBalTarget:     cl(fe?.arbBalTarget,     0.40, 0.90, DEF_FE.arbBalTarget),
       arbBalMode:       ARB_BAL_MODE_DEC.includes(fe?.arbBalMode)?fe.arbBalMode:DEF_FE.arbBalMode,
+      springShare:      cl(fe?.springShare,         0,  100, DEF_FE.springShare),
       dampingBias:      cl(fe?.dampingBias,      -50,   50,  DEF_FE.dampingBias),
       targetSpeed:      cl(fe?.targetSpeed,       40,  200,  DEF_FE.targetSpeed),
       gameMode:         GAME_MODE_DEC.includes(fe?.gameMode)?fe.gameMode:DEF_FE.gameMode,
@@ -2047,8 +2065,8 @@ function App(){
                 <span style={{fontSize:11,color:'#6b7280',fontFamily:'Courier New'}}>Hz</span>
               </span>}
               hint="Front spring frequency. Click the Hz value to type a target frequency directly. Typical range: 1.0–1.8 Hz for street, 1.8–2.6 Hz for track, 2.2–3.2 Hz for race."/>
-            {/* rear Hz mode toggle */}
-            <div style={{display:'flex',gap:3,marginBottom:10,marginTop:-4}}>
+            {/* rear Hz mode toggle — hidden in CO-SOLVE mode (rear Hz is solved automatically) */}
+            {(fe.arbBalMode??'weight')!=='coSolve'&&<div style={{display:'flex',gap:3,marginBottom:10,marginTop:-4}}>
               <button className={`tog${(fe.rearHzMode??'flatRide')==='flatRide'?' on':''}`}
                 onClick={()=>setFe(p=>({...p,rearHzMode:'flatRide'}))}>FLAT RIDE</button>
               <button className={`tog${(fe.rearHzMode??'flatRide')==='multiplier'?' on':''}`}
@@ -2057,8 +2075,8 @@ function App(){
               <button className={`tog${(fe.rearHzMode??'flatRide')==='independent'?' on':''}`}
                 onClick={()=>setFe(p=>({...p,rearHzMode:'independent',
                   rearHzMan:Math.round(physics.rearHz*100)/100}))}>INDEPENDENT</button>
-            </div>
-            {(fe.rearHzMode??'flatRide')==='flatRide'
+            </div>}
+            {(fe.arbBalMode??'weight')!=='coSolve'&&((fe.rearHzMode??'flatRide')==='flatRide'
               ? <FeelSlider label="Target Speed" value={240-fe.targetSpeed}
                   onChange={v=>pFe('targetSpeed')(240-v)} min={40} max={200} step={5}
                   leftLabel="OFF" rightLabel="CITY"
@@ -2095,7 +2113,7 @@ function App(){
                       onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}/>
                     <span style={{fontSize:11,color:'#6b7280',fontFamily:'Courier New'}}>Hz</span>
                   </span>}
-                  hint="Rear spring frequency set independently from flat-ride. Allows full decoupling of front and rear stiffness. Front Hz is still set by Ride Stiffness above."/>}
+                  hint="Rear spring frequency set independently from flat-ride. Allows full decoupling of front and rear stiffness. Front Hz is still set by Ride Stiffness above."/>)}
             <div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
                          border:'1px solid #1e293b',marginBottom:10,marginTop:-6}}>
@@ -2242,6 +2260,7 @@ function App(){
               arbMode:DEF_FE.arbMode,
               arbBalTarget:DEF_FE.arbBalTarget,
               arbBalMode:DEF_FE.arbBalMode,
+              springShare:DEF_FE.springShare,
               arbTargetRollMan:DEF_FE.arbTargetRollMan,
               arbShareMan:DEF_FE.arbShareMan,
               arbFloor:DEF_FE.arbFloor,
@@ -2319,12 +2338,14 @@ function App(){
                 hint="Fraction of total roll stiffness supplied by ARBs. 0% = springs handle all roll resistance. 20–30% is typical sport. Higher = stiffer bars relative to springs, more abrupt load transfer."/>}
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10,marginTop:4}}>
               <span style={{fontSize:12,color:'#6b7280'}}>Balance Mode</span>
-              <Hint text="WEIGHT splits front/rear ARB from the car's weight distribution, adjusted by the ARB Bias slider. MECH solves the split to hit a target mech balance value."/>
+              <Hint text="WEIGHT splits front/rear ARB from the car's weight distribution, adjusted by the ARB Bias slider. MECH solves the ARB split to hit a target mech balance value. CO-SOLVE adjusts both rear spring stiffness and ARB split together — Spring Share controls how much each contributes."/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${(fe.arbBalMode??'weight')==='weight'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('weight')}>WEIGHT</button>
                 <button className={`tog${(fe.arbBalMode??'weight')==='mech'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('mech')}>MECH</button>
+                <button className={`tog${(fe.arbBalMode??'weight')==='coSolve'?' on':''}`}
+                  onClick={()=>pFe('arbBalMode')('coSolve')}>CO-SOLVE</button>
               </div>
             </div>
             {(fe.arbBalMode??'weight')==='mech'&&<>
@@ -2339,6 +2360,32 @@ function App(){
               <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
                 min={0.40} max={0.90} step={0.01}
                 hint="Target mech balance the ARB split will be solved to achieve. 0.65 is a good starting point for most builds. Higher = more rear grip bias (oversteer tendency). Lower = more front grip bias (understeer tendency)."/>
+            </>}
+            {(fe.arbBalMode??'weight')==='coSolve'&&<>
+              <div style={{display:'flex',gap:8,marginBottom:10}}>
+                <div style={{flex:1,display:'flex',alignItems:'center',gap:8,
+                             padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
+                             border:'1px solid #1e293b'}}>
+                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>ARB SPLIT</span>
+                  <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
+                    F {tune.balArbSplit!=null?100-tune.balArbSplit:'—'}% / R {tune.balArbSplit??'—'}%
+                  </span>
+                </div>
+                <div style={{flex:1,display:'flex',alignItems:'center',gap:8,
+                             padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
+                             border:'1px solid #1e293b'}}>
+                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>SOLVED REAR Hz</span>
+                  <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
+                    {tune.rHz!=null?tune.rHz.toFixed(2):'—'} Hz
+                  </span>
+                </div>
+              </div>
+              <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
+                min={0.40} max={0.90} step={0.01}
+                hint="Target mech balance that both rear spring stiffness and ARB split are solved to achieve together. 0.65 is a good starting point for most builds. Higher = more rear grip bias. Lower = more front grip bias."/>
+              <FeelSlider label="SPRING SHARE" value={fe.springShare??50} onChange={pFe('springShare')}
+                min={0} max={100} leftLabel="ARB ONLY" rightLabel="SPRING ONLY"
+                hint="How much of the mechanical balance correction comes from rear spring stiffness vs ARB split. 0% = ARB handles all correction (rear Hz equals front Hz). 100% = springs handle all correction (ARB split near neutral). 50% = equal contribution from both."/>
             </>}
           </Sec></div>
 
