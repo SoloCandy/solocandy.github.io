@@ -1848,15 +1848,50 @@ function App(){
     return{score,hzNorm,arbNorm,dampNorm,toeNorm,casterNorm,rearHzNorm,biasNorm};
   })();
 
-  // Natural chassis mech balance — equal Hz, no ARBs, just weight+track+tire geometry
-  const natMechBalance=(()=>{
-    const twF_n=parseTyre(ch.tyreF)?.width??265,twR_n=parseTyre(ch.tyreR)?.width??265;
-    const mF=cm.front,mR=cm.rear; // corner mass in kg
-    const rsWF=mF*ch.trackF*ch.trackF*twF_n;
-    const rsWR=mR*ch.trackR*ch.trackR*twR_n;
-    const rsBalance=rsWR/(rsWF+rsWR);
-    return MECH_BALANCE_STIFFNESS_WEIGHT*rsBalance+(1-MECH_BALANCE_STIFFNESS_WEIGHT)*(1-ch.frontBias/100);
+  // Full chassis geometry analysis — equal Hz, no ARBs
+  const chassisAnalysis=(()=>{
+    const K=MECH_BALANCE_STIFFNESS_WEIGHT;
+    const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
+    const mF=cm.front,mR=cm.rear;
+    // Weighted roll stiffness terms (Hz cancels — pure geometry ratio)
+    const rsWF=mF*ch.trackF*ch.trackF*twF;
+    const rsWR=mR*ch.trackR*ch.trackR*twR;
+    const rsBalance_nat=rsWR/(rsWF+rsWR);
+    const natBal=K*rsBalance_nat+(1-K)*(1-ch.frontBias/100);
+    // Stability index: track width × tire width normalised to typical values
+    const avgTrack=(ch.trackF+ch.trackR)/2;   // metres
+    const avgTire=(twF+twR)/2;                 // mm
+    const stabIdx=Math.sqrt((avgTrack/1.6)*(avgTire/265));
+    // Recommendation target: co-solve/mech target when active, else neutral 0.50
+    const hasMechTarget=fe.arbBalMode==='coSolve'||fe.arbBalMode==='mech';
+    const targetBal=hasMechTarget?Math.max(0.40,Math.min(0.90,fe.arbBalTarget??0.55)):0.50;
+    // Required rsBalance to achieve targetBal
+    const rsBalance_tgt=Math.max(0.05,Math.min(0.95,(targetBal-(1-K)*(1-ch.frontBias/100))/K));
+    const R=rsBalance_tgt/(1-rsBalance_tgt);  // rear/front weighted ratio
+    // Ideal tire widths (mm) and track widths (mm) to reach target with equal Hz, no ARBs
+    const r5=v=>Math.round(v/5)*5;
+    const twF_ideal=rsWR/(R*mF*ch.trackF*ch.trackF);
+    const twR_ideal=R*rsWF/(mR*ch.trackR*ch.trackR);
+    const trackF_ideal_m=Math.sqrt(rsWR/(R*mF*twF));   // metres
+    const trackR_ideal_m=Math.sqrt(R*rsWF/(mR*twR));
+    const twF_rec=r5(Math.max(150,Math.min(600,twF_ideal)));
+    const twR_rec=r5(Math.max(150,Math.min(600,twR_ideal)));
+    const trackF_rec=r5(Math.max(800,Math.min(2200,trackF_ideal_m*1000)));
+    const trackR_rec=r5(Math.max(800,Math.min(2200,trackR_ideal_m*1000)));
+    const dTwF=twF_rec-twF,dTwR=twR_rec-twR;
+    const trackF_curr=Math.round(ch.trackF*1000),trackR_curr=Math.round(ch.trackR*1000);
+    const dTrackF=trackF_rec-trackF_curr,dTrackR=trackR_rec-trackR_curr;
+    // Feasibility: tires ≤ 1.55× current (edge cases allowed), track ± 65mm
+    const twFfeas=twF_rec>=150&&twF_rec<=twF*1.55;
+    const twRfeas=twR_rec>=150&&twR_rec<=twR*1.55;
+    const trackFfeas=Math.abs(dTrackF)<=65;
+    const trackRfeas=Math.abs(dTrackR)<=65;
+    const gap=Math.abs(natBal-targetBal);
+    return{natBal,stabIdx,targetBal,hasMechTarget,
+           twF,twR,twF_rec,twR_rec,dTwF,dTwR,twFfeas,twRfeas,
+           trackF_rec,trackR_rec,dTrackF,dTrackR,trackFfeas,trackRfeas,gap};
   })();
+  const natMechBalance=chassisAnalysis.natBal;
 
   const handleSlot=i=>{
     const s=saves[i];
@@ -2202,29 +2237,91 @@ function App(){
                   </div>
                 );
               };
-              // chassis natural balance label + colour
-              const nm=natMechBalance;
-              const nmDelta=nm-0.5; // positive = understeer bias, negative = oversteer
+              const{natBal:nm,stabIdx,targetBal,hasMechTarget,
+                    twF_rec,twR_rec,dTwF,dTwR,twFfeas,twRfeas,
+                    trackF_rec,trackR_rec,dTrackF,dTrackR,trackFfeas,trackRfeas,gap}=chassisAnalysis;
+              const nmDelta=nm-0.5;
               const nmCol=Math.abs(nmDelta)<0.03?'#9ca3af':nmDelta>0?'#3b82f6':'#ef4444';
               const nmLabel=Math.abs(nmDelta)<0.03?'NEUTRAL':nmDelta>0?'US':'OS';
+              const[stabLabel,stabCol]=stabIdx<0.85?['AGILE','#f59e0b']
+                :stabIdx<0.97?['BALANCED','#9ca3af']
+                :stabIdx<1.10?['STABLE','#60a5fa']
+                :['PLANTED','#3b82f6'];
+              const showRec=gap>0.015;
+              const dimCol='#374151';
+              const box={background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,
+                         padding:'4px 7px',display:'flex',justifyContent:'space-between',
+                         alignItems:'center'};
+              const fmtD=d=>(d>=0?'+':'')+Math.round(d);
               return(<>
                 <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
                   <span style={{fontSize:9,color:'#94a3b8',letterSpacing:2}}>TYRE SIZE</span>
-                  <Hint text="Enter tyre sizes in Forza format (e.g. 265/35R18). Width (first number, in mm) affects how roll stiffness is weighted between front and rear — wider tyres at one end increase that end's effective grip contribution. This shifts the mech balance target and the ARB split. Aspect ratio and rim size determine the tyre's rolling radius, which affects ride height geometry."/>
+                  <Hint text="Enter tyre sizes in Forza format (e.g. 265/35R18). Width (first number, in mm) affects how roll stiffness is weighted between axles — wider tyres on one end increase that end's effective grip contribution and shift the mech balance target and ARB split. Aspect ratio and rim diameter determine rolling radius."/>
                 </div>
                 <div style={{display:'flex',gap:8,marginBottom:4}}>
                   {tyreInput('tyreF','FRONT')}
                   {tyreInput('tyreR','REAR')}
                 </div>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-                  fontSize:11,color:'#6b7280',padding:'4px 6px',marginBottom:8,
-                  background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2}}>
-                  <span style={{letterSpacing:1,fontSize:10}}>CHASSIS BALANCE</span>
-                  <span style={{display:'flex',alignItems:'baseline',gap:5}}>
-                    <span style={{color:nmCol,fontFamily:'Courier New',fontWeight:700}}>{nm.toFixed(2)}</span>
-                    <span style={{color:nmCol,fontSize:9,letterSpacing:1}}>{nmLabel}</span>
-                  </span>
+                {/* Dual metric bar */}
+                <div style={{display:'flex',gap:3,marginBottom:showRec?3:8}}>
+                  <div style={{flex:1,...box}}>
+                    <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>CHASSIS BAL.</span>
+                    <span style={{display:'flex',alignItems:'baseline',gap:3}}>
+                      <span style={{fontFamily:'Courier New',fontWeight:700,color:nmCol,fontSize:11}}>{nm.toFixed(2)}</span>
+                      <span style={{fontSize:9,color:nmCol,letterSpacing:1}}>{nmLabel}</span>
+                    </span>
+                  </div>
+                  <div style={{flex:1,...box}}>
+                    <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>STABILITY</span>
+                    <span style={{fontFamily:'Courier New',fontSize:11,fontWeight:700,color:stabCol}}>{stabLabel}</span>
+                  </div>
                 </div>
+                {/* Recommendation panel */}
+                {showRec&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',
+                  borderRadius:2,padding:'6px 7px',marginBottom:8}}>
+                  <div style={{fontSize:9,color:'#94a3b8',letterSpacing:2,marginBottom:5}}>
+                    REACH {targetBal.toFixed(2)}{hasMechTarget?' · CO-SOLVE TARGET':' · NEUTRAL'}
+                  </div>
+                  {/* Tyre row */}
+                  <div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
+                    <span style={{fontSize:9,color:'#6b7280',letterSpacing:1,width:38,flexShrink:0}}>TYRES</span>
+                    <span style={{flex:1,display:'flex',gap:8,fontFamily:'Courier New',fontSize:10}}>
+                      <span style={{color:twFfeas?'#e2e8f0':dimCol}}>
+                        F→{twF_rec}
+                        <span style={{fontSize:9,color:twFfeas?'#6b7280':dimCol}}> ({fmtD(dTwF)})</span>
+                      </span>
+                      <span style={{color:twRfeas?'#e2e8f0':dimCol}}>
+                        R→{twR_rec}
+                        <span style={{fontSize:9,color:twRfeas?'#6b7280':dimCol}}> ({fmtD(dTwR)})</span>
+                      </span>
+                    </span>
+                  </div>
+                  {/* Track row */}
+                  <div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
+                    <span style={{fontSize:9,color:'#6b7280',letterSpacing:1,width:38,flexShrink:0}}>TRACK</span>
+                    <span style={{flex:1,display:'flex',gap:8,fontFamily:'Courier New',fontSize:10}}>
+                      <span style={{color:trackFfeas?'#e2e8f0':dimCol}}>
+                        F {fmtD(dTrackF)}mm
+                        {!trackFfeas&&<span style={{fontSize:8,color:dimCol}}> ✗</span>}
+                      </span>
+                      <span style={{color:trackRfeas?'#e2e8f0':dimCol}}>
+                        R {fmtD(dTrackR)}mm
+                        {!trackRfeas&&<span style={{fontSize:8,color:dimCol}}> ✗</span>}
+                      </span>
+                    </span>
+                  </div>
+                  {/* Guidance note */}
+                  <div style={{fontSize:9,color:'#4b5563',lineHeight:1.4,marginTop:2}}>
+                    {(() => {
+                      const allFeasible=[twFfeas,twRfeas,trackFfeas,trackRfeas].some(Boolean);
+                      if(!allFeasible) return 'Gap too large for geometry alone — rely on ARBs.';
+                      const wd=nmDelta<0; // need more understeer (rear-heavy correction)
+                      return wd
+                        ?'Wider rear or narrower front moves chassis toward understeer.'
+                        :'Wider front or narrower rear moves chassis toward neutral.';
+                    })()}
+                  </div>
+                </div>}
               </>);
             })()}
             {uiMode==='pro'&&<>
