@@ -1618,6 +1618,19 @@ function App(){
   const bDampBias=(fe.dampingBias??0)*0.08;
   const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bAero+bDampBias;
   const lim=GAME_LIMITS[fe.gameMode];
+  const agileFactors=(()=>{
+    const hzNorm=Math.min(1,Math.max(0,(physics.frontHz-0.8)/2.7));
+    const arbNorm=lim.arb>0?(tune.arbF+tune.arbR)/(2*lim.arb):0;
+    const dampNorm=Math.min(1,Math.max(0,(physics.reboundZeta-10)/105));
+    const toeNorm=Math.min(1,Math.max(0,(-(align.recToeF??-0.1)+0.5)/1.5));
+    const casterNorm=Math.min(1,Math.max(0,(7.5-(align.recCaster??5.5))/3.5));
+    const rearFrontRatio=physics.frontHz>0?physics.rearHz/physics.frontHz:1;
+    const rearHzNorm=Math.min(1,Math.max(0,(rearFrontRatio-0.7)/1.1));
+    const biasNorm=Math.min(1,Math.max(0,(65-(ch.frontBias??55))/25));
+    const score=hzNorm*0.35+arbNorm*0.25+(1-dampNorm)*0.15
+               +toeNorm*0.12+casterNorm*0.08+rearHzNorm*0.04+biasNorm*0.01;
+    return{score,hzNorm,arbNorm,dampNorm,toeNorm,casterNorm,rearHzNorm,biasNorm};
+  })();
 
   const handleSlot=i=>{
     const s=saves[i];
@@ -2694,20 +2707,7 @@ function App(){
               </div>
               {/* stability / responsiveness bar */}
               {(()=>{
-                const hzNorm=Math.min(1,Math.max(0,(physics.frontHz-0.8)/2.7));
-                const arbNorm=lim.arb>0?(tune.arbF+tune.arbR)/(2*lim.arb):0;
-                const dampNorm=Math.min(1,Math.max(0,(physics.reboundZeta-10)/105));
-                // front toe-out = agile; range -1.0 (full toe-out) to +0.5 (toe-in)
-                const toeNorm=Math.min(1,Math.max(0,(-( align.recToeF??-0.1)+0.5)/1.5));
-                // lower caster = more agile; range 4.0–7.5°
-                const casterNorm=Math.min(1,Math.max(0,(7.5-(align.recCaster??5.5))/3.5));
-                // stiffer rear relative to front = more rotation tendency = agile
-                const rearFrontRatio=physics.frontHz>0?physics.rearHz/physics.frontHz:1;
-                const rearHzNorm=Math.min(1,Math.max(0,(rearFrontRatio-0.7)/1.1));
-                // more rear weight = lower polar moment = more agile; range 40–65% front
-                const biasNorm=Math.min(1,Math.max(0,(65-(ch.frontBias??55))/25));
-                const score=hzNorm*0.35+arbNorm*0.25+(1-dampNorm)*0.15
-                           +toeNorm*0.12+casterNorm*0.08+rearHzNorm*0.04+biasNorm*0.01; // 0=stable,1=agile
+                const{score}=agileFactors;
                 const p=Math.max(-50,Math.min(50,(score-0.5)*100));
                 const fs=p>=0?{left:'50%',width:`${p}%`}:{left:`${50+p}%`,width:`${-p}%`};
                 return(
@@ -2755,6 +2755,40 @@ function App(){
                   bDiffAccel={diff.bDiffAccel} bDiffDecel={diff.bDiffDecel}
                   bBrakeEntry={bBrakeEntry} bAero={bAero} bDampBias={bDampBias}
                   mechBalance={null}/>
+                {/* STABLE / AGILE factor breakdown */}
+                <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid #0f172a'}}>
+                  <span style={{fontSize:9,color:'#374151',letterSpacing:2}}>STABLE ←————————→ AGILE</span>
+                  {[
+                    {label:'SPRINGS',val:agileFactors.hzNorm,hint:'Stiffer springs increase ride frequency and shift feel toward agile.'},
+                    {label:'ARB',val:agileFactors.arbNorm,hint:'Higher ARB values reduce body roll, shifting feel toward agile.'},
+                    {label:'DAMPING',val:1-agileFactors.dampNorm,hint:'Lower rebound damping (less resistance to weight transfer) = more agile.'},
+                    {label:'TOE F',val:agileFactors.toeNorm,hint:'Front toe-out sharpens turn-in response (agile). Toe-in adds stability.'},
+                    {label:'CASTER',val:1-agileFactors.casterNorm,hint:'Lower caster reduces self-centering force, allowing quicker steering response.'},
+                    {label:'R/F Hz',val:agileFactors.rearHzNorm,hint:'Stiffer rear relative to front promotes rotation tendency (agile).'},
+                    {label:'BIAS',val:agileFactors.biasNorm,hint:'More rear-heavy weight bias lowers polar moment, making the car rotate more easily.'},
+                  ].map(({label,val,hint})=>{
+                    const p=Math.round((val-0.5)*100);
+                    const c=p>15?'#f59e0b':p<-15?'#22c55e':'#64748b';
+                    const barW=Math.min(50,Math.abs(p));
+                    const barStyle=p>=0?{left:'50%',width:`${barW}%`}:{right:'50%',width:`${barW}%`};
+                    return(
+                      <div key={label} style={{display:'flex',alignItems:'center',gap:6,marginTop:3}}>
+                        <div style={{width:50,display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
+                          <span style={{fontSize:9,color:'#4b5563',letterSpacing:1}}>{label}</span>
+                          <Hint text={hint}/>
+                        </div>
+                        <div style={{flex:1,position:'relative',height:6,background:'#0f172a',borderRadius:2}}>
+                          <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#1e293b'}}/>
+                          {Math.abs(p)>3&&<div style={{position:'absolute',top:1,bottom:1,borderRadius:1,
+                            background:c+'aa',...barStyle}}/>}
+                        </div>
+                        <span style={{fontFamily:'Courier New',fontSize:10,color:c,width:28,textAlign:'right',flexShrink:0}}>
+                          {p>=0?'+':''}{p}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>}
           </div>
 
