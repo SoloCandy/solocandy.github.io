@@ -1007,13 +1007,20 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bBrakeEntry,bAero,bD
   const abs=Math.abs(total);
   const label=abs<3?'NEUTRAL':total>0?'UNDERSTEER':'OVERSTEER';
   const col=abs<3?'#e2e8f0':total>0?'#3b82f6':'#ef4444';
+  const contributors=[
+    {name:'springs',val:bSp??0},{name:'ARB',val:bAb??0},
+    {name:'diff accel',val:bDiffAccel??0},{name:'diff decel',val:bDiffDecel??0},
+    {name:'brakes',val:bBrakeEntry??0},{name:'aero',val:bAero??0},{name:'damping',val:bDampBias??0}
+  ];
+  const dom=contributors.reduce((a,b)=>Math.abs(b.val)>Math.abs(a.val)?b:a,contributors[0]);
+  const domStr=Math.abs(dom.val)>2?` Largest driver: ${dom.name.toUpperCase()}.`:'';
   const tip=abs<3
-    ?'Setup is well balanced. Fine-tune with alignment if needed.'
+    ?`Setup is well balanced.${domStr} Fine-tune with alignment if needed.`
     :total>0
-      ?(abs>10?'Move the Balance slider toward Oversteer to correct.'
-              :'Small Balance adjustment toward Oversteer should correct this.')
-      :(abs>10?'Move the Balance slider toward Understeer to correct.'
-              :'Small Balance adjustment toward Understeer should correct this.');
+      ?(abs>10?`Move the Balance slider toward Oversteer to correct.${domStr}`
+              :`Small Balance adjustment toward Oversteer should correct this.${domStr}`)
+      :(abs>10?`Move the Balance slider toward Understeer to correct.${domStr}`
+              :`Small Balance adjustment toward Understeer should correct this.${domStr}`);
   return(
     <div>
       {mechBalance!=null&&
