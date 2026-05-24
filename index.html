@@ -1445,12 +1445,12 @@ const TUTORIALS={
     {title:'Ride Stiffness',
      focus:['ride-stiffness'],
      body:'Controls overall suspension stiffness. SOFT is comfortable and forgiving on rough surfaces. ROAD is a balanced starting point. FIRM is responsive sport. RACE is a stiff competition setup. The badge updates as you move the slider.'},
-    {title:'Rear Stiffness',
+    {title:'Spring / ARB Mix',
      focus:['rear-stiffness'],
-     body:'Adjusts rear spring frequency relative to the front. Softer rear improves rear traction and bump compliance — good for street and rally. Stiffer rear sharpens rotation response and platform stability — better for track.'},
+     body:'Controls how the balance correction is split between anti-roll bars and rear spring stiffness. Left (ARBs) = bars handle it all, springs stay symmetric. Right (SPRINGS) = rear spring stiffness is adjusted more. Centre splits the work evenly — a good default for most builds.'},
     {title:'Balance',
      focus:['balance'],
-     body:'Shifts understeer/oversteer tendency by adjusting the anti-roll bar distribution front to rear. Centre is neutral. Push toward UNDERSTEER for more stable corner entry. Push toward OVERSTEER for more rotation and rear-end freedom.'},
+     body:'Sets the handling balance target. The calculator solves both anti-roll bars and rear spring stiffness to achieve it. Centre is neutral. Push toward OVERSTEER for more rotation and rear-end freedom. Push toward UNDERSTEER for more stable corner entry.'},
     {title:'Character',
      focus:['character'],
      body:'Controls damping feel — how quickly the suspension settles. STABLE means more damped: planted, predictable, and slow to react. AGILE means lighter damping: livelier, more reactive to inputs, quicker direction changes.'},
@@ -1632,6 +1632,14 @@ function App(){
       cgHeight:  r5(DEF_CH.cgHeight  * Math.pow(r,0.25)),
     }));
   },[ch.weight,uiMode]); // eslint-disable-line
+  // Enter CO-SOLVE mode automatically in beginner mode
+  useEffect(()=>{
+    if(uiMode!=='beginner')return;
+    setFe(p=>({...p,
+      arbBalMode:'coSolve',
+      arbBalTarget:Math.max(0.50,Math.min(0.80,0.65-(p.arbBias??0)*0.003)),
+    }));
+  },[uiMode]); // eslint-disable-line
 
   // sidebar grows with the display: 300px baseline, up to 440px at very wide screens.
   const sidebarWidth=isMobile?300:Math.min(440,Math.max(300,Math.floor(windowWidth*0.25)));
@@ -1881,31 +1889,25 @@ function App(){
                   hint="How stiff the suspension feels. SOFT = comfortable street ride. ROAD = balanced. FIRM = responsive sport. RACE = stiff competition setup."/>
                 </div>
                 <div style={dim('rear-stiffness')}>
-                {(()=>{
-                  const rearMult=fe.rearHzMode==='multiplier'?(fe.rearHzMult??1.20)
-                    :parseFloat((physics.rearHz/physics.frontHz).toFixed(2));
-                  const[rHzCat,rHzCol]=hzCtx(physics.rearHz);
-                  return(
-                    <FeelSlider label="Rear Stiffness" value={rearMult}
-                      onChange={v=>setFe(p=>({...p,rearHzMode:'multiplier',rearHzMult:v}))}
-                      min={0.80} max={1.60} step={0.01}
-                      leftLabel="SOFTER" rightLabel="STIFFER"
-                      readout={<span style={{display:'flex',alignItems:'center',gap:5}}>
-                        <span style={{fontSize:11,color:rHzCol,fontFamily:'Courier New',fontWeight:700,letterSpacing:1}}>{rHzCat}</span>
-                        <span style={{fontSize:10,color:'#4b5563',fontFamily:'Courier New'}}>{physics.rearHz.toFixed(2)} Hz</span>
-                      </span>}
-                      hint="Rear spring stiffness relative to front. SOFTER rear = more traction and compliance over bumps (good for street/rally). STIFFER rear = more platform rigidity and oversteer responsiveness (track/drift). Most builds sit near ×1.2 front."/>
-                  );
-                })()}
+                <FeelSlider label="Spring / ARB Mix" value={fe.springShare??50}
+                  onChange={v=>pFe('springShare')(Math.round(v))}
+                  min={0} max={100} step={1}
+                  leftLabel="ARBs" rightLabel="SPRINGS"
+                  centered={true}
+                  readout={(fe.springShare??50)===50?'BALANCED':(fe.springShare??50)<50?`ARBs +${50-(fe.springShare??50)}`:`SPRINGS +${(fe.springShare??50)-50}`}
+                  hint="Controls how the balance correction is split between anti-roll bars and rear spring stiffness. ARBs (left) = bars do the work, springs stay symmetric. SPRINGS (right) = rear spring stiffness is adjusted more, bars stay near neutral. BALANCED (centre) splits the correction evenly between both."/>
                 </div>
                 <div style={dim('balance')}>
                 <FeelSlider label="Balance" value={fe.arbBias??0}
-                  onChange={pFe('arbBias')}
+                  onChange={v=>setFe(p=>({...p,
+                    arbBias:v,
+                    arbBalMode:'coSolve',
+                    arbBalTarget:Math.max(0.50,Math.min(0.80,0.65-v*0.003))}))}
                   min={-50} max={50} step={1}
                   leftLabel="OVERSTEER" rightLabel="UNDERSTEER"
                   centered={true}
                   readout={fe.arbBias===0?'NEUTRAL':fe.arbBias>0?`US +${fe.arbBias}`:`OS ${fe.arbBias}`}
-                  hint="Shifts the front/rear anti-roll bar balance. Push right (understeer) for more stability into corners. Push left (oversteer) for more rotation and rear-end freedom. Start at centre for most builds."/>
+                  hint="Sets the handling balance target. The calculator automatically adjusts both anti-roll bars and rear spring stiffness together to hit it. Left (oversteer) = rear grip bias, more rotation. Right (understeer) = front grip bias, more stability. Start at centre for most builds."/>
                 </div>
                 <div style={dim('character')}>
                 <FeelSlider label="Character" value={stAgVal}
