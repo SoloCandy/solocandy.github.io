@@ -265,8 +265,9 @@ const computeTune=(ch,phys,gameMode)=>{
   const rollDeg=rsTotal>0?rollMoment/rsTotal*(180/Math.PI):0;
   const rollClamped=arbMode==='roll'&&Math.abs(rollDeg-arbTargetRoll)>0.05;
   const nf=ch.frontBias/100;
-  const bSp=(rsSpF+rsSpR)>0?((rsSpF/(rsSpF+rsSpR))-nf)*100:0;
-  const bAb=(rsAbF+rsAbR)>0?((rsAbF/(rsAbF+rsAbR))-nf)*100:0;
+  // positive = oversteer (rear-heavy roll stiffness), negative = understeer (front-heavy)
+  const bSp=(rsSpF+rsSpR)>0?(nf-(rsSpF/(rsSpF+rsSpR)))*100:0;
+  const bAb=(rsAbF+rsAbR)>0?(nf-(rsAbF/(rsAbF+rsAbR)))*100:0;
   const bTot=bSp+bAb;
   const rsWF=(rsSpF+rsAbF)*twF,rsWR=(rsSpR+rsAbR)*twR;
   const rsBalance=rsWF+rsWR>0?rsWR/(rsWF+rsWR):1-ch.frontBias/100;
@@ -374,23 +375,23 @@ const computeDiff=(ch,fe,dr)=>{
 
   const nf=ch.frontBias/100;
   let bDiffAccel=0, bDiffDecel=0, bDiffFront=0, bDiffRear=0;
+  // positive = oversteer tendency, negative = understeer tendency
   if(vals.layout==='AWD'){
-    // Weight contributions by center split: rear gets C fraction, front gets (1-C)
     const C=Math.max(0,Math.min(1,(vals.center??65)/100));
-    const bFA= vals.frontAccel*nf*(1-C)*DIFF_BIAS_SCALE;   // front accel → understeer (+)
-    const bRA=-vals.rearAccel*(1-nf)*C*DIFF_BIAS_SCALE;    // rear accel  → oversteer  (−)
-    const bFD= vals.frontDecel*nf*(1-C)*DIFF_BIAS_SCALE;   // front decel → understeer (+)
-    const bRD=-vals.rearDecel*(1-nf)*C*DIFF_BIAS_SCALE;    // rear decel  → oversteer  (−)
+    const bFA=-vals.frontAccel*nf*(1-C)*DIFF_BIAS_SCALE;   // front accel → understeer (−)
+    const bRA= vals.rearAccel*(1-nf)*C*DIFF_BIAS_SCALE;    // rear accel  → oversteer  (+)
+    const bFD=-vals.frontDecel*nf*(1-C)*DIFF_BIAS_SCALE;   // front decel → understeer (−)
+    const bRD= vals.rearDecel*(1-nf)*C*DIFF_BIAS_SCALE;    // rear decel  → oversteer  (+)
     bDiffFront=bFA+bFD;
     bDiffRear =bRA+bRD;
     bDiffAccel=bFA+bRA;
     bDiffDecel=bFD+bRD;
   } else if(vals.layout==='RWD'){
-    bDiffAccel=-vals.accel*(1-nf)*DIFF_BIAS_SCALE;
-    bDiffDecel=-vals.decel*(1-nf)*DIFF_BIAS_SCALE;
+    bDiffAccel= vals.accel*(1-nf)*DIFF_BIAS_SCALE;  // rear accel → oversteer (+)
+    bDiffDecel= vals.decel*(1-nf)*DIFF_BIAS_SCALE;  // rear decel → oversteer (+)
   } else {
-    bDiffAccel= vals.accel*nf*DIFF_BIAS_SCALE;
-    bDiffDecel= vals.decel*nf*DIFF_BIAS_SCALE;
+    bDiffAccel=-vals.accel*nf*DIFF_BIAS_SCALE;  // front accel → understeer (−)
+    bDiffDecel=-vals.decel*nf*DIFF_BIAS_SCALE;  // front decel → understeer (−)
   }
 
   return{...vals,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear};
@@ -987,7 +988,8 @@ const Card=({title,accent=false,hint=null,children})=>(
 );
 
 const BiasSeg=({label,val,hint})=>{
-  const c=val>0.5?'#3b82f6':val<-0.5?'#ef4444':'#64748b';
+  // positive = oversteer (red/right), negative = understeer (blue/left)
+  const c=val>0.5?'#ef4444':val<-0.5?'#3b82f6':'#64748b';
   const scale=15;
   const pct=Math.min(50,Math.abs(val)/scale*50);
   const barStyle=val>=0?{left:'50%',width:`${pct}%`}:{right:'50%',width:`${pct}%`};
@@ -1014,8 +1016,9 @@ const aeroLoadCtx=eff=>eff<0.5?['HIGH','#ef4444']:eff<0.7?['MED','#f59e0b']:['LO
 const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bAero,bDampBias,mechBalance})=>{
   const cl=v=>Math.max(-50,Math.min(50,v));
   const abs=Math.abs(total);
-  const label=abs<3?'NEUTRAL':total>0?'UNDERSTEER':'OVERSTEER';
-  const col=abs<3?'#e2e8f0':total>0?'#3b82f6':'#ef4444';
+  // positive = oversteer, negative = understeer
+  const label=abs<3?'NEUTRAL':total>0?'OVERSTEER':'UNDERSTEER';
+  const col=abs<3?'#e2e8f0':total>0?'#ef4444':'#3b82f6';
   const isAWD=diffLayout==='AWD';
   const contributors=[
     {name:'springs',val:bSp??0},{name:'ARB',val:bAb??0},
@@ -1029,10 +1032,10 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
   const tip=abs<3
     ?`Setup is well balanced.${domStr} Fine-tune with alignment if needed.`
     :total>0
-      ?(abs>10?`Move the Balance slider toward Oversteer to correct.${domStr}`
-              :`Small Balance adjustment toward Oversteer should correct this.${domStr}`)
-      :(abs>10?`Move the Balance slider toward Understeer to correct.${domStr}`
-              :`Small Balance adjustment toward Understeer should correct this.${domStr}`);
+      ?(abs>10?`Move the Balance slider toward Understeer to correct.${domStr}`
+              :`Small Balance adjustment toward Understeer should correct this.${domStr}`)
+      :(abs>10?`Move the Balance slider toward Oversteer to correct.${domStr}`
+              :`Small Balance adjustment toward Oversteer should correct this.${domStr}`);
   return(
     <div>
       {mechBalance!=null&&
@@ -1049,30 +1052,30 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
         </div>}
       <div style={{marginBottom:8}}>
         <BiasSeg label="SPRINGS" val={bSp}
-          hint="How much the front/rear spring rates bias roll stiffness, relative to weight distribution. + = understeer."/>
+          hint="Spring roll-stiffness bias vs weight distribution. + = oversteer (rear springs relatively stiffer). − = understeer (front springs relatively stiffer)."/>
         <BiasSeg label="ARB" val={bAb}
-          hint="How much the front/rear anti-roll bars bias roll stiffness, relative to weight distribution. + = understeer."/>
+          hint="ARB roll-stiffness bias vs weight distribution. + = oversteer (rear ARBs relatively stiffer). − = understeer (front ARBs relatively stiffer)."/>
         {isAWD?(
           <>
             <BiasSeg label="DIFF F" val={bDiffFront??0}
-              hint="AWD front diff net contribution (accel+decel). Front accel lock biases toward understeer (+). Center split and front weight fraction are factored in."/>
+              hint="AWD front diff net contribution (accel+decel). Front lock pushes understeer (−). Center split and front weight fraction are factored in."/>
             <BiasSeg label="DIFF R" val={bDiffRear??0}
-              hint="AWD rear diff net contribution (accel+decel). Rear accel lock biases toward oversteer (−). Center split and rear weight fraction are factored in."/>
+              hint="AWD rear diff net contribution (accel+decel). Rear lock pushes oversteer (+). Center split and rear weight fraction are factored in."/>
           </>
         ):(
           <>
             <BiasSeg label="DIFF EXIT" val={bDiffAccel??0}
-              hint={diffLayout==='FWD'?'Front accel lock on-throttle exit. Higher lock = more understeer on exit (+).':'Rear accel lock on-throttle exit. Higher lock = more oversteer on exit (−).'}/>
+              hint={diffLayout==='FWD'?'Front accel lock on-throttle exit. Higher lock = more understeer (−).':'Rear accel lock on-throttle exit. Higher lock = more oversteer (+).'}/>
             <BiasSeg label="DIFF ENTRY" val={bDiffDecel??0}
-              hint={diffLayout==='FWD'?'Front decel lock off-throttle entry. Higher lock = more entry understeer (+).':'Rear decel lock off-throttle entry. Higher lock = more stability (less lift-off oversteer).'}/>
+              hint={diffLayout==='FWD'?'Front decel lock off-throttle entry. Higher lock = more entry understeer (−).':'Rear decel lock off-throttle entry. Higher lock = more oversteer on entry (+).'}/>
           </>
         )}
         <BiasSeg label="BRAKES" val={bBrakeEntry??0}
-          hint="Estimated brake-balance contribution to entry balance. High front bias = more understeer on entry (+). Low front bias (rear-biased) = oversteer tendency on entry (−). Based on deviation from 50% neutral."/>
+          hint="Brake-balance contribution to entry. High front bias = understeer on entry (−). Low front bias (rear-biased) = oversteer tendency (+). Based on deviation from 50% neutral."/>
         <BiasSeg label="AERO" val={bAero??0}
-          hint="Aero balance contribution. Rear-biased downforce (above 0.50) = oversteer tendency (−). Front-biased (below 0.50) = understeer tendency (+). Enter the aero balance from Forza's tuning menu in the CHASSIS section, then tune mechanical balance to push this total toward zero."/>
+          hint="Aero balance contribution. Rear-biased downforce (above 0.50) = oversteer tendency (+). Front-biased (below 0.50) = understeer tendency (−). Tune mechanical balance to push this total toward zero."/>
         <BiasSeg label="DAMP" val={bDampBias??0}
-          hint="Damping bias contribution. More front rebound damping resists weight transfer off the front on turn-in, producing an understeer tendency (+). More rear damping does the opposite (−)."/>
+          hint="Damping bias contribution. More front rebound damping resists weight transfer off the front, producing understeer tendency (−). More rear damping does the opposite (+)."/>
       </div>
       <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:5}}>
         <span style={{fontFamily:'Courier New',fontSize:20,fontWeight:700,color:col,lineHeight:1}}>
@@ -1637,11 +1640,12 @@ function App(){
     ch.frontBias+(dr.buildType==='drift'?-8:dr.buildType==='track'?-3:0))));
   const brakeBias=br.brakeManual?(br.brakeBias??DEF_BR.brakeBias):recBrakeBias;
   const brakePressure=br.brakeManual?(br.brakePressure??DEF_BR.brakePressure):100;
-  const bBrakeEntry=(brakeBias-50)*BRAKE_BIAS_SCALE;
+  // positive = oversteer, negative = understeer
+  const bBrakeEntry=-(brakeBias-50)*BRAKE_BIAS_SCALE; // high front bias → understeer (−)
   const aeroEff=Math.max(0.1,ch.aeroEfficiency??0.9);
   const effectiveAeroBalance=(ch.aeroBalance??0.5)<0.05?0.5:ch.aeroBalance??0.5;
-  const bAero=(0.5-effectiveAeroBalance)*AERO_BALANCE_SCALE*(0.9/aeroEff);
-  const bDampBias=(fe.dampingBias??0)*0.08;
+  const bAero=(effectiveAeroBalance-0.5)*AERO_BALANCE_SCALE*(0.9/aeroEff); // rear-biased → oversteer (+)
+  const bDampBias=-(fe.dampingBias??0)*0.08; // more front damping → understeer (−)
   const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bAero+bDampBias;
   const lim=GAME_LIMITS[fe.gameMode];
   const agileFactors=(()=>{
@@ -2644,8 +2648,8 @@ function App(){
               const fmtBias=(v,label)=>{
                 const abs=Math.abs(v).toFixed(1);
                 const neutral=Math.abs(v)<=0.05;
-                const col=neutral?'#4b5563':v<0?'#ef4444':'#3b82f6';
-                const arrow=neutral?'±':v<0?'→OS':'→US';
+                const col=neutral?'#4b5563':v>0?'#ef4444':'#3b82f6'; // positive=OS
+                const arrow=neutral?'±':v>0?'→OS':'→US';
                 return(
                   <div style={{display:'flex',alignItems:'baseline',gap:4}}>
                     <span style={{fontSize:9,color:'#374151',letterSpacing:1}}>{label}</span>
@@ -2748,12 +2752,12 @@ function App(){
                 <span style={{fontSize:10,color:'#4b5563',letterSpacing:2}}>HANDLING BALANCE</span>
                 <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>·</span>
                 <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,
-                              color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#3b82f6':'#ef4444'}}>
+                              color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#ef4444':'#3b82f6'}}>
                   {`${bTotFull>=0?'+':''}${bTotFull.toFixed(1)}`}
                 </span>
                 <span style={{fontSize:11,letterSpacing:2,
-                              color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#3b82f6':'#ef4444'}}>
-                  {Math.abs(bTotFull)<3?'NEUTRAL':bTotFull>0?'UNDERSTEER':'OVERSTEER'}
+                              color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#ef4444':'#3b82f6'}}>
+                  {Math.abs(bTotFull)<3?'NEUTRAL':bTotFull>0?'OVERSTEER':'UNDERSTEER'}
                 </span>
                 <span style={{flex:1}}/>
                 <span style={{fontSize:10,color:'#374151'}}>
@@ -2766,7 +2770,7 @@ function App(){
                 <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#1e293b'}}/>
                 {(()=>{
                   const cl=v=>Math.max(-50,Math.min(50,v));
-                  const p=cl(-bTotFull);
+                  const p=cl(bTotFull); // positive=OS(right), negative=US(left)
                   const fs=p>=0?{left:'50%',width:`${p}%`}:{left:`${50+p}%`,width:`${-p}%`};
                   const fc=p>=0?'#ef444440':'#3b82f640';
                   return p!==0&&<div style={{position:'absolute',top:2,bottom:2,borderRadius:1,background:fc,...fs}}/>;
