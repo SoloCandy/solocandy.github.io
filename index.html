@@ -2560,9 +2560,15 @@ function App(){
                 {!isCoSolve&&<div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
                   <span style={{flex:1,fontSize:9,color:'#6b7280',letterSpacing:1}}>RIDE REF.</span>
                   <button className={`tog${rRef==='front'?' on':''}`}
-                    onClick={()=>pFe('rideRef')('front')}>FRONT</button>
+                    onClick={()=>setFe(p=>({...p,
+                      rideRef:'front',
+                      rideStiffness:hzToRs(physics.frontHz),
+                      ...(p.rearHzMode==='independent'?{rearHzMan:Math.round(physics.rearHz*100)/100}:{})}))}>FRONT</button>
                   <button className={`tog${rRef==='rear'?' on':''}`}
-                    onClick={()=>pFe('rideRef')('rear')}>REAR</button>
+                    onClick={()=>setFe(p=>({...p,
+                      rideRef:'rear',
+                      rideStiffness:hzToRs(physics.rearHz),
+                      ...(p.rearHzMode==='independent'?{rearHzMan:Math.round(physics.frontHz*100)/100}:{})}))}>REAR</button>
                 </div>}
                 <FeelSlider
                   label={rRef==='rear'?'Rear Stiffness':'Ride Stiffness'}
