@@ -163,9 +163,8 @@ const solveDampRaw=(hz,mass,z)=>{
 
 const feelToPhysics=(ch,fe)=>{
   const gameLim=GAME_LIMITS[fe.gameMode??'horizon']?.arb??65;
-  const frontHz=rsToHz(fe.rideStiffness);
+  let frontHz=rsToHz(fe.rideStiffness);
   const rearHzMode=fe.rearHzMode??'flatRide';
-  let rearHz,rearHzClamped;
   // rideRef: 'front' (default) = slider sets frontHz, modes derive rearHz
   //          'rear'            = slider sets rearHz,  modes derive frontHz (inverted)
   // CO-SOLVE always uses front reference regardless of rideRef
