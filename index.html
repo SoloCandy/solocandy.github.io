@@ -1072,7 +1072,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
         <BiasSeg label="BRAKES" val={bBrakeEntry??0}
           hint="Brake-balance contribution to entry. High front bias = understeer on entry (−). Low front bias (rear-biased) = oversteer tendency (+). Based on deviation from 50% neutral."/>
         <BiasSeg label="AERO" val={bAero??0}
-          hint="Aero balance contribution. Rear-biased downforce (above 0.50) = oversteer tendency (+). Front-biased (below 0.50) = understeer tendency (−). Tune mechanical balance to push this total toward zero."/>
+          hint="Aero balance contribution. Front-heavy aero (above 0.50) = oversteer tendency (+). Rear-heavy aero (below 0.50) = understeer tendency (−). Tune mechanical balance to push this total toward zero."/>
         <BiasSeg label="DAMP" val={bDampBias??0}
           hint="Damping bias contribution. More front rebound damping resists weight transfer off the front, producing understeer tendency (−). More rear damping does the opposite (+)."/>
       </div>
@@ -1643,7 +1643,7 @@ function App(){
   const bBrakeEntry=-(brakeBias-50)*BRAKE_BIAS_SCALE; // high front bias → understeer (−)
   const aeroEff=Math.max(0.1,ch.aeroEfficiency??0.9);
   const effectiveAeroBalance=(ch.aeroBalance??0.5)<0.05?0.5:ch.aeroBalance??0.5;
-  const bAero=(effectiveAeroBalance-0.5)*AERO_BALANCE_SCALE*(0.9/aeroEff); // rear-biased → oversteer (+)
+  const bAero=(effectiveAeroBalance-0.5)*AERO_BALANCE_SCALE*(0.9/aeroEff); // front-heavy (>0.5) → oversteer (+), rear-heavy (<0.5) → understeer (−)
   const bDampBias=-(fe.dampingBias??0)*0.08; // more front damping → understeer (−)
   const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bAero+bDampBias;
   const lim=GAME_LIMITS[fe.gameMode];
@@ -1967,7 +1967,7 @@ function App(){
             })()}
             <Field label="Aero Balance" value={ch.aeroBalance??0.5} onChange={pCh('aeroBalance')}
               min={0} max={1.5} step={0.01}
-              hint="Aero balance as shown in Forza's tuning menu (0.00–1.50, same scale as Mech Balance). 0.50 = neutral. Above 0.50 = rear-biased downforce (oversteer tendency). Below 0.50 = front-biased (understeer tendency). 0.00 means no aero package installed — treated as neutral automatically. Method: set all aero to max cornering, read the number from Forza, enter it here."/>
+              hint="Front downforce fraction from Forza's aero tuning screen (0.00–1.50). 0.50 = balanced. Above 0.50 = front-heavy aero → oversteer tendency. Below 0.50 = rear-heavy aero → understeer tendency. 0.00 means no aero installed — treated as neutral. Method: set all aero to max cornering, read the Aero Balance value from Forza, enter it here."/>
             <Field label="Aero Efficiency" value={ch.aeroEfficiency??0.9} onChange={pCh('aeroEfficiency')}
               min={0.1} max={1.0} step={0.001}
               hint="Aero efficiency from Forza's tuning menu (typically 0.300–0.900). Lower = more total downforce. Scales how strongly the aero balance affects the overall handling total — a high-downforce car at 0.30 has 3× the aero load of a stock car at 0.90, so its balance bias matters proportionally more."/>
