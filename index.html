@@ -813,7 +813,7 @@ const SagDial=({defF,defR})=>{
   const maxDef=Math.max(defF,defR);
   const labelColor=maxDef<50?'#22c55e':maxDef<100?'#eab308':maxDef<150?'#f97316':'#ef4444';
   const dispVal=hover==='front'?Math.round(defF):hover==='rear'?Math.round(defR):Math.round(maxDef);
-  const sub=hover==='front'?'F SAG':hover==='rear'?'R SAG':'SAG mm';
+  const sub=hover==='front'?'F BALANCE':hover==='rear'?'R BALANCE':'RIDE BAL';
   return(
     <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
       <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
@@ -1599,7 +1599,7 @@ function App(){
     }
   },[uiMode]); // eslint-disable-line
   const[loadMode,setLoadMode]=useState('all'); // 'all'=feel+drivetrain, 'fe'=feel only
-  const[open,setOpen]=useState({chassis:true,feel:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:false,presetsOpen:false});
+  const[open,setOpen]=useState({chassis:true,ride:true,dampers:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:false,presetsOpen:false});
   const[showChecker,setShowChecker]=useState(false);
   const[hzDraft,setHzDraft]=useState(null);     // transient: direct front Hz entry
   const[rearHzDraft,setRearHzDraft]=useState(null); // transient: direct rear Hz entry (independent mode)
@@ -2028,18 +2028,18 @@ function App(){
             </> }
           </Sec></div>
 
-          <div style={dim('feel','damping')}><Sec title="FEEL" open={open.feel} onToggle={tog('feel')}
+          <div style={dim('ride','feel')}><Sec title="RIDE" open={open.ride} onToggle={tog('ride')}
             onReset={()=>setFe(p=>({...p,
               rideStiffness:DEF_FE.rideStiffness,
               targetSpeed:DEF_FE.targetSpeed,
               rearHzMode:DEF_FE.rearHzMode,
               rearHzMan:DEF_FE.rearHzMan,
-              rearHzMult:DEF_FE.rearHzMult,
-              dampingMode:DEF_FE.dampingMode,
-              dampingBias:DEF_FE.dampingBias,
-              reboundZeta:DEF_FE.reboundZeta,
-              bumpRatio:DEF_FE.bumpRatio,
-              bumpZeta:DEF_FE.bumpZeta}))}>
+              rearHzMult:DEF_FE.rearHzMult}))}>
+            {(()=>{
+              const defF=1000*9.81/(4*Math.PI*Math.PI*physics.frontHz*physics.frontHz);
+              const defR=1000*9.81/(4*Math.PI*Math.PI*physics.rearHz*physics.rearHz);
+              return <SagDial defF={defF} defR={defR}/>;
+            })()}
             <div style={dim('feel')}>
             <FeelSlider label="Ride Stiffness" value={physics.frontHz}
               onChange={v=>pFe('rideStiffness')(hzToRs(v))}
@@ -2148,18 +2148,18 @@ function App(){
               </span>
             </div>
             </div>
-            <div style={dim('damping')}>
-            {/* sag + damping dials */}
-            {(()=>{
-              const defF=1000*9.81/(4*Math.PI*Math.PI*physics.frontHz*physics.frontHz);
-              const defR=1000*9.81/(4*Math.PI*Math.PI*physics.rearHz*physics.rearHz);
-              return(
-                <div style={{display:'flex',justifyContent:'center'}}>
-                  <SagDial defF={defF} defR={defR}/>
-                  <DampingDial rebound={fe.reboundZeta??70} bump={physics.bumpZeta}/>
-                </div>
-              );
-            })()}
+          </Sec></div>
+
+          <div style={dim('damping')}><Sec title="DAMPERS" open={open.dampers} onToggle={tog('dampers')}
+            onReset={()=>setFe(p=>({...p,
+              dampingMode:DEF_FE.dampingMode,
+              dampingBias:DEF_FE.dampingBias,
+              reboundZeta:DEF_FE.reboundZeta,
+              bumpRatio:DEF_FE.bumpRatio,
+              bumpZeta:DEF_FE.bumpZeta}))}>
+            <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
+              <DampingDial rebound={fe.reboundZeta??70} bump={physics.bumpZeta}/>
+            </div>
             {/* damping mode toggle */}
             <div style={{display:'flex',gap:3,marginBottom:10}}>
               <button className={`tog${(fe.dampingMode??'ratio')==='ratio'?' on':''}`}
@@ -2251,7 +2251,6 @@ function App(){
                 </div>
               );
             })()}
-            </div>
           </Sec></div>
 
           <div style={dim('arb')}><Sec title="ANTI-ROLL BARS" open={open.arb} onToggle={tog('arb')}
