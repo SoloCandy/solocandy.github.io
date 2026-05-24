@@ -2324,6 +2324,9 @@ function App(){
                 </div>}
               </>);
             })()}
+            <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
+              min={0.40} max={0.90} step={0.01}
+              hint="The overall handling balance target for this build. 0.50 = perfectly neutral. Higher = more rear roll stiffness (understeer tendency). Lower = more front roll stiffness (oversteer tendency). The REACH panel above shows what tyre or track changes would bring the natural chassis balance close to this value. MECH and CO-SOLVE modes in the Anti-Roll Bars section actively solve springs and ARBs to hit it — in WEIGHT mode the value is stored but not applied until you switch."/>
             {uiMode==='pro'&&<>
             <Field label="Wheelbase" value={Math.round(ch.wheelbase*1000)} onChange={v=>pCh('wheelbase')(v/1000)} min={400} max={4000} step={5} unit="mm"
               hint="Distance between front and rear axles in millimetres. Used by the flat-ride formula to match rear spring frequency to your target speed. Typical cars: 2400–2900 mm."/>
@@ -2452,9 +2455,6 @@ function App(){
                 :<div style={{fontSize:10,color:'#6b7280',textAlign:'center',marginBottom:8}}>
                   Set aero balance in CHASSIS to see aero recommendation
                 </div>}
-              <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
-                min={0.40} max={0.90} step={0.01}
-                hint="Target mech balance the ARB split will be solved to achieve. 0.65 is a good starting point for most builds. Higher = rear-heavy ARB balance (oversteer tendency). Lower = front-heavy ARB balance (understeer tendency)."/>
             </>}
             {(fe.arbBalMode??'weight')==='coSolve'&&<>
               <div style={{display:'flex',gap:8,marginBottom:10}}>
@@ -2488,9 +2488,6 @@ function App(){
                 :<div style={{fontSize:10,color:'#6b7280',textAlign:'center',marginBottom:8}}>
                   Set aero balance in CHASSIS to see aero recommendation
                 </div>}
-              <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
-                min={0.40} max={0.90} step={0.01}
-                hint="Target mech balance that both rear spring stiffness and ARB split are solved to achieve together. 0.65 is a good starting point for most builds. Higher = rear-heavy balance (oversteer tendency). Lower = front-heavy balance (understeer tendency)."/>
               <FeelSlider label="SPRING SHARE" value={fe.springShare??50} onChange={pFe('springShare')}
                 min={0} max={100} leftLabel="ARB ONLY" rightLabel="SPRING ONLY"
                 hint="How much of the mechanical balance correction comes from rear spring stiffness vs ARB split. 0% = ARB handles all correction (rear Hz equals front Hz). 100% = springs handle all correction (ARB split near neutral). 50% = equal contribution from both."/>
