@@ -1437,101 +1437,124 @@ const TUTORIALS={
   beginner:[
     {title:'Welcome to SUSP.OS',
      focus:null,
-     body:'This app calculates exact Forza suspension values from your car\'s stats and a handling target. As a beginner you only need a few inputs — the physics engine handles the rest. Use the arrows to step through what each control does.'},
+     body:'This app calculates exact Forza suspension values from your car\'s stats and a handling target. A few inputs are all you need — the physics engine solves springs, damping, and anti-roll bars automatically. Use the arrows to step through each control.'},
     {title:'Start From a Preset',
      focus:['presets'],
-     body:'Tap one of the six preset buttons at the top of the sidebar to load a baseline tune. STREET, TRACK, RALLY, DRIFT, MOTORSPT, and COMFORT are ready-made starting points — pick the closest to your build, then adjust from there.'},
+     body:'Tap one of the six preset buttons to load a baseline tune. STREET, TRACK, RALLY, DRIFT, MOTORSPT, and COMFORT each set a different balance target, stiffness level, and damping character. Pick the closest to your build, then adjust from there.'},
     {title:'Layout & Build Type',
      focus:['layout-build'],
-     body:'Select your drive layout (FWD / RWD / AWD) and build style. Layout affects differential outputs. Build type shifts alignment and diff lock recommendations toward street, track, or drift behaviour.'},
+     body:'Select your drive layout (FWD / RWD / AWD) and build style. Layout affects how differential lock contributes to handling balance. Build type shifts alignment and diff recommendations toward street, track, or drift behaviour.'},
     {title:'Weight & Front Bias',
      focus:['weight'],
-     body:'Enter your car\'s total weight and front weight bias percentage from Forza\'s car stat screen (the selection screen, not the tuning menu). These two numbers drive almost every calculation.'},
+     body:'Enter your car\'s total weight and front weight bias from Forza\'s car stat screen — use the selection screen, not the tuning menu. These two numbers drive almost every calculation in the app.'},
     {title:'Ride Stiffness',
      focus:['ride-stiffness'],
-     body:'Controls overall suspension stiffness. SOFT is comfortable and forgiving on rough surfaces. ROAD is a balanced starting point. FIRM is responsive sport. RACE is a stiff competition setup. The badge updates as you move the slider.'},
+     body:'Controls overall suspension stiffness. SOFT is comfortable on rough surfaces. ROAD is a balanced starting point. FIRM is responsive sport. RACE is a stiff competition setup. The badge updates as you move the slider.'},
     {title:'Spring / ARB Mix',
      focus:['rear-stiffness'],
-     body:'Controls how the balance correction is split between anti-roll bars and rear spring stiffness. Left (ARBs) = bars handle it all, springs stay symmetric. Right (SPRINGS) = rear spring stiffness is adjusted more. Centre splits the work evenly — a good default for most builds.'},
+     body:'Controls how the balance correction is split between anti-roll bars and rear spring stiffness. ARBs (left) = bars do all the work, springs stay symmetric. SPRINGS (right) = rear spring stiffness is adjusted more. BALANCED (centre) splits the correction evenly — a good default.'},
     {title:'Balance',
      focus:['balance'],
-     body:'Sets the handling balance target. The calculator solves both anti-roll bars and rear spring stiffness to achieve it. Centre is neutral. Push toward OVERSTEER for more rotation and rear-end freedom. Push toward UNDERSTEER for more stable corner entry.'},
+     body:'Sets the handling balance target. The calculator automatically solves both anti-roll bars and rear spring stiffness to achieve it. Centre is a good neutral starting point. Push toward OVERSTEER for more rotation and rear-end freedom, or toward UNDERSTEER for more stable corner entry.'},
     {title:'Character',
      focus:['character'],
-     body:'Controls damping feel — how quickly the suspension settles. STABLE means more damped: planted, predictable, and slow to react. AGILE means lighter damping: livelier, more reactive to inputs, quicker direction changes.'},
+     body:'Controls damping feel — how quickly the suspension settles after a bump or weight transfer. STABLE means more damped: planted and predictable. AGILE means lighter damping: livelier and more reactive to inputs. Start at centre for most builds.'},
+    {title:'Handling Balance Bar',
+     focus:['balance-bar'],
+     body:'The Handling Balance bar is pinned at the bottom of the results panel. It shows your total oversteer or understeer tendency as a number and a bar. Tap it to expand a full breakdown of every contributor — and a tip on what to adjust. Aim for near zero for a neutral baseline.'},
     {title:'Reading the Results',
      focus:['output'],
-     body:'The right panel shows exact in-game values — Springs, Dampers, ARBs, and Alignment. Enter them in Forza\'s tuning menu. The Handling Balance bar at the bottom shows your overall bias. Tune it toward zero for a neutral baseline.'},
+     body:'The right panel shows exact values to enter in Forza\'s tuning menu: Springs, Dampers, Anti-Roll Bars, and Alignment. Amber values mean you\'re near a game limit — soften your inputs slightly if that happens.'},
   ],
   intermediate:[
     {title:'Welcome — Intermediate Mode',
      focus:null,
-     body:'Intermediate mode gives you full control over springs, damping, and drivetrain without requiring detailed chassis geometry. All the key physics, less setup.'},
+     body:'Intermediate mode gives you full control over springs, damping, and ARBs without requiring chassis geometry. The ARB section now offers three balance modes: WEIGHT (weight-derived split), MECH (solve ARB to a balance target), and CO-SOLVE (solve rear spring and ARB together). All preset builds already use one of these modes.'},
     {title:'CHASSIS',
      focus:['chassis'],
-     body:'Enter weight, front bias, and aero values. Aero Balance and Efficiency affect the Handling Balance output — read them from Forza\'s aero tuning screen after setting aero to max cornering, then enter them here.'},
-    {title:'Ride Stiffness & Rear Hz Mode',
+     body:'Enter weight, front bias, and aero values from Forza\'s car stats and tuning screen. Aero Balance is the front downforce fraction and appears as an AERO row in the Handling Balance breakdown. When aero is set, a REC. MECH TARGET readout appears below the field — it suggests a balance target that would counteract the aero\'s handling bias.'},
+    {title:'RIDE — Spring Frequencies',
      focus:['feel'],
-     body:'Front Hz sets baseline stiffness. Three rear Hz modes: FLAT RIDE derives rear frequency from wheelbase and a target speed for optimal pitch response. MULTIPLIER sets a ratio to front. INDEPENDENT fully decouples rear.'},
-    {title:'Rebound & Bump Damping',
+     body:'Front Hz sets baseline stiffness. Three rear Hz modes: FLAT RIDE derives rear frequency from wheelbase and a target speed for natural pitch response. MULTIPLIER sets a ratio to front. INDEPENDENT fully decouples rear. In CO-SOLVE ARB mode, rear Hz is solved automatically — the mode selector is hidden since the solver determines the value.'},
+    {title:'DAMPERS — Rebound & Bump',
      focus:['damping'],
-     body:'Rebound ζ at 70% is the Butterworth critical point — the ideal balance of body control and compliance. Bump Ratio sets compression damping as a fraction of rebound. Higher bump ratio = snappier response to inputs.'},
+     body:'Rebound ζ at 70% is the Butterworth critical point — the ideal balance of body control and compliance. Bump Ratio sets compression damping as a fraction of rebound. Higher bump ratio = snappier response over crests and kerbs.'},
     {title:'Damping Bias',
      focus:['damping'],
-     body:'Shifts damping weight front or rear. More front bias resists weight transfer on turn-in, adding an understeer tendency. More rear bias softens entry feel and helps exit traction. Shown as a DAMP segment in Handling Balance.'},
+     body:'Shifts damping weight front or rear. More front damping resists weight transfer on turn-in, adding a mild understeer tendency. More rear damping softens entry feel and helps exit traction. The effect appears as a DAMP row in the Handling Balance breakdown.'},
     {title:'Anti-Roll Bars',
      focus:['arb'],
-     body:'ARB Bias shifts roll stiffness front/rear without changing total stiffness. AUTO mode targets natural roll from spring stiffness and car geometry. ROLL° targets a specific body roll angle. SHARE% sets ARBs as a fraction of total roll stiffness.'},
+     body:'Three balance modes: WEIGHT uses the car\'s weight distribution, adjusted by the ARB Bias slider. MECH solves the ARB split to hit a Mech Balance Target — the ARB SPLIT readout shows front/rear percentages. CO-SOLVE adjusts both rear spring stiffness and ARB split together, with Spring Share controlling how much each contributes. In MECH or CO-SOLVE mode with aero set, a REC. AERO BAL readout shows the complementary aero balance.'},
     {title:'Drivetrain',
      focus:['drivetrain'],
-     body:'Select layout and build type, then use Corner Exit and Corner Entry sliders to tune differential aggression. Exit controls power-on rotation tendency. Entry controls trail-braking stability.'},
+     body:'Select layout and build type, then use Corner Exit and Corner Entry sliders to tune differential aggression. Exit controls on-throttle rotation. Entry controls trail-braking stability. Both appear in the Handling Balance breakdown as DIFF rows.'},
     {title:'Output Cards',
      focus:['output'],
-     body:'Springs, Dampers, ARBs, and Alignment show exact in-game click values. Enter them in Forza\'s tuning menu. Amber warnings appear when values approach game limits — adjust inputs to bring them down.'},
-    {title:'Handling Balance',
+     body:'Springs, Dampers, ARBs, and Alignment show exact in-game click values. Enter them directly in Forza\'s tuning menu. Amber values are near the game limit — soften inputs slightly to bring them down.'},
+    {title:'Handling Balance Bar',
      focus:['balance-bar'],
-     body:'The pinned bar at the bottom shows how springs, ARBs, diff, brakes, and aero combine into a total balance. Tune toward zero for a neutral baseline, then bias deliberately if desired. Tap the bar to expand per-segment detail.'},
+     body:'The Handling Balance bar is pinned at the bottom of the results panel and starts collapsed. Tap it to expand the full per-segment breakdown. Use the ✕ button to collapse it and the ? button to reopen this guide. Aim for a total near zero for a neutral baseline, then bias deliberately if your build needs it.'},
     {title:'Presets & Share',
      focus:['presets'],
-     body:'Use the PRESETS section to save and load tuning setups. SHARE generates a portable code — paste it into IMPORT on any device running SUSP.OS. Old codes decode safely with sensible defaults for any missing fields.'},
+     body:'The six built-in presets now set specific balance targets (MECH or CO-SOLVE mode) matched to each build style. Use the PRESETS section to save your own setups. SHARE generates a code you can paste into IMPORT on any device — backward compatible with all previous versions.'},
   ],
   pro:[
     {title:'Welcome — Pro Mode',
      focus:null,
-     body:'Pro mode exposes the full physics surface: geometry inputs, manual alignment, differential lock percentages, and brake balance. Every parameter that affects the output is accessible here.'},
+     body:'Pro mode exposes the full physics surface: geometry inputs, manual alignment, differential lock percentages, and brake balance. The ARB section offers three balance modes (WEIGHT / MECH / CO-SOLVE) and cross-solver readouts that link aero balance and mechanical balance targets together.'},
     {title:'CHASSIS Geometry',
      focus:['chassis'],
-     body:'Wheelbase, track widths, and CG height feed roll stiffness, lateral weight transfer, and alignment calculations. Defaults (2700 / 1550 / 1520 / 450 mm) suit most sports cars if you don\'t have exact values.'},
+     body:'Wheelbase, track widths, and CG height feed roll stiffness, lateral weight transfer, and alignment calculations. Defaults (2700 / 1550 / 1520 / 450 mm) suit most sports cars if you don\'t have exact values. Aero Efficiency is the downforce-to-drag ratio — it affects the drag badge but not the handling balance calculation.'},
     {title:'Weight Transfer Strips',
      focus:['chassis'],
-     body:'XFER F/R shows lateral load transfer per axle per g of cornering. OUT/IN show outer and inner wheel loads at 1g. These inform how aggressively to tune ARBs and how much camber the outer tyre needs.'},
+     body:'XFER F/R shows lateral load transfer per axle per g of cornering. OUT/IN show outer and inner wheel loads at 1g. These inform how aggressively to tune ARBs and how much camber the outer tyre needs under load.'},
     {title:'Spring Frequencies',
      focus:['feel'],
-     body:'Front Hz sets baseline stiffness. FLAT RIDE derives rear Hz from wheelbase and target speed for optimal pitch balance at that speed. MULTIPLIER and INDEPENDENT give progressively more direct control over the rear.'},
+     body:'Front Hz sets baseline stiffness. FLAT RIDE derives rear Hz from wheelbase and target speed for optimal pitch. MULTIPLIER and INDEPENDENT give progressively more direct control. In CO-SOLVE ARB mode, the rear Hz controls are hidden — rear stiffness is solved from the balance target and Spring Share and shown as SOLVED REAR Hz in the ARB section.'},
     {title:'Damping in Depth',
      focus:['damping'],
-     body:'70% rebound ζ is critically damped. BUMP RATIO mode locks the bump/rebound relationship as you change rebound. INDEPENDENT sets bump ζ directly. Damping Bias then splits front and rear zeta independently around the base value.'},
-    {title:'ARB Range Slider',
+     body:'70% rebound ζ is critically damped. BUMP RATIO mode locks the bump/rebound relationship as rebound changes. INDEPENDENT sets bump ζ directly. Damping Bias then splits front and rear zeta independently around the base value, with the front/rear effect shown in the DAMP row of the balance breakdown.'},
+    {title:'ARB Balance Modes',
      focus:['arb'],
-     body:'The floor and ceiling range slider clamps how extreme the ARB solver can go. Use it to keep click values in a playable band. Amber warning appears above 88% of the game limit. Horizon max is 65, Motorsport max is 40.'},
+     body:'WEIGHT mode uses the car\'s weight distribution with an optional Bias offset. MECH solves the ARB split to hit a Mech Balance Target (0.40–0.90). CO-SOLVE solves both rear spring stiffness and ARB split — Spring Share sets how much correction comes from each. The floor/ceiling range slider limits how extreme the solver can go. Amber warning appears above 88% of game limit.'},
+    {title:'Cross-Solver Readouts',
+     focus:['arb'],
+     body:'In MECH or CO-SOLVE mode with aero set, REC. AERO BAL shows the aero balance that would offset your current mechanical setup. In CHASSIS, REC. MECH TARGET shows the balance target to aim for given your current aero split. Both are estimates based on the current tune — verify the feel in-game after applying them.'},
     {title:'Alignment',
      focus:['alignment'],
-     body:'AUTO derives camber, toe, and caster from build type, layout, CG height, and roll angle. Switch to MANUAL to seed from the current AUTO values and override each axis independently.'},
+     body:'AUTO derives camber, toe, and caster from build type, layout, CG height, and roll angle. Switch to MANUAL to seed from the current AUTO values and override each axis independently. Alignment also contributes to the STABLE/AGILE factor breakdown.'},
     {title:'Manual Differential',
      focus:['drivetrain'],
-     body:'MANUAL diff exposes individual accel/decel lock per axle. AWD adds front axle, rear axle, and center power split controls. AUTO mode uses the Corner Exit/Entry bias sliders to derive all values from layout and build type.'},
+     body:'MANUAL diff exposes individual accel/decel lock per axle. AWD adds front axle, rear axle, and center power split controls. AUTO uses the Corner Exit/Entry bias sliders to derive all values from layout and build type. Both modes feed the DIFF rows in the Handling Balance breakdown.'},
     {title:'Brakes',
      focus:['brakes'],
-     body:'AUTO recommends brake balance from front weight bias and build type. MANUAL lets you set balance and pressure directly. Both contribute to the BRAKES segment in the Handling Balance bar.'},
+     body:'AUTO recommends brake balance from front weight bias and build type. MANUAL lets you set bias and pressure directly. Brake balance deviation from 50% appears as the BRAKES row in the Handling Balance breakdown — rear-biased brakes add an oversteer entry tendency.'},
     {title:'Tune Check',
      focus:null,
-     body:'Enter existing in-game spring and damper values to reverse-calculate their natural frequency and damping ratios. Useful for verifying a manual tune or understanding a setup shared by another player.'},
-    {title:'Handling & Stability Bars',
+     body:'Enter existing in-game spring and damper values to reverse-calculate their natural frequency and damping ratios. Useful for verifying a manually entered tune or understanding a setup shared by another player.'},
+    {title:'Handling Balance Bar',
      focus:['balance-bar'],
-     body:'Two pinned bars: the US/OS Handling Balance (springs, ARBs, diff, brakes, aero, damping bias) and the STABLE/AGILE bar (ride Hz, total ARB stiffness, damping). Tap to expand for per-segment breakdown and colour-coded contributions.'},
+     body:'The Handling Balance bar starts collapsed. Tap it to expand the full breakdown: each contributor as a signed segment, a correction tip, and the STABLE/AGILE factor breakdown. Use ✕ to collapse, ? to reopen this guide. In MECH/CO-SOLVE mode with aero set, cross-solver recommendations appear inside the ARB section and below the Aero Balance field in CHASSIS.'},
     {title:'Share & Import',
      focus:['presets'],
-     body:'SHARE encodes the full tune as a ~150-char Base64 string. IMPORT decodes it on any device — backward compatible with all previous versions. Missing fields default gracefully, so old codes always load cleanly.'},
+     body:'SHARE encodes the full tune as a compact Base64 string. IMPORT decodes it on any device — backward compatible with all previous versions. Missing fields default gracefully, so old codes always load cleanly.'},
+  ],
+  balance:[
+    {title:'Handling Balance',
+     focus:null,
+     body:'This breakdown shows how every tuning force combines into a single US/OS total. Positive (+) means oversteer tendency, negative (−) means understeer tendency. Each row is one contributor. The goal is usually a total near zero — a neutral baseline you can then deliberately bias for your driving style.'},
+    {title:'Reading Each Row',
+     focus:null,
+     body:'SPRINGS and ARB are the primary mechanical forces — controlled directly by your stiffness and balance settings. DIFF, BRAKES, AERO, and DAMP are secondary contributors from drivetrain, brake bias, aero split, and damping bias. A large positive row pushes the car toward oversteer; a large negative row toward understeer.'},
+    {title:'Using the Correction Tip',
+     focus:null,
+     body:'The text below the total identifies the dominant contributor and suggests an adjustment direction. For large imbalances, correct with the Balance slider or Mech Balance Target first. For small residual bias, fine-tune with alignment toe or damping bias.'},
+    {title:'Stable / Agile Breakdown',
+     focus:null,
+     body:'The lower section rates your setup\'s overall character from STABLE (planted, high damping, stiff ARBs) to AGILE (responsive, lighter damping, lower ARBs). This is independent of the US/OS balance — a car can be neutral and still feel very stable or very agile depending on damping and stiffness choices.'},
+    {title:'Cross-Solver Recommendations',
+     focus:null,
+     body:'In MECH or CO-SOLVE ARB mode with aero set, a REC. AERO BAL readout appears in the ARB section showing what aero balance would offset your current mechanical setup. In CHASSIS, REC. MECH TARGET shows the balance target suggested by your aero split. Both are estimates — always verify the feel in-game after applying them.'},
   ],
 };
 
@@ -1540,7 +1563,7 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose})=>{
   const total=steps.length;
   const t=steps[step];
   if(!t)return null;
-  const mLabel={beginner:'BEG',intermediate:'INT',pro:'PRO'}[mode]??mode.toUpperCase();
+  const mLabel={beginner:'BEG',intermediate:'INT',pro:'PRO',balance:'BALANCE'}[mode]??mode.toUpperCase();
   const btnStyle={background:'none',border:'1px solid #1e293b',borderRadius:2,color:'#9ca3af',
     fontFamily:'Courier New',fontSize:10,padding:'4px 10px',cursor:'pointer',letterSpacing:1};
   return(
@@ -1584,6 +1607,11 @@ function App(){
   const[saves,setSaves]=usePersist('suspos_saves_v9',PRESET_SAVES);
   const[uiMode,setUiMode]=usePersist('suspos_uimode_v1','beginner');
   const[tutSeen,setTutSeen]=usePersist('suspos_tutorial_seen_v1',{beginner:false,intermediate:false,pro:false});
+  const[balTutSeen,setBalTutSeen]=usePersist('suspos_baltut_seen_v1',false);
+  const[balTutOpen,setBalTutOpen]=useState(false);
+  const[balTutStep,setBalTutStep]=useState(0);
+  const openBalTut=()=>{setBalTutStep(0);setBalTutOpen(true);};
+  const closeBalTut=()=>setBalTutOpen(false);
   const[onboardSeen,setOnboardSeen]=usePersist('suspos_onboard_v1',false);
   const closeOnboard=()=>setOnboardSeen(true);
   const[tutMode,setTutMode]=useState(null);
@@ -1750,6 +1778,10 @@ function App(){
         onNext={()=>setTutStep(s=>Math.min(s+1,(TUTORIALS[tutMode]?.length??1)-1))}
         onPrev={()=>setTutStep(s=>Math.max(s-1,0))}
         onClose={closeTut}/>}
+      {balTutOpen&&<TutorialPanel mode='balance' step={balTutStep}
+        onNext={()=>setBalTutStep(s=>Math.min(s+1,(TUTORIALS.balance?.length??1)-1))}
+        onPrev={()=>setBalTutStep(s=>Math.max(s-1,0))}
+        onClose={closeBalTut}/>}
 
       {/* ONBOARDING POPUP */}
       {!onboardSeen&&(
@@ -2845,7 +2877,11 @@ function App(){
           {/* PINNED — HANDLING BALANCE */}
           <div style={{flexShrink:0,borderTop:'1px solid #1e293b',background:'#020617',...dim('balance-bar')}}>
             {/* compact header row — tap to expand */}
-            <div onClick={()=>setOpen(p=>({...p,balanceExpanded:!p.balanceExpanded}))}
+            <div onClick={()=>setOpen(p=>{
+                   const next=!p.balanceExpanded;
+                   if(next&&!balTutSeen){setBalTutSeen(true);openBalTut();}
+                   return{...p,balanceExpanded:next};
+                 })}
                  style={{padding:'10px 14px',cursor:'pointer'}}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
                 <span style={{fontSize:10,color:'#4b5563',letterSpacing:2}}>HANDLING BALANCE</span>
@@ -2925,6 +2961,16 @@ function App(){
             {/* expanded full verdict */}
             {open.balanceExpanded&&
               <div style={{padding:'0 14px 12px',borderTop:'1px solid #0f172a'}}>
+                <div style={{display:'flex',justifyContent:'flex-end',gap:4,padding:'6px 0 4px'}}>
+                  {(()=>{
+                    const bs={background:'none',border:'1px solid #1e293b',borderRadius:2,
+                      fontFamily:'Courier New',fontSize:9,padding:'3px 8px',cursor:'pointer',letterSpacing:1};
+                    return(<>
+                      <button style={{...bs,color:'#4b5563'}} onClick={e=>{e.stopPropagation();openBalTut();}}>? GUIDE</button>
+                      <button style={{...bs,color:'#4b5563'}} onClick={e=>{e.stopPropagation();setOpen(p=>({...p,balanceExpanded:false}));}}>✕ CLOSE</button>
+                    </>);
+                  })()}
+                </div>
                 <HandlingVerdict total={bTotFull} bSp={tune.bSp} bAb={tune.bAb}
                   bDiffAccel={diff.bDiffAccel} bDiffDecel={diff.bDiffDecel}
                   bDiffFront={diff.bDiffFront} bDiffRear={diff.bDiffRear}
