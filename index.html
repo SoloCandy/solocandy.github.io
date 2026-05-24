@@ -2541,7 +2541,8 @@ function App(){
               targetSpeed:DEF_FE.targetSpeed,
               rearHzMode:DEF_FE.rearHzMode,
               rearHzMan:DEF_FE.rearHzMan,
-              rearHzMult:DEF_FE.rearHzMult}))}>
+              rearHzMult:DEF_FE.rearHzMult,
+              rideRef:DEF_FE.rideRef}))}>
             {(()=>{
               const defF=1000*9.81/(4*Math.PI*Math.PI*physics.frontHz*physics.frontHz);
               const defR=1000*9.81/(4*Math.PI*Math.PI*physics.rearHz*physics.rearHz);
@@ -2602,7 +2603,7 @@ function App(){
                 onClick={()=>setFe(p=>({...p,rearHzMode:'mech'}))}>MECH</button>
               <button className={`tog${(fe.rearHzMode??'flatRide')==='independent'?' on':''}`}
                 onClick={()=>setFe(p=>({...p,rearHzMode:'independent',
-                  rearHzMan:Math.round(physics.rearHz*100)/100}))}>INDEPENDENT</button>
+                  rearHzMan:Math.round((physics.rideRef==='rear'?physics.frontHz:physics.rearHz)*100)/100}))}>INDEPENDENT</button>
             </div>}
             {(fe.arbBalMode??'weight')!=='coSolve'&&(()=>{
               const rRef=physics.rideRef??'front';
@@ -2668,7 +2669,7 @@ function App(){
                               borderRadius:2,textAlign:'right',padding:'0 2px',
                               border:rearHzDraft!==null?'1px solid #334155':'1px solid transparent'}}
                       min={0.80} max={4.00} step={0.01}
-                      value={rearHzDraft??physics.rearHz.toFixed(2)}
+                      value={rearHzDraft??secHz.toFixed(2)}
                       onFocus={()=>setRearHzDraft(secHz.toFixed(2))}
                       onChange={e=>setRearHzDraft(e.target.value)}
                       onBlur={()=>{
@@ -2681,7 +2682,7 @@ function App(){
                   </span>}
                   hint={rRef==='rear'
                     ?"Front spring frequency set independently. Full decoupling — set rear via Ride Stiffness above, set front here."
-                    :"Rear spring frequency set independently from flat-ride. Allows full decoupling of front and rear stiffness. Front Hz is still set by Ride Stiffness above."}/>);
+                    :"Rear spring frequency set independently from flat-ride. Allows full decoupling of front and rear stiffness. Front Hz is still set by Ride Stiffness above."}/>;
             })()}
             <div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
