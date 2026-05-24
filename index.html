@@ -2131,7 +2131,7 @@ function App(){
               onChange={v=>pFe('dampingBias')(-v)} min={-50} max={50} step={1}
               leftLabel="FRONT" rightLabel="REAR"
               centered={true}
-              readout={`F ${Math.round(physics.zetaF)}% / R ${Math.round(physics.zetaR)}%`}
+              readout={(()=>{const tot=physics.zetaF+physics.zetaR;const fP=tot>0?Math.round(physics.zetaF/tot*100):50;return`F ${fP} | ${100-fP} R`;})()}
               hint="Biases damping toward one axle by softening the opposite side. The biased axle stays at the base ζ; the other drops up to 25% at ±50. Front bias: rear gets softer — more exit traction, looser feel. Rear bias: front gets softer — more entry compliance, easier rotation."/>
             {(()=>{
               const biased=(fe.dampingBias??0)!==0;
