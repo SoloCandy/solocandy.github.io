@@ -2660,7 +2660,7 @@ function App(){
             {/* compact header row — tap to expand */}
             <div onClick={()=>setOpen(p=>({...p,balanceExpanded:!p.balanceExpanded}))}
                  style={{padding:'10px 14px',cursor:'pointer'}}>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5,flexWrap:'wrap',rowGap:4}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
                 <span style={{fontSize:10,color:'#4b5563',letterSpacing:2}}>HANDLING BALANCE</span>
                 <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>·</span>
                 <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,
@@ -2671,24 +2671,8 @@ function App(){
                               color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#3b82f6':'#ef4444'}}>
                   {Math.abs(bTotFull)<3?'NEUTRAL':bTotFull>0?'UNDERSTEER':'OVERSTEER'}
                 </span>
-                <span style={{flex:1,minWidth:isMobile?'100%':0}}/>
-                {tune.mechBalance!=null&&<>
-                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>MECH</span>
-                  <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
-                    {tune.mechBalance.toFixed(2)}
-                  </span>
-                </>}
-                {(ch.aeroBalance??0.5)!==0.5&&(ch.aeroBalance??0.5)>=0.05&&<>
-                  <span style={{fontSize:10,color:'#4b5563',letterSpacing:1}}>AERO</span>
-                  <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#94a3b8'}}>
-                    {(ch.aeroBalance??0.5).toFixed(2)}
-                  </span>
-                  {(()=>{const[label,col]=aeroLoadCtx(ch.aeroEfficiency??0.9);return(
-                    <span style={{fontSize:9,color:col,background:col+'18',border:`1px solid ${col}44`,
-                                  borderRadius:2,padding:'1px 4px',letterSpacing:1}}>{label}</span>
-                  );})()}
-                </>}
-                <span style={{fontSize:10,color:'#374151',marginLeft:'auto'}}>
+                <span style={{flex:1}}/>
+                <span style={{fontSize:10,color:'#374151'}}>
                   {open.balanceExpanded?'▲':'▼'}
                 </span>
               </div>
@@ -2739,6 +2723,30 @@ function App(){
                   </div>
                 );
               })()}
+              {/* secondary metadata pills */}
+              {(tune.mechBalance!=null||(ch.aeroBalance??0.5)!==0.5&&(ch.aeroBalance??0.5)>=0.05)&&
+                <div style={{display:'flex',alignItems:'center',gap:10,marginTop:5,flexWrap:'wrap',rowGap:3}}>
+                  {tune.mechBalance!=null&&
+                    <span style={{fontSize:10,color:'#64748b',letterSpacing:1}}>
+                      MECH <span style={{fontFamily:'Courier New',color:'#94a3b8',fontWeight:700}}>
+                        {tune.mechBalance.toFixed(2)}
+                      </span>
+                    </span>}
+                  {(ch.aeroBalance??0.5)!==0.5&&(ch.aeroBalance??0.5)>=0.05&&(()=>{
+                    const[alabel,acol]=aeroLoadCtx(ch.aeroEfficiency??0.9);
+                    return(
+                      <span style={{fontSize:10,color:'#64748b',letterSpacing:1}}>
+                        AERO <span style={{fontFamily:'Courier New',color:'#94a3b8',fontWeight:700}}>
+                          {(ch.aeroBalance??0.5).toFixed(2)}
+                        </span>
+                        {' '}<span style={{color:acol,background:acol+'18',border:`1px solid ${acol}44`,
+                                         borderRadius:2,padding:'1px 4px',letterSpacing:1,fontSize:9}}>
+                          {alabel}
+                        </span>
+                      </span>
+                    );
+                  })()}
+                </div>}
             </div>
             {/* expanded full verdict */}
             {open.balanceExpanded&&
