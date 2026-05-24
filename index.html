@@ -329,13 +329,14 @@ const computeAlignment=(ch,tune,layout,buildType)=>{
   return{recCamberF,recCamberR,recToeF,recToeR,recCaster};
 };
 
-const DIFF_BIAS_SCALE=0.12;
+const DIFF_BIAS_SCALE=0.14; // slightly higher — AWD contributions now split by center fraction
 
 const computeDiff=(ch,fe,dr)=>{
   const rB=1-ch.frontBias/100;
   const cl=(v,lo,hi)=>Math.max(lo,Math.min(hi,Math.round(v)));
-  const biasExit=dr.diffBiasExit??0;   // controls accel lock
-  const biasEntry=dr.diffBiasEntry??0; // controls decel lock
+  const biasExit=dr.diffBiasExit??0;       // rear exit intent (−50=grip, +50=rotate)
+  const biasEntry=dr.diffBiasEntry??0;     // entry intent (−50=loose, +50=stable)
+  const frontExitBias=dr.diffFrontExitBias??0; // AWD front exit push intent
   const build=dr.buildType??'track';
 
   let vals;
@@ -351,7 +352,7 @@ const computeDiff=(ch,fe,dr)=>{
     const bAdj=build==='drift'?10:build==='track'?5:0;
     const center=cl(62+rB*10+bAdj,45,80);
     vals={layout:'AWD',
-      frontAccel:cl(28-biasExit*0.10,10,40),
+      frontAccel:cl(28-biasExit*0.10+frontExitBias*0.12,10,40),
       frontDecel:0,
       rearAccel: cl(48+biasExit*0.25,20,70),
       rearDecel: cl(8+(rB-0.5)*15+biasEntry*0.15,0,20),
@@ -372,10 +373,18 @@ const computeDiff=(ch,fe,dr)=>{
   }
 
   const nf=ch.frontBias/100;
-  let bDiffAccel=0, bDiffDecel=0;
+  let bDiffAccel=0, bDiffDecel=0, bDiffFront=0, bDiffRear=0;
   if(vals.layout==='AWD'){
-    bDiffAccel=(vals.frontAccel*nf - vals.rearAccel*(1-nf))*DIFF_BIAS_SCALE;
-    bDiffDecel=(vals.frontDecel*nf + vals.rearDecel*(1-nf))*DIFF_BIAS_SCALE;
+    // Weight contributions by center split: rear gets C fraction, front gets (1-C)
+    const C=Math.max(0,Math.min(1,(vals.center??65)/100));
+    const bFA= vals.frontAccel*nf*(1-C)*DIFF_BIAS_SCALE;   // front accel → understeer (+)
+    const bRA=-vals.rearAccel*(1-nf)*C*DIFF_BIAS_SCALE;    // rear accel  → oversteer  (−)
+    const bFD= vals.frontDecel*nf*(1-C)*DIFF_BIAS_SCALE;   // front decel → understeer (+)
+    const bRD=-vals.rearDecel*(1-nf)*C*DIFF_BIAS_SCALE;    // rear decel  → oversteer  (−)
+    bDiffFront=bFA+bFD;
+    bDiffRear =bRA+bRD;
+    bDiffAccel=bFA+bRA;
+    bDiffDecel=bFD+bRD;
   } else if(vals.layout==='RWD'){
     bDiffAccel=-vals.accel*(1-nf)*DIFF_BIAS_SCALE;
     bDiffDecel=-vals.decel*(1-nf)*DIFF_BIAS_SCALE;
@@ -384,7 +393,7 @@ const computeDiff=(ch,fe,dr)=>{
     bDiffDecel= vals.decel*nf*DIFF_BIAS_SCALE;
   }
 
-  return{...vals,bDiffAccel,bDiffDecel};
+  return{...vals,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear};
 };
 
 const hzCtx=hz=>{
@@ -447,7 +456,7 @@ const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,targetSpeed:70,gameMode
               arbBalTarget:0.65,arbBalMode:'weight',
               rearHzMode:'flatRide',rearHzMan:1.5,rearHzMult:1.20};
 const DEF_DR={layout:'RWD',buildType:'track',
-              diffManual:false,diffBiasExit:0,diffBiasEntry:0,
+              diffManual:false,diffBiasExit:0,diffBiasEntry:0,diffFrontExitBias:0,
               diffAccel:35,diffDecel:10,
               diffFrontAccel:28,diffFrontDecel:0,
               diffRearAccel:48,diffRearDecel:8,diffCenter:65};
@@ -1002,14 +1011,17 @@ const BiasSeg=({label,val,hint})=>{
 
 const aeroLoadCtx=eff=>eff<0.5?['HIGH','#ef4444']:eff<0.7?['MED','#f59e0b']:['LOW','#64748b'];
 
-const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bBrakeEntry,bAero,bDampBias,mechBalance})=>{
+const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bAero,bDampBias,mechBalance})=>{
   const cl=v=>Math.max(-50,Math.min(50,v));
   const abs=Math.abs(total);
   const label=abs<3?'NEUTRAL':total>0?'UNDERSTEER':'OVERSTEER';
   const col=abs<3?'#e2e8f0':total>0?'#3b82f6':'#ef4444';
+  const isAWD=diffLayout==='AWD';
   const contributors=[
     {name:'springs',val:bSp??0},{name:'ARB',val:bAb??0},
-    {name:'diff accel',val:bDiffAccel??0},{name:'diff decel',val:bDiffDecel??0},
+    ...(isAWD
+      ?[{name:'diff front',val:bDiffFront??0},{name:'diff rear',val:bDiffRear??0}]
+      :[{name:'diff exit',val:bDiffAccel??0},{name:'diff entry',val:bDiffDecel??0}]),
     {name:'brakes',val:bBrakeEntry??0},{name:'aero',val:bAero??0},{name:'damping',val:bDampBias??0}
   ];
   const dom=contributors.reduce((a,b)=>Math.abs(b.val)>Math.abs(a.val)?b:a,contributors[0]);
@@ -1040,10 +1052,21 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bBrakeEntry,bAero,bD
           hint="How much the front/rear spring rates bias roll stiffness, relative to weight distribution. + = understeer."/>
         <BiasSeg label="ARB" val={bAb}
           hint="How much the front/rear anti-roll bars bias roll stiffness, relative to weight distribution. + = understeer."/>
-        <BiasSeg label="DIFF ACCEL" val={bDiffAccel}
-          hint="Estimated accel-lock contribution to exit balance. Rear accel lock = oversteer tendency (−). Front accel lock = understeer (+). Magnitude is calibrated, not derived."/>
-        <BiasSeg label="DIFF DECEL" val={bDiffDecel}
-          hint="Estimated decel-lock contribution to entry balance. RWD: higher decel lock = lift-off oversteer tendency (−). FWD/AWD: higher decel lock = understeer on entry (+). Magnitude is calibrated, not derived."/>
+        {isAWD?(
+          <>
+            <BiasSeg label="DIFF F" val={bDiffFront??0}
+              hint="AWD front diff net contribution (accel+decel). Front accel lock biases toward understeer (+). Center split and front weight fraction are factored in."/>
+            <BiasSeg label="DIFF R" val={bDiffRear??0}
+              hint="AWD rear diff net contribution (accel+decel). Rear accel lock biases toward oversteer (−). Center split and rear weight fraction are factored in."/>
+          </>
+        ):(
+          <>
+            <BiasSeg label="DIFF EXIT" val={bDiffAccel??0}
+              hint={diffLayout==='FWD'?'Front accel lock on-throttle exit. Higher lock = more understeer on exit (+).':'Rear accel lock on-throttle exit. Higher lock = more oversteer on exit (−).'}/>
+            <BiasSeg label="DIFF ENTRY" val={bDiffDecel??0}
+              hint={diffLayout==='FWD'?'Front decel lock off-throttle entry. Higher lock = more entry understeer (+).':'Rear decel lock off-throttle entry. Higher lock = more stability (less lift-off oversteer).'}/>
+          </>
+        )}
         <BiasSeg label="BRAKES" val={bBrakeEntry??0}
           hint="Estimated brake-balance contribution to entry balance. High front bias = more understeer on entry (+). Low front bias (rear-biased) = oversteer tendency on entry (−). Based on deviation from 50% neutral."/>
         <BiasSeg label="AERO" val={bAero??0}
@@ -1172,6 +1195,7 @@ const encodeTune=(ch,fe,dr,br)=>{
       return[f?.width??265,r?.width??265,f?.aspectRatio??35,f?.rimDiameter??18,r?.aspectRatio??35,r?.rimDiameter??18];})(),
     fe.arbBalTarget??DEF_FE.arbBalTarget,
     ARB_BAL_MODE_ENC[fe.arbBalMode??'weight']??0,
+    dr.diffFrontExitBias??0,
   ];
   return btoa(arr.join('|'));
 };
@@ -1203,7 +1227,8 @@ const decodeTune=(code)=>{
   const dr={layout:LAYOUT_DEC[v[21]]??'RWD',buildType:BUILD_DEC[v[22]]??'track',diffManual:v[23]===1,
             diffBiasExit:v[24]??0,diffAccel:v[25],diffDecel:v[26],
             diffFrontAccel:v[27],diffFrontDecel:v[28],diffRearAccel:v[29],diffRearDecel:v[30],diffCenter:v[31],
-            diffBiasEntry:v[32]??0};
+            diffBiasEntry:v[32]??0,
+            diffFrontExitBias:v.length>=51?v[50]:DEF_DR.diffFrontExitBias};
   const br=v.length>=36
     ?{brakeManual:v[33]===1,brakeBias:v[34],brakePressure:v[35]}
     :{...DEF_BR};
@@ -1255,8 +1280,9 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       layout:         LAYOUT_DEC.includes(dr?.layout)?dr.layout:DEF_DR.layout,
       buildType:      BUILD_DEC.includes(dr?.buildType)?dr.buildType:DEF_DR.buildType,
       diffManual:     typeof dr?.diffManual==='boolean'?dr.diffManual:dr?.diffManual===1,
-      diffBiasExit:   cl(dr?.diffBiasExit,  -50,  50,  DEF_DR.diffBiasExit),
-      diffBiasEntry:  cl(dr?.diffBiasEntry, -50,  50,  DEF_DR.diffBiasEntry),
+      diffBiasExit:      cl(dr?.diffBiasExit,      -50, 50, DEF_DR.diffBiasExit),
+      diffBiasEntry:     cl(dr?.diffBiasEntry,     -50, 50, DEF_DR.diffBiasEntry),
+      diffFrontExitBias: cl(dr?.diffFrontExitBias, -50, 50, DEF_DR.diffFrontExitBias),
       diffAccel:      cl(dr?.diffAccel,       0,  100,  DEF_DR.diffAccel),
       diffDecel:      cl(dr?.diffDecel,       0,  100,  DEF_DR.diffDecel),
       diffFrontAccel: cl(dr?.diffFrontAccel,  0,  100,  DEF_DR.diffFrontAccel),
@@ -2352,6 +2378,7 @@ function App(){
               diffManual:DEF_DR.diffManual,
               diffBiasExit:DEF_DR.diffBiasExit,
               diffBiasEntry:DEF_DR.diffBiasEntry,
+              diffFrontExitBias:DEF_DR.diffFrontExitBias,
               diffAccel:DEF_DR.diffAccel,
               diffDecel:DEF_DR.diffDecel,
               diffFrontAccel:DEF_DR.diffFrontAccel,
@@ -2365,7 +2392,7 @@ function App(){
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}/>
             {uiMode==='pro'&&<div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,marginBottom:10}}>
               <span style={{fontSize:12,color:'#6b7280'}}>Differential Mode</span>
-              <Hint text="AUTO derives lock values from layout, build type, weight bias, and the Corner Exit/Entry sliders. MANUAL exposes all individual lock percentages."/>
+              <Hint text="AUTO derives lock values from layout, build type, weight bias, and the intent sliders. MANUAL exposes all individual lock percentages directly."/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${!dr.diffManual?' on':''}`}
                   onClick={()=>pDr('diffManual')(false)}>AUTO</button>
@@ -2382,19 +2409,59 @@ function App(){
               </div>
             </div>}
             {!dr.diffManual&&<>
-              <FeelSlider label="Corner Exit" value={dr.diffBiasExit??0}
-                onChange={pDr('diffBiasExit')} min={-50} max={50} leftLabel="UNDERSTEER" rightLabel="OVERSTEER"
+              <FeelSlider
+                label="EXIT"
+                value={dr.diffBiasExit??0}
+                onChange={pDr('diffBiasExit')}
+                min={-50} max={50}
+                leftLabel={dr.layout==='FWD'?'TRACTION':'GRIP'}
+                rightLabel={dr.layout==='FWD'?'PUSH':'ROTATE'}
                 centered={true}
-                hint="Shifts accel lock values. Toward OVERSTEER increases rear accel lock (RWD) or decreases front accel lock (FWD/AWD) — more rotation on exit. Toward UNDERSTEER does the reverse."
+                hint={dr.layout==='FWD'
+                  ?'Front diff accel lock. Toward PUSH increases lock — more traction but more understeer on corner exit. Toward TRACTION reduces lock for cleaner rotation.'
+                  :dr.layout==='RWD'
+                  ?'Rear diff accel lock. Toward ROTATE increases lock — more power oversteer on exit. Toward GRIP reduces lock for cleaner exit traction.'
+                  :'Rear diff exit character. Toward ROTATE increases rear accel lock — more oversteer on exit. Toward GRIP reduces rear accel lock for traction.'}
                 readout={diff.layout==='AWD'
-                  ?`FA ${diff.frontAccel}% / RA ${diff.rearAccel}%`
+                  ?`R.Accel ${diff.rearAccel}%`
                   :`Accel ${diff.accel}%`}/>
-              <FeelSlider label="Corner Entry" value={-(dr.diffBiasEntry??0)}
-                onChange={v=>pDr('diffBiasEntry')(-v)} min={-50} max={50} leftLabel="STABILITY" rightLabel="ROTATION"
+              {dr.layout==='AWD'&&uiMode!=='beginner'&&
+                <FeelSlider
+                  label="FRONT EXIT"
+                  value={dr.diffFrontExitBias??0}
+                  onChange={pDr('diffFrontExitBias')}
+                  min={-50} max={50}
+                  leftLabel="NEUTRAL"
+                  rightLabel="PUSH"
+                  centered={true}
+                  hint="Front diff accel lock for AWD. Toward PUSH increases front accel lock — more front-axle pull and understeer tendency on exit. Useful for AWD cars with strong rear rotation."
+                  readout={`F.Accel ${diff.frontAccel}%`}/>}
+              {dr.layout==='AWD'&&uiMode!=='beginner'&&
+                <FeelSlider
+                  label="POWER SPLIT"
+                  value={(dr.diffCenter??65)-50}
+                  onChange={v=>pDr('diffCenter')(Math.round(v+50))}
+                  min={-30} max={30}
+                  leftLabel="FRONT"
+                  rightLabel="REAR"
+                  centered={true}
+                  hint="AWD center torque split. Toward REAR sends more power rearward — increases oversteer tendency and rear diff contribution to handling balance. 60–70% rear is typical for track."
+                  readout={`${diff.center??65}% rear`}/>}
+              <FeelSlider
+                label="ENTRY"
+                value={-(dr.diffBiasEntry??0)}
+                onChange={v=>pDr('diffBiasEntry')(-v)}
+                min={-50} max={50}
+                leftLabel="LOOSE"
+                rightLabel="STABLE"
                 centered={true}
-                hint="Shifts decel lock values. Toward ROTATION decreases decel lock — freer entry rotation. Toward STABILITY increases decel lock — more resistance to rotation on corner entry."
+                hint={dr.layout==='FWD'
+                  ?'Front diff decel lock. Toward STABLE increases lock — more resistance to rotation on entry (understeer). Toward LOOSE reduces lock for freer corner entry.'
+                  :dr.layout==='RWD'
+                  ?'Rear diff decel lock. Toward STABLE increases lock — resists lift-off oversteer. Toward LOOSE reduces lock for freer rotation on entry.'
+                  :'Rear diff decel lock. Toward STABLE increases lock — resists lift-off oversteer. Toward LOOSE reduces lock for more rear rotation on entry.'}
                 readout={diff.layout==='AWD'
-                  ?`RD ${diff.rearDecel}%`
+                  ?`R.Decel ${diff.rearDecel}%`
                   :`Decel ${diff.decel}%`}/>
             </>}
             {uiMode==='pro'&&dr.diffManual&&(dr.layout==='AWD'?(
@@ -2576,9 +2643,9 @@ function App(){
             {(()=>{
               const fmtBias=(v,label)=>{
                 const abs=Math.abs(v).toFixed(1);
-                const isOS=v<-0.05, isUS=v>0.05, neutral=Math.abs(v)<=0.05;
-                const col=neutral?'#4b5563':isOS?'#ef4444':'#3b82f6';
-                const arrow=neutral?'±':isOS?'→OS':'→US';
+                const neutral=Math.abs(v)<=0.05;
+                const col=neutral?'#4b5563':v<0?'#ef4444':'#3b82f6';
+                const arrow=neutral?'±':v<0?'→OS':'→US';
                 return(
                   <div style={{display:'flex',alignItems:'baseline',gap:4}}>
                     <span style={{fontSize:9,color:'#374151',letterSpacing:1}}>{label}</span>
@@ -2588,15 +2655,19 @@ function App(){
                   </div>
                 );
               };
-              return(
+              const sep=<div style={{height:1,flex:1,background:'#1e293b',margin:'0 8px'}}/>;
+              const strip=(a,al,b,bl)=>(
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
-                             marginTop:8,padding:'5px 8px',background:'#0f172a',borderRadius:2,
+                             marginTop:6,padding:'5px 8px',background:'#0f172a',borderRadius:2,
                              border:'1px solid #1e293b'}}>
-                  {fmtBias(diff.bDiffAccel,'EXIT')}
-                  <div style={{height:1,flex:1,background:'#1e293b',margin:'0 8px'}}/>
-                  {fmtBias(diff.bDiffDecel,'ENTRY')}
+                  {fmtBias(a,al)}{sep}{fmtBias(b,bl)}
                 </div>
               );
+              return diff.layout==='AWD'?(
+                <>
+                  {strip(diff.bDiffFront,'F.AXLE',diff.bDiffRear,'R.AXLE')}
+                </>
+              ):strip(diff.bDiffAccel,'ACCEL BIAS',diff.bDiffDecel,'DECEL BIAS');
             })()}
           </Card>
 
@@ -2753,6 +2824,8 @@ function App(){
               <div style={{padding:'0 14px 12px',borderTop:'1px solid #0f172a'}}>
                 <HandlingVerdict total={bTotFull} bSp={tune.bSp} bAb={tune.bAb}
                   bDiffAccel={diff.bDiffAccel} bDiffDecel={diff.bDiffDecel}
+                  bDiffFront={diff.bDiffFront} bDiffRear={diff.bDiffRear}
+                  diffLayout={diff.layout}
                   bBrakeEntry={bBrakeEntry} bAero={bAero} bDampBias={bDampBias}
                   mechBalance={null}/>
                 {/* STABLE / AGILE factor breakdown */}
