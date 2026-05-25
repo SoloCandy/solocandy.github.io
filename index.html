@@ -2640,7 +2640,7 @@ function App(){
               return(<>
                 {/* Ride reference toggle — always visible, works in CO-SOLVE via Hz inversion */}
                 <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
-                  <span style={{flex:1,fontSize:9,color:'#6b7280',letterSpacing:1}}>RIDE REF.</span>
+                  <span style={{flex:1,fontSize:9,color:'#6b7280',letterSpacing:1}}>RIDE REF.<Hint text="Which axle the stiffness slider controls. FRONT: slider sets front Hz, rear is derived. REAR: slider sets rear Hz, front is derived. SHARED: slider sets the average of both axles, the mode below sets the front/rear ratio. Switching never changes the actual front or rear frequencies — it just moves which axle the slider follows. Works in CO-SOLVE too."/></span>
                   <button className={`tog${rRef==='front'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,
                       rideRef:'front',
@@ -2690,18 +2690,23 @@ function App(){
             {/* secondary Hz mode toggle — hidden in CO-SOLVE (rear Hz solved automatically) */}
             {(fe.arbBalMode??'weight')!=='coSolve'&&(()=>{
               const isShared=(physics.rideRef??'front')==='shared';
-              return<div style={{display:'grid',gridTemplateColumns:isShared?'1fr 1fr 1fr':'1fr 1fr',gap:3,marginBottom:10,marginTop:-4}}>
-                <button className={`tog${(fe.rearHzMode??'flatRide')==='flatRide'?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,rearHzMode:'flatRide'}))}>FLAT RIDE</button>
-                <button className={`tog${(fe.rearHzMode??'flatRide')==='multiplier'?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,rearHzMode:'multiplier',
-                    rearHzMult:Math.round(physics.rearHz/physics.frontHz*100)/100}))}>MULTIPLIER</button>
-                <button className={`tog${(fe.rearHzMode??'flatRide')==='mech'?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,rearHzMode:'mech'}))}>MECH</button>
-                {!isShared&&<button className={`tog${(fe.rearHzMode??'flatRide')==='independent'?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,rearHzMode:'independent',
-                    rearHzMan:Math.round((physics.rideRef==='rear'?physics.frontHz:physics.rearHz)*100)/100}))}>INDEPENDENT</button>}
-              </div>;
+              return<>
+                <div style={{display:'flex',alignItems:'center',marginBottom:3,marginTop:-2}}>
+                  <span style={{fontSize:9,color:'#6b7280',letterSpacing:1,flex:1}}>Hz MODE<Hint text="How the secondary axle frequency is derived. FLAT RIDE: rear Hz is set from the target speed's suspension timing — the mathematically ideal pitch-cancelling ratio. MULTIPLIER: rear Hz is a fixed ratio of front Hz. MECH: ratio derived from the car's weight distribution, track widths, and tyre widths. INDEPENDENT: rear Hz is set manually, completely free. Hidden in CO-SOLVE — rear Hz is solved automatically."/></span>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:isShared?'1fr 1fr 1fr':'1fr 1fr',gap:3,marginBottom:10}}>
+                  <button className={`tog${(fe.rearHzMode??'flatRide')==='flatRide'?' on':''}`}
+                    onClick={()=>setFe(p=>({...p,rearHzMode:'flatRide'}))}>FLAT RIDE</button>
+                  <button className={`tog${(fe.rearHzMode??'flatRide')==='multiplier'?' on':''}`}
+                    onClick={()=>setFe(p=>({...p,rearHzMode:'multiplier',
+                      rearHzMult:Math.round(physics.rearHz/physics.frontHz*100)/100}))}>MULTIPLIER</button>
+                  <button className={`tog${(fe.rearHzMode??'flatRide')==='mech'?' on':''}`}
+                    onClick={()=>setFe(p=>({...p,rearHzMode:'mech'}))}>MECH</button>
+                  {!isShared&&<button className={`tog${(fe.rearHzMode??'flatRide')==='independent'?' on':''}`}
+                    onClick={()=>setFe(p=>({...p,rearHzMode:'independent',
+                      rearHzMan:Math.round((physics.rideRef==='rear'?physics.frontHz:physics.rearHz)*100)/100}))}>INDEPENDENT</button>}
+                </div>
+              </>;
             })()}
             {(fe.arbBalMode??'weight')!=='coSolve'&&(()=>{
               const rRef=physics.rideRef??'front';
