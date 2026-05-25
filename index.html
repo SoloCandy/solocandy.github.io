@@ -23,6 +23,8 @@ body{background:#020617;color:#cbd5e1;font-family:'Courier New',monospace;overfl
   body{overflow:auto}
   #root>div>div:nth-child(2){flex-direction:column!important;overflow-y:auto}
   #root>div>div:nth-child(2)>div:first-child{width:100%!important;border-right:none;border-bottom:1px solid #0f172a}
+  .tog{padding:7px 0;min-height:32px}
+  .tbtn{padding:6px 10px}
 }
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:#0a0f1a}
@@ -622,10 +624,10 @@ const Hint=({text})=>{
   const calcPos=()=>{
     if(!ref.current)return null;
     const r=ref.current.getBoundingClientRect();
-    const TW=220,TH=120,GAP=5,PAD=6;
+    const TW=Math.min(220,window.innerWidth-16),TH=120,GAP=5,PAD=6;
     const top=r.bottom+GAP+TH>window.innerHeight?r.top-TH-GAP:r.bottom+GAP;
     const left=Math.max(PAD,Math.min(r.left,window.innerWidth-TW-PAD));
-    return{top,left};
+    return{top,left,width:TW};
   };
 
   const onMouseEnter=()=>{ if(!isTouch.current) setPos(calcPos()); };
@@ -651,7 +653,7 @@ const Hint=({text})=>{
           onClick={onClick}>
       <span style={{fontSize:10,color:'#6b7280',marginLeft:4}}>ⓘ</span>
       {pos&&ReactDOM.createPortal(
-        <div style={{position:'fixed',top:pos.top,left:pos.left,zIndex:1000,width:220,
+        <div style={{position:'fixed',top:pos.top,left:pos.left,zIndex:1000,width:pos.width??220,
                      background:'#0f172a',border:'1px solid #e2e8f011',borderRadius:2,
                      padding:'7px 9px',fontSize:11,color:'#94a3b8',lineHeight:1.6,
                      pointerEvents:'none',boxShadow:'0 4px 16px #00000088'}}>
@@ -1223,7 +1225,7 @@ const CheckerModal=({onClose,lim,metricUnits})=>{
                  display:'flex',alignItems:'center',justifyContent:'center'}}
          onClick={onClose}>
       <div style={{background:'#020617',border:'1px solid #1e293b',borderRadius:2,
-                   width:660,maxHeight:'88vh',overflow:'auto'}}
+                   width:660,maxWidth:'calc(100vw - 20px)',maxHeight:'88vh',overflow:'auto'}}
            onClick={e=>e.stopPropagation()}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
                      padding:'8px 14px',borderBottom:'1px solid #1e293b'}}>
@@ -1232,7 +1234,7 @@ const CheckerModal=({onClose,lim,metricUnits})=>{
                                            cursor:'pointer',fontSize:17,lineHeight:1}}>✕</button>
         </div>
         <div style={{padding:14}}>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:10,marginBottom:10}}>
             <Card title="VEHICLE MASS">
               <Field label="Weight"
                 value={metricUnits?ckW/KG_TO_LB:ckW}
@@ -2092,7 +2094,7 @@ function App(){
 
       {/* HEADER */}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
-                   padding:'0 14px',height:42,borderBottom:'1px solid #0f172a',
+                   padding:'0 14px',height:isMobile?48:42,borderBottom:'1px solid #0f172a',
                    flexShrink:0,background:'#020617'}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
           <button onClick={()=>setSidebarOpen(p=>!p)}
@@ -2107,18 +2109,20 @@ function App(){
           </div>
         </div>
         <div style={{display:'flex',gap:3,alignItems:'center'}}>
-          <button className={`tbtn${!metricUnits?' on':''}`}
-            onClick={()=>setMetricUnits(false)} style={{fontSize:11}}>IMP</button>
-          <button className={`tbtn${metricUnits?' on':''}`}
-            onClick={()=>setMetricUnits(true)} style={{fontSize:11}}>MET</button>
-          <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
-          {['horizon','motorsport'].map(m=>(
-            <button key={m} className={`tbtn${fe.gameMode===m?' on':''}`}
-              onClick={()=>pFe('gameMode')(m)} style={{fontSize:11}}>
-              {isMobile?(m==='horizon'?'HZ':'MS'):m.toUpperCase()}
-            </button>
-          ))}
-          <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
+          {!isMobile&&<>
+            <button className={`tbtn${!metricUnits?' on':''}`}
+              onClick={()=>setMetricUnits(false)} style={{fontSize:11}}>IMP</button>
+            <button className={`tbtn${metricUnits?' on':''}`}
+              onClick={()=>setMetricUnits(true)} style={{fontSize:11}}>MET</button>
+            <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
+            {['horizon','motorsport'].map(m=>(
+              <button key={m} className={`tbtn${fe.gameMode===m?' on':''}`}
+                onClick={()=>pFe('gameMode')(m)} style={{fontSize:11}}>
+                {m.toUpperCase()}
+              </button>
+            ))}
+            <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
+          </>}
           {[['beginner','BEG'],['intermediate','INT'],['pro','PRO']].map(([mode,label])=>(
             <button key={mode} className={`tbtn${uiMode===mode?' on':''}`}
               onClick={()=>setUiMode(mode)} style={{fontSize:11}}>{label}</button>
@@ -2153,6 +2157,24 @@ function App(){
             display:sidebarOpen?'block':'none',
           })
         }}>
+
+          {/* MOBILE-ONLY: unit + game mode controls (moved from header) */}
+          {isMobile&&(
+            <div style={{display:'flex',gap:4,alignItems:'center',padding:'8px 12px',
+                         borderBottom:'1px solid #0f172a',flexShrink:0}}>
+              <button className={`tbtn${!metricUnits?' on':''}`}
+                onClick={()=>setMetricUnits(false)} style={{fontSize:11}}>IMP</button>
+              <button className={`tbtn${metricUnits?' on':''}`}
+                onClick={()=>setMetricUnits(true)} style={{fontSize:11}}>MET</button>
+              <div style={{width:1,height:14,background:'#1e293b',margin:'0 2px'}}/>
+              {['horizon','motorsport'].map(m=>(
+                <button key={m} className={`tbtn${fe.gameMode===m?' on':''}`}
+                  onClick={()=>pFe('gameMode')(m)} style={{fontSize:11}}>
+                  {m==='horizon'?'HZ':'MS'}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* BEGINNER panel */}
           {uiMode==='beginner'&&(()=>{
@@ -3163,7 +3185,7 @@ function App(){
           {/* 4 — DAMPERS */}
           <Card title="DAMPERS" accent
             hint="Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in Forza's damping tuning menu. Amber warn when above 88% of the game limit. F/R balance is preserved — if either end exceeds the limit, both are scaled proportionally so the ratio is maintained.">
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:4}}>
+            <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'1fr 1fr 1fr 1fr',gap:4}}>
               <Readout label="REB F"  value={tune.rebF}  warn={tune.rebF >lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
               <Readout label="REB R"  value={tune.rebR}  warn={tune.rebR >lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
               <Readout label="BUMP F" value={tune.bumpF} warn={tune.bumpF>lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
