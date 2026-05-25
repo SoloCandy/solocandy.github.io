@@ -179,11 +179,28 @@ const feelToPhysics=(ch,fe)=>{
   const gameLim=GAME_LIMITS[fe.gameMode??'horizon']?.arb??65;
   let frontHz=rsToHz(fe.rideStiffness);
   const rearHzMode=fe.rearHzMode??'flatRide';
-  // rideRef: 'front' (default) = slider sets frontHz, modes derive rearHz
-  //          'rear'            = slider sets rearHz,  modes derive frontHz (inverted)
-  // CO-SOLVE always uses front reference regardless of rideRef
+  // uiRideRef: the reference the user has chosen (front/rear/shared)
+  // rideRef:   the internal physics direction (always 'front' in CO-SOLVE since it
+  //            works front→rear; we honor uiRideRef by pre-adjusting frontHz instead)
   const arbBalModeEarly=ARB_BAL_MODE_DEC.includes(fe.arbBalMode)?fe.arbBalMode:'weight';
-  const rideRef=arbBalModeEarly==='coSolve'?'front':['front','rear','shared'].includes(fe.rideRef)?fe.rideRef:'front';
+  const uiRideRef=['front','rear','shared'].includes(fe.rideRef)?fe.rideRef:'front';
+  const rideRef=arbBalModeEarly==='coSolve'?'front':uiRideRef;
+  // CO-SOLVE: K = effectiveRHz/frontHz is constant for given chassis/target/share.
+  // Invert it so slider controls the user's chosen reference axle.
+  if(arbBalModeEarly==='coSolve'&&uiRideRef!=='front'){
+    const twFc=parseTyre(ch.tyreF)?.width??265,twRc=parseTyre(ch.tyreR)?.width??265;
+    const mc=cornerMasses(ch);
+    const k=MECH_BALANCE_STIFFNESS_WEIGHT;
+    const abt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
+    const rst=Math.max(0.001,Math.min(0.999,(abt-(1-k)*(1-ch.frontBias/100))/k));
+    const S=(fe.springShare??50)/100;
+    const A=mc.rear*ch.trackR*ch.trackR/(mc.front*ch.trackF*ch.trackF);
+    const Rbl=A*twRc/(twFc+A*twRc);
+    const Rsp=Math.max(0.001,Math.min(0.999,Rbl+S*(rst-Rbl)));
+    const Kcs=Math.sqrt(Rsp*mc.front*ch.trackF*ch.trackF*twFc/((1-Rsp)*mc.rear*ch.trackR*ch.trackR*twRc));
+    if(uiRideRef==='rear')   frontHz=Math.max(0.8,frontHz/Kcs);
+    else if(uiRideRef==='shared') frontHz=Math.max(0.8,2*frontHz/(1+Kcs));
+  }
   let rearHz,rearHzClamped;
   if(rideRef==='shared'){
     // Slider represents avgHz = (fHz+rHz)/2; mode sets the ratio
@@ -275,7 +292,7 @@ const feelToPhysics=(ch,fe)=>{
   const arbBalTarget=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
   const arbBalMode=ARB_BAL_MODE_DEC.includes(fe.arbBalMode)?fe.arbBalMode:'weight';
   const springShare=Math.max(0,Math.min(100,fe.springShare??50));
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode,springShare};
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode,springShare};
 };
 
 const computeTune=(ch,phys,gameMode)=>{
@@ -2594,8 +2611,8 @@ function App(){
               const secLabel=rRef==='rear'?'front':'rear';
               const secHz=rRef==='rear'?physics.frontHz:physics.rearHz;
               return(<>
-                {/* Ride reference toggle */}
-                {!isCoSolve&&<div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
+                {/* Ride reference toggle — always visible, works in CO-SOLVE via Hz inversion */}
+                <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
                   <span style={{flex:1,fontSize:9,color:'#6b7280',letterSpacing:1}}>RIDE REF.</span>
                   <button className={`tog${rRef==='front'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,
@@ -2612,7 +2629,7 @@ function App(){
                       rideRef:'rear',
                       rideStiffness:hzToRs(physics.rearHz),
                       ...(p.rearHzMode==='independent'?{rearHzMan:Math.round(physics.frontHz*100)/100}:{})}))}>REAR</button>
-                </div>}
+                </div>
                 <FeelSlider
                   label={rRef==='rear'?'Rear Stiffness':rRef==='shared'?'Avg Stiffness':'Ride Stiffness'}
                   value={primaryHz}
