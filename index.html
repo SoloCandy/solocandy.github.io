@@ -1683,14 +1683,16 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone})=>{
 
   useEffect(()=>{
     const el=focusKey?document.getElementById('zone-'+focusKey):null;
-    // Scroll sidebar so element is visible whenever focus changes
+    // Scroll sidebar so element is visible — use direct scrollTop rather than
+    // scrollIntoView which can target the wrong scroll container on mobile
     if(el){
       const sidebar=document.querySelector('.sidebar-scroll');
       if(sidebar){
         const sr=sidebar.getBoundingClientRect();
         const er=el.getBoundingClientRect();
-        if(er.top<sr.top||er.bottom>sr.bottom){
-          el.scrollIntoView({behavior:'smooth',block:'nearest'});
+        if(er.top<sr.top+40||er.bottom>sr.bottom-40){
+          const relTop=er.top-sr.top+sidebar.scrollTop;
+          sidebar.scrollTo({top:Math.max(0,relTop-80),behavior:'smooth'});
         }
       }
     }
@@ -1735,7 +1737,8 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone})=>{
     background:'#0f172a',border:'1px solid #334155',borderRadius:4,
     padding:'16px 16px 14px',boxShadow:'0 8px 40px #000d',fontFamily:'Courier New'};
   const cardStyle=pos
-    ?{...cardBase,top:pos.top,...(pos.left!==undefined?{left:pos.left}:{right:pos.right})}
+    ?{...cardBase,top:pos.top,...(pos.left!==undefined?{left:pos.left}:{right:pos.right}),
+       maxHeight:`calc(100vh - ${pos.top+20}px)`}
     :{...cardBase,top:'50%',left:'50%',transform:'translate(-50%,-50%)'};
 
   const arrow=(()=>{
