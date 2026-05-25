@@ -1731,6 +1731,7 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone})=>{
     fontFamily:'Courier New',fontSize:10,padding:'4px 10px',cursor:'pointer',letterSpacing:1};
 
   const cardBase={position:'fixed',zIndex:700,width:CARD_W,
+    maxHeight:'calc(100vh - 40px)',display:'flex',flexDirection:'column',
     background:'#0f172a',border:'1px solid #334155',borderRadius:4,
     padding:'16px 16px 14px',boxShadow:'0 8px 40px #000d',fontFamily:'Courier New'};
   const cardStyle=pos
@@ -1771,7 +1772,8 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone})=>{
             background:i<step?'#334155':i===step?'#6366f1':'#1e293b'}}/>
         ))}
       </div>
-      <p style={{fontSize:11,color:'#94a3b8',lineHeight:1.65,margin:'0 0 12px'}}>{t.body}</p>
+      <p style={{fontSize:11,color:'#94a3b8',lineHeight:1.65,margin:'0 0 12px',
+                 overflowY:'auto',flex:1,minHeight:0}}>{t.body}</p>
       <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
         {step>0&&<button style={btnStyle} onClick={onPrev}>← PREV</button>}
         {step<total-1
