@@ -1260,7 +1260,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
         <BiasSeg label="BRAKES" val={bBrakeEntry??0}
           hint="Brake-balance contribution to entry. High front bias = understeer on entry (−). Low front bias (rear-biased) = oversteer tendency (+). Based on deviation from 50% neutral."/>
         <BiasSeg label="AERO" val={bAero??0}
-          hint="Aero balance contribution. Front-heavy aero (above 0.50) = oversteer tendency (+). Rear-heavy aero (below 0.50) = understeer tendency (−). Tune mechanical balance to push this total toward zero."/>
+          hint="Aero balance contribution. Front-heavy aero (above 0.50) = oversteer tendency (+). Rear-heavy aero (below 0.50) = understeer tendency (−). Use the AERO BIAS row in the Balance Guide (ARB section) to see how much offset this implies for your mech balance target."/>
         <BiasSeg label="DAMP" val={bDampBias??0}
           hint="Damping bias contribution. More front rebound damping resists weight transfer off the front, producing understeer tendency (−). More rear damping does the opposite (+)."/>
       </div>
@@ -2586,7 +2586,10 @@ function App(){
                 <div style={{background:'#060c17',border:'1px solid #1e293b',borderRadius:2,
                              padding:'8px 10px',marginBottom:8,marginTop:2}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-                    <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>BALANCE GUIDE</span>
+                    <span style={{display:'flex',alignItems:'center',gap:4}}>
+                      <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>BALANCE GUIDE</span>
+                      <Hint text="NATURAL — where the chassis sits with weight-matched springs and ARBs (no solver correction). RANGE — suggested mech balance target for your layout and build type. TARGET — your current Mech Balance Target; green ✓ = in range, ↑ OS / ↓ US = outside. AERO BIAS — how much the aero is pushing the car's handling in one direction, and which way to offset your target to compensate. The bar circle marks the aero-adjusted aim point within the range."/>
+                    </span>
                     <span style={{fontSize:10,color:'#475569'}}>{_layout} · {_build.toUpperCase()}</span>
                   </div>
                   {(()=>{
@@ -3593,13 +3596,15 @@ function App(){
                 );
               })()}
               {/* bar tick legend */}
-              <div style={{display:'flex',gap:10,marginTop:3,paddingLeft:2}}>
+              <div style={{display:'flex',gap:10,marginTop:3,paddingLeft:2,alignItems:'center'}}>
                 {Math.abs(tune.bTot)>0.5&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:9,color:'#4b5563'}}>
                   <span style={{display:'inline-block',width:1,height:8,background:'#4ade80',opacity:0.75,flexShrink:0}}/>MECH
                 </span>}
                 {Math.abs(bTotFull-tune.bTot)>0.5&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:9,color:'#4b5563'}}>
                   <span style={{display:'inline-block',width:1,height:8,background:'#818cf8',opacity:0.75,flexShrink:0}}/>BASELINE
                 </span>}
+                {(Math.abs(tune.bTot)>0.5||Math.abs(bTotFull-tune.bTot)>0.5)&&
+                  <Hint text="MECH (green) — where springs and ARBs alone place the balance, relative to weight-matched neutral. This is your intentional mechanical correction. BASELINE (indigo) — where aero, diff, brakes, and damping place the car before any spring/ARB correction. The gap between BASELINE and the total fill is what your mechanical setup adds on top."/>}
               </div>
               {/* secondary metadata pills */}
               {(tune.mechBalance!=null||(ch.aeroBalance??0.5)!==0.5&&(ch.aeroBalance??0.5)>=0.05)&&
