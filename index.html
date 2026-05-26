@@ -352,11 +352,12 @@ const computeTune=(ch,phys,gameMode)=>{
     : rsSp*(shareTarget/(1-shareTarget)); // auto + share: target a fraction directly
   const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
   let rF=arbBalance/100;
+  let _rsBalK=null;
   if((arbBalMode==='mech'||arbBalMode==='coSolve')&&rsAbBudget>0){
     const k=MECH_BALANCE_STIFFNESS_WEIGHT;
     const rsBalTarget=Math.max(0.001,Math.min(0.999,(arbBalTarget-(1-k)*(1-ch.frontBias/100))/k));
-    const K=rsBalTarget/(1-rsBalTarget);
-    rF=Math.max(0,Math.min(1,(K*(rsSpF+rsAbBudget)*twF-rsSpR*twR)/(rsAbBudget*(twR+K*twF))));
+    _rsBalK=rsBalTarget/(1-rsBalTarget);
+    rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)*twF-rsSpR*twR)/(rsAbBudget*(twR+_rsBalK*twF))));
   }
   //
   const lightShare=Math.min(rF,1-rF);                          // smaller fraction
@@ -370,6 +371,8 @@ const computeTune=(ch,phys,gameMode)=>{
   const rsHeavyCeil=arbCeil*ARB_RS_SCALE*heavyTrack*heavyTrack;
   const rsHeavyBudget=rsAbBudget*heavyShare;
   if(rsHeavyBudget>rsHeavyCeil)rsAbBudget=rsHeavyCeil/heavyShare;
+  if(_rsBalK!==null)
+    rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)*twF-rsSpR*twR)/(rsAbBudget*(twR+_rsBalK*twF))));
   const clk=(rs,track)=>{const v=Math.min(Math.min(lim.arb,arbCeil),Math.max(1,rs/(ARB_RS_SCALE*track*track)));return Math.round(v*10)/10;};
   const arbF=clk(rsAbBudget*(1-rF),ch.trackF);
   const arbR=clk(rsAbBudget*rF,ch.trackR);
