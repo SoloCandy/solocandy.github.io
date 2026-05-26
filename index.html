@@ -2640,6 +2640,8 @@ function App(){
                 </div>}
               <FeelSlider label="SPRING SHARE" value={fe.springShare??50} onChange={pFe('springShare')}
                 min={0} max={100} leftLabel="ARB ONLY" rightLabel="SPRING ONLY"
+                markers={[{value:50,color:'#94a3b8',label:'50/50'}]}
+                readout={(fe.springShare??50)===50?'BALANCED':(fe.springShare??50)<50?`ARB +${50-(fe.springShare??50)}`:`SPR +${(fe.springShare??50)-50}`}
                 hint="How much of the mechanical balance correction comes from rear spring stiffness vs ARB split. 0% = ARB handles all correction (rear Hz equals front Hz). 100% = springs handle all correction (ARB split near neutral). 50% = equal contribution from both."/>
             </>}
           </Sec></div>
@@ -2764,6 +2766,7 @@ function App(){
                   value={fe.rearHzMult??1.20}
                   onChange={pFe('rearHzMult')} min={0.50} max={3.00} step={0.01}
                   leftLabel="×0.50" rightLabel="×3.00"
+                  markers={[{value:1.00,color:'#94a3b8',label:'MATCH'}]}
                   readout={isShared
                     ?`×${(fe.rearHzMult??1.20).toFixed(2)} · ${sharedReadout}`
                     :rRef==='rear'
