@@ -3539,13 +3539,35 @@ function App(){
               {/* compact bias bar */}
               <div style={{position:'relative',height:14,background:'#0a0f1a',border:'1px solid #1e293b',
                            borderRadius:2,overflow:'hidden'}}>
+                {/* A — feel zones: US aggressive | US mild | neutral | OS mild | OS aggressive | OS extreme */}
+                <div style={{position:'absolute',left:'5%', width:'20%',top:0,bottom:0,background:'#3b82f614'}}/>
+                <div style={{position:'absolute',left:'25%',width:'20%',top:0,bottom:0,background:'#3b82f60a'}}/>
+                <div style={{position:'absolute',left:'55%',width:'20%',top:0,bottom:0,background:'#ef44440a'}}/>
+                <div style={{position:'absolute',left:'75%',width:'15%',top:0,bottom:0,background:'#f9731614'}}/>
+                <div style={{position:'absolute',left:'90%',width:'10%',top:0,bottom:0,background:'#ef444422'}}/>
+                {/* center divider */}
                 <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#1e293b'}}/>
+                {/* main fill */}
                 {(()=>{
                   const cl=v=>Math.max(-50,Math.min(50,v));
-                  const p=cl(bTotFull); // positive=OS(right), negative=US(left)
+                  const p=cl(bTotFull);
                   const fs=p>=0?{left:'50%',width:`${p}%`}:{left:`${50+p}%`,width:`${-p}%`};
                   const fc=p>=0?'#ef444440':'#3b82f640';
                   return p!==0&&<div style={{position:'absolute',top:2,bottom:2,borderRadius:1,background:fc,...fs}}/>;
+                })()}
+                {/* B — mechanical-only tick (springs + ARBs), top half */}
+                {Math.abs(tune.bTot)>0.5&&<div style={{
+                  position:'absolute',top:0,height:6,
+                  left:`${50+Math.max(-50,Math.min(50,tune.bTot))}%`,
+                  width:1,background:'#4ade80',opacity:0.75,transform:'translateX(-50%)'}}/>}
+                {/* C — non-mechanical baseline (aero+diff+brakes+damp without springs/ARBs), bottom half */}
+                {(()=>{
+                  const nb=bTotFull-tune.bTot;
+                  return Math.abs(nb)>0.5&&<div style={{
+                    position:'absolute',bottom:0,height:6,
+                    left:`${50+Math.max(-50,Math.min(50,nb))}%`,
+                    width:1,background:'#818cf8',opacity:0.75,transform:'translateX(-50%)'
+                  }}/>;
                 })()}
                 <div style={{position:'absolute',left:5,top:'50%',transform:'translateY(-50%)',
                              fontSize:9,color:'#3b82f6',letterSpacing:1,fontWeight:700}}>US</div>
@@ -3570,6 +3592,15 @@ function App(){
                   </div>
                 );
               })()}
+              {/* bar tick legend */}
+              <div style={{display:'flex',gap:10,marginTop:3,paddingLeft:2}}>
+                {Math.abs(tune.bTot)>0.5&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:9,color:'#4b5563'}}>
+                  <span style={{display:'inline-block',width:1,height:8,background:'#4ade80',opacity:0.75,flexShrink:0}}/>MECH
+                </span>}
+                {Math.abs(bTotFull-tune.bTot)>0.5&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:9,color:'#4b5563'}}>
+                  <span style={{display:'inline-block',width:1,height:8,background:'#818cf8',opacity:0.75,flexShrink:0}}/>BASELINE
+                </span>}
+              </div>
               {/* secondary metadata pills */}
               {(tune.mechBalance!=null||(ch.aeroBalance??0.5)!==0.5&&(ch.aeroBalance??0.5)>=0.05)&&
                 <div style={{display:'flex',alignItems:'center',gap:10,marginTop:5,flexWrap:'wrap',rowGap:3}}>
