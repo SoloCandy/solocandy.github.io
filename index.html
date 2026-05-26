@@ -24,7 +24,7 @@ body{background:#020617;color:#cbd5e1;font-family:'Courier New',monospace;overfl
   #root>div>div:nth-child(2){flex-direction:column!important;overflow-y:auto}
   #root>div>div:nth-child(2)>div:first-child{width:100%!important;border-right:none;border-bottom:1px solid #0f172a}
   .tog{padding:7px 0;min-height:32px}
-  .tbtn{padding:6px 10px;display:flex;align-items:center;justify-content:center}
+  .tbtn{padding:6px 10px}
 }
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:#0a0f1a}
@@ -2105,21 +2105,21 @@ function App(){
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
                    padding:'0 14px',height:isMobile?48:42,borderBottom:'1px solid #0f172a',
                    flexShrink:0,background:'#020617'}}>
-        <div style={{display:'flex',alignItems:isMobile?'stretch':'center',gap:10}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
           <button onClick={()=>setSidebarOpen(p=>!p)}
             style={{background:'none',border:'1px solid #1e293b',borderRadius:2,
                     color:sidebarOpen?'#e2e8f0':'#6b7280',cursor:'pointer',
-                    padding:isMobile?'0 12px':'3px 7px',fontSize:13,
-                    display:isMobile?'flex':undefined,alignItems:isMobile?'center':undefined,
+                    padding:isMobile?'8px 10px':'3px 7px',fontSize:13,lineHeight:1,
                     transition:'color .12s,border-color .12s',
                     borderColor:sidebarOpen?'#e2e8f033':'#1e293b'}}>
             {sidebarOpen?'✕':'☰'}
           </button>
-          <div style={{fontWeight:700,fontSize:15,color:'#e2e8f0',letterSpacing:4}}>
+          <div style={{fontWeight:700,fontSize:isMobile?12:15,color:'#e2e8f0',
+                       letterSpacing:isMobile?2:4}}>
             SUSP<span style={{color:'#6b7280'}}>.</span>OS
           </div>
         </div>
-        <div style={{display:'flex',gap:3,alignItems:isMobile?'stretch':'center'}}>
+        <div style={{display:'flex',gap:3,alignItems:'center'}}>
           {!isMobile&&<>
             <button className={`tbtn${!metricUnits?' on':''}`}
               onClick={()=>setMetricUnits(false)} style={{fontSize:11}}>IMP</button>
