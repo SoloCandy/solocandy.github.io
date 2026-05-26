@@ -2589,14 +2589,19 @@ function App(){
                     <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>BALANCE GUIDE</span>
                     <span style={{fontSize:10,color:'#475569'}}>{_layout} · {_build.toUpperCase()}</span>
                   </div>
-                  <div style={{position:'relative',height:16,marginBottom:2}}>
-                    <div style={{position:'absolute',top:6,left:0,right:0,height:4,background:'#0f172a',borderRadius:2}}/>
-                    <div style={{position:'absolute',top:6,left:`${_pct(_lo)}%`,width:`${_pct(_hi)-_pct(_lo)}%`,height:4,background:'#14532d',borderRadius:1}}/>
-                    <div style={{position:'absolute',top:3,left:`${_pct(natMechBalance)}%`,transform:'translateX(-50%)',width:2,height:10,background:'#334155',borderRadius:1}}/>
-                    {hasAero&&<div style={{position:'absolute',top:3,left:`${_pct(mechTargetRec)}%`,transform:'translateX(-50%)',width:2,height:10,background:'#ca8a04',borderRadius:1,opacity:0.9}}/>}
-                    <div style={{position:'absolute',top:1,left:`${_pct(_cur)}%`,transform:'translateX(-50%)',
-                                 width:0,height:0,borderLeft:'5px solid transparent',borderRight:'5px solid transparent',borderTop:`7px solid ${_tc}`}}/>
-                  </div>
+                  {(()=>{
+                    const _aeroBiasNonNeutral=hasAero&&Math.abs(bAero)>1;
+                    const _aimCol=bAero>1?'#60a5fa':bAero<-1?'#f59e0b':'#ca8a04';
+                    return(
+                    <div style={{position:'relative',height:16,marginBottom:2}}>
+                      <div style={{position:'absolute',top:6,left:0,right:0,height:4,background:'#0f172a',borderRadius:2}}/>
+                      <div style={{position:'absolute',top:6,left:`${_pct(_lo)}%`,width:`${_pct(_hi)-_pct(_lo)}%`,height:4,background:'#14532d',borderRadius:1}}/>
+                      <div style={{position:'absolute',top:3,left:`${_pct(natMechBalance)}%`,transform:'translateX(-50%)',width:2,height:10,background:'#334155',borderRadius:1}}/>
+                      {hasAero&&<div style={{position:'absolute',top:5,left:`${_pct(mechTargetRec)}%`,transform:'translateX(-50%)',width:6,height:6,background:_aimCol,borderRadius:'50%',opacity:_aeroBiasNonNeutral?0.95:0.35}}/>}
+                      <div style={{position:'absolute',top:1,left:`${_pct(_cur)}%`,transform:'translateX(-50%)',
+                                   width:0,height:0,borderLeft:'5px solid transparent',borderRight:'5px solid transparent',borderTop:`7px solid ${_tc}`}}/>
+                    </div>);
+                  })()}
                   <div style={{display:'flex',justifyContent:'space-between',fontSize:8,color:'#374151',marginBottom:6}}>
                     <span>0.40</span><span>0.65</span><span>0.90</span>
                   </div>
@@ -2623,7 +2628,7 @@ function App(){
                       const _dot=_isOS?'#3b82f6':_isUS?'#ca8a04':'#334155';
                       return(<>
                         <span style={{fontSize:10,color:'#4b5563',display:'flex',alignItems:'center',gap:4}}>
-                          <span style={{display:'inline-block',width:2,height:8,background:_dot,borderRadius:1,flexShrink:0}}/> AERO BIAS
+                          <span style={{display:'inline-block',width:6,height:6,background:_dot,borderRadius:'50%',flexShrink:0,opacity:_isOS||_isUS?0.95:0.35}}/> AERO BIAS
                         </span>
                         <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:_col}}>
                           {_abs<0.01?'NEUTRAL':(_isOS?`+${_abs.toFixed(2)} OS`:`+${_abs.toFixed(2)} US`)}
