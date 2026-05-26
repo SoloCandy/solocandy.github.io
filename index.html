@@ -399,6 +399,7 @@ const computeTune=(ch,phys,gameMode)=>{
          fHz,rHz:effectiveRHz,settle:settleF,settleR,rollDeg,rollTarget:arbTargetRoll,rollClamped,dampingClamped,
          arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
          bSp,bAb,bTot,mechBalance,
+         rsSpF,rsSpR,rsAbF,rsAbR,
          balArbSplit:(arbBalMode==='mech'||arbBalMode==='coSolve')?Math.round(rF*100):null};
 };
 
@@ -900,43 +901,108 @@ const DampingDial=({rebound,bump})=>{
   );
 };
 
-const SagDial=({defF,defR})=>{
-  const[hover,setHover]=useState(null);
-  const SIZE=120,CX=60,CY=58,R=46;
-  const GAP_DEG=60;
-  const START=180+GAP_DEG/2;
-  const SWEEP=360-GAP_DEG;
-  const MAX_DEF=150;
-  const defToAngle=d=>START+(Math.min(d,MAX_DEF)/MAX_DEF)*SWEEP;
+const _dialBase=(SIZE=120,CX=60,CY=58,R=46,GAP_DEG=60)=>{
+  const START=180+GAP_DEG/2, SWEEP=360-GAP_DEG;
   const polar=(deg,r=R)=>{const rad=((deg-90)*Math.PI)/180;return[CX+r*Math.cos(rad),CY+r*Math.sin(rad)];};
   const arcPath=(a1,a2,r=R)=>{
     const[x1,y1]=polar(a1,r);const[x2,y2]=polar(a2,r);
     const sweep=((a2-a1)+360)%360;const large=sweep>180?1:0;
     return`M${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)}`;
   };
-  const a50=defToAngle(50),a100=defToAngle(100),aEnd=START+SWEEP;
-  const fA=defToAngle(defF),rA=defToAngle(defR);
-  const[fxSvg,fySvg]=polar(fA);const[rxSvg,rySvg]=polar(rA);
-  const maxDef=Math.max(defF,defR);
-  const labelColor=maxDef<50?'#22c55e':maxDef<100?'#eab308':maxDef<150?'#f97316':'#ef4444';
-  const dispVal=hover==='front'?Math.round(defF):hover==='rear'?Math.round(defR):Math.round(maxDef);
-  const sub=hover==='front'?'F BALANCE':hover==='rear'?'R BALANCE':'RIDE BAL';
+  return{START,SWEEP,polar,arcPath,CX,CY,R,SIZE};
+};
+
+// balance strip rendered inside an SVG at BY coordinate
+const _BalStrip=({rearFrac,wtRearFrac,BY=108})=>{
+  const BX=18,BW=84;
+  const splitX=BX+rearFrac*BW;
+  const wtX=BX+wtRearFrac*BW;
+  return(<>
+    <rect x={BX} y={BY} width={BW} height={3} rx={1.5} fill="#0f172a"/>
+    <rect x={BX} y={BY} width={(1-rearFrac)*BW} height={3} rx={1.5} fill="#818cf8" opacity={0.45}/>
+    <rect x={BX+(1-rearFrac)*BW} y={BY} width={rearFrac*BW} height={3} rx={1.5} fill="#38bdf8" opacity={0.45}/>
+    <line x1={wtX} y1={BY-2} x2={wtX} y2={BY+5} stroke="#334155" strokeWidth={1}/>
+    <rect x={splitX-1} y={BY-3} width={2} height={9} rx={1} fill="#94a3b8"/>
+    <text x={BX-2} y={BY+13} textAnchor="end" fill="#334155" fontSize={8}>F</text>
+    <text x={BX+BW+2} y={BY+13} textAnchor="start" fill="#334155" fontSize={8}>R</text>
+  </>);
+};
+
+const SpringDial=({fHz,rHz,rsSpF,rsSpR,frontBias,clamped})=>{
+  const[hover,setHover]=useState(null);
+  const{START,SWEEP,polar,arcPath,CX,CY,SIZE}=_dialBase();
+  const MIN_HZ=0.8,MAX_HZ=3.5;
+  const toA=hz=>START+((Math.min(Math.max(hz,MIN_HZ),MAX_HZ)-MIN_HZ)/(MAX_HZ-MIN_HZ))*SWEEP;
+  const endA=START+SWEEP;
+  const a12=toA(1.2),a18=toA(1.8),a25=toA(2.5);
+  const fA=toA(fHz),rA=toA(rHz);
+  const[fxS,fyS]=polar(fA);const[rxS,ryS]=polar(rA);
+  const spTot=rsSpF+rsSpR;
+  const rearSpFrac=spTot>0?rsSpR/spTot:1-(frontBias/100);
+  const wtRearFrac=1-frontBias/100;
+  const dispVal=hover==='front'?fHz.toFixed(2):hover==='rear'?rHz.toFixed(2)
+    :(fHz>0?`×${(rHz/fHz).toFixed(2)}`:'-');
+  const dispSub=hover==='front'?'FRONT':hover==='rear'?'REAR':'F/R';
+  const centerCol=clamped?'#f59e0b':'#e2e8f0';
   return(
     <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
       <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
-        <path d={arcPath(START,a50)}  fill="none" stroke="#166534" strokeWidth={4} strokeLinecap="round"/>
-        <path d={arcPath(a50,a100)}   fill="none" stroke="#854d0e" strokeWidth={4} strokeLinecap="round"/>
-        <path d={arcPath(a100,aEnd)}  fill="none" stroke="#7f1d1d" strokeWidth={4} strokeLinecap="round"/>
-        <circle cx={fxSvg} cy={fySvg} r={5} fill="#818cf8" stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
+        <path d={arcPath(START,endA)} fill="none" stroke="#1e293b" strokeWidth={4} strokeLinecap="round"/>
+        <path d={arcPath(START,a12)} fill="none" stroke="#1e3a5f" strokeWidth={4} strokeLinecap="round"/>
+        <path d={arcPath(a12,a18)}   fill="none" stroke="#14532d" strokeWidth={4} strokeLinecap="round"/>
+        <path d={arcPath(a18,a25)}   fill="none" stroke="#713f12" strokeWidth={4} strokeLinecap="round"/>
+        <path d={arcPath(a25,endA)}  fill="none" stroke="#7f1d1d" strokeWidth={4} strokeLinecap="round"/>
+        <circle cx={fxS} cy={fyS} r={5} fill="#818cf8" stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
           onMouseEnter={()=>setHover('front')} onMouseLeave={()=>setHover(null)}
           onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='front'?null:'front');}}/>
-        <circle cx={rxSvg} cy={rySvg} r={5} fill="#38bdf8" stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
+        <circle cx={rxS} cy={ryS} r={5} fill="#38bdf8" stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
           onMouseEnter={()=>setHover('rear')} onMouseLeave={()=>setHover(null)}
           onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='rear'?null:'rear');}}/>
-        <text x={CX} y={CY-4} textAnchor="middle" fill={hover?'#e2e8f0':labelColor}
-          fontSize={16} fontFamily="Courier New" fontWeight="700">{dispVal}</text>
+        <text x={CX} y={CY-4} textAnchor="middle" fill={centerCol}
+          fontSize={15} fontFamily="Courier New" fontWeight="700">{dispVal}</text>
         <text x={CX} y={CY+11} textAnchor="middle" fill="#475569"
-          fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{sub}</text>
+          fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{dispSub}</text>
+        <_BalStrip rearFrac={rearSpFrac} wtRearFrac={wtRearFrac}/>
+      </svg>
+    </div>
+  );
+};
+
+const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,frontBias})=>{
+  const[hover,setHover]=useState(null);
+  const{START,SWEEP,polar,arcPath,CX,CY,SIZE}=_dialBase();
+  const toA=v=>START+(Math.min(Math.max(v,0),arbLimit)/arbLimit)*SWEEP;
+  const endA=START+SWEEP;
+  const a50=toA(arbLimit*0.50),a75=toA(arbLimit*0.75),a90=toA(arbLimit*0.90);
+  const fA=toA(arbF),rA=toA(arbR);
+  const[fxS,fyS]=polar(fA);const[rxS,ryS]=polar(rA);
+  const abTot=rsAbF+rsAbR;
+  const rearAbFrac=abTot>0?rsAbR/abTot:1-(frontBias/100);
+  const wtRearFrac=1-frontBias/100;
+  const rearPct=Math.round(rearAbFrac*100);
+  const dispVal=hover==='front'?arbF.toFixed(1):hover==='rear'?arbR.toFixed(1):`${rearPct}%`;
+  const dispSub=hover==='front'?`/ ${arbLimit} F`:hover==='rear'?`/ ${arbLimit} R`:'R SPLIT';
+  const warnF=arbF>arbLimit*0.88,warnR=arbR>arbLimit*0.88;
+  const centerCol=warnF||warnR?'#f59e0b':'#e2e8f0';
+  return(
+    <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
+      <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
+        <path d={arcPath(START,endA)} fill="none" stroke="#1e293b" strokeWidth={4} strokeLinecap="round"/>
+        <path d={arcPath(START,a50)} fill="none" stroke="#1e3a5f" strokeWidth={4} strokeLinecap="round"/>
+        <path d={arcPath(a50,a75)}   fill="none" stroke="#713f12" strokeWidth={4} strokeLinecap="round"/>
+        <path d={arcPath(a75,a90)}   fill="none" stroke="#7c2d12" strokeWidth={4} strokeLinecap="round"/>
+        <path d={arcPath(a90,endA)}  fill="none" stroke="#7f1d1d" strokeWidth={4} strokeLinecap="round"/>
+        <circle cx={fxS} cy={fyS} r={5} fill={warnF?'#f59e0b':'#818cf8'} stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
+          onMouseEnter={()=>setHover('front')} onMouseLeave={()=>setHover(null)}
+          onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='front'?null:'front');}}/>
+        <circle cx={rxS} cy={ryS} r={5} fill={warnR?'#f59e0b':'#38bdf8'} stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
+          onMouseEnter={()=>setHover('rear')} onMouseLeave={()=>setHover(null)}
+          onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='rear'?null:'rear');}}/>
+        <text x={CX} y={CY-4} textAnchor="middle" fill={centerCol}
+          fontSize={15} fontFamily="Courier New" fontWeight="700">{dispVal}</text>
+        <text x={CX} y={CY+11} textAnchor="middle" fill="#475569"
+          fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{dispSub}</text>
+        <_BalStrip rearFrac={rearAbFrac} wtRearFrac={wtRearFrac}/>
       </svg>
     </div>
   );
@@ -2497,6 +2563,8 @@ function App(){
               arbShareMan:DEF_FE.arbShareMan,
               arbFloor:DEF_FE.arbFloor,
               arbCeil:DEF_FE.arbCeil}))}>
+            <ArbDial arbF={tune.arbF} arbR={tune.arbR} arbLimit={lim.arb}
+              rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}/>
             <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
               min={0.40} max={0.90} step={0.01}
               hint="The overall handling balance target for this build. 0.50 = perfectly neutral. Higher = more rear roll stiffness (understeer tendency). Lower = more front roll stiffness (oversteer tendency). MECH and CO-SOLVE modes below solve springs and ARBs to hit this value — in WEIGHT mode it is stored but not applied until you switch. The REACH panel in CHASSIS shows what tyre or track changes would bring the natural chassis balance close to this value."/>
@@ -2654,11 +2722,9 @@ function App(){
               rearHzMan:DEF_FE.rearHzMan,
               rearHzMult:DEF_FE.rearHzMult,
               rideRef:DEF_FE.rideRef}))}>
-            {(()=>{
-              const defF=1000*9.81/(4*Math.PI*Math.PI*physics.frontHz*physics.frontHz);
-              const defR=1000*9.81/(4*Math.PI*Math.PI*physics.rearHz*physics.rearHz);
-              return <SagDial defF={defF} defR={defR}/>;
-            })()}
+            <SpringDial fHz={tune.fHz} rHz={tune.rHz}
+              rsSpF={tune.rsSpF} rsSpR={tune.rsSpR}
+              frontBias={ch.frontBias} clamped={physics.rearHzClamped}/>
             <div style={dim('feel')}>
             {(()=>{
               const isCoSolve=(fe.arbBalMode??'weight')==='coSolve';
