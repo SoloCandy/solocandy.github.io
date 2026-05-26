@@ -2615,12 +2615,21 @@ function App(){
                     <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:_tc}}>
                       {_cur.toFixed(2)}{_inRange?' ✓':_cur>_hi?' ↑ OS':' ↓ US'}
                     </span>
-                    {hasAero&&<>
-                      <span style={{fontSize:10,color:'#4b5563',display:'flex',alignItems:'center',gap:4}}>
-                        <span style={{display:'inline-block',width:2,height:8,background:'#ca8a04',borderRadius:1,flexShrink:0}}/> AERO REC.
-                      </span>
-                      <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:'#e8c97a'}}>{mechTargetRec.toFixed(2)}</span>
-                    </>}
+                    {hasAero&&(()=>{
+                      const _push=bAero/100; // positive=OS push (front-heavy aero), negative=US push
+                      const _abs=Math.abs(_push);
+                      const _isOS=bAero>1; const _isUS=bAero<-1;
+                      const _col=_isOS?'#60a5fa':_isUS?'#f59e0b':'#475569';
+                      const _dot=_isOS?'#3b82f6':_isUS?'#ca8a04':'#334155';
+                      return(<>
+                        <span style={{fontSize:10,color:'#4b5563',display:'flex',alignItems:'center',gap:4}}>
+                          <span style={{display:'inline-block',width:2,height:8,background:_dot,borderRadius:1,flexShrink:0}}/> AERO BIAS
+                        </span>
+                        <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:_col}}>
+                          {_abs<0.01?'NEUTRAL':(_isOS?`+${_abs.toFixed(2)} OS`:`+${_abs.toFixed(2)} US`)}
+                        </span>
+                      </>);
+                    })()}
                   </div>
                 </div>
               );
