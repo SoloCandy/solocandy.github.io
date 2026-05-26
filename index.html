@@ -1819,7 +1819,7 @@ function App(){
   const closeOnboard=()=>{setOnboardSeen(true);setShowComplexity(false);};
   const[tutMode,setTutMode]=useState(null);
   const[tutStep,setTutStep]=useState(0);
-  const openTut=mode=>{setTutMode(mode);setTutStep(0);};
+  const openTut=mode=>{setTutMode(mode);setTutStep(0);setSidebarOpen(true);};
   const closeTut=()=>setTutMode(null);
   // Called only when user clicks DONE on the last step of the beginner guide
   const closeTutDone=()=>{if(tutMode==='beginner')setShowComplexity(true);closeTut();};
