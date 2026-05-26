@@ -2102,49 +2102,63 @@ function App(){
       )}
 
       {/* HEADER */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
-                   padding:'0 14px',height:isMobile?48:42,borderBottom:'1px solid #0f172a',
-                   flexShrink:0,background:'#020617'}}>
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          <button onClick={()=>setSidebarOpen(p=>!p)}
-            style={{background:'none',border:'1px solid #1e293b',borderRadius:2,
-                    color:sidebarOpen?'#e2e8f0':'#6b7280',cursor:'pointer',
-                    padding:isMobile?'8px 10px':'3px 7px',fontSize:13,lineHeight:1,
-                    transition:'color .12s,border-color .12s',
-                    borderColor:sidebarOpen?'#e2e8f033':'#1e293b'}}>
-            {sidebarOpen?'✕':'☰'}
-          </button>
-          <div style={{fontWeight:700,fontSize:isMobile?12:15,color:'#e2e8f0',
-                       letterSpacing:isMobile?2:4}}>
-            SUSP<span style={{color:'#6b7280'}}>.</span>OS
+      <div style={{flexShrink:0,borderBottom:'1px solid #0f172a',background:'#020617'}}>
+        {/* Row 1 — brand + utility */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+                     padding:'0 14px',height:42}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <button onClick={()=>setSidebarOpen(p=>!p)}
+              style={{background:'none',border:'1px solid #1e293b',borderRadius:2,
+                      color:sidebarOpen?'#e2e8f0':'#6b7280',cursor:'pointer',
+                      padding:isMobile?'7px 10px':'3px 7px',fontSize:13,lineHeight:1,
+                      transition:'color .12s,border-color .12s',
+                      borderColor:sidebarOpen?'#e2e8f033':'#1e293b'}}>
+              {sidebarOpen?'✕':'☰'}
+            </button>
+            <div style={{fontWeight:700,fontSize:isMobile?12:15,color:'#e2e8f0',
+                         letterSpacing:isMobile?2:4}}>
+              SUSP<span style={{color:'#6b7280'}}>.</span>OS
+            </div>
+          </div>
+          <div style={{display:'flex',gap:3,alignItems:'center'}}>
+            {!isMobile&&<>
+              <button className={`tbtn${!metricUnits?' on':''}`}
+                onClick={()=>setMetricUnits(false)} style={{fontSize:11}}>IMP</button>
+              <button className={`tbtn${metricUnits?' on':''}`}
+                onClick={()=>setMetricUnits(true)} style={{fontSize:11}}>MET</button>
+              <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
+              {['horizon','motorsport'].map(m=>(
+                <button key={m} className={`tbtn${fe.gameMode===m?' on':''}`}
+                  onClick={()=>pFe('gameMode')(m)} style={{fontSize:11}}>
+                  {m.toUpperCase()}
+                </button>
+              ))}
+              <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
+              {[['beginner','BEG'],['intermediate','INT'],['pro','PRO']].map(([mode,label])=>(
+                <button key={mode} className={`tbtn${uiMode===mode?' on':''}`}
+                  onClick={()=>setUiMode(mode)} style={{fontSize:11}}>{label}</button>
+              ))}
+              <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
+            </>}
+            <button className="tbtn undo-btn" style={{fontSize:11}}
+              onClick={undo} disabled={!canUndo}
+              title={canUndo?'Undo last change':'Nothing to undo'}>↩</button>
+            <button className="tbtn" style={{fontSize:11}}
+              onClick={()=>openTut(uiMode)}>?</button>
           </div>
         </div>
-        <div style={{display:'flex',gap:3,alignItems:'center'}}>
-          {!isMobile&&<>
-            <button className={`tbtn${!metricUnits?' on':''}`}
-              onClick={()=>setMetricUnits(false)} style={{fontSize:11}}>IMP</button>
-            <button className={`tbtn${metricUnits?' on':''}`}
-              onClick={()=>setMetricUnits(true)} style={{fontSize:11}}>MET</button>
-            <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
-            {['horizon','motorsport'].map(m=>(
-              <button key={m} className={`tbtn${fe.gameMode===m?' on':''}`}
-                onClick={()=>pFe('gameMode')(m)} style={{fontSize:11}}>
-                {m.toUpperCase()}
+        {/* Row 2 — mobile only: complexity selector */}
+        {isMobile&&(
+          <div style={{display:'flex',gap:4,padding:'0 14px 8px'}}>
+            {[['beginner','BEG'],['intermediate','INT'],['pro','PRO']].map(([mode,label])=>(
+              <button key={mode} className={`tbtn${uiMode===mode?' on':''}`}
+                onClick={()=>setUiMode(mode)}
+                style={{flex:1,fontSize:11,padding:'7px 0',textAlign:'center'}}>
+                {label}
               </button>
             ))}
-            <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
-          </>}
-          {[['beginner','BEG'],['intermediate','INT'],['pro','PRO']].map(([mode,label])=>(
-            <button key={mode} className={`tbtn${uiMode===mode?' on':''}`}
-              onClick={()=>setUiMode(mode)} style={{fontSize:11}}>{label}</button>
-          ))}
-          {!isMobile&&<div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>}
-          <button className="tbtn undo-btn" style={{fontSize:11}}
-            onClick={undo} disabled={!canUndo}
-            title={canUndo?'Undo last change':'Nothing to undo'}>↩</button>
-          <button className="tbtn" style={{fontSize:11}}
-            onClick={()=>openTut(uiMode)}>?</button>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* BODY */}
