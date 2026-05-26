@@ -2567,7 +2567,7 @@ function App(){
               rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}/>
             <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
               min={0.40} max={0.90} step={0.01}
-              hint="The overall handling balance target for this build. 0.50 = perfectly neutral. Higher = more rear roll stiffness (understeer tendency). Lower = more front roll stiffness (oversteer tendency). MECH and CO-SOLVE modes below solve springs and ARBs to hit this value — in WEIGHT mode it is stored but not applied until you switch. The REACH panel in CHASSIS shows what tyre or track changes would bring the natural chassis balance close to this value."/>
+              hint="The overall handling balance target for this build. 0.50 = perfectly neutral. Higher = more rear roll stiffness (oversteer tendency). Lower = more front roll stiffness (understeer tendency). MECH and CO-SOLVE modes below solve springs and ARBs to hit this value — in WEIGHT mode it is stored but not applied until you switch. The REACH panel in CHASSIS shows what tyre or track changes would bring the natural chassis balance close to this value."/>
             {(fe.arbBalMode??'weight')==='weight'&&
               <FeelSlider label="ARB Bias" value={fe.arbBias}
                 onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
