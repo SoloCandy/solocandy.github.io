@@ -587,8 +587,8 @@ const arbCtx=(arb,limit)=>{
   return['MAX','#ef4444'];
 };
 const diffCtx=v=>{
-  if(v===0)return['OFF','#374151'];
-  if(v<20)return['LOW','#64748b'];
+  if(v===0)return['OFF','#94a3b8'];
+  if(v<20)return['LOW','#cbd5e1'];
   if(v<45)return['MED','#94a3b8'];
   if(v<70)return['HIGH','#f59e0b'];
   return['MAX','#ef4444'];
@@ -714,7 +714,7 @@ const Hint=({text})=>{
           onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
           onTouchStart={()=>{isTouch.current=true;}}
           onClick={onClick}>
-      <span style={{fontSize:10,color:'#6b7280',marginLeft:4}}>ⓘ</span>
+      <span style={{fontSize:10,color:'#94a3b8',marginLeft:4}}>ⓘ</span>
       {pos&&ReactDOM.createPortal(
         <div style={{position:'fixed',top:pos.top,left:pos.left,zIndex:1000,width:pos.width??220,
                      background:'#0f172a',border:'1px solid #e2e8f011',borderRadius:2,
@@ -795,7 +795,7 @@ const Field=({label,value,onChange,min,max,step=0.01,unit='',hint=null,logScale=
             onChange={e=>setDraft(e.target.value)}
             onBlur={commit}
             onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}/>
-          {unit&&<span style={{fontSize:10,color:'#6b7280',fontFamily:'Courier New',
+          {unit&&<span style={{fontSize:10,color:'#94a3b8',fontFamily:'Courier New',
                                whiteSpace:'nowrap'}}>{unit}</span>}
         </div>
       </div>
@@ -852,7 +852,7 @@ const FeelSlider=({label,value,onChange,min,max,step=1,leftLabel,rightLabel,read
         <span style={{fontSize:12,color:'#9ca3af',minWidth:0,overflow:'hidden',
                       textOverflow:'ellipsis',whiteSpace:'nowrap',marginRight:6}}>{label}{hint&&<Hint text={hint}/>}</span>
         <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
-          {locked&&<span style={{fontSize:10,color:'#94a3b888',letterSpacing:1}}>MANUAL</span>}
+          {locked&&<span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>MANUAL</span>}
           {readout&&(typeof readout==='string'
             ?<span style={{fontSize:11,color:'#9ca3af',fontFamily:'Courier New'}}>{readout}</span>
             :readout)}
@@ -878,7 +878,7 @@ const FeelSlider=({label,value,onChange,min,max,step=1,leftLabel,rightLabel,read
               <div style={{width:1.5,height:8,borderRadius:1,
                            background:active?m.color:'#1e293b',
                            transition:'background .15s'}}/>
-              {m.label&&<span style={{fontSize:8,color:active?m.color:'#6b7280',
+              {m.label&&<span style={{fontSize:10,color:active?m.color:'#94a3b8',
                                       letterSpacing:0.5,whiteSpace:'nowrap',
                                       transition:'color .15s',marginTop:2}}>
                 {m.label}
@@ -888,8 +888,8 @@ const FeelSlider=({label,value,onChange,min,max,step=1,leftLabel,rightLabel,read
         })}
       </div>
       <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
-        <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>{leftLabel}</span>
-        <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>{rightLabel}</span>
+        <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>{leftLabel}</span>
+        <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>{rightLabel}</span>
       </div>
     </div>
   );
@@ -1181,12 +1181,12 @@ const Sec=({title,open,onToggle,onReset,children})=>{
           {onReset&&<span
             onClick={handleReset}
             title={pending?'Click again to confirm':'Reset to defaults'}
-            style={{fontSize:10,color:pending?'#f59e0b':'#6b7280',padding:'1px 5px',borderRadius:2,
+            style={{fontSize:10,color:pending?'#f59e0b':'#94a3b8',padding:'1px 5px',borderRadius:2,
                     border:`1px solid ${pending?'#f59e0b44':'#1e293b'}`,lineHeight:1.4,cursor:'pointer',
                     transition:'color .12s,border-color .12s',userSelect:'none'}}>
             {pending?'SURE?':'RESET'}
           </span>}
-          <span style={{fontSize:11,color:open?'#9ca3af':'#6b7280',transition:'color .12s'}}>
+          <span style={{fontSize:11,color:open?'#e2e8f0':'#94a3b8',transition:'color .12s'}}>
             {open?'▲':'▼'}
           </span>
         </div>
@@ -1200,7 +1200,7 @@ const Readout=({label,value,unit,warn=false,decimals=1,ctx=null,primary=false})=
   <div className="ro" style={primary?{borderColor:'#e2e8f022'}:{}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:1}}>
       <div className="rl">{label}</div>
-      {ctx&&<span style={{fontSize:9,color:ctx[1],letterSpacing:1,
+      {ctx&&<span style={{fontSize:10,color:ctx[1],letterSpacing:1,
                           background:ctx[1]+'18',border:`1px solid ${ctx[1]}44`,
                           borderRadius:2,padding:'1px 4px',lineHeight:1.4}}>
         {ctx[0]}
@@ -1235,14 +1235,14 @@ const Card=({title,accent=false,hint=null,children})=>(
 
 const BiasSeg=({label,val,hint})=>{
   // positive = oversteer (red/right), negative = understeer (blue/left)
-  const c=val>0.5?'#ef4444':val<-0.5?'#3b82f6':'#64748b';
+  const c=val>0.5?'#ef4444':val<-0.5?'#3b82f6':'#cbd5e1';
   const scale=15;
   const pct=Math.min(50,Math.abs(val)/scale*50);
   const barStyle=val>=0?{left:'50%',width:`${pct}%`}:{right:'50%',width:`${pct}%`};
   return(
     <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
       <div style={{width:72,display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
-        <span style={{fontSize:9,color:'#6b7280',letterSpacing:1,lineHeight:1.2}}>{label}</span>
+        <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,lineHeight:1.2}}>{label}</span>
         <Hint text={hint}/>
       </div>
       <div style={{flex:1,position:'relative',height:8,background:'#0f172a',borderRadius:2}}>
@@ -1257,7 +1257,7 @@ const BiasSeg=({label,val,hint})=>{
   );
 };
 
-const aeroLoadCtx=eff=>eff<0.5?['HI DRAG','#ef4444']:eff<0.7?['MED DRAG','#f59e0b']:['LO DRAG','#64748b'];
+const aeroLoadCtx=eff=>eff<0.5?['HI DRAG','#ef4444']:eff<0.7?['MED DRAG','#f59e0b']:['LO DRAG','#cbd5e1'];
 
 const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bAero,bDampBias,mechBalance})=>{
   const cl=v=>Math.max(-50,Math.min(50,v));
@@ -1288,12 +1288,12 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
         <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',
                      marginBottom:10,padding:'6px 10px',background:'#020617',
                      border:'1px solid #1e293b',borderRadius:2}}>
-          <span style={{fontSize:10,color:'#6b7280',letterSpacing:2}}>MECH BALANCE</span>
+          <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>MECH BALANCE</span>
           <div style={{display:'flex',alignItems:'baseline',gap:6}}>
             <span style={{fontFamily:'Courier New',fontSize:16,fontWeight:700,color:'#e2e8f0',lineHeight:1}}>
               {mechBalance.toFixed(2)}
             </span>
-            <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>0=FRONT · 1=REAR</span>
+            <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>0=FRONT · 1=REAR</span>
           </div>
         </div>}
       <div style={{marginBottom:8}}>
@@ -1329,9 +1329,9 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
         </span>
         <span style={{fontSize:11,color:col,letterSpacing:2}}>{label}</span>
       </div>
-      <div style={{fontSize:11,color:'#6b7280',lineHeight:1.6,padding:'6px 8px',
+      <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.6,padding:'6px 8px',
                    background:'#020617',borderRadius:2,border:'1px solid #0f172a'}}>{tip}</div>
-      <div style={{fontSize:10,color:'#6b7280',lineHeight:1.5,marginTop:6}}>
+      <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.5,marginTop:6}}>
         Roll-stiffness and differential contributions. Alignment also affects balance.
       </div>
     </div>
@@ -1358,7 +1358,7 @@ const CheckerModal=({onClose,lim,metricUnits})=>{
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
                      padding:'8px 14px',borderBottom:'1px solid #1e293b'}}>
           <span style={{fontSize:12,color:'#9ca3af',letterSpacing:2}}>TUNE CHECK</span>
-          <button onClick={onClose} style={{background:'none',border:'none',color:'#6b7280',
+          <button onClick={onClose} style={{background:'none',border:'none',color:'#94a3b8',
                                            cursor:'pointer',fontSize:17,lineHeight:1}}>✕</button>
         </div>
         <div style={{padding:14}}>
@@ -1580,7 +1580,7 @@ const PresetBtn=({name,onLoad})=>{
   );
 };
 
-const IconBtn=({onClick,color='#374151',activeBorder,activeColor,title,char,active=false,style:xStyle={}})=>
+const IconBtn=({onClick,color='#94a3b8',activeBorder,activeColor,title,char,active=false,style:xStyle={}})=>
   <button onClick={onClick}
     style={{background:'none',border:`1px solid ${active?activeBorder:'#1e293b'}`,borderRadius:2,
             color:active?activeColor:color,cursor:'pointer',fontSize:10,
@@ -1612,7 +1612,7 @@ const SaveSlot=({i,s,onLoad,onSave,onClear,onRename,onNotes,onSaveOver,onResetDe
   const iconStyle={flex:1,lineHeight:'20px',textAlign:'center'};
 
   if(!s) return(
-    <button className="tbtn" style={{fontSize:11,color:'#6b7280',borderStyle:'dashed',width:'100%',padding:'10px 8px'}}
+    <button className="tbtn" style={{fontSize:11,color:'#94a3b8',borderStyle:'dashed',width:'100%',padding:'10px 8px'}}
       onClick={onSave} title={`Save current tune to slot ${i}`}>
       + {i}
     </button>
@@ -1640,7 +1640,7 @@ const SaveSlot=({i,s,onLoad,onSave,onClear,onRename,onNotes,onSaveOver,onResetDe
         <IconBtn onClick={startEdit} title="Rename" char="✎" style={iconStyle}/>
         <IconBtn
           onClick={()=>{const n=prompt('Notes (shown on hover):',s.notes??'');if(n!==null)onNotes(i,n.slice(0,80));}}
-          color={s.notes?'#60a5fa':'#374151'} activeBorder="#60a5fa44" activeColor="#60a5fa"
+          color={s.notes?'#60a5fa':'#94a3b8'} activeBorder="#60a5fa44" activeColor="#60a5fa"
           title={s.notes||'Add notes'} char="ⓘ" active={!!s.notes} style={iconStyle}/>
         <IconBtn onClick={handleOver} activeBorder="#34d39944" activeColor="#34d399"
           title={pendingOver?'Click again to overwrite with current tune':'Overwrite with current tune'}
@@ -1663,7 +1663,7 @@ class ErrorBoundary extends React.Component{
     if(this.state.err)return(
       <div style={{padding:24,color:'#ef4444',fontFamily:'Courier New',fontSize:12,background:'#020617',minHeight:'100vh'}}>
         <div style={{marginBottom:8,color:'#e2e8f0',fontSize:14}}>SUSP.OS — Failed to load</div>
-        <div style={{marginBottom:16,color:'#6b7280'}}>An error occurred. Try reloading the page.</div>
+        <div style={{marginBottom:16,color:'#94a3b8'}}>An error occurred. Try reloading the page.</div>
         <div style={{background:'#0f172a',padding:12,borderRadius:4,border:'1px solid #1e293b',
                      whiteSpace:'pre-wrap',wordBreak:'break-all',lineHeight:1.6}}>
           {this.state.err.toString()}
@@ -1909,10 +1909,10 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone})=>{
       {arrow}
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:6}}>
         <div>
-          <span style={{fontSize:9,color:'#94a3b8',letterSpacing:2}}>{mLabel} GUIDE  ·  {step+1} / {total}</span>
+          <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>{mLabel} GUIDE  ·  {step+1} / {total}</span>
           <div style={{fontSize:13,color:'#e2e8f0',fontWeight:700,marginTop:3,letterSpacing:0.5}}>{t.title}</div>
         </div>
-        <button onClick={onClose} style={{...btnStyle,padding:'3px 8px',marginTop:2,color:'#6b7280'}}>✕</button>
+        <button onClick={onClose} style={{...btnStyle,padding:'3px 8px',marginTop:2,color:'#94a3b8'}}>✕</button>
       </div>
       {/* progress bar */}
       <div style={{display:'flex',gap:3,marginBottom:10}}>
@@ -2219,7 +2219,7 @@ function App(){
             <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
               <button className="tbtn" onClick={()=>{setShowResetModal(false);setResetConfirmText('');}}>CANCEL</button>
               <button className="tbtn" disabled={resetConfirmText!=='RESET'} onClick={performGlobalReset}
-                style={{color:resetConfirmText==='RESET'?'#fca5a5':'#475569',borderColor:resetConfirmText==='RESET'?'#7f1d1d':'#1e293b'}}>
+                style={{color:resetConfirmText==='RESET'?'#fca5a5':'#94a3b8',borderColor:resetConfirmText==='RESET'?'#7f1d1d':'#1e293b'}}>
                 RESET ALL
               </button>
             </div>
@@ -2251,18 +2251,18 @@ function App(){
             <div style={{position:'absolute',top:-6,right:15,width:0,height:0,
                          borderLeft:'7px solid transparent',borderRight:'7px solid transparent',
                          borderBottom:'7px solid #0f172a'}}/>
-            <div style={{fontSize:9,color:'#94a3b8',letterSpacing:2,marginBottom:10}}>COMPLEXITY LEVEL</div>
+            <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:10}}>COMPLEXITY LEVEL</div>
             {/* preview of the header buttons */}
             <div style={{display:'flex',gap:4,alignItems:'center',marginBottom:12}}>
               {[['BEG',true],['INT',false],['PRO',false]].map(([lbl,active])=>(
                 <span key={lbl} style={{padding:'3px 9px',border:`1px solid ${active?'#e2e8f0':'#1e293b'}`,
-                  borderRadius:2,fontSize:11,color:active?'#e2e8f0':'#374151',fontFamily:'Courier New'}}>{lbl}</span>
+                  borderRadius:2,fontSize:11,color:active?'#e2e8f0':'#94a3b8',fontFamily:'Courier New'}}>{lbl}</span>
               ))}
               <div style={{width:1,height:14,background:'#1e293b',margin:'0 3px'}}/>
               <span style={{padding:'3px 8px',border:'1px solid #1e293b',borderRadius:2,
-                fontSize:11,color:'#6b7280',fontFamily:'Courier New'}}>?</span>
+                fontSize:11,color:'#94a3b8',fontFamily:'Courier New'}}>?</span>
             </div>
-            <div style={{fontSize:11,color:'#6b7280',lineHeight:1.7,marginBottom:14}}>
+            <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.7,marginBottom:14}}>
               Choose how much of the app to show. <span style={{color:'#e2e8f0'}}>BEG</span> is the best starting point — fewer controls, guided outputs.
               Press <span style={{color:'#e2e8f0',fontFamily:'Courier New'}}>?</span> at any time to open a step-by-step tutorial.
             </div>
@@ -2282,7 +2282,7 @@ function App(){
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <button onClick={()=>setSidebarOpen(p=>!p)}
               style={{background:'none',border:'1px solid #1e293b',borderRadius:2,
-                      color:sidebarOpen?'#e2e8f0':'#6b7280',cursor:'pointer',
+                      color:sidebarOpen?'#e2e8f0':'#94a3b8',cursor:'pointer',
                       padding:isMobile?'7px 10px':'3px 7px',fontSize:13,lineHeight:1,
                       transition:'color .12s,border-color .12s',
                       borderColor:sidebarOpen?'#e2e8f033':'#1e293b'}}>
@@ -2290,7 +2290,7 @@ function App(){
             </button>
             <div style={{fontWeight:700,fontSize:isMobile?12:15,color:'#e2e8f0',
                          letterSpacing:isMobile?2:4}}>
-              SUSP<span style={{color:'#6b7280'}}>.</span>OS
+              SUSP<span style={{color:'#94a3b8'}}>.</span>OS
             </div>
           </div>
           <div style={{display:'flex',gap:3,alignItems:'center'}}>
@@ -2382,7 +2382,7 @@ function App(){
               <div style={{padding:'14px 12px 20px'}}>
                 {/* START FROM presets */}
                 <div id="zone-presets" style={dim('presets')}>
-                <div style={{fontSize:9,color:'#94a3b8',letterSpacing:2,marginBottom:8}}>START FROM</div>
+                <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:8}}>START FROM</div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:3,marginBottom:18}}>
                   {[1,2,3,4,5,6].map(i=>(
                     <PresetBtn key={i} name={PRESET_SAVES[i].name} onLoad={()=>loadPreset(i)}/>
@@ -2391,7 +2391,7 @@ function App(){
                 </div>
 
                 <div id="zone-layout-build" style={dim('layout-build')}>
-                <div style={{fontSize:9,color:'#94a3b8',letterSpacing:2,marginBottom:14}}>CHASSIS</div>
+                <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:14}}>CHASSIS</div>
                 <Toggle label="Layout" value={dr.layout} onChange={pDr('layout')}
                   options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
                 <Toggle label="Build" value={dr.buildType??'track'} onChange={pDr('buildType')}
@@ -2410,14 +2410,14 @@ function App(){
                 </div>
 
                 <div id="zone-ride-stiffness" style={dim('ride-stiffness')}>
-                <div style={{fontSize:9,color:'#94a3b8',letterSpacing:2,margin:'16px 0 14px'}}>FEEL</div>
+                <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,margin:'16px 0 14px'}}>FEEL</div>
                 <FeelSlider label="Ride Stiffness" value={physics.frontHz}
                   onChange={v=>pFe('rideStiffness')(hzToRs(v))}
                   min={0.80} max={3.50} step={0.01}
                   leftLabel="SOFT" rightLabel="STIFF"
                   readout={<span style={{display:'flex',alignItems:'center',gap:5}}>
                     <span style={{fontSize:11,color:hzCol,fontFamily:'Courier New',fontWeight:700,letterSpacing:1}}>{hzCat}</span>
-                    <span style={{fontSize:10,color:'#6b7280',fontFamily:'Courier New'}}>{physics.frontHz.toFixed(2)} Hz</span>
+                    <span style={{fontSize:10,color:'#94a3b8',fontFamily:'Courier New'}}>{physics.frontHz.toFixed(2)} Hz</span>
                   </span>}
                   hint="How stiff the suspension feels. SOFT = comfortable street ride. ROAD = balanced. FIRM = responsive sport. RACE = stiff competition setup."/>
                 </div>
@@ -2461,7 +2461,7 @@ function App(){
           {/* collapse / expand all — hidden in beginner mode */}
           {uiMode!=='beginner'&&<div style={{display:'flex',justifyContent:'flex-end',gap:3,
                        padding:'5px 12px 4px',borderBottom:'1px solid #0f172a'}}>
-            <span style={{fontSize:9,color:'#6b7280',letterSpacing:1,alignSelf:'center',marginRight:4}}>SECTIONS</span>
+            <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,alignSelf:'center',marginRight:4}}>SECTIONS</span>
             <button className="tbtn" style={{fontSize:10,padding:'2px 7px'}}
               onClick={()=>setOpen(p=>Object.fromEntries(Object.keys(p).map(k=>[k,false])))}>−</button>
             <button className="tbtn" style={{fontSize:10,padding:'2px 7px'}}
@@ -2484,10 +2484,10 @@ function App(){
             {uiMode==='pro'&&<div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
                          border:'1px solid #1e293b',marginBottom:10,marginTop:-4}}>
-              <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>F CORNER</span>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>F CORNER</span>
               <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.front)}</span>
               <div style={{flex:1,height:1,background:'#1e293b'}}/>
-              <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>R CORNER</span>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>R CORNER</span>
               <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.rear)}</span>
             </div>}
             {uiMode==='pro'&&(()=>{
@@ -2497,28 +2497,28 @@ function App(){
                 <div style={{display:'flex',alignItems:'center',gap:6,
                              padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
                              border:'1px solid #1e293b',marginBottom:4,marginTop:-6}}>
-                  <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>XFER F</span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>XFER F</span>
                   <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(xferF)}/g</span>
                   <div style={{flex:1,height:1,background:'#1e293b'}}/>
-                  <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>XFER R</span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>XFER R</span>
                   <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(xferR)}/g</span>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:6,
                              padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
                              border:'1px solid #1e293b',marginBottom:4}}>
-                  <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>OUT F</span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>OUT F</span>
                   <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.front+xferF)}</span>
                   <div style={{flex:1,height:1,background:'#1e293b'}}/>
-                  <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>OUT R</span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>OUT R</span>
                   <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.rear+xferR)}</span>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:6,
                              padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
                              border:'1px solid #1e293b',marginBottom:10}}>
-                  <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>IN F</span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>IN F</span>
                   <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(Math.max(0,cm.front-xferF))}</span>
                   <div style={{flex:1,height:1,background:'#1e293b'}}/>
-                  <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>IN R</span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>IN R</span>
                   <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(Math.max(0,cm.rear-xferR))}</span>
                 </div>
               </>);
@@ -2527,11 +2527,11 @@ function App(){
               min={0} max={1.5} step={0.01}
               hint="Front downforce fraction from Forza's aero tuning screen. 0.50 = balanced. Above 0.50 = front-heavy aero → more front grip, rear is relatively light → oversteer tendency. Below 0.50 = rear-heavy aero → understeer tendency. Values above 1.00 are possible with certain aero kits. 0.00 means no aero installed — treated as neutral."/>
             {hasAero&&<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-              fontSize:11,color:'#6b7280',padding:'2px 4px',marginTop:-6,marginBottom:2}}>
+              fontSize:11,color:'#94a3b8',padding:'2px 4px',marginTop:-6,marginBottom:2}}>
               <span style={{letterSpacing:1}}>REC. MECH TARGET</span>
               <span style={{color:'#e8c97a',fontFamily:'Courier New'}}>
                 {mechTargetRec.toFixed(2)}
-                <span style={{color:'#6b7280',fontSize:10,marginLeft:5}}>est.</span>
+                <span style={{color:'#94a3b8',fontSize:10,marginLeft:5}}>est.</span>
               </span>
             </div>}
             <Field label="Aero Efficiency" value={ch.aeroEfficiency??0.9} onChange={pCh('aeroEfficiency')}
@@ -2543,7 +2543,7 @@ function App(){
                 const parsed=parseTyre(val);
                 return(
                   <div style={{flex:1}}>
-                    <div style={{fontSize:10,color:'#6b7280',letterSpacing:1,marginBottom:4}}>{label}</div>
+                    <div style={{fontSize:10,color:'#94a3b8',letterSpacing:1,marginBottom:4}}>{label}</div>
                     <input type="text" value={val}
                       onChange={e=>pCh(key)(e.target.value)}
                       placeholder="265/30R19"
@@ -2551,7 +2551,7 @@ function App(){
                               border:`1px solid ${parsed?'#1e293b':'#7f1d1d'}`,borderRadius:2,
                               color:'#e2e8f0',fontFamily:'Courier New',fontSize:12,
                               padding:'4px 6px',outline:'none'}}/>
-                    <div style={{fontSize:9,color:'#6b7280',marginTop:3,fontFamily:'Courier New'}}>
+                    <div style={{fontSize:10,color:'#94a3b8',marginTop:3,fontFamily:'Courier New'}}>
                       {parsed?`Ø ${parsed.diameter.toFixed(0)} mm · r ${parsed.radius.toFixed(1)} mm`:'invalid format'}
                     </div>
                   </div>
@@ -2568,14 +2568,14 @@ function App(){
                 :stabIdx<1.10?['STABLE','#60a5fa']
                 :['PLANTED','#3b82f6'];
               const showRec=gap>0.015;
-              const dimCol='#374151';
+              const dimCol='#94a3b8';
               const box={background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,
                          padding:'4px 7px',display:'flex',justifyContent:'space-between',
                          alignItems:'center'};
               const fmtD=d=>(d>=0?'+':'')+Math.round(d);
               return(<>
                 <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
-                  <span style={{fontSize:9,color:'#94a3b8',letterSpacing:2}}>TYRE SIZE</span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>TYRE SIZE</span>
                   <Hint text="Enter tyre sizes in Forza format (e.g. 265/35R18). Width (first number, in mm) affects how roll stiffness is weighted between axles — wider tyres on one end increase that end's effective grip contribution and shift the mech balance target and ARB split. Aspect ratio and rim diameter determine rolling radius."/>
                 </div>
                 <div style={{display:'flex',gap:8,marginBottom:4}}>
@@ -2585,53 +2585,53 @@ function App(){
                 {/* Dual metric bar */}
                 <div style={{display:'flex',gap:3,marginBottom:showRec?3:8}}>
                   <div style={{flex:1,...box}}>
-                    <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>CHASSIS BAL.</span>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>CHASSIS BAL.</span>
                     <span style={{display:'flex',alignItems:'baseline',gap:3}}>
                       <span style={{fontFamily:'Courier New',fontWeight:700,color:nmCol,fontSize:11}}>{nm.toFixed(2)}</span>
-                      <span style={{fontSize:9,color:nmCol,letterSpacing:1}}>{nmLabel}</span>
+                      <span style={{fontSize:10,color:nmCol,letterSpacing:1}}>{nmLabel}</span>
                     </span>
                   </div>
                   <div style={{flex:1,...box}}>
-                    <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>STABILITY</span>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>STABILITY</span>
                     <span style={{fontFamily:'Courier New',fontSize:11,fontWeight:700,color:stabCol}}>{stabLabel}</span>
                   </div>
                 </div>
                 {/* Recommendation panel */}
                 {showRec&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',
                   borderRadius:2,padding:'6px 7px',marginBottom:8}}>
-                  <div style={{fontSize:9,color:'#94a3b8',letterSpacing:2,marginBottom:5}}>
+                  <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:5}}>
                     REACH {targetBal.toFixed(2)}{hasMechTarget?' · ARB TARGET':' · NEUTRAL'}
                   </div>
                   {/* Tyre row */}
                   <div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
-                    <span style={{fontSize:9,color:'#6b7280',letterSpacing:1,width:38,flexShrink:0}}>TYRES</span>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:38,flexShrink:0}}>TYRES</span>
                     <span style={{flex:1,display:'flex',gap:8,fontFamily:'Courier New',fontSize:10}}>
                       <span style={{color:twFfeas?'#e2e8f0':dimCol}}>
                         F→{twF_rec}
-                        <span style={{fontSize:9,color:twFfeas?'#6b7280':dimCol}}> ({fmtD(dTwF)})</span>
+                        <span style={{fontSize:10,color:twFfeas?'#94a3b8':dimCol}}> ({fmtD(dTwF)})</span>
                       </span>
                       <span style={{color:twRfeas?'#e2e8f0':dimCol}}>
                         R→{twR_rec}
-                        <span style={{fontSize:9,color:twRfeas?'#6b7280':dimCol}}> ({fmtD(dTwR)})</span>
+                        <span style={{fontSize:10,color:twRfeas?'#94a3b8':dimCol}}> ({fmtD(dTwR)})</span>
                       </span>
                     </span>
                   </div>
                   {/* Track row */}
                   <div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
-                    <span style={{fontSize:9,color:'#6b7280',letterSpacing:1,width:38,flexShrink:0}}>TRACK</span>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:38,flexShrink:0}}>TRACK</span>
                     <span style={{flex:1,display:'flex',gap:8,fontFamily:'Courier New',fontSize:10}}>
                       <span style={{color:trackFfeas?'#e2e8f0':dimCol}}>
                         F {fmtD(dTrackF)}mm
-                        {!trackFfeas&&<span style={{fontSize:8,color:dimCol}}> ✗</span>}
+                        {!trackFfeas&&<span style={{fontSize:10,color:dimCol}}> ✗</span>}
                       </span>
                       <span style={{color:trackRfeas?'#e2e8f0':dimCol}}>
                         R {fmtD(dTrackR)}mm
-                        {!trackRfeas&&<span style={{fontSize:8,color:dimCol}}> ✗</span>}
+                        {!trackRfeas&&<span style={{fontSize:10,color:dimCol}}> ✗</span>}
                       </span>
                     </span>
                   </div>
                   {/* Guidance note */}
-                  <div style={{fontSize:9,color:'#4b5563',lineHeight:1.4,marginTop:2}}>
+                  <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.4,marginTop:2}}>
                     {(() => {
                       const allFeasible=[twFfeas,twRfeas,trackFfeas,trackRfeas].some(Boolean);
                       if(!allFeasible) return 'Gap too large for geometry alone — rely on ARBs.';
@@ -2691,10 +2691,10 @@ function App(){
                              padding:'8px 10px',marginBottom:8,marginTop:2}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                     <span style={{display:'flex',alignItems:'center',gap:4}}>
-                      <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>BALANCE GUIDE</span>
+                      <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>BALANCE GUIDE</span>
                       <Hint text="NATURAL — where the chassis sits with weight-matched springs and ARBs (no solver correction). RANGE — suggested mech balance target for your layout and build type. TARGET — your current Mech Balance Target; green ✓ = in range, ↑ OS / ↓ US = outside. AERO BIAS — how much the aero is pushing the car's handling in one direction, and which way to offset your target to compensate. The bar circle marks the aero-adjusted aim point within the range."/>
                     </span>
-                    <span style={{fontSize:10,color:'#475569'}}>{_layout} · {_build.toUpperCase()}</span>
+                    <span style={{fontSize:10,color:'#94a3b8'}}>{_layout} · {_build.toUpperCase()}</span>
                   </div>
                   {(()=>{
                     const _aeroBiasNonNeutral=hasAero&&Math.abs(bAero)>1;
@@ -2709,19 +2709,19 @@ function App(){
                                    width:0,height:0,borderLeft:'5px solid transparent',borderRight:'5px solid transparent',borderTop:`7px solid ${_tc}`}}/>
                     </div>);
                   })()}
-                  <div style={{display:'flex',justifyContent:'space-between',fontSize:8,color:'#374151',marginBottom:6}}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#94a3b8',marginBottom:6}}>
                     <span>0.40</span><span>0.65</span><span>0.90</span>
                   </div>
                   <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:'3px 0'}}>
-                    <span style={{fontSize:10,color:'#4b5563',display:'flex',alignItems:'center',gap:4}}>
+                    <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
                       <span style={{display:'inline-block',width:2,height:8,background:'#334155',borderRadius:1,flexShrink:0}}/> NATURAL
                     </span>
-                    <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:'#64748b'}}>{natMechBalance.toFixed(2)}</span>
-                    <span style={{fontSize:10,color:'#4b5563',display:'flex',alignItems:'center',gap:4}}>
+                    <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:'#cbd5e1'}}>{natMechBalance.toFixed(2)}</span>
+                    <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
                       <span style={{display:'inline-block',width:10,height:3,background:'#14532d',borderRadius:1,flexShrink:0}}/> RANGE
                     </span>
                     <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:'#16a34a'}}>{_lo.toFixed(2)} – {_hi.toFixed(2)}</span>
-                    <span style={{fontSize:10,color:'#4b5563',display:'flex',alignItems:'center',gap:4}}>
+                    <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
                       <span style={{display:'inline-block',width:0,height:0,borderLeft:'4px solid transparent',borderRight:'4px solid transparent',borderTop:`6px solid ${_tc}`,flexShrink:0}}/> TARGET
                     </span>
                     <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:_tc}}>
@@ -2731,10 +2731,10 @@ function App(){
                       const _push=bAero/100; // positive=OS push (front-heavy aero), negative=US push
                       const _abs=Math.abs(_push);
                       const _isOS=bAero>1; const _isUS=bAero<-1;
-                      const _col=_isOS?'#60a5fa':_isUS?'#f59e0b':'#475569';
+                      const _col=_isOS?'#60a5fa':_isUS?'#f59e0b':'#94a3b8';
                       const _dot=_isOS?'#3b82f6':_isUS?'#ca8a04':'#334155';
                       return(<>
-                        <span style={{fontSize:10,color:'#4b5563',display:'flex',alignItems:'center',gap:4}}>
+                        <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
                           <span style={{display:'inline-block',width:6,height:6,background:_dot,borderRadius:'50%',flexShrink:0,opacity:_isOS||_isUS?0.95:0.35}}/> AERO BIAS
                         </span>
                         <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:_col}}>
@@ -2760,10 +2760,10 @@ function App(){
             <div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
                          border:'1px solid #1e293b',marginBottom:6,marginTop:-6}}>
-              <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>ROLL</span>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ROLL</span>
               <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,
                             color:tune.rollClamped?'#f59e0b':'#e2e8f0'}}>{tune.rollDeg.toFixed(1)}</span>
-              <span style={{fontSize:10,color:'#6b7280'}}>°</span>
+              <span style={{fontSize:10,color:'#94a3b8'}}>°</span>
               <svg width="100%" height="24" viewBox="0 0 100 24" style={{flex:1,overflow:'visible',margin:'0 4px'}}>
                 <line x1="5" y1="20" x2="95" y2="20" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
                 {(fe.arbMode??'auto')==='roll'&&(
@@ -2777,26 +2777,26 @@ function App(){
                   <line x1="20" y1="14" x2="80" y2="14"
                     stroke={tune.rollClamped?'#f59e0b':'#e2e8f0'} strokeWidth="1.5" strokeLinecap="round"/>
                   <rect x="15" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
-                    stroke={tune.rollClamped?'#f59e0b':'#64748b'} strokeWidth="1.5"/>
+                    stroke={tune.rollClamped?'#f59e0b':'#cbd5e1'} strokeWidth="1.5"/>
                   <rect x="80" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
-                    stroke={tune.rollClamped?'#f59e0b':'#64748b'} strokeWidth="1.5"/>
+                    stroke={tune.rollClamped?'#f59e0b':'#cbd5e1'} strokeWidth="1.5"/>
                 </g>
               </svg>
-              <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>ARB SHARE</span>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ARB SHARE</span>
               <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{Math.round(tune.arbShare)}</span>
-              <span style={{fontSize:10,color:'#6b7280'}}>%</span>
+              <span style={{fontSize:10,color:'#94a3b8'}}>%</span>
             </div>
             {/* roll stiffness split bar */}
             <div style={{display:'flex',height:3,borderRadius:2,overflow:'hidden',marginBottom:2}}>
               <div style={{flex:Math.max(0,100-tune.arbShare),background:'#3b82f6',opacity:0.55,transition:'flex .2s'}}/>
               <div style={{flex:Math.max(0,tune.arbShare),background:'#f59e0b',opacity:0.75,transition:'flex .2s'}}/>
             </div>
-            <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'#6b7280',marginBottom:10}}>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#94a3b8',marginBottom:10}}>
               <span>SPRINGS {Math.round(100-tune.arbShare)}%</span>
               <span>ARBs {Math.round(tune.arbShare)}%</span>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
-              <span style={{fontSize:12,color:'#6b7280'}}>Stiffness Mode</span>
+              <span style={{fontSize:12,color:'#94a3b8'}}>Stiffness Mode</span>
               <Hint text="AUTO derives ARB stiffness from the car's natural roll tendency — heavier, taller, softer cars get more ARB contribution. ROLL ° targets a specific body roll angle. SHARE % directly sets ARBs as a fraction of total roll stiffness."/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${(fe.arbMode??'auto')==='auto'?' on':''}`}
@@ -2818,7 +2818,7 @@ function App(){
                 min={0} max={80} step={1} unit="%"
                 hint="Fraction of total roll stiffness supplied by ARBs. 0% = springs handle all roll resistance. 20–30% is typical sport. Higher = stiffer bars relative to springs, more abrupt load transfer."/>}
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10,marginTop:4}}>
-              <span style={{fontSize:12,color:'#6b7280'}}>Balance Mode</span>
+              <span style={{fontSize:12,color:'#94a3b8'}}>Balance Mode</span>
               <Hint text="WEIGHT splits front/rear ARB from the car's weight distribution, adjusted by the ARB Bias slider. MECH solves the ARB split to hit a target mech balance value. CO-SOLVE adjusts both rear spring stiffness and ARB split together — Spring Share controls how much each contributes."/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${(fe.arbBalMode??'weight')==='weight'?' on':''}`}
@@ -2833,22 +2833,22 @@ function App(){
               <div style={{display:'flex',alignItems:'center',gap:8,
                            padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
                            border:'1px solid #1e293b',marginBottom:10}}>
-                <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>ARB SPLIT</span>
+                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ARB SPLIT</span>
                 <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
                   F {tune.balArbSplit!=null?100-tune.balArbSplit:'—'}% / R {tune.balArbSplit??'—'}%
                 </span>
               </div>
               {hasAero
                 ?<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-                    fontSize:11,color:'#6b7280',padding:'4px 8px',background:'#060c17',
+                    fontSize:11,color:'#94a3b8',padding:'4px 8px',background:'#060c17',
                     borderRadius:2,border:'1px solid #1e293b',marginBottom:8}}>
                   <span style={{letterSpacing:1}}>REC. AERO BAL</span>
                   <span style={{color:'#7ab8e8',fontFamily:'Courier New'}}>
                     {aeroBalRec.toFixed(2)}
-                    <span style={{color:'#6b7280',fontSize:10,marginLeft:5}}>est.</span>
+                    <span style={{color:'#94a3b8',fontSize:10,marginLeft:5}}>est.</span>
                   </span>
                 </div>
-                :<div style={{fontSize:10,color:'#6b7280',textAlign:'center',marginBottom:8}}>
+                :<div style={{fontSize:10,color:'#94a3b8',textAlign:'center',marginBottom:8}}>
                   Set aero balance in CHASSIS to see aero recommendation
                 </div>}
             </>}
@@ -2857,7 +2857,7 @@ function App(){
                 <div style={{flex:1,display:'flex',alignItems:'center',gap:8,
                              padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
                              border:'1px solid #1e293b'}}>
-                  <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>ARB SPLIT</span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ARB SPLIT</span>
                   <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
                     F {tune.balArbSplit!=null?100-tune.balArbSplit:'—'}% / R {tune.balArbSplit??'—'}%
                   </span>
@@ -2865,7 +2865,7 @@ function App(){
                 <div style={{flex:1,display:'flex',alignItems:'center',gap:8,
                              padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
                              border:'1px solid #1e293b'}}>
-                  <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>SOLVED REAR Hz</span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>SOLVED REAR Hz</span>
                   <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
                     {tune.rHz!=null?tune.rHz.toFixed(2):'—'} Hz
                   </span>
@@ -2873,15 +2873,15 @@ function App(){
               </div>
               {hasAero
                 ?<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-                    fontSize:11,color:'#6b7280',padding:'4px 8px',background:'#060c17',
+                    fontSize:11,color:'#94a3b8',padding:'4px 8px',background:'#060c17',
                     borderRadius:2,border:'1px solid #1e293b',marginBottom:8}}>
                   <span style={{letterSpacing:1}}>REC. AERO BAL</span>
                   <span style={{color:'#7ab8e8',fontFamily:'Courier New'}}>
                     {aeroBalRec.toFixed(2)}
-                    <span style={{color:'#6b7280',fontSize:10,marginLeft:5}}>est.</span>
+                    <span style={{color:'#94a3b8',fontSize:10,marginLeft:5}}>est.</span>
                   </span>
                 </div>
-                :<div style={{fontSize:10,color:'#6b7280',textAlign:'center',marginBottom:8}}>
+                :<div style={{fontSize:10,color:'#94a3b8',textAlign:'center',marginBottom:8}}>
                   Set aero balance in CHASSIS to see aero recommendation
                 </div>}
               <FeelSlider label="SPRING SHARE" value={fe.springShare??50} onChange={pFe('springShare')}
@@ -2914,7 +2914,7 @@ function App(){
               return(<>
                 {/* Ride reference toggle — always visible, works in CO-SOLVE via Hz inversion */}
                 <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
-                  <span style={{flex:1,fontSize:9,color:'#6b7280',letterSpacing:1}}>RIDE REF.<Hint text="Which axle the stiffness slider controls. FRONT: slider sets front Hz, rear is derived. REAR: slider sets rear Hz, front is derived. SHARED: slider sets the average of both axles, the mode below sets the front/rear ratio. Switching never changes the actual front or rear frequencies — it just moves which axle the slider follows. Works in CO-SOLVE too."/></span>
+                  <span style={{flex:1,fontSize:10,color:'#94a3b8',letterSpacing:1}}>RIDE REF.<Hint text="Which axle the stiffness slider controls. FRONT: slider sets front Hz, rear is derived. REAR: slider sets rear Hz, front is derived. SHARED: slider sets the average of both axles, the mode below sets the front/rear ratio. Switching never changes the actual front or rear frequencies — it just moves which axle the slider follows. Works in CO-SOLVE too."/></span>
                   <button className={`tog${rRef==='front'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,
                       rideRef:'front',
@@ -2938,7 +2938,7 @@ function App(){
                   min={0.80} max={3.50} step={0.01} leftLabel="0.80" rightLabel="3.50"
                   readout={<span style={{display:'flex',alignItems:'center',gap:3}}>
                     <input type="number" className="num"
-                      style={{width:44,fontSize:11,fontWeight:700,color:'#6b7280',
+                      style={{width:44,fontSize:11,fontWeight:700,color:'#94a3b8',
                               background:'transparent',fontFamily:'Courier New',
                               borderRadius:2,textAlign:'right',padding:'0 2px',
                               border:hzDraft!==null?'1px solid #334155':'1px solid transparent'}}
@@ -2952,7 +2952,7 @@ function App(){
                         setHzDraft(null);
                       }}
                       onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}/>
-                    <span style={{fontSize:11,color:'#6b7280',fontFamily:'Courier New'}}>Hz</span>
+                    <span style={{fontSize:11,color:'#94a3b8',fontFamily:'Courier New'}}>Hz</span>
                   </span>}
                   hint={rRef==='rear'
                     ?'Rear spring frequency — the fixed reference. The mode below derives front Hz from it. Click the Hz value to type directly. Typical range: 1.0–1.8 Hz for street, 1.8–2.6 Hz for track.'
@@ -2966,7 +2966,7 @@ function App(){
               const isShared=(physics.rideRef??'front')==='shared';
               return<>
                 <div style={{display:'flex',alignItems:'center',marginBottom:3,marginTop:-2}}>
-                  <span style={{fontSize:9,color:'#6b7280',letterSpacing:1,flex:1}}>Hz MODE<Hint text="How the secondary axle frequency is derived. FLAT RIDE: rear Hz is set from the target speed's suspension timing — the mathematically ideal pitch-cancelling ratio. MULTIPLIER: rear Hz is a fixed ratio of front Hz. MECH: ratio derived from the car's weight distribution, track widths, and tyre widths. INDEPENDENT: rear Hz is set manually, completely free. Hidden in CO-SOLVE — rear Hz is solved automatically."/></span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,flex:1}}>Hz MODE<Hint text="How the secondary axle frequency is derived. FLAT RIDE: rear Hz is set from the target speed's suspension timing — the mathematically ideal pitch-cancelling ratio. MULTIPLIER: rear Hz is a fixed ratio of front Hz. MECH: ratio derived from the car's weight distribution, track widths, and tyre widths. INDEPENDENT: rear Hz is set manually, completely free. Hidden in CO-SOLVE — rear Hz is solved automatically."/></span>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:isShared?'1fr 1fr 1fr':'1fr 1fr',gap:3,marginBottom:10}}>
                   <button className={`tog${(fe.rearHzMode??'flatRide')==='flatRide'?' on':''}`}
@@ -3025,26 +3025,26 @@ function App(){
               ? <div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,
                              padding:'6px 10px',marginBottom:6}}>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                    <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>
                       {isShared?'SOLVED SPLIT':'SOLVED '+secLabel.toUpperCase()+' Hz'}
                     </span>
                     {isShared
                       ?<><span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:physics.rearHzClamped?'#f59e0b':'#e2e8f0'}}>F {physics.frontHz.toFixed(2)}</span>
-                        <span style={{fontSize:10,color:'#6b7280'}}>Hz</span>
+                        <span style={{fontSize:10,color:'#94a3b8'}}>Hz</span>
                         <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:physics.rearHzClamped?'#f59e0b':'#e2e8f0'}}>R {physics.rearHz.toFixed(2)}</span>
-                        <span style={{fontSize:10,color:'#6b7280'}}>Hz</span></>
+                        <span style={{fontSize:10,color:'#94a3b8'}}>Hz</span></>
                       :<><span style={{fontFamily:'Courier New',fontSize:14,fontWeight:700,
                                     color:physics.rearHzClamped?'#f59e0b':'#e2e8f0'}}>
                           {secHz.toFixed(2)}
                         </span>
-                        <span style={{fontSize:10,color:'#6b7280'}}>Hz</span></>}
-                    {physics.rearHzClamped&&<span style={{fontSize:9,color:'#f59e0b',letterSpacing:1}}>CLAMPED</span>}
+                        <span style={{fontSize:10,color:'#94a3b8'}}>Hz</span></>}
+                    {physics.rearHzClamped&&<span style={{fontSize:10,color:'#f59e0b',letterSpacing:1}}>CLAMPED</span>}
                     <span style={{flex:1}}/>
-                    <span style={{fontFamily:'Courier New',fontSize:11,color:'#6b7280'}}>
+                    <span style={{fontFamily:'Courier New',fontSize:11,color:'#94a3b8'}}>
                       ×{(physics.rearHz/physics.frontHz).toFixed(2)}
                     </span>
                   </div>
-                  <div style={{fontSize:9,color:'#4b5563',lineHeight:1.4}}>
+                  <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.4}}>
                     {isShared?'Both springs solved from average to reach':'Rear spring stiffness solved to reach'} mech balance target{' '}
                     <span style={{color:'#9ca3af',fontFamily:'Courier New'}}>{(fe.arbBalTarget??0.65).toFixed(2)}</span>.
                     {' '}{isShared?'Avg Stiffness slider shifts both together.':'Set target in ARB section above.'}
@@ -3057,7 +3057,7 @@ function App(){
                   leftLabel="0.80" rightLabel="4.00"
                   readout={<span style={{display:'flex',alignItems:'center',gap:3}}>
                     <input type="number" className="num"
-                      style={{width:44,fontSize:11,fontWeight:700,color:'#6b7280',
+                      style={{width:44,fontSize:11,fontWeight:700,color:'#94a3b8',
                               background:'transparent',fontFamily:'Courier New',
                               borderRadius:2,textAlign:'right',padding:'0 2px',
                               border:rearHzDraft!==null?'1px solid #334155':'1px solid transparent'}}
@@ -3071,7 +3071,7 @@ function App(){
                         setRearHzDraft(null);
                       }}
                       onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}/>
-                    <span style={{fontSize:11,color:'#6b7280',fontFamily:'Courier New'}}>Hz</span>
+                    <span style={{fontSize:11,color:'#94a3b8',fontFamily:'Courier New'}}>Hz</span>
                   </span>}
                   hint={rRef==='rear'
                     ?"Front spring frequency set independently. Full decoupling — set rear via Ride Stiffness above, set front here."
@@ -3080,30 +3080,30 @@ function App(){
             <div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
                          border:'1px solid #1e293b',marginBottom:10,marginTop:-6}}>
-              <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>FRONT</span>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>FRONT</span>
               <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{physics.frontHz.toFixed(2)}</span>
-              <span style={{fontSize:10,color:'#6b7280'}}>Hz</span>
+              <span style={{fontSize:10,color:'#94a3b8'}}>Hz</span>
               <div style={{flex:1,height:1,background:'#1e293b'}}/>
-              <span style={{fontSize:10,color:'#6b7280',letterSpacing:0.5,fontFamily:'Courier New'}}>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:0.5,fontFamily:'Courier New'}}>
                 {`×${(tune.rHz/physics.frontHz).toFixed(2)}`}
               </span>
               <div style={{flex:1,height:1,background:'#1e293b'}}/>
-              <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>REAR</span>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>REAR</span>
               <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{tune.rHz.toFixed(2)}</span>
-              <span style={{fontSize:10,color:'#6b7280'}}>Hz</span>
+              <span style={{fontSize:10,color:'#94a3b8'}}>Hz</span>
             </div>
             {/* spring rate strip */}
             <div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
                          border:'1px solid #1e293b',marginBottom:8,marginTop:-4}}>
-              <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>SPR F</span>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>SPR F</span>
               <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>
                 {metricUnits
                   ?`${(tune.springF*NMM_PER_LBIN).toFixed(1)} N/mm`
                   :`${Math.round(tune.springF)} lb/in`}
               </span>
               <div style={{flex:1,height:1,background:'#1e293b'}}/>
-              <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>SPR R</span>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>SPR R</span>
               <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>
                 {metricUnits
                   ?`${(tune.springR*NMM_PER_LBIN).toFixed(1)} N/mm`
@@ -3182,7 +3182,7 @@ function App(){
               const worst=Math.max(tune.settle,tune.settleR);
               const[cat,col]=worst<0.25?['STIFF','#ef4444']:worst<0.50?['SPORT','#f59e0b']:
                              worst<0.80?['ROAD','#9ca3af']:worst<1.20?['SOFT','#60a5fa']:['FLOAT','#818cf8'];
-              const lbl=t=><span style={{fontSize:9,color:'#6b7280',letterSpacing:1,width:44,flexShrink:0}}>{t}</span>;
+              const lbl=t=><span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:44,flexShrink:0}}>{t}</span>;
               const val=v=><span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{v}</span>;
               return(
                 <div style={{padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
@@ -3190,14 +3190,14 @@ function App(){
                   {biased&&(
                     <div style={{display:'flex',marginBottom:3}}>
                       <span style={{width:44,flexShrink:0}}/>
-                      <span style={{flex:1,fontSize:9,color:'#6b7280',letterSpacing:1}}>FRONT</span>
-                      <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>REAR</span>
+                      <span style={{flex:1,fontSize:10,color:'#94a3b8',letterSpacing:1}}>FRONT</span>
+                      <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>REAR</span>
                     </div>
                   )}
                   <div style={{display:'flex',alignItems:'center',marginBottom:biased?2:0}}>
                     {lbl('REB')}
                     {biased?<>{val(`${Math.round(physics.zetaF)}%`)}<div style={{flex:1}}/>{val(`${Math.round(physics.zetaR)}%`)}</>
-                           :<>{val(`${Math.round(physics.reboundZeta)}%`)}<div style={{flex:1,height:1,background:'#1e293b',margin:'0 6px'}}/><span style={{fontSize:9,color:'#6b7280',letterSpacing:1,marginRight:6}}>BUMP</span>{val(`${Math.round(physics.bumpZeta)}%`)}</>}
+                           :<>{val(`${Math.round(physics.reboundZeta)}%`)}<div style={{flex:1,height:1,background:'#1e293b',margin:'0 6px'}}/><span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,marginRight:6}}>BUMP</span>{val(`${Math.round(physics.bumpZeta)}%`)}</>}
                   </div>
                   {biased&&(
                     <div style={{display:'flex',alignItems:'center',marginBottom:2}}>
@@ -3209,7 +3209,7 @@ function App(){
                     {lbl('SETTLE')}
                     {biased?<>{val(`${tune.settle.toFixed(2)}s`)}<div style={{flex:1}}/>{val(`${tune.settleR.toFixed(2)}s`)}</>
                            :<>{val(`${tune.settle.toFixed(2)}s`)}</>}
-                    <span style={{fontSize:8,color:col,letterSpacing:1,marginLeft:biased?4:6}}>{cat}</span>
+                    <span style={{fontSize:10,color:col,letterSpacing:1,marginLeft:biased?4:6}}>{cat}</span>
                   </div>
                 </div>
               );
@@ -3219,7 +3219,7 @@ function App(){
           {uiMode==='pro'&&<div id="zone-alignment" style={dim('alignment')}><Sec title="ALIGNMENT" open={open.alignment} onToggle={tog('alignment')}
             onReset={()=>setAl({...DEF_AL})}>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
-              <span style={{fontSize:12,color:'#6b7280'}}>Alignment Mode</span>
+              <span style={{fontSize:12,color:'#94a3b8'}}>Alignment Mode</span>
               <Hint text="AUTO derives camber, toe, and caster from build type, layout, CG height, and roll angle. MANUAL lets you enter specific values — seeds from the current AUTO recommendation when switching."/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${!al.alignManual?' on':''}`}
@@ -3268,7 +3268,7 @@ function App(){
             <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}/>
             {uiMode==='pro'&&<div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,marginBottom:10}}>
-              <span style={{fontSize:12,color:'#6b7280'}}>Differential Mode</span>
+              <span style={{fontSize:12,color:'#94a3b8'}}>Differential Mode</span>
               <Hint text="AUTO derives lock values from layout, build type, weight bias, and the intent sliders. MANUAL exposes all individual lock percentages directly."/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${!dr.diffManual?' on':''}`}
@@ -3378,7 +3378,7 @@ function App(){
           {uiMode==='pro'&&<div id="zone-brakes" style={dim('brakes')}><Sec title="BRAKES" open={open.brakes} onToggle={tog('brakes')}
             onReset={()=>setBr({...DEF_BR})}>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
-              <span style={{fontSize:12,color:'#6b7280'}}>Brake Mode</span>
+              <span style={{fontSize:12,color:'#94a3b8'}}>Brake Mode</span>
               <Hint text="AUTO derives a recommended brake balance from your front weight bias and build type. MANUAL lets you set specific values."/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${!br.brakeManual?' on':''}`}
@@ -3490,7 +3490,7 @@ function App(){
           <Card title={`BRAKES${br.brakeManual?' · MANUAL':''}`}
             hint="Brake balance and pressure starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. Fine-tune in 1% steps by feel.">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
-              <Readout label="BALANCE" value={brakeBias} unit="% F"                ctx={brakeBias>55?['FRONT','#3b82f6']:brakeBias<50?['REAR','#ef4444']:['NEUTRAL','#64748b']}/>
+              <Readout label="BALANCE" value={brakeBias} unit="% F"                ctx={brakeBias>55?['FRONT','#3b82f6']:brakeBias<50?['REAR','#ef4444']:['NEUTRAL','#cbd5e1']}/>
               <Readout label="PRESSURE" value={brakePressure} unit="%" decimals={0}/>
             </div>
           </Card>
@@ -3504,17 +3504,17 @@ function App(){
               :`Starting point — fine-tune by feel in 1% steps. Front decel at 0 minimises entry understeer. Rear decel low for rotation. Center ${diff.center}% rear.`}>
             {diff.layout==='AWD'?(
               <>
-                <div style={{fontSize:9,color:'#94a3b8',letterSpacing:2,marginBottom:3}}>FRONT AXLE</div>
+                <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:3}}>FRONT AXLE</div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
                   <Readout label="ACCEL" value={diff.frontAccel} unit="%" decimals={0} ctx={diffCtx(diff.frontAccel)}/>
                   <Readout label="DECEL" value={diff.frontDecel} unit="%" decimals={0} ctx={diffCtx(diff.frontDecel)}/>
                 </div>
-                <div style={{fontSize:9,color:'#94a3b8',letterSpacing:2,marginBottom:3}}>REAR AXLE</div>
+                <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:3}}>REAR AXLE</div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
                   <Readout label="ACCEL" value={diff.rearAccel} unit="%" decimals={0} ctx={diffCtx(diff.rearAccel)}/>
                   <Readout label="DECEL" value={diff.rearDecel} unit="%" decimals={0} ctx={diffCtx(diff.rearDecel)}/>
                 </div>
-                <div style={{fontSize:9,color:'#94a3b8',letterSpacing:2,marginBottom:3}}>CENTER</div>
+                <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:3}}>CENTER</div>
                 <Readout label="SPLIT" value={diff.center} unit="% rear" decimals={0} ctx={diffCtx(diff.center)}/>
               </>
             ):(
@@ -3528,11 +3528,11 @@ function App(){
               const fmtBias=(v,label)=>{
                 const abs=Math.abs(v).toFixed(1);
                 const neutral=Math.abs(v)<=0.05;
-                const col=neutral?'#4b5563':v>0?'#ef4444':'#3b82f6'; // positive=OS
+                const col=neutral?'#94a3b8':v>0?'#ef4444':'#3b82f6'; // positive=OS
                 const arrow=neutral?'±':v>0?'→OS':'→US';
                 return(
                   <div style={{display:'flex',alignItems:'baseline',gap:4}}>
-                    <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>{label}</span>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>{label}</span>
                     <span style={{fontFamily:'Courier New',fontSize:12,fontWeight:700,color:col}}>
                       {arrow} {neutral?'0.0':abs}
                     </span>
@@ -3565,8 +3565,8 @@ function App(){
                  onClick={()=>setOpen(p=>({...p,presetsOpen:!p.presetsOpen}))}
                  style={{display:'flex',alignItems:'center',justifyContent:'space-between',
                          padding:'10px 12px',cursor:'pointer',userSelect:'none'}}>
-              <span style={{fontSize:9,color:'#94a3b8',letterSpacing:2}}>PRESETS</span>
-              <span style={{fontSize:11,color:'#6b7280'}}>{open.presetsOpen?'▲':'▼'}</span>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>PRESETS</span>
+              <span style={{fontSize:11,color:'#94a3b8'}}>{open.presetsOpen?'▲':'▼'}</span>
             </div>
             {/* 3×2 slot grid (2 cols, 3 rows) */}
             {open.presetsOpen&&<div style={{padding:'0 12px 8px'}}>
@@ -3637,8 +3637,8 @@ function App(){
                  })}
                  style={{padding:'10px 14px',cursor:'pointer'}}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
-                <span style={{fontSize:10,color:'#6b7280',letterSpacing:2}}>HANDLING BALANCE</span>
-                <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>·</span>
+                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>HANDLING BALANCE</span>
+                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>·</span>
                 <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,
                               color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#ef4444':'#3b82f6'}}>
                   {`${bTotFull>=0?'+':''}${bTotFull.toFixed(1)}`}
@@ -3648,7 +3648,7 @@ function App(){
                   {Math.abs(bTotFull)<3?'NEUTRAL':bTotFull>0?'OVERSTEER':'UNDERSTEER'}
                 </span>
                 <span style={{flex:1}}/>
-                <span style={{fontSize:10,color:'#6b7280'}}>
+                <span style={{fontSize:10,color:'#94a3b8'}}>
                   {open.balanceExpanded?'▲':'▼'}
                 </span>
               </div>
@@ -3686,9 +3686,9 @@ function App(){
                   }}/>;
                 })()}
                 <div style={{position:'absolute',left:5,top:'50%',transform:'translateY(-50%)',
-                             fontSize:9,color:'#3b82f6',letterSpacing:1,fontWeight:700}}>US</div>
+                             fontSize:10,color:'#3b82f6',letterSpacing:1,fontWeight:700}}>US</div>
                 <div style={{position:'absolute',right:5,top:'50%',transform:'translateY(-50%)',
-                             fontSize:9,color:'#ef4444',letterSpacing:1,fontWeight:700}}>OS</div>
+                             fontSize:10,color:'#ef4444',letterSpacing:1,fontWeight:700}}>OS</div>
               </div>
               {/* stability / responsiveness bar */}
               {(()=>{
@@ -3702,18 +3702,18 @@ function App(){
                     {p!==0&&<div style={{position:'absolute',top:2,bottom:2,borderRadius:1,
                                         background:p>0?'#f59e0b40':'#22c55e40',...fs}}/>}
                     <div style={{position:'absolute',left:5,top:'50%',transform:'translateY(-50%)',
-                                 fontSize:9,color:'#22c55e',letterSpacing:1,fontWeight:700}}>STABLE</div>
+                                 fontSize:10,color:'#22c55e',letterSpacing:1,fontWeight:700}}>STABLE</div>
                     <div style={{position:'absolute',right:5,top:'50%',transform:'translateY(-50%)',
-                                 fontSize:9,color:'#f59e0b',letterSpacing:1,fontWeight:700}}>AGILE</div>
+                                 fontSize:10,color:'#f59e0b',letterSpacing:1,fontWeight:700}}>AGILE</div>
                   </div>
                 );
               })()}
               {/* bar tick legend */}
               <div style={{display:'flex',gap:10,marginTop:3,paddingLeft:2,alignItems:'center'}}>
-                {Math.abs(tune.bTot)>0.5&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:9,color:'#4b5563'}}>
+                {Math.abs(tune.bTot)>0.5&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:10,color:'#94a3b8'}}>
                   <span style={{display:'inline-block',width:1,height:8,background:'#4ade80',opacity:0.75,flexShrink:0}}/>MECH
                 </span>}
-                {Math.abs(bTotFull-tune.bTot)>0.5&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:9,color:'#4b5563'}}>
+                {Math.abs(bTotFull-tune.bTot)>0.5&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:10,color:'#94a3b8'}}>
                   <span style={{display:'inline-block',width:1,height:8,background:'#818cf8',opacity:0.75,flexShrink:0}}/>BASELINE
                 </span>}
                 {(Math.abs(tune.bTot)>0.5||Math.abs(bTotFull-tune.bTot)>0.5)&&
@@ -3723,7 +3723,7 @@ function App(){
               {(tune.mechBalance!=null||(ch.aeroBalance??0.5)!==0.5&&(ch.aeroBalance??0.5)>=0.05)&&
                 <div style={{display:'flex',alignItems:'center',gap:10,marginTop:5,flexWrap:'wrap',rowGap:3}}>
                   {tune.mechBalance!=null&&
-                    <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>
                       MECH <span style={{fontFamily:'Courier New',color:'#94a3b8',fontWeight:700}}>
                         {tune.mechBalance.toFixed(2)}
                       </span>
@@ -3731,12 +3731,12 @@ function App(){
                   {(ch.aeroBalance??0.5)!==0.5&&(ch.aeroBalance??0.5)>=0.05&&(()=>{
                     const[alabel,acol]=aeroLoadCtx(ch.aeroEfficiency??0.9);
                     return(
-                      <span style={{fontSize:10,color:'#6b7280',letterSpacing:1}}>
+                      <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>
                         AERO <span style={{fontFamily:'Courier New',color:'#94a3b8',fontWeight:700}}>
                           {(ch.aeroBalance??0.5).toFixed(2)}
                         </span>
                         {' '}<span style={{color:acol,background:acol+'18',border:`1px solid ${acol}44`,
-                                         borderRadius:2,padding:'1px 4px',letterSpacing:1,fontSize:9}}>
+                                         borderRadius:2,padding:'1px 4px',letterSpacing:1,fontSize:10}}>
                           {alabel}
                         </span>
                       </span>
@@ -3750,10 +3750,10 @@ function App(){
                 <div style={{display:'flex',justifyContent:'flex-end',gap:4,padding:'6px 0 4px'}}>
                   {(()=>{
                     const bs={background:'none',border:'1px solid #1e293b',borderRadius:2,
-                      fontFamily:'Courier New',fontSize:9,padding:'3px 8px',cursor:'pointer',letterSpacing:1};
+                      fontFamily:'Courier New',fontSize:10,padding:'3px 8px',cursor:'pointer',letterSpacing:1};
                     return(<>
-                      <button style={{...bs,color:'#6b7280'}} onClick={e=>{e.stopPropagation();openBalTut();}}>? GUIDE</button>
-                      <button style={{...bs,color:'#6b7280'}} onClick={e=>{e.stopPropagation();setOpen(p=>({...p,balanceExpanded:false}));}}>✕ CLOSE</button>
+                      <button style={{...bs,color:'#94a3b8'}} onClick={e=>{e.stopPropagation();openBalTut();}}>? GUIDE</button>
+                      <button style={{...bs,color:'#94a3b8'}} onClick={e=>{e.stopPropagation();setOpen(p=>({...p,balanceExpanded:false}));}}>✕ CLOSE</button>
                     </>);
                   })()}
                 </div>
@@ -3765,7 +3765,7 @@ function App(){
                   mechBalance={null}/>
                 {/* STABLE / AGILE factor breakdown */}
                 <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid #0f172a'}}>
-                  <span style={{fontSize:9,color:'#94a3b8',letterSpacing:2}}>STABLE ←————————→ AGILE</span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>STABLE ←————————→ AGILE</span>
                   {[
                     {label:'SPRINGS',val:agileFactors.hzNorm,hint:'Stiffer springs increase ride frequency and shift feel toward agile.'},
                     {label:'ARB',val:agileFactors.arbNorm,hint:'Higher ARB values reduce body roll, shifting feel toward agile.'},
@@ -3776,13 +3776,13 @@ function App(){
                     {label:'BIAS',val:agileFactors.biasNorm,hint:'More rear-heavy weight bias lowers polar moment, making the car rotate more easily.'},
                   ].map(({label,val,hint})=>{
                     const p=Math.round((val-0.5)*100);
-                    const c=p>15?'#f59e0b':p<-15?'#22c55e':'#64748b';
+                    const c=p>15?'#f59e0b':p<-15?'#22c55e':'#cbd5e1';
                     const barW=Math.min(50,Math.abs(p));
                     const barStyle=p>=0?{left:'50%',width:`${barW}%`}:{right:'50%',width:`${barW}%`};
                     return(
                       <div key={label} style={{display:'flex',alignItems:'center',gap:6,marginTop:3}}>
                         <div style={{width:50,display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
-                          <span style={{fontSize:9,color:'#6b7280',letterSpacing:1}}>{label}</span>
+                          <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>{label}</span>
                           <Hint text={hint}/>
                         </div>
                         <div style={{flex:1,position:'relative',height:6,background:'#0f172a',borderRadius:2}}>
