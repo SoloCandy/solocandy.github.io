@@ -227,10 +227,20 @@ const feelToPhysics=(ch,fe)=>{
       if(arbBalModeEarly==='weight'){
         if((fe.arbMode??'auto')==='share') _p_m=Math.max(0,Math.min(0.99,(fe.arbShareMan??20)/100));
         else if((fe.arbMode??'auto')==='auto'){
-          const _om2=Math.pow(avgHz*2*Math.PI,2);
-          const _rsSp_est=_om2*(m_m.front*ch.trackF*ch.trackF+m_m.rear*ch.trackR*ch.trackR)/2;
-          const _nRoll=_rsSp_est>0?(ch.weight/KG_TO_LB*9.81*(ch.cgHeight-ROLL_CENTER_HEIGHT)/_rsSp_est)*(180/Math.PI):5;
-          _p_m=Math.max(5,Math.min(50,_nRoll*7))/100;
+          // Two-pass: first pass uses avgHz as proxy; second uses corrected Hz so the
+          // auto share assumed here matches what computeTune will settle on.
+          let _estF=avgHz,_estR=avgHz;
+          for(let _i=0;_i<2;_i++){
+            const _rsSp=(Math.pow(_estF*2*Math.PI,2)*m_m.front*ch.trackF*ch.trackF
+                        +Math.pow(_estR*2*Math.PI,2)*m_m.rear*ch.trackR*ch.trackR)/2;
+            const _nRoll=_rsSp>0?(ch.weight/KG_TO_LB*9.81*(ch.cgHeight-ROLL_CENTER_HEIGHT)/_rsSp)*(180/Math.PI):5;
+            _p_m=Math.max(5,Math.min(50,_nRoll*7))/100;
+            const _eff=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
+            const _R=_eff/(1-_eff);
+            const _mult=Math.sqrt(_R*m_m.front*ch.trackF*ch.trackF*twF_m/(m_m.rear*ch.trackR*ch.trackR*twR_m));
+            _estF=Math.max(0.8,2*avgHz/(1+_mult));
+            _estR=Math.max(0.8,Math.min(4.0,2*avgHz*_mult/(1+_mult)));
+          }
         }
         // roll mode: ARB budget is absolute (roll-moment-based), not a share fraction — _p_m stays 0
       }
@@ -270,10 +280,21 @@ const feelToPhysics=(ch,fe)=>{
       if(arbBalModeEarly==='weight'){
         if((fe.arbMode??'auto')==='share') _p_m=Math.max(0,Math.min(0.99,(fe.arbShareMan??20)/100));
         else if((fe.arbMode??'auto')==='auto'){
-          const _om2=Math.pow(primaryHz*2*Math.PI,2);
-          const _rsSp_est=_om2*(m_m.front*ch.trackF*ch.trackF+m_m.rear*ch.trackR*ch.trackR)/2;
-          const _nRoll=_rsSp_est>0?(ch.weight/KG_TO_LB*9.81*(ch.cgHeight-ROLL_CENTER_HEIGHT)/_rsSp_est)*(180/Math.PI):5;
-          _p_m=Math.max(5,Math.min(50,_nRoll*7))/100;
+          // Two-pass: first pass uses primaryHz for both axles; second uses corrected secondary
+          // so the auto share assumed here matches what computeTune will settle on.
+          let _estSec=primaryHz;
+          for(let _i=0;_i<2;_i++){
+            const _fHz=rideRef==='rear'?_estSec:primaryHz;
+            const _rHz=rideRef==='rear'?primaryHz:_estSec;
+            const _rsSp=(Math.pow(_fHz*2*Math.PI,2)*m_m.front*ch.trackF*ch.trackF
+                        +Math.pow(_rHz*2*Math.PI,2)*m_m.rear*ch.trackR*ch.trackR)/2;
+            const _nRoll=_rsSp>0?(ch.weight/KG_TO_LB*9.81*(ch.cgHeight-ROLL_CENTER_HEIGHT)/_rsSp)*(180/Math.PI):5;
+            _p_m=Math.max(5,Math.min(50,_nRoll*7))/100;
+            const _eff=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
+            const _R=_eff/(1-_eff);
+            const _mult=Math.sqrt(_R*m_m.front*ch.trackF*ch.trackF*twF_m/(m_m.rear*ch.trackR*ch.trackR*twR_m));
+            _estSec=Math.max(0.8,Math.min(4.0,rideRef==='front'?primaryHz*_mult:primaryHz/_mult));
+          }
         }
         // roll mode: ARB budget is absolute (roll-moment-based), not a share fraction — _p_m stays 0
       }
