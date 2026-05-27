@@ -328,6 +328,9 @@ const feelToPhysics=(ch,fe)=>{
   const arbBalTarget=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
   const arbBalMode=ARB_BAL_MODE_DEC.includes(fe.arbBalMode)?fe.arbBalMode:'weight';
   const springShare=Math.max(0,Math.min(100,fe.springShare??50));
+  // coSolve overrides rearHz in computeTune via effectiveRHz; flat-ride fallthrough can
+  // set rearHzClamped spuriously. mechBalClamped covers coSolve limits instead.
+  if(arbBalModeEarly==='coSolve') rearHzClamped=false;
   return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode,springShare};
 };
 
