@@ -1974,6 +1974,8 @@ function App(){
   const[loadMode,setLoadMode]=useState('all'); // 'all'=feel+drivetrain, 'fe'=feel only
   const[open,setOpen]=useState({chassis:true,ride:true,dampers:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:false,presetsOpen:true});
   const[showChecker,setShowChecker]=useState(false);
+  const[showResetModal,setShowResetModal]=useState(false);
+  const[resetConfirmText,setResetConfirmText]=useState('');
   const[hzDraft,setHzDraft]=useState(null);     // transient: direct front Hz entry
   const[rearHzDraft,setRearHzDraft]=useState(null); // transient: direct rear Hz entry (independent mode)
   const[sidebarOpen,setSidebarOpen]=useState(true);
@@ -2184,10 +2186,46 @@ function App(){
   const notesSlot=(i,notes)=>setSaves(p=>({...p,[i]:{...p[i],notes}}));
   const overwriteSlot=i=>setSaves(p=>({...p,[i]:{...p[i],fe,dr,refCornerMassF:Math.round(cm.front)}}));
   const resetSlot=i=>setSaves(p=>({...p,[i]:PRESET_SAVES[i]}));
+  const performGlobalReset=()=>{
+    setCh({...DEF_CH});
+    setFe({...DEF_FE});
+    setDr({...DEF_DR});
+    setAl({...DEF_AL});
+    setBr({...DEF_BR});
+    setShowResetModal(false);
+    setResetConfirmText('');
+  };
 
   return(
     <div style={{display:'flex',flexDirection:'column',height:'100vh',minHeight:'-webkit-fill-available',overflow:'hidden'}}>
       {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits}/>}
+      {showResetModal&&(
+        <div style={{position:'fixed',inset:0,background:'#000000cc',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
+             onClick={()=>{setShowResetModal(false);setResetConfirmText('');}}>
+          <div onClick={e=>e.stopPropagation()}
+               style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:6,padding:20,maxWidth:420,width:'100%'}}>
+            <div style={{fontSize:13,letterSpacing:1,color:'#fca5a5',marginBottom:10}}>RESET ALL TUNE STATE</div>
+            <div style={{fontSize:12,color:'#cbd5e1',marginBottom:12,lineHeight:1.5}}>
+              This will reset chassis, feel, drivetrain, alignment, and brakes to defaults. Your saved slots, unit preference, complexity mode, and tutorial progress will be preserved.
+            </div>
+            <div style={{fontSize:11,color:'#94a3b8',marginBottom:6}}>
+              Type <span style={{color:'#fca5a5',fontWeight:'bold'}}>RESET</span> to confirm:
+            </div>
+            <input type="text" value={resetConfirmText}
+              onChange={e=>setResetConfirmText(e.target.value)}
+              onKeyDown={e=>{if(e.key==='Escape'){setShowResetModal(false);setResetConfirmText('');}else if(e.key==='Enter'&&resetConfirmText==='RESET'){performGlobalReset();}}}
+              autoFocus
+              style={{width:'100%',background:'#020617',border:'1px solid #1e293b',color:'#e2e8f0',padding:'6px 8px',fontSize:13,fontFamily:'monospace',marginBottom:14,borderRadius:3,boxSizing:'border-box'}}/>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button className="tbtn" onClick={()=>{setShowResetModal(false);setResetConfirmText('');}}>CANCEL</button>
+              <button className="tbtn" disabled={resetConfirmText!=='RESET'} onClick={performGlobalReset}
+                style={{color:resetConfirmText==='RESET'?'#fca5a5':'#475569',borderColor:resetConfirmText==='RESET'?'#7f1d1d':'#1e293b'}}>
+                RESET ALL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {tutMode&&<TutorialPanel mode={tutMode} step={tutStep}
         onNext={()=>setTutStep(s=>Math.min(s+1,(TUTORIALS[tutMode]?.length??1)-1))}
         onPrev={()=>setTutStep(s=>Math.max(s-1,0))}
@@ -3555,6 +3593,8 @@ function App(){
                 {loadMode==='all'?'FE+DR':'FE'}
               </button>
               <div style={{flex:1}}/>
+              <button className="tbtn" onClick={()=>setShowResetModal(true)} style={{fontSize:11,color:'#fca5a5'}}
+                title="Reset all tune state to defaults (saves and preferences preserved)">RESET</button>
               <button className="tbtn" onClick={()=>setShowChecker(true)} style={{fontSize:11}}>CHECK</button>
               <button className="tbtn" style={{fontSize:11}} onClick={()=>{
                 try{
