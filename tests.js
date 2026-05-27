@@ -6,9 +6,10 @@ const KG_TO_LB = 2.204622622;
 const LB_IN_TO_NM = 175.126790921;
 const MPH_TO_MS = 0.44704;
 const ARB_RS_SCALE = 240;
-const ROLL_CENTER_HEIGHT = 0.09;
+// NOTE: app now uses rollCenterHeight(ch)=ch.cgHeight*0.20 (not a fixed constant)
+const rollCenterHeight = ch => ch.cgHeight * 0.20;
 const DAMPING_CALIBRATION = 0.001;
-const MECH_BALANCE_STIFFNESS_WEIGHT = 0.698;
+const MECH_BALANCE_STIFFNESS_WEIGHT = 0.60; // must match app constant
 const GAME_LIMITS = { horizon: { damping: 20, arb: 65 }, motorsport: { damping: 40, arb: 40 } };
 
 const cornerMasses = ch => {
@@ -22,8 +23,8 @@ const flatRideRearHz = (fHz, wb, mph) => {
   if (ms < 1) return { hz: fHz * 1.2, clamped: false };
   const t = wb / ms, d = (1 / fHz) - (2 * t);
   const raw = d > 0.05 ? 1 / d : fHz * 1.2;
-  const clamped = raw > fHz * 1.6;
-  return { hz: clamped ? fHz * 1.6 : raw, clamped };
+  const clamped = raw > 4.0; // absolute game ceiling, not a relative cap
+  return { hz: Math.min(raw, 4.0), clamped };
 };
 
 const solveSpring = (hz, mass, mr) => {
@@ -84,9 +85,9 @@ console.log('\nflatRideRearHz');
   assert('70mph rear hz > front', r3.hz - 1.5, 0, 2); // rear should be higher than front
   assertEq('70mph not clamped', r3.clamped, false);
 
-  // cap at 1.6× when formula overshoots
-  const r4 = flatRideRearHz(1.0, 2.7, 25); // low speed → formula overshoots 1.6× cap
-  assert('cap at 1.6× front', r4.hz, 1.0 * 1.6, 0.001);
+  // cap at 4.0 Hz game ceiling when formula overshoots (stiff spring at medium speed)
+  const r4 = flatRideRearHz(3.5, 2.7, 70); // high fHz at 70mph → raw ≈8.8Hz → clamped at 4.0
+  assert('cap at 4.0 Hz ceiling', r4.hz, 4.0, 0.001);
   assertEq('clamped flag set', r4.clamped, true);
 }
 
@@ -104,8 +105,7 @@ console.log('\nsolveSpring');
   // motion ratio 0.8 increases spring rate (spring must work harder)
   const s1 = solveSpring(1.5, 350, 1.0);
   const s2 = solveSpring(1.5, 350, 0.8);
-  assert('lower MR → higher spring rate', s2 - s1, 0, 1000); // s2 > s1
-  if (s2 <= s1) console.error('    direction wrong: s2 should be > s1');
+  assertEq('lower MR → higher spring rate', s2 > s1, true);
 }
 
 // ── solveDamp ─────────────────────────────────────────────────────────────────

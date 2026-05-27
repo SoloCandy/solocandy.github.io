@@ -418,7 +418,7 @@ const computeTune=(ch,phys,gameMode)=>{
     rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)*twF-rsSpR*twR)/(rsAbBudget*(twR+_rsBalK*twF))));
   }
   //
-  const lightShare=Math.min(rF,1-rF);                          // smaller fraction
+  const lightShare=Math.max(0.001,Math.min(rF,1-rF));          // smaller fraction (guard against div/0 at extremes)
   const heavyShare=Math.max(rF,1-rF);                          // larger fraction
   const lightTrack=rF<=0.5?ch.trackR:ch.trackF;                // lighter side track
   const heavyTrack=rF>=0.5?ch.trackR:ch.trackF;                // heavier side track
@@ -1418,6 +1418,8 @@ const ARB_MODE_ENC={'auto':0,'roll':1,'share':2};
 const ARB_MODE_DEC=['auto','roll','share','auto']; // index 3 was legacy 'balance' → auto
 const ARB_BAL_MODE_ENC={'weight':0,'mech':1,'coSolve':2};
 const ARB_BAL_MODE_DEC=['weight','mech','coSolve'];
+const RIDE_REF_ENC={'front':0,'rear':1,'shared':2};
+const RIDE_REF_DEC=['front','rear','shared'];
 const LAYOUT_ENC={'FWD':0,'RWD':1,'AWD':2};
 const LAYOUT_DEC=['FWD','RWD','AWD'];
 const BUILD_ENC={'street':0,'track':1,'drift':2};
@@ -1446,6 +1448,7 @@ const encodeTune=(ch,fe,dr,br)=>{
     ARB_BAL_MODE_ENC[fe.arbBalMode??'weight']??0,
     dr.diffFrontExitBias??0,
     fe.springShare??DEF_FE.springShare,
+    RIDE_REF_ENC[fe.rideRef??'front']??0,
   ];
   return btoa(arr.join('|'));
 };
@@ -1453,8 +1456,8 @@ const encodeTune=(ch,fe,dr,br)=>{
 const decodeTune=(code)=>{
   const raw=atob(code.trim());
   if(raw.startsWith('{')){
-    const{ch:ic,fe:ife,dr:idr}=JSON.parse(raw);
-    return{ch:ic,fe:ife,dr:idr};
+    const{ch:ic,fe:ife,dr:idr,br:ibr}=JSON.parse(raw);
+    return{ch:ic,fe:ife,dr:idr,br:ibr};
   }
   const v=raw.split('|').map(Number);
   const ch={weight:v[0],frontBias:v[1],wheelbase:v[2],cgHeight:v[3],trackF:v[4],trackR:v[5],motionRatioF:v[6],motionRatioR:v[7],
@@ -1469,7 +1472,8 @@ const decodeTune=(code)=>{
             dampingBias:v.length>=42?v[41]:0,
             arbBalTarget:v.length>=49?v[48]:DEF_FE.arbBalTarget,
             arbBalMode:v.length>=50?ARB_BAL_MODE_DEC[v[49]]??'weight':'weight',
-            springShare:v.length>=52?v[51]:DEF_FE.springShare};
+            springShare:v.length>=52?v[51]:DEF_FE.springShare,
+            rideRef:v.length>=53?RIDE_REF_DEC[v[52]]??'front':'front'};
   const _fW=v.length>=43?v[42]:265,_rW=v.length>=44?v[43]:265;
   const _fA=v.length>=45?v[44]:35, _fR=v.length>=46?v[45]:18;
   const _rA=v.length>=47?v[46]:35, _rR=v.length>=48?v[47]:18;
