@@ -212,7 +212,7 @@ const feelToPhysics=(ch,fe)=>{
       frontHz=Math.max(0.8,2*avgHz/(1+mult));
       rearHz=Math.max(0.8,Math.min(4.0,2*avgHz*mult/(1+mult)));
       rearHzClamped=false;
-    } else if(rearHzMode==='mech'){
+    } else if(rearHzMode==='mech'&&arbBalModeEarly!=='coSolve'){
       const K=MECH_BALANCE_STIFFNESS_WEIGHT;
       const twF_m=parseTyre(ch.tyreF)?.width??265,twR_m=parseTyre(ch.tyreR)?.width??265;
       const m_m=cornerMasses(ch);
@@ -232,6 +232,7 @@ const feelToPhysics=(ch,fe)=>{
           const _nRoll=_rsSp_est>0?(ch.weight/KG_TO_LB*9.81*(ch.cgHeight-ROLL_CENTER_HEIGHT)/_rsSp_est)*(180/Math.PI):5;
           _p_m=Math.max(5,Math.min(50,_nRoll*7))/100;
         }
+        // roll mode: ARB budget is absolute (roll-moment-based), not a share fraction — _p_m stays 0
       }
       const _effRsBal_m=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
       const R_m=_effRsBal_m/(1-_effRsBal_m);
@@ -254,7 +255,7 @@ const feelToPhysics=(ch,fe)=>{
       const raw=rideRef==='front'?primaryHz*mult:primaryHz/mult;
       secondaryHz=Math.max(0.8,Math.min(4.0,raw));
       secondaryHzClamped=false;
-    } else if(rearHzMode==='mech'){
+    } else if(rearHzMode==='mech'&&arbBalModeEarly!=='coSolve'){
       const K=MECH_BALANCE_STIFFNESS_WEIGHT;
       const twF_m=parseTyre(ch.tyreF)?.width??265,twR_m=parseTyre(ch.tyreR)?.width??265;
       const m_m=cornerMasses(ch);
@@ -274,6 +275,7 @@ const feelToPhysics=(ch,fe)=>{
           const _nRoll=_rsSp_est>0?(ch.weight/KG_TO_LB*9.81*(ch.cgHeight-ROLL_CENTER_HEIGHT)/_rsSp_est)*(180/Math.PI):5;
           _p_m=Math.max(5,Math.min(50,_nRoll*7))/100;
         }
+        // roll mode: ARB budget is absolute (roll-moment-based), not a share fraction — _p_m stays 0
       }
       const _effRsBal_m=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
       const R_m=_effRsBal_m/(1-_effRsBal_m);
@@ -422,13 +424,14 @@ const computeTune=(ch,phys,gameMode)=>{
   const rsBalance=rsWF+rsWR>0?rsWR/(rsWF+rsWR):1-ch.frontBias/100;
   const mechBalance=MECH_BALANCE_STIFFNESS_WEIGHT*rsBalance
                    +(1-MECH_BALANCE_STIFFNESS_WEIGHT)*(1-ch.frontBias/100);
+  const mechBalClamped=(arbBalMode==='mech'||arbBalMode==='coSolve')&&Math.abs(mechBalance-arbBalTarget)>0.01;
   const settleF=zetaF>0?2.302/((zetaF/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn)
   const settleR=zetaR>0?2.302/((zetaR/100)*effectiveRHz*2*Math.PI):99;
   return{springF,springR,
          rebF:Math.round(rebF*10)/10,rebR:Math.round(rebR*10)/10,
          bumpF:Math.round(bumpF*10)/10,bumpR:Math.round(bumpR*10)/10,
          arbF,arbR,
-         fHz,rHz:effectiveRHz,settle:settleF,settleR,rollDeg,rollTarget:arbTargetRoll,rollClamped,dampingClamped,
+         fHz,rHz:effectiveRHz,settle:settleF,settleR,rollDeg,rollTarget:arbTargetRoll,rollClamped,mechBalClamped,dampingClamped,
          arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
          bSp,bAb,bTot,mechBalance,
          rsSpF,rsSpR,rsAbF,rsAbR,
@@ -3370,6 +3373,13 @@ function App(){
               achieved {tune.rollDeg.toFixed(1)}°. {tune.rollDeg>tune.rollTarget
                 ?'Bars are maxed; stiffer springs would reduce roll further.'
                 :'Springs alone already exceed the target; softer springs would allow the bars more authority.'}
+            </div>}
+            {tune.mechBalClamped&&<div style={{fontSize:11,color:'#f97316',lineHeight:1.6,
+                 marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
+                 border:'1px solid #f9731633'}}>
+              Mech balance target ({(fe.arbBalTarget??0.65).toFixed(2)}) couldn't be reached —
+              achieved {tune.mechBalance.toFixed(2)}. ARB floor/ceiling limits prevented the required
+              front/rear split. Widen the ARB range or reduce the balance target.
             </div>}
           </Card>
 
