@@ -147,8 +147,8 @@ const flatRideRearHz=(fHz,wb,mph)=>{
   if(ms<1)return{hz:fHz*1.2,clamped:false};
   const t=wb/ms,d=(1/fHz)-(2*t);
   const raw=d>0.05?1/d:fHz*1.2;
-  const clamped=raw>fHz*1.6;
-  return{hz:clamped?fHz*1.6:raw,clamped};
+  const clamped=raw>4.0;
+  return{hz:Math.min(raw,4.0),clamped};
 };
 // Shared ref: given avgHz = (fHz+rHz)/2 and flat-ride constraint, solve fHz.
 // Substituting rHz=1/(1/fHz−2t) into avg equation gives quadratic:
@@ -1492,7 +1492,7 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       arbBalMode:       ARB_BAL_MODE_DEC.includes(fe?.arbBalMode)?fe.arbBalMode:DEF_FE.arbBalMode,
       springShare:      cl(fe?.springShare,         0,  100, DEF_FE.springShare),
       dampingBias:      cl(fe?.dampingBias,      -50,   50,  DEF_FE.dampingBias),
-      targetSpeed:      cl(fe?.targetSpeed,       40,  200,  DEF_FE.targetSpeed),
+      targetSpeed:      cl(fe?.targetSpeed,       60,  200,  DEF_FE.targetSpeed),
       gameMode:         GAME_MODE_DEC.includes(fe?.gameMode)?fe.gameMode:DEF_FE.gameMode,
       dampingMode:      DAMPING_MODE_DEC.includes(fe?.dampingMode)?fe.dampingMode:DEF_FE.dampingMode,
       reboundZeta:      cl(fe?.reboundZeta,       10,  115,  DEF_FE.reboundZeta),
@@ -2927,7 +2927,7 @@ function App(){
               const sharedReadout=`F ${physics.frontHz.toFixed(2)} · R ${physics.rearHz.toFixed(2)} Hz${physics.rearHzClamped?' ⚠':''}`;
               return(fe.rearHzMode??'flatRide')==='flatRide'
               ? <FeelSlider label="Target Speed" value={240-fe.targetSpeed}
-                  onChange={v=>pFe('targetSpeed')(240-v)} min={40} max={200} step={5}
+                  onChange={v=>pFe('targetSpeed')(240-v)} min={40} max={180} step={5}
                   leftLabel="OFF" rightLabel="CITY"
                   readout={fe.targetSpeed>=200
                     ? isShared?`FLAT RIDE OFF · ${physics.frontHz.toFixed(2)} Hz both`:`FLAT RIDE OFF · ${secHz.toFixed(2)} Hz ${secLabel}`
