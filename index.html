@@ -517,6 +517,26 @@ const computeDiff=(ch,fe,dr)=>{
   const frontExitBias=dr.diffFrontExitBias??0; // AWD front exit push intent
   const build=dr.buildType??'track';
 
+  // MATCH CHASSIS: bias the auto-solver's intent toward the chassis mech target.
+  // Off by default; manual mode bypasses it entirely.
+  let effBiasExit=biasExit, effBiasEntry=biasEntry;
+  if(dr.diffComplement&&!dr.diffManual){
+    const K=MECH_BALANCE_STIFFNESS_WEIGHT;
+    const twF=parseTyre(ch.tyreF)?.width??265;
+    const twR=parseTyre(ch.tyreR)?.width??265;
+    const cm=cornerMasses(ch);
+    // natural mech balance — geometry + weight only, no springs/ARBs
+    const rsBalNat=(cm.rear*ch.trackR*ch.trackR*twR)
+                  /(cm.front*ch.trackF*ch.trackF*twF+cm.rear*ch.trackR*ch.trackR*twR);
+    const natMechBal=K*rsBalNat+(1-K)*(1-ch.frontBias/100);
+    const tgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
+    const gap=tgt-natMechBal; // positive = user wants more rear/oversteer than natural
+    // Cap correction so it can't dominate explicit user slider input
+    const correction=Math.max(-25,Math.min(25,gap*150));
+    effBiasExit =Math.max(-50,Math.min(50,biasExit +correction));
+    effBiasEntry=Math.max(-50,Math.min(50,biasEntry+correction*0.5));
+  }
+
   let vals;
   if(dr.diffManual){
     vals=dr.layout==='AWD'
@@ -529,10 +549,10 @@ const computeDiff=(ch,fe,dr)=>{
   } else if(dr.layout==='AWD'){
     const center=cl(dr.diffCenter??65,45,80); // slider-driven; default 65 is sensible across builds
     vals={layout:'AWD',
-      frontAccel:cl(28-biasExit*0.10+frontExitBias*0.12,10,40),
+      frontAccel:cl(28-effBiasExit*0.10+frontExitBias*0.12,10,40),
       frontDecel:0,
-      rearAccel: cl(48+biasExit*0.25,20,70),
-      rearDecel: cl(8+(rB-0.5)*15+biasEntry*0.15,0,20),
+      rearAccel: cl(48+effBiasExit*0.25,20,70),
+      rearDecel: cl(8+(rB-0.5)*15+effBiasEntry*0.15,0,20),
       center};
   } else {
     const isRWD=dr.layout==='RWD';
@@ -543,9 +563,9 @@ const computeDiff=(ch,fe,dr)=>{
       ?{street:15,track:12,drift:3}[build]
       :{street:8, track:5, drift:2}[build];
     const accel=isRWD
-      ? cl(accelBase+biasExit*0.20, 10, 65)  // right=ROTATE → more rear lock
-      : cl(accelBase+biasExit*0.15,  5, 35); // right=PUSH   → more front lock
-    const decel=cl(decelBase+(rB-0.5)*(isRWD?15:5)+biasEntry*0.15, 0, isRWD?30:15);
+      ? cl(accelBase+effBiasExit*0.20, 10, 65)  // right=ROTATE → more rear lock
+      : cl(accelBase+effBiasExit*0.15,  5, 35); // right=PUSH   → more front lock
+    const decel=cl(decelBase+(rB-0.5)*(isRWD?15:5)+effBiasEntry*0.15, 0, isRWD?30:15);
     vals={layout:dr.layout,accel,decel};
   }
 
@@ -633,7 +653,8 @@ const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,targetSpeed:70,gameMode
               arbBalTarget:0.65,arbBalMode:'weight',springShare:50,
               rearHzMode:'flatRide',rearHzMan:1.5,rearHzMult:1.20,rideRef:'front'};
 const DEF_DR={layout:'RWD',buildType:'track',
-              diffManual:false,diffBiasExit:0,diffBiasEntry:0,diffFrontExitBias:0,
+              diffManual:false,diffComplement:false,
+              diffBiasExit:0,diffBiasEntry:0,diffFrontExitBias:0,
               diffAccel:35,diffDecel:10,
               diffFrontAccel:28,diffFrontDecel:0,
               diffRearAccel:48,diffRearDecel:8,diffCenter:65};
@@ -1449,6 +1470,7 @@ const encodeTune=(ch,fe,dr,br)=>{
     dr.diffFrontExitBias??0,
     fe.springShare??DEF_FE.springShare,
     RIDE_REF_ENC[fe.rideRef??'front']??0,
+    (dr.diffComplement?1:0),
   ];
   return btoa(arr.join('|'));
 };
@@ -1483,7 +1505,8 @@ const decodeTune=(code)=>{
             diffBiasExit:v[24]??0,diffAccel:v[25],diffDecel:v[26],
             diffFrontAccel:v[27],diffFrontDecel:v[28],diffRearAccel:v[29],diffRearDecel:v[30],diffCenter:v[31],
             diffBiasEntry:v[32]??0,
-            diffFrontExitBias:v.length>=51?v[50]:DEF_DR.diffFrontExitBias};
+            diffFrontExitBias:v.length>=51?v[50]:DEF_DR.diffFrontExitBias,
+            diffComplement:v.length>=54?v[53]===1:false};
   const br=v.length>=36
     ?{brakeManual:v[33]===1,brakeBias:v[34],brakePressure:v[35]}
     :{...DEF_BR};
@@ -1537,6 +1560,7 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       layout:         LAYOUT_DEC.includes(dr?.layout)?dr.layout:DEF_DR.layout,
       buildType:      BUILD_DEC.includes(dr?.buildType)?dr.buildType:DEF_DR.buildType,
       diffManual:     typeof dr?.diffManual==='boolean'?dr.diffManual:dr?.diffManual===1,
+      diffComplement: typeof dr?.diffComplement==='boolean'?dr.diffComplement:false,
       diffBiasExit:      cl(dr?.diffBiasExit,      -50, 50, DEF_DR.diffBiasExit),
       diffBiasEntry:     cl(dr?.diffBiasEntry,     -50, 50, DEF_DR.diffBiasEntry),
       diffFrontExitBias: cl(dr?.diffFrontExitBias, -50, 50, DEF_DR.diffFrontExitBias),
@@ -3253,6 +3277,7 @@ function App(){
           <div id="zone-drivetrain" style={dim('drivetrain')}><Sec title="DRIVETRAIN" open={open.drivetrain} onToggle={tog('drivetrain')}
             onReset={()=>setDr(p=>({...p,
               diffManual:DEF_DR.diffManual,
+              diffComplement:DEF_DR.diffComplement,
               diffBiasExit:DEF_DR.diffBiasExit,
               diffBiasEntry:DEF_DR.diffBiasEntry,
               diffFrontExitBias:DEF_DR.diffFrontExitBias,
@@ -3267,7 +3292,7 @@ function App(){
               options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
             <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}/>
-            {uiMode==='pro'&&<div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,marginBottom:10}}>
+            {uiMode==='pro'&&<div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,marginBottom:10,flexWrap:'wrap'}}>
               <span style={{fontSize:12,color:'#94a3b8'}}>Differential Mode</span>
               <Hint text="AUTO derives lock values from layout, build type, weight bias, and the intent sliders. MANUAL exposes all individual lock percentages directly."/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
@@ -3284,6 +3309,15 @@ function App(){
                         :{diffAccel:d.accel,diffDecel:d.decel})}));
                   }}>MANUAL</button>
               </div>
+              {!dr.diffManual&&<div style={{display:'flex',alignItems:'center',gap:6,width:'100%',marginTop:4}}>
+                <button className={`tog${dr.diffComplement?' on':''}`}
+                  onClick={()=>pDr('diffComplement')(!dr.diffComplement)}
+                  style={{marginLeft:'auto'}}
+                  title="Bias the auto-solver to match chassis mech target.">
+                  MATCH CHASSIS
+                </button>
+                <Hint text="When on, the diff auto-solver factors how far your mech balance target lies from the chassis's natural balance. A target tuned for more oversteer biases the diff toward rotation; a target tuned for understeer leans the diff toward stability. Off (default) means the diff ignores chassis target entirely. Has no effect in MANUAL mode."/>
+              </div>}
             </div>}
             {!dr.diffManual&&<>
               <FeelSlider
@@ -3294,11 +3328,12 @@ function App(){
                 leftLabel={dr.layout==='FWD'?'ROTATION':'GRIP'}
                 rightLabel={dr.layout==='FWD'?'PUSH':'ROTATE'}
                 centered={true}
-                hint={dr.layout==='FWD'
+                hint={(dr.layout==='FWD'
                   ?'Front diff accel lock. Toward PUSH increases lock — more traction but more understeer on corner exit. Toward ROTATION reduces lock for cleaner pivot and less push.'
                   :dr.layout==='RWD'
                   ?'Rear diff accel lock. Toward ROTATE increases lock — more power oversteer on exit. Toward GRIP reduces lock for cleaner exit traction.'
-                  :'Rear diff exit character. Toward ROTATE increases rear accel lock — more oversteer on exit. Toward GRIP reduces rear accel lock for traction.'}
+                  :'Rear diff exit character. Toward ROTATE increases rear accel lock — more oversteer on exit. Toward GRIP reduces rear accel lock for traction.')
+                  +(dr.diffComplement?' MATCH CHASSIS is on — this is further biased by your chassis mech target.':'')}
                 readout={diff.layout==='AWD'
                   ?`R.Accel ${diff.rearAccel}%`
                   :`Accel ${diff.accel}%`}/>
@@ -3332,11 +3367,12 @@ function App(){
                 leftLabel="LOOSE"
                 rightLabel="STABLE"
                 centered={true}
-                hint={dr.layout==='FWD'
+                hint={(dr.layout==='FWD'
                   ?'Front diff decel lock. Toward STABLE increases lock — more resistance to rotation on entry (understeer). Toward LOOSE reduces lock for freer corner entry.'
                   :dr.layout==='RWD'
                   ?'Rear diff decel lock. Toward STABLE increases lock — resists lift-off oversteer. Toward LOOSE reduces lock for freer rotation on entry.'
-                  :'Rear diff decel lock. Toward STABLE increases lock — resists lift-off oversteer. Toward LOOSE reduces lock for more rear rotation on entry.'}
+                  :'Rear diff decel lock. Toward STABLE increases lock — resists lift-off oversteer. Toward LOOSE reduces lock for more rear rotation on entry.')
+                  +(dr.diffComplement?' MATCH CHASSIS is on — this is further biased (at half strength) by your chassis mech target.':'')}
                 readout={diff.layout==='AWD'
                   ?`R.Decel ${diff.rearDecel}%`
                   :`Decel ${diff.decel}%`}/>
