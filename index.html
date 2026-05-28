@@ -2945,10 +2945,12 @@ function App(){
             {(()=>{
               const isCoSolve=(fe.arbBalMode??'weight')==='coSolve';
               const rRef=physics.rideRef??'front'; // 'front', 'rear', or 'shared'
-              const avgHz=(physics.frontHz+physics.rearHz)/2;
-              const primaryHz=rRef==='rear'?physics.rearHz:rRef==='shared'?avgHz:physics.frontHz;
+              // Use tune.fHz/tune.rHz (not physics values) so CO-SOLVE effectiveRHz is reflected.
+              // physics.rearHz is the pre-CO-SOLVE flatRide value; tune.rHz is the actual solved Hz.
+              const avgHz=(tune.fHz+tune.rHz)/2;
+              const primaryHz=rRef==='rear'?tune.rHz:rRef==='shared'?avgHz:tune.fHz;
               const secLabel=rRef==='rear'?'front':'rear';
-              const secHz=rRef==='rear'?physics.frontHz:physics.rearHz;
+              const secHz=rRef==='rear'?tune.fHz:tune.rHz;
               return(<>
                 {/* Ride reference toggle — always visible, works in CO-SOLVE via Hz inversion */}
                 <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
@@ -2961,13 +2963,13 @@ function App(){
                   <button className={`tog${rRef==='shared'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,
                       rideRef:'shared',
-                      rideStiffness:hzToRs((physics.frontHz+physics.rearHz)/2),
+                      rideStiffness:hzToRs((tune.fHz+tune.rHz)/2),
                       ...(p.rearHzMode==='independent'?{rearHzMode:'flatRide'}:{})}))}>SHARED</button>
                   <button className={`tog${rRef==='rear'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,
                       rideRef:'rear',
-                      rideStiffness:hzToRs(physics.rearHz),
-                      ...(p.rearHzMode==='independent'?{rearHzMan:Math.round(physics.frontHz*100)/100}:{})}))}>REAR</button>
+                      rideStiffness:hzToRs(tune.rHz),
+                      ...(p.rearHzMode==='independent'?{rearHzMan:Math.round(tune.fHz*100)/100}:{})}))}>REAR</button>
                 </div>
                 <FeelSlider
                   label={rRef==='rear'?'Rear Stiffness':rRef==='shared'?'Avg Stiffness':'Ride Stiffness'}
