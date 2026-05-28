@@ -2585,8 +2585,8 @@ function App(){
                     twF_rec,twR_rec,dTwF,dTwR,twFfeas,twRfeas,
                     trackF_rec,trackR_rec,dTrackF,dTrackR,trackFfeas,trackRfeas,gap}=chassisAnalysis;
               const nmDelta=nm-0.5;
-              const nmCol=Math.abs(nmDelta)<0.03?'#9ca3af':nmDelta>0?'#3b82f6':'#ef4444';
-              const nmLabel=Math.abs(nmDelta)<0.03?'NEUTRAL':nmDelta>0?'US':'OS';
+              const nmCol=Math.abs(nmDelta)<0.03?'#9ca3af':nmDelta>0?'#ef4444':'#3b82f6';
+              const nmLabel=Math.abs(nmDelta)<0.03?'NEUTRAL':nmDelta>0?'OS':'US';
               const[stabLabel,stabCol]=stabIdx<0.85?['AGILE','#f59e0b']
                 :stabIdx<0.97?['BALANCED','#9ca3af']
                 :stabIdx<1.10?['STABLE','#60a5fa']
@@ -2659,10 +2659,10 @@ function App(){
                     {(() => {
                       const allFeasible=[twFfeas,twRfeas,trackFfeas,trackRfeas].some(Boolean);
                       if(!allFeasible) return 'Gap too large for geometry alone — rely on ARBs.';
-                      const wd=nmDelta<0; // need more understeer (rear-heavy correction)
-                      return wd
-                        ?'Wider rear or narrower front moves chassis toward understeer.'
-                        :'Wider front or narrower rear moves chassis toward neutral.';
+                      const needOS=targetBal>nm; // target is more oversteer than natural
+                      return needOS
+                        ?'Wider rear tyre/track or narrower front moves chassis toward oversteer target.'
+                        :'Wider front tyre/track or narrower rear moves chassis toward understeer target.';
                     })()}
                   </div>
                 </div>}
