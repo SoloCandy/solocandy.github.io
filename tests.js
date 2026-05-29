@@ -67,6 +67,20 @@ console.log('\ncornerMasses');
   assert('60% front heavier than rear', m2.front - m2.rear, kg * 0.1);
 }
 
+// ── lateral load transfer (XFER) ─────────────────────────────────────────────
+// Axle transfer at 1g = M_axle·h/track, where M_axle = 2·cornerMass.
+// Regression guard for the corner-vs-axle-mass factor-of-2 fix.
+
+console.log('\nlateral load transfer');
+{
+  const ch = { weight: 1600 * KG_TO_LB, frontBias: 50, cgHeight: 0.45, trackF: 1.55, trackR: 1.55 };
+  const m = cornerMasses(ch);
+  const xferF = 2 * m.front * ch.cgHeight / ch.trackF; // matches app formula
+  const axleMassF = (ch.weight / KG_TO_LB) * 0.5;       // 800 kg front axle
+  assert('front axle transfer = M_axle·h/t', xferF, axleMassF * ch.cgHeight / ch.trackF, 0.01);
+  assert('1600kg/50%/0.45m/1.55m ≈ 232 kg/g', xferF, 232.26, 0.5);
+}
+
 // ── flatRideRearHz ────────────────────────────────────────────────────────────
 
 console.log('\nflatRideRearHz');

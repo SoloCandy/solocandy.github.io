@@ -650,7 +650,6 @@ const usePersist=(key,initial)=>{
 
 const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
-              motionRatioF:1.0,motionRatioR:1.0,
               aeroBalance:0.5,aeroEfficiency:0.9,
               tyreF:'265/35R18',tyreR:'265/35R18'};
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,targetSpeed:70,gameMode:'horizon',
@@ -1454,7 +1453,8 @@ const BUILD_DEC=['street','track','drift'];
 
 const encodeTune=(ch,fe,dr,br)=>{
   const arr=[
-    ch.weight,ch.frontBias,ch.wheelbase,ch.cgHeight,ch.trackF,ch.trackR,ch.motionRatioF,ch.motionRatioR,
+    ch.weight,ch.frontBias,ch.wheelbase,ch.cgHeight,ch.trackF,ch.trackR,1,1, // [6,7] legacy motionRatioF/R — reserved placeholders, no longer used
+
     fe.rideStiffness,fe.arbBias??0,fe.targetSpeed,GAME_MODE_ENC[fe.gameMode]??0,
     DAMPING_MODE_ENC[fe.dampingMode??'ratio']??0,fe.reboundZeta??70,fe.bumpRatio??56,fe.bumpZeta??39,
     ARB_MODE_ENC[fe.arbMode??'auto']??0,fe.arbTargetRollMan??1.8,fe.arbShareMan??15,fe.arbFloor??6,fe.arbCeil??65,
@@ -1488,7 +1488,8 @@ const decodeTune=(code)=>{
     return{ch:ic,fe:ife,dr:idr,br:ibr};
   }
   const v=raw.split('|').map(Number);
-  const ch={weight:v[0],frontBias:v[1],wheelbase:v[2],cgHeight:v[3],trackF:v[4],trackR:v[5],motionRatioF:v[6],motionRatioR:v[7],
+  const ch={weight:v[0],frontBias:v[1],wheelbase:v[2],cgHeight:v[3],trackF:v[4],trackR:v[5], // v[6],v[7] = legacy motionRatio slots, intentionally unread
+
             aeroBalance:v.length>=37?v[36]:0.5,
             aeroEfficiency:v.length>=38?v[37]:0.9};
   const fe={rideStiffness:v[8],arbBias:v[9],targetSpeed:v[10],gameMode:GAME_MODE_DEC[v[11]]??'horizon',
@@ -1532,8 +1533,6 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       cgHeight:     cl(ch?.cgHeight,       0.2,  0.9,  DEF_CH.cgHeight),
       trackF:       cl(ch?.trackF,         1.0,  2.2,  DEF_CH.trackF),
       trackR:       cl(ch?.trackR,         1.0,  2.2,  DEF_CH.trackR),
-      motionRatioF: cl(ch?.motionRatioF,   0.5,  1.0,  DEF_CH.motionRatioF),
-      motionRatioR: cl(ch?.motionRatioR,   0.5,  1.0,  DEF_CH.motionRatioR),
       aeroBalance:  cl(ch?.aeroBalance,    0,    1.5,  DEF_CH.aeroBalance),
       aeroEfficiency:cl(ch?.aeroEfficiency,0.1,  1.0,  DEF_CH.aeroEfficiency),
       tyreF: parseTyre(ch?.tyreF)?ch.tyreF:DEF_CH.tyreF,
@@ -2521,8 +2520,10 @@ function App(){
               <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.rear)}</span>
             </div>}
             {uiMode==='pro'&&(()=>{
-              const xferF=cm.front*ch.cgHeight/ch.trackF;
-              const xferR=cm.rear*ch.cgHeight/ch.trackR;
+              // Axle lateral load transfer at 1g = M_axle·h/track. cm is corner (½-axle)
+              // mass, so use 2·cm = full axle mass. OUT/IN below add/subtract this.
+              const xferF=2*cm.front*ch.cgHeight/ch.trackF;
+              const xferR=2*cm.rear*ch.cgHeight/ch.trackR;
               return(<>
                 <div style={{display:'flex',alignItems:'center',gap:6,
                              padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
