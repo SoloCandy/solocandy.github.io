@@ -422,10 +422,16 @@ const computeTune=(ch,phys,gameMode)=>{
   const heavyShare=Math.max(rF,1-rF);                          // larger fraction
   const lightTrack=rF<=0.5?ch.trackR:ch.trackF;                // lighter side track
   const heavyTrack=rF>=0.5?ch.trackR:ch.trackF;                // heavier side track
-  const rsLightFloor=arbFloor*ARB_RS_SCALE*lightTrack*lightTrack;
-  const rsHeavyFloor=rsLightFloor*(heavyShare/lightShare);     // scaled to preserve ratio
-  const budgetFloor=rsLightFloor+rsHeavyFloor;
-  if(rsAbBudget<budgetFloor)rsAbBudget=budgetFloor;
+  // In SHARE % mode the user explicitly controls the total ARB budget.
+  // Skip the proportional floor raise — it can inflate the budget by 100–1000× when
+  // the balance solver produces an extreme rF (near 0 or 1), silently overriding the
+  // user's setting. Per-bar game minimum is still enforced by clk() below.
+  if(arbMode!=='share'){
+    const rsLightFloor=arbFloor*ARB_RS_SCALE*lightTrack*lightTrack;
+    const rsHeavyFloor=rsLightFloor*(heavyShare/lightShare);
+    const budgetFloor=rsLightFloor+rsHeavyFloor;
+    if(rsAbBudget<budgetFloor)rsAbBudget=budgetFloor;
+  }
   const rsHeavyCeil=arbCeil*ARB_RS_SCALE*heavyTrack*heavyTrack;
   const rsHeavyBudget=rsAbBudget*heavyShare;
   if(rsHeavyBudget>rsHeavyCeil)rsAbBudget=rsHeavyCeil/heavyShare;
@@ -3496,8 +3502,9 @@ function App(){
                  marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
                  border:'1px solid #f9731633'}}>
               Mech balance target ({(fe.arbBalTarget??0.65).toFixed(2)}) couldn't be reached —
-              achieved {tune.mechBalance.toFixed(2)}. ARB floor/ceiling limits prevented the required
-              front/rear split. Widen the ARB range or reduce the balance target.
+              achieved {tune.mechBalance.toFixed(2)}.{(fe.arbMode??'auto')==='share'
+                ?' ARB Share % limits the total ARB budget — increase Spring Share so CO-SOLVE contributes more spring correction, or raise ARB Share % to give the bars more range.'
+                :' ARB floor/ceiling limits prevented the required front/rear split. Widen the ARB range or reduce the balance target.'}
             </div>}
           </Card>
 
