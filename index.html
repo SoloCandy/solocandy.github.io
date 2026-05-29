@@ -711,7 +711,8 @@ const PRESET_SAVES=(()=>{
        dr:{...DEF_DR,buildType:'street',diffBiasExit:-5,diffBiasEntry:-15}},
     4:{name:'DRIFT',refCornerMassF:ref,notes:'',
        fe:{...DEF_FE,rideStiffness:1.39,targetSpeed:65,reboundZeta:63,bumpRatio:46,
-           dampingBias:15,arbFloor:3,arbCeil:22,arbBias:20},
+           dampingBias:15,arbFloor:3,arbCeil:22,
+           arbBalMode:'mech',arbBalTarget:0.72},
        dr:{...DEF_DR,buildType:'drift',layout:'RWD',
            diffBiasExit:22,diffBiasEntry:-18,diffRearAccel:65,diffRearDecel:15}},
     5:{name:'MOTORSPT',refCornerMassF:ref,notes:'',
@@ -1782,7 +1783,7 @@ const TUTORIALS={
      body:'The Mech Balance Target field sets your overall handling balance goal. Three balance modes then determine how the solver achieves it: WEIGHT uses weight distribution with an optional Bias offset. MECH solves the ARB split to hit the target. CO-SOLVE adjusts both rear spring stiffness and ARB split together, with Spring Share controlling how much each contributes.'},
     {title:'Balance Guide',
      focus:['arb'],
-     body:'The BALANCE GUIDE shows your chassis\'s natural balance as a Δ=0 baseline — the balance it has from geometry and weight alone, before any spring or ARB correction. Your TARGET shows how far you\'re deliberately pushing away from that baseline: positive Δ adds oversteer, negative Δ adds understeer. AERO BIAS shows how much the aero shifts the car\'s handling and which direction to offset your target to compensate.'},
+     body:'The BALANCE GUIDE shows your chassis\'s natural balance (Δ=0 baseline) and a RANGE of recommended targets for your layout and build. The range adapts to your specific car — it\'s always a fixed Δ correction above natural, so a staggered or rear-heavy car\'s range band moves with its natural balance. Your TARGET shows how far you\'re pushing from natural (the Δ row). AERO BIAS shows the aero\'s handling push and the adjusted aim point within the range.'},
     {title:'RIDE — Spring Frequencies',
      focus:['feel'],
      body:'The RIDE REF. toggle sets which axle the stiffness slider anchors to — FRONT (default), SHARED (both axles move together), or REAR. FLAT RIDE derives the rear Hz from wheelbase and target speed for natural pitch response. MULTIPLIER applies a fixed ratio. INDEPENDENT fully decouples front and rear. In CO-SOLVE ARB mode, the rear Hz is solved automatically and shown as SOLVED REAR Hz in the ARB section.'},
@@ -1823,7 +1824,7 @@ const TUTORIALS={
      body:'The Mech Balance Target sets your overall handling goal. WEIGHT mode splits ARBs by weight distribution with an optional Bias offset. MECH solves the ARB split to hit the target exactly — ARB SPLIT shows the resulting front/rear percentages. CO-SOLVE solves both rear spring stiffness and ARB split together — Spring Share controls how much correction comes from each. The floor/ceiling slider limits how extreme the solver can go.'},
     {title:'Balance Guide',
      focus:['arb'],
-     body:'The BALANCE GUIDE shows NATURAL (Δ=0 baseline — the balance the chassis achieves from geometry and weight alone), the recommended RANGE, and your current TARGET. The TARGET Δ line below the value shows exactly how far you\'re pushing from natural: positive Δ = oversteer bias added via springs/ARBs, negative Δ = understeer. AERO BIAS shows the aero\'s handling push and marks the aero-adjusted aim point on the bar. REC. AERO BAL and REC. MECH TARGET appear in MECH/CO-SOLVE mode.'},
+     body:'The BALANCE GUIDE tracks your chassis from its natural balance (Δ=0, shown as the gray tick and in the NAT label on the bar axis) to where you want it (TARGET). The RANGE band is calculated for your specific car — it\'s always the same Δ correction above natural, so as your chassis changes, the green band follows. The Δ sub-label on the RANGE row shows the absolute correction window. TARGET Δ shows exactly how much you\'re pushing from natural. AERO BIAS marks the aero-adjusted aim point.'},
     {title:'Spring Frequencies',
      focus:['feel'],
      body:'RIDE REF. sets which axle the stiffness slider anchors to — FRONT, SHARED, or REAR. FLAT RIDE uses wheelbase and target speed for optimal pitch response. MULTIPLIER applies a fixed ratio. MECH solves the rear Hz ratio from the mech balance target. INDEPENDENT fully decouples both. In CO-SOLVE mode, the mode selector is hidden and SOLVED REAR Hz appears in the ARB section.'},
@@ -1864,7 +1865,7 @@ const TUTORIALS={
      body:'The lower section rates your setup\'s overall character from STABLE (planted, high damping, stiff ARBs) to AGILE (responsive, lighter damping, lower ARBs). This is independent of the US/OS balance — a car can be neutral and still feel very stable or very agile.'},
     {title:'Balance Guide',
      focus:null,
-     body:'The BALANCE GUIDE in the ARB section treats NATURAL as your Δ=0 baseline — the balance your geometry and weight set before any spring or ARB correction. The TARGET Δ shows how much bias you\'re deliberately adding: a positive delta means you\'re building in oversteer tendency via springs/ARBs; negative means understeer. Use it alongside this verdict bar to connect static balance intent to dynamic handling character.'},
+     body:'The BALANCE GUIDE in the ARB section uses your chassis\'s natural balance as Δ=0. The RANGE band is car-specific — it computes how much OS correction (Δ from natural) suits this layout and build, then pins it to your actual natural balance. A staggered rear-engine car and a front-heavy FE car can use the same Δ target but end up at very different absolute values. TARGET Δ shows how much you\'re pushing from natural. Use this alongside the verdict bar to connect static balance intent to dynamic handling character.'},
   ],
 };
 
@@ -2727,12 +2728,17 @@ function App(){
             {(()=>{
               const _layout=dr.layout??'RWD';
               const _build=dr.buildType??'track';
-              const _rangeMap={
-                FWD:{street:[0.45,0.55],track:[0.48,0.58],drift:[0.54,0.66]},
-                RWD:{street:[0.55,0.65],track:[0.60,0.70],drift:[0.68,0.82]},
-                AWD:{street:[0.52,0.60],track:[0.56,0.64],drift:[0.62,0.74]},
+              // Ranges stored as Δ from natural (car-specific): how much oversteer bias
+              // to add via suspension for this layout and build purpose.
+              // FWD needs more absolute correction (larger Δ) because of its natural US tendency.
+              const _deltaMap={
+                FWD:{street:[0.06,0.17],track:[0.11,0.24],drift:[0.18,0.32]},
+                RWD:{street:[0.05,0.16],track:[0.10,0.21],drift:[0.18,0.32]},
+                AWD:{street:[0.03,0.12],track:[0.07,0.18],drift:[0.14,0.26]},
               };
-              const[_lo,_hi]=((_rangeMap[_layout]??_rangeMap.RWD)[_build])??[0.56,0.66];
+              const[_dlo,_dhi]=((_deltaMap[_layout]??_deltaMap.RWD)[_build])??[0.10,0.21];
+              const _lo=Math.max(0.40,Math.min(0.87,natMechBalance+_dlo));
+              const _hi=Math.max(_lo+0.03,Math.min(0.90,natMechBalance+_dhi));
               const _MIN=0.40,_RNG=0.50;
               const _pct=v=>Math.max(0,Math.min(100,(v-_MIN)/_RNG*100));
               const _cur=fe.arbBalTarget??0.65;
@@ -2744,7 +2750,7 @@ function App(){
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                     <span style={{display:'flex',alignItems:'center',gap:4}}>
                       <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>BALANCE GUIDE</span>
-                      <Hint text="NATURAL is your Δ=0 baseline — where the chassis sits from geometry and weight alone, with no spring or ARB correction added. TARGET shows how far you're deliberately pushing away from that baseline: Δ positive = oversteer bias added via springs/ARBs, Δ negative = understeer bias added. RANGE — suggested target zone for your layout and build. AERO BIAS — how much the aero shifts the car's handling, and which way to offset your target to compensate. The bar circle marks the aero-adjusted aim point."/>
+                      <Hint text="NATURAL is your Δ=0 baseline — where the chassis sits from geometry and weight alone, with no spring or ARB correction. The RANGE adapts to your specific car: it shows how much oversteer bias (Δ from natural) is appropriate for this layout and build. A staggered or rear-heavy car may have a different natural balance, so its range band sits at a different absolute position — the Δ values below it stay the same. TARGET shows how far you're deliberately pushing away from natural. AERO BIAS shows the aero's handling push and the aero-adjusted aim point within the range."/>
                     </span>
                     <span style={{fontSize:10,color:'#94a3b8'}}>{_layout} · {_build.toUpperCase()}</span>
                   </div>
@@ -2762,7 +2768,9 @@ function App(){
                     </div>);
                   })()}
                   <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#94a3b8',marginBottom:6}}>
-                    <span>0.40</span><span>0.65</span><span>0.90</span>
+                    <span>0.40</span>
+                    <span style={{color:'#475569',letterSpacing:0.5}}>NAT {natMechBalance.toFixed(2)}</span>
+                    <span>0.90</span>
                   </div>
                   <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:'3px 0'}}>
                     <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
@@ -2772,7 +2780,10 @@ function App(){
                     <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
                       <span style={{display:'inline-block',width:10,height:3,background:'#14532d',borderRadius:1,flexShrink:0}}/> RANGE
                     </span>
-                    <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:'#16a34a'}}>{_lo.toFixed(2)} – {_hi.toFixed(2)}</span>
+                    <span style={{textAlign:'right',display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1}}>
+                      <span style={{fontFamily:'Courier New',fontSize:10,color:'#16a34a'}}>{_lo.toFixed(2)} – {_hi.toFixed(2)}</span>
+                      <span style={{fontFamily:'Courier New',fontSize:9,color:'#374151',letterSpacing:0.3}}>Δ+{_dlo.toFixed(2)} → +{_dhi.toFixed(2)}</span>
+                    </span>
                     <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
                       <span style={{display:'inline-block',width:0,height:0,borderLeft:'4px solid transparent',borderRight:'4px solid transparent',borderTop:`6px solid ${_tc}`,flexShrink:0}}/> TARGET
                     </span>
