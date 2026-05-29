@@ -1,12 +1,1 @@
-{
-  "version": "0.0.1",
-  "configurations": [
-    {
-      "name": "npx serve",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "C:\\Users\\User\\susp-os", "--no-clipboard"],
-      "autoPort": true,
-      "port": 3000
-    }
-  ]
-}
+{"version":"0.0.1","configurations":[{"name":"susp-os","runtimeExecutable":"npx","runtimeArgs":["serve","."],"port":3000}]}

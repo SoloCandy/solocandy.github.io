@@ -1281,24 +1281,27 @@ const Card=({title,accent=false,hint=null,children})=>(
   </div>
 );
 
-const BiasSeg=({label,val,hint})=>{
+const BiasSeg=({label,val,hint,primary})=>{
   // positive = oversteer (red/right), negative = understeer (blue/left)
   const c=val>0.5?'#ef4444':val<-0.5?'#3b82f6':'#cbd5e1';
   const scale=15;
   const pct=Math.min(50,Math.abs(val)/scale*50);
   const barStyle=val>=0?{left:'50%',width:`${pct}%`}:{right:'50%',width:`${pct}%`};
   return(
-    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
+    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3,
+                 ...(primary?{background:'#0a0f1a',borderRadius:2,padding:'2px 0',margin:'0 -2px 3px'}:{})}}>
       <div style={{width:72,display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
-        <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,lineHeight:1.2}}>{label}</span>
+        <span style={{fontSize:10,color:primary?'#cbd5e1':'#94a3b8',letterSpacing:1,lineHeight:1.2,
+                       fontWeight:primary?700:400}}>{label}</span>
         <Hint text={hint}/>
       </div>
       <div style={{flex:1,position:'relative',height:8,background:'#0f172a',borderRadius:2}}>
         <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#1e293b'}}/>
         {Math.abs(val)>0.5&&<div style={{position:'absolute',top:1,bottom:1,borderRadius:1,
-          background:c+'bb',...barStyle}}/>}
+          background:c+(primary?'dd':'bb'),...barStyle}}/>}
       </div>
-      <span style={{fontFamily:'Courier New',fontSize:11,color:c,width:34,textAlign:'right',flexShrink:0}}>
+      <span style={{fontFamily:'Courier New',fontSize:11,color:c,width:34,textAlign:'right',flexShrink:0,
+                     fontWeight:primary?700:400}}>
         {val>=0?'+':''}{val.toFixed(1)}
       </span>
     </div>
@@ -1307,7 +1310,17 @@ const BiasSeg=({label,val,hint})=>{
 
 const aeroLoadCtx=eff=>eff<0.5?['HI DRAG','#ef4444']:eff<0.7?['MED DRAG','#f59e0b']:['LO DRAG','#cbd5e1'];
 
-const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bAero,bDampBias,mechBalance})=>{
+// Handling-balance label with severity tier. Returns [text, colour].
+const balLabel=v=>{
+  const a=Math.abs(v);
+  if(a<3) return['NEUTRAL','#e2e8f0'];
+  const dir=v>0?'OS':'US', col=v>0?'#ef4444':'#3b82f6';
+  if(a<8) return['MILD '+dir,col];
+  if(a<18) return[v>0?'OVERSTEER':'UNDERSTEER',col];
+  return['STRONG '+dir,col];
+};
+
+const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bAero,bDampBias,mechBalance,gripBalance})=>{
   const cl=v=>Math.max(-50,Math.min(50,v));
   const abs=Math.abs(total);
   // positive = oversteer, negative = understeer
@@ -1321,15 +1334,25 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
       :[{name:'diff exit',val:bDiffAccel??0},{name:'diff entry',val:bDiffDecel??0}]),
     {name:'brakes',val:bBrakeEntry??0},{name:'aero',val:bAero??0},{name:'damping',val:bDampBias??0}
   ];
-  const dom=contributors.reduce((a,b)=>Math.abs(b.val)>Math.abs(a.val)?b:a,contributors[0]);
-  const domStr=Math.abs(dom.val)>2?` Largest driver: ${dom.name.toUpperCase()}.`:'';
+  // Sort by magnitude so dominant driver appears first
+  const sorted=[...contributors].sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
+  const dom=sorted[0];
+  const domBig=Math.abs(dom.val)>2;
+  // Actionable tip per dominant contributor
+  const domTips={
+    springs:   total>0?'Reduce the Mech Balance Target or use CO-SOLVE to balance spring stiffness.':'Raise the Mech Balance Target — springs are biased toward the front.',
+    ARB:       total>0?'Reduce the Mech Balance Target or shift ARB Bias toward front-heavy.':'Raise the Mech Balance Target or shift ARB Bias toward rear-heavy.',
+    'diff exit':  total>0?'Reduce rear exit lock in the Differential section.':'Increase rear exit lock to add rotation under power.',
+    'diff entry': total>0?'Reduce rear entry lock in the Differential section.':'Reduce front entry lock.',
+    'diff front': total>0?'Reduce front accel lock in the AWD Differential section.':'Raise front accel lock.',
+    'diff rear':  total>0?'Reduce rear accel lock in the AWD Differential section.':'Raise rear accel lock.',
+    brakes:    total>0?'Increase front brake bias in the Brakes section to reduce entry rotation.':'Reduce front brake bias to add entry rotation.',
+    aero:      total>0?'Lower Aero Balance toward 0.50 (less front-heavy downforce).':'Raise Aero Balance toward 0.50 or above.',
+    damping:   total>0?'Increase front rebound (Damping Bias toward positive) to resist forward weight transfer.':'Reduce front rebound bias.',
+  };
   const tip=abs<3
-    ?`Setup is well balanced.${domStr} Fine-tune with alignment if needed.`
-    :total>0
-      ?(abs>10?`Move the Balance slider toward Understeer to correct.${domStr}`
-              :`Small Balance adjustment toward Understeer should correct this.${domStr}`)
-      :(abs>10?`Move the Balance slider toward Oversteer to correct.${domStr}`
-              :`Small Balance adjustment toward Oversteer should correct this.${domStr}`);
+    ? 'Setup is well balanced.'+(domBig?' Keep an eye on '+dom.name.toUpperCase()+' if the car feels inconsistent.':'')
+    : (domBig?(domTips[dom.name]||'Adjust the dominant contributor.'):'Adjust Balance Target or ARB Bias.');
   return(
     <div>
       {mechBalance!=null&&
@@ -1344,33 +1367,34 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
             <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>0=FRONT · 1=REAR</span>
           </div>
         </div>}
+      {/* contributor bars sorted by magnitude — dominant driver first */}
       <div style={{marginBottom:8}}>
-        <BiasSeg label="SPRINGS" val={bSp}
-          hint="Spring roll-stiffness bias vs weight distribution. + = oversteer (rear springs relatively stiffer). − = understeer (front springs relatively stiffer)."/>
-        <BiasSeg label="ARB" val={bAb}
-          hint="ARB roll-stiffness bias vs weight distribution. + = oversteer (rear ARBs relatively stiffer). − = understeer (front ARBs relatively stiffer)."/>
-        {isAWD?(
-          <>
-            <BiasSeg label="DIFF F" val={bDiffFront??0}
-              hint="AWD front diff net contribution (accel+decel). Front lock pushes understeer (−). Center split and front weight fraction are factored in."/>
-            <BiasSeg label="DIFF R" val={bDiffRear??0}
-              hint="AWD rear diff net contribution (accel+decel). Rear lock pushes oversteer (+). Center split and rear weight fraction are factored in."/>
-          </>
-        ):(
-          <>
-            <BiasSeg label="DIFF EXIT" val={bDiffAccel??0}
-              hint={diffLayout==='FWD'?'Front accel lock on-throttle exit. Higher lock = more understeer (−).':'Rear accel lock on-throttle exit. Higher lock = more oversteer (+).'}/>
-            <BiasSeg label="DIFF ENTRY" val={bDiffDecel??0}
-              hint={diffLayout==='FWD'?'Front decel lock off-throttle entry. Higher lock = more entry understeer (−).':'Rear decel lock off-throttle entry. Higher lock = more oversteer on entry (+).'}/>
-          </>
-        )}
-        <BiasSeg label="BRAKES" val={bBrakeEntry??0}
-          hint="Brake-balance contribution to entry. High front bias = understeer on entry (−). Low front bias (rear-biased) = oversteer tendency (+). Based on deviation from 50% neutral."/>
-        <BiasSeg label="AERO" val={bAero??0}
-          hint="Aero balance contribution. Front-heavy aero (above 0.50) = oversteer tendency (+). Rear-heavy aero (below 0.50) = understeer tendency (−). Use the AERO BIAS row in the Balance Guide (ARB section) to see how much offset this implies for your mech balance target."/>
-        <BiasSeg label="DAMP" val={bDampBias??0}
-          hint="Damping bias contribution. More front rebound damping resists weight transfer off the front, producing understeer tendency (−). More rear damping does the opposite (+)."/>
+        {sorted.map(({name,val})=>{
+          const hints={
+            springs:'Spring roll-stiffness bias vs weight distribution. + = oversteer (rear springs relatively stiffer). − = understeer (front springs relatively stiffer).',
+            ARB:'ARB roll-stiffness bias vs weight distribution. + = oversteer (rear ARBs relatively stiffer). − = understeer (front ARBs relatively stiffer).',
+            'diff front':'AWD front diff net contribution (accel+decel). Front lock pushes understeer (−). Center split and front weight fraction are factored in.',
+            'diff rear':'AWD rear diff net contribution (accel+decel). Rear lock pushes oversteer (+). Center split and rear weight fraction are factored in.',
+            'diff exit':diffLayout==='FWD'?'Front accel lock on-throttle exit. Higher lock = more understeer (−).':'Rear accel lock on-throttle exit. Higher lock = more oversteer (+).',
+            'diff entry':diffLayout==='FWD'?'Front decel lock off-throttle entry. Higher lock = more entry understeer (−).':'Rear decel lock off-throttle entry. Higher lock = more oversteer on entry (+).',
+            brakes:'Brake-balance contribution to entry. High front bias = understeer on entry (−). Low front bias (rear-biased) = oversteer tendency (+). Based on deviation from 50% neutral.',
+            aero:'Aero balance contribution. Front-heavy aero (above 0.50) = oversteer tendency (+). Rear-heavy aero (below 0.50) = understeer tendency (−).',
+            damping:'Damping bias contribution. More front rebound damping resists weight transfer off the front, producing understeer tendency (−). More rear damping does the opposite (+).',
+          };
+          const labelMap={'diff front':'DIFF F','diff rear':'DIFF R','diff exit':'DIFF EXIT','diff entry':'DIFF ENTRY','brakes':'BRAKES','aero':'AERO','damping':'DAMP'};
+          const isDom=name===dom.name&&domBig;
+          return <BiasSeg key={name} label={labelMap[name]??(name.toUpperCase())} val={val}
+            hint={hints[name]??''} primary={isDom}/>;
+        })}
       </div>
+      {/* grip balance context — physical at-limit tendency from LLT model */}
+      {gripBalance!=null&&Math.abs(gripBalance-0.5)>0.03&&<div style={{
+          fontSize:10,color:'#4b5563',lineHeight:1.5,marginBottom:6,
+          padding:'4px 8px',borderLeft:'2px solid #1e293b'}}>
+        GRIP BIAS {gripBalance.toFixed(2)} — physical handling at limit
+        {gripBalance<0.45?' (understeer-prone chassis — more suspension correction needed for neutral limit balance)':
+         gripBalance>0.55?' (oversteer-prone chassis — less correction needed to achieve rotation)':''}
+      </div>}
       <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:5}}>
         <span style={{fontFamily:'Courier New',fontSize:20,fontWeight:700,color:col,lineHeight:1}}>
           {`${total>=0?'+':''}${total.toFixed(1)}`}
