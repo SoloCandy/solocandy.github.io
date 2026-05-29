@@ -9,8 +9,36 @@ const ARB_RS_SCALE = 240;
 // NOTE: app now uses rollCenterHeight(ch)=ch.cgHeight*0.20 (not a fixed constant)
 const rollCenterHeight = ch => ch.cgHeight * 0.20;
 const DAMPING_CALIBRATION = 0.001;
-const MECH_BALANCE_STIFFNESS_WEIGHT = 0.60; // must match app constant
 const GAME_LIMITS = { horizon: { damping: 20, arb: 65 }, motorsport: { damping: 40, arb: 40 } };
+
+// ── mech balance model (must mirror app: mechBalanceLLT / balanceFromRsBal) ──
+const TIRE_LOAD_SENS = 0.15, MECH_BAL_GAIN = 1.8, WIDTH_GRIP_EXP = 0.4;
+const cornerMassesM = ch => {
+  const kg = ch.weight / KG_TO_LB;
+  return { front: (kg * (ch.frontBias / 100)) / 2, rear: (kg * (1 - ch.frontBias / 100)) / 2 };
+};
+const mechBalanceLLT = (ch, Kf, Kr) => {
+  const g = 9.81, a = 1.0, twF = ch.twF ?? 265, twR = ch.twR ?? 265;
+  const m = cornerMassesM(ch), Mf = m.front * 2, Mr = m.rear * 2, Mt = Mf + Mr, RC = rollCenterHeight(ch);
+  const Mphi = Mt * g * a * (ch.cgHeight - RC), sF = Kf / (Kf + Kr);
+  const dWf = Mphi * sF / ch.trackF + Mf * g * a * RC / ch.trackF;
+  const dWr = Mphi * (1 - sF) / ch.trackR + Mr * g * a * RC / ch.trackR;
+  const FzRef = Mt * g / 4;
+  const fy = Fz => { const z = Math.max(0, Fz); return z * Math.max(0, 1 - TIRE_LOAD_SENS * (z / FzRef - 1)); };
+  const wF = Mf * g / 2, wR = Mr * g / 2;
+  const FyF = Math.pow(twF / 265, WIDTH_GRIP_EXP) * (fy(wF + dWf) + fy(wF - dWf));
+  const FyR = Math.pow(twR / 265, WIDTH_GRIP_EXP) * (fy(wR + dWr) + fy(wR - dWr));
+  return Math.max(0, Math.min(1, 0.5 + MECH_BAL_GAIN * (FyF / (Mf * g) - FyR / (Mr * g))));
+};
+const balanceFromRsBal = (ch, rsBal) => {
+  const r = Math.max(1e-4, Math.min(1 - 1e-4, rsBal));
+  return mechBalanceLLT(ch, 1, r / (1 - r));
+};
+const rsBalFromBalance = (ch, target) => {
+  let lo = 1e-4, hi = 1 - 1e-4;
+  for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (balanceFromRsBal(ch, mid) < target) lo = mid; else hi = mid; }
+  return (lo + hi) / 2;
+};
 
 const cornerMasses = ch => {
   const kg = ch.weight / KG_TO_LB;
@@ -171,6 +199,36 @@ console.log('\nintegration — LC500-like vehicle');
 
   const rebF = solveDamp(frontHz, m.front, 70, lim.damping);
   assert('rebound within game limits', rebF >= 1 && rebF <= lim.damping ? rebF : -1, rebF >= 1 && rebF <= lim.damping ? rebF : -1, 0);
+}
+
+// ── mech balance (tyre load sensitivity model) ──────────────────────────────
+
+console.log('\nmechBalanceLLT');
+{
+  // symmetric car: 50/50, equal track, equal width, equal stiffness → exactly neutral
+  const sym = { weight: 3000, frontBias: 50, cgHeight: 0.45, trackF: 1.55, trackR: 1.55, twF: 265, twR: 265 };
+  assert('symmetric car is neutral (0.50)', mechBalanceLLT(sym, 1, 1), 0.50, 1e-6);
+
+  // monotonic: stiffer rear → higher (more oversteer)
+  assertEq('rear-stiffer → >0.5', mechBalanceLLT(sym, 1, 1.5) > 0.5, true);
+  assertEq('front-stiffer → <0.5', mechBalanceLLT(sym, 1.5, 1) < 0.5, true);
+  assertEq('monotonic in Kr/Kf', mechBalanceLLT(sym, 1, 1.6) > mechBalanceLLT(sym, 1, 1.3), true);
+
+  // width = grip: wider rear tyre reduces oversteer (lower balance) at fixed stiffness
+  const wideR = { ...sym, twR: 305 };
+  assertEq('wider rear tyre → less oversteer', mechBalanceLLT(wideR, 1, 1.4) < mechBalanceLLT(sym, 1, 1.4), true);
+
+  // inverse round-trips the forward map
+  const ch = { weight: 3200, frontBias: 52, cgHeight: 0.45, trackF: 1.55, trackR: 1.52, twF: 265, twR: 265 };
+  for (const tgt of [0.45, 0.55, 0.65]) {
+    const rs = rsBalFromBalance(ch, tgt);
+    assert(`inverse round-trip @ ${tgt}`, balanceFromRsBal(ch, rs), tgt, 0.005);
+  }
+
+  // calibrated to legacy 0.5-neutral scale: default car natural ≈ 0.47
+  const natRs = (cornerMassesM(ch).rear * ch.trackR ** 2) /
+                (cornerMassesM(ch).front * ch.trackF ** 2 + cornerMassesM(ch).rear * ch.trackR ** 2);
+  assert('default car natural balance ≈ 0.47', balanceFromRsBal(ch, natRs), 0.469, 0.02);
 }
 
 // ── summary ───────────────────────────────────────────────────────────────────

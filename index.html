@@ -120,9 +120,10 @@ const NMM_PER_LBIN=LB_IN_TO_NM/100; // ≈1.751 N/mm per lb/in
 const ARB_RS_SCALE=240,CAMBER_GAIN=0.7;
 const rollCenterHeight=ch=>ch.cgHeight*0.20; // scales with CG height; ~0.09m for typical sports cars
 const DAMPING_CALIBRATION=0.001;
-//
-//
-const MECH_BALANCE_STIFFNESS_WEIGHT=0.60;
+// Mech-balance model (tyre load sensitivity). See mechBalanceLLT.
+const TIRE_LOAD_SENS=0.15;   // grip falloff per unit Fz/Fz_ref (tyre load sensitivity)
+const MECH_BAL_GAIN=1.8;     // axle capacity delta → balance offset (calibrated to legacy 0.5-neutral scale)
+const WIDTH_GRIP_EXP=0.4;    // tyre width → grip capacity, sub-linear
 const MECH_BALANCE_TARGET=0.65;
 const GAME_LIMITS={horizon:{damping:20,arb:65},motorsport:{damping:40,arb:40}};
 
@@ -177,6 +178,38 @@ const solveDampRaw=(hz,mass,z)=>{
   return cc*(z/100)*DAMPING_CALIBRATION; // truly unclamped — bounds applied after proportional scaling
 };
 
+// ── Mech balance — steady-state US/OS from physics ───────────────────────────
+// Derived from lateral-load-transfer distribution (set by the front/rear roll-
+// stiffness RATIO), tyre load sensitivity (grip falls as vertical load rises —
+// the mechanism by which roll stiffness shifts balance), and tyre width as a
+// sub-linear grip-capacity multiplier. 0.5 = neutral, >0.5 = oversteer.
+// Only Kf/Kr ratio matters for LLTD, so callers may pass relative stiffnesses.
+const mechBalanceLLT=(ch,Kf,Kr)=>{
+  const g=9.81,a=1.0;
+  const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
+  const m=cornerMasses(ch),Mf=m.front*2,Mr=m.rear*2,Mt=Mf+Mr,RC=rollCenterHeight(ch);
+  const Mphi=Mt*g*a*(ch.cgHeight-RC),sF=Kf/(Kf+Kr);     // sprung roll couple; front elastic share
+  const dWf=Mphi*sF/ch.trackF+Mf*g*a*RC/ch.trackF;       // front lateral load transfer (N): elastic + geometric
+  const dWr=Mphi*(1-sF)/ch.trackR+Mr*g*a*RC/ch.trackR;   // rear
+  const FzRef=Mt*g/4;                                     // avg static wheel load
+  const fy=Fz=>{const z=Math.max(0,Fz);return z*Math.max(0,1-TIRE_LOAD_SENS*(z/FzRef-1));};
+  const wF=Mf*g/2,wR=Mr*g/2;                              // static wheel loads
+  const FyF=Math.pow(twF/265,WIDTH_GRIP_EXP)*(fy(wF+dWf)+fy(wF-dWf));
+  const FyR=Math.pow(twR/265,WIDTH_GRIP_EXP)*(fy(wR+dWr)+fy(wR-dWr));
+  return Math.max(0,Math.min(1,0.5+MECH_BAL_GAIN*(FyF/(Mf*g)-FyR/(Mr*g))));
+};
+// pure roll-stiffness rear fraction Kr/(Kf+Kr) → balance
+const balanceFromRsBal=(ch,rsBal)=>{
+  const r=Math.max(1e-4,Math.min(1-1e-4,rsBal));
+  return mechBalanceLLT(ch,1,r/(1-r));
+};
+// balance target → pure roll-stiffness rear fraction (monotonic ⇒ bisection)
+const rsBalFromBalance=(ch,target)=>{
+  let lo=1e-4,hi=1-1e-4;
+  for(let i=0;i<40;i++){const mid=(lo+hi)/2;if(balanceFromRsBal(ch,mid)<target)lo=mid;else hi=mid;}
+  return (lo+hi)/2;
+};
+
 const feelToPhysics=(ch,fe)=>{
   const gameLim=GAME_LIMITS[fe.gameMode??'horizon']?.arb??65;
   let frontHz=rsToHz(fe.rideStiffness);
@@ -190,16 +223,14 @@ const feelToPhysics=(ch,fe)=>{
   // CO-SOLVE: K = effectiveRHz/frontHz is constant for given chassis/target/share.
   // Invert it so slider controls the user's chosen reference axle.
   if(arbBalModeEarly==='coSolve'&&uiRideRef!=='front'){
-    const twFc=parseTyre(ch.tyreF)?.width??265,twRc=parseTyre(ch.tyreR)?.width??265;
     const mc=cornerMasses(ch);
-    const k=MECH_BALANCE_STIFFNESS_WEIGHT;
     const abt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
-    const rst=Math.max(0.001,Math.min(0.999,(abt-(1-k)*(1-ch.frontBias/100))/k));
+    const rst=rsBalFromBalance(ch,abt);                  // target pure roll-stiffness rear fraction
     const S=(fe.springShare??50)/100;
-    const A=mc.rear*ch.trackR*ch.trackR/(mc.front*ch.trackF*ch.trackF);
-    const Rbl=A*twRc/(twFc+A*twRc);
+    const A=mc.rear*ch.trackR*ch.trackR/(mc.front*ch.trackF*ch.trackF); // natural rear/front roll-stiffness ratio (no width)
+    const Rbl=A/(1+A);
     const Rsp=Math.max(0.001,Math.min(0.999,Rbl+S*(rst-Rbl)));
-    const Kcs=Math.sqrt(Rsp*mc.front*ch.trackF*ch.trackF*twFc/((1-Rsp)*mc.rear*ch.trackR*ch.trackR*twRc));
+    const Kcs=Math.sqrt(Rsp*mc.front*ch.trackF*ch.trackF/((1-Rsp)*mc.rear*ch.trackR*ch.trackR)); // rear/front Hz ratio (no width)
     if(uiRideRef==='rear')   frontHz=Math.max(0.8,frontHz/Kcs);
     else if(uiRideRef==='shared') frontHz=Math.max(0.8,2*frontHz/(1+Kcs));
   }
@@ -213,15 +244,14 @@ const feelToPhysics=(ch,fe)=>{
       rearHz=Math.max(0.8,Math.min(4.0,2*avgHz*mult/(1+mult)));
       rearHzClamped=false;
     } else if(rearHzMode==='mech'&&arbBalModeEarly!=='coSolve'){
-      const K=MECH_BALANCE_STIFFNESS_WEIGHT;
-      const twF_m=parseTyre(ch.tyreF)?.width??265,twR_m=parseTyre(ch.tyreR)?.width??265;
       const m_m=cornerMasses(ch);
       const arbBalTgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
-      const rsBalTgt=Math.max(0.05,Math.min(0.95,(arbBalTgt-(1-K)*(1-ch.frontBias/100))/K));
+      const rsBalTgt=Math.max(0.05,Math.min(0.95,rsBalFromBalance(ch,arbBalTgt)));
       // Weight ARBs sit at the natural balance ratio and dilute the spring correction.
       // Solve springs to a higher ratio so combined (springs + weight ARBs) still hits rsBalTgt:
       //   combined = (1-p)*b_sp + p*rsBalNat = rsBalTgt  →  b_sp = (rsBalTgt - p*rsBalNat)/(1-p)
-      const _V_m=m_m.front*ch.trackF*ch.trackF*twF_m,_W_m=m_m.rear*ch.trackR*ch.trackR*twR_m;
+      // Roll-stiffness fractions are width-independent (width is a grip effect, not stiffness).
+      const _V_m=m_m.front*ch.trackF*ch.trackF,_W_m=m_m.rear*ch.trackR*ch.trackR;
       const _rsBalNat_m=_W_m/(_V_m+_W_m);
       let _p_m=0;
       if(arbBalModeEarly==='weight'){
@@ -237,7 +267,7 @@ const feelToPhysics=(ch,fe)=>{
             _p_m=Math.max(5,Math.min(50,_nRoll*7))/100;
             const _eff=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
             const _R=_eff/(1-_eff);
-            const _mult=Math.sqrt(_R*m_m.front*ch.trackF*ch.trackF*twF_m/(m_m.rear*ch.trackR*ch.trackR*twR_m));
+            const _mult=Math.sqrt(_R*m_m.front*ch.trackF*ch.trackF/(m_m.rear*ch.trackR*ch.trackR));
             _estF=Math.max(0.8,2*avgHz/(1+_mult));
             _estR=Math.max(0.8,Math.min(4.0,2*avgHz*_mult/(1+_mult)));
           }
@@ -246,7 +276,7 @@ const feelToPhysics=(ch,fe)=>{
       }
       const _effRsBal_m=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
       const R_m=_effRsBal_m/(1-_effRsBal_m);
-      const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF*twF_m/(m_m.rear*ch.trackR*ch.trackR*twR_m));
+      const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF/(m_m.rear*ch.trackR*ch.trackR));
       frontHz=Math.max(0.8,2*avgHz/(1+mult_m));
       rearHz=Math.max(0.8,Math.min(4.0,2*avgHz*mult_m/(1+mult_m)));
       rearHzClamped=frontHz<=0.8||rearHz>=4.0;
@@ -266,15 +296,14 @@ const feelToPhysics=(ch,fe)=>{
       secondaryHz=Math.max(0.8,Math.min(4.0,raw));
       secondaryHzClamped=false;
     } else if(rearHzMode==='mech'&&arbBalModeEarly!=='coSolve'){
-      const K=MECH_BALANCE_STIFFNESS_WEIGHT;
-      const twF_m=parseTyre(ch.tyreF)?.width??265,twR_m=parseTyre(ch.tyreR)?.width??265;
       const m_m=cornerMasses(ch);
       const arbBalTgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
-      const rsBalTgt=Math.max(0.05,Math.min(0.95,(arbBalTgt-(1-K)*(1-ch.frontBias/100))/K));
+      const rsBalTgt=Math.max(0.05,Math.min(0.95,rsBalFromBalance(ch,arbBalTgt)));
       // Weight ARBs sit at the natural balance ratio and dilute the spring correction.
       // Solve springs to a higher ratio so combined (springs + weight ARBs) still hits rsBalTgt:
       //   combined = (1-p)*b_sp + p*rsBalNat = rsBalTgt  →  b_sp = (rsBalTgt - p*rsBalNat)/(1-p)
-      const _V_m=m_m.front*ch.trackF*ch.trackF*twF_m,_W_m=m_m.rear*ch.trackR*ch.trackR*twR_m;
+      // Roll-stiffness fractions are width-independent (width is a grip effect, not stiffness).
+      const _V_m=m_m.front*ch.trackF*ch.trackF,_W_m=m_m.rear*ch.trackR*ch.trackR;
       const _rsBalNat_m=_W_m/(_V_m+_W_m);
       let _p_m=0;
       if(arbBalModeEarly==='weight'){
@@ -292,7 +321,7 @@ const feelToPhysics=(ch,fe)=>{
             _p_m=Math.max(5,Math.min(50,_nRoll*7))/100;
             const _eff=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
             const _R=_eff/(1-_eff);
-            const _mult=Math.sqrt(_R*m_m.front*ch.trackF*ch.trackF*twF_m/(m_m.rear*ch.trackR*ch.trackR*twR_m));
+            const _mult=Math.sqrt(_R*m_m.front*ch.trackF*ch.trackF/(m_m.rear*ch.trackR*ch.trackR));
             _estSec=Math.max(0.8,Math.min(4.0,rideRef==='front'?primaryHz*_mult:primaryHz/_mult));
           }
         }
@@ -300,7 +329,7 @@ const feelToPhysics=(ch,fe)=>{
       }
       const _effRsBal_m=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
       const R_m=_effRsBal_m/(1-_effRsBal_m);
-      const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF*twF_m/(m_m.rear*ch.trackR*ch.trackR*twR_m));
+      const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF/(m_m.rear*ch.trackR*ch.trackR));
       const raw_m=rideRef==='front'?primaryHz*mult_m:primaryHz/mult_m;
       secondaryHz=Math.max(0.8,Math.min(4.0,raw_m));
       secondaryHzClamped=raw_m<0.8||raw_m>4.0;
@@ -361,15 +390,13 @@ const computeTune=(ch,phys,gameMode)=>{
   // CO-SOLVE: solve rear Hz from spring share + mech balance target before anything else
   let effectiveRHz=rHz;
   if(arbBalMode==='coSolve'){
-    const twF_cs=parseTyre(ch.tyreF)?.width??265,twR_cs=parseTyre(ch.tyreR)?.width??265;
     const rsSpF_cs=Math.pow(fHz*2*Math.PI,2)*m.front*ch.trackF*ch.trackF/2;
-    const k=MECH_BALANCE_STIFFNESS_WEIGHT;
-    const targetRsBalance=Math.max(0.001,Math.min(0.999,(arbBalTarget-(1-k)*(1-ch.frontBias/100))/k));
+    const targetRsBalance=Math.max(0.001,Math.min(0.999,rsBalFromBalance(ch,arbBalTarget))); // pure roll-stiffness rear fraction
     const rsSpR_base=Math.pow(fHz*2*Math.PI,2)*m.rear*ch.trackR*ch.trackR/2;
-    const R_baseline=rsSpR_base*twR_cs/(rsSpF_cs*twF_cs+rsSpR_base*twR_cs);
+    const R_baseline=rsSpR_base/(rsSpF_cs+rsSpR_base);   // spring-only roll-stiffness rear fraction (no width)
     const S=(phys.springShare??50)/100;
     const R_sp=Math.max(0.001,Math.min(0.999,R_baseline+S*(targetRsBalance-R_baseline)));
-    const rsSpR_tgt=R_sp*rsSpF_cs*twF_cs/((1-R_sp)*twR_cs);
+    const rsSpR_tgt=R_sp*rsSpF_cs/(1-R_sp);
     effectiveRHz=Math.max(0.8,Math.min(4.0,Math.sqrt(2*rsSpR_tgt/(m.rear*ch.trackR*ch.trackR))/(2*Math.PI)));
   }
   const springF=solveSpring(fHz,m.front,1);
@@ -408,14 +435,12 @@ const computeTune=(ch,phys,gameMode)=>{
   let rsAbBudget=arbMode==='roll'
     ? rsTotalTarget-rsSpF-rsSpR        // roll mode: invert roll equation as before
     : rsSp*(shareTarget/(1-shareTarget)); // auto + share: target a fraction directly
-  const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
   let rF=arbBalance/100;
   let _rsBalK=null;
   if((arbBalMode==='mech'||arbBalMode==='coSolve')&&rsAbBudget>0){
-    const k=MECH_BALANCE_STIFFNESS_WEIGHT;
-    const rsBalTarget=Math.max(0.001,Math.min(0.999,(arbBalTarget-(1-k)*(1-ch.frontBias/100))/k));
-    _rsBalK=rsBalTarget/(1-rsBalTarget);
-    rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)*twF-rsSpR*twR)/(rsAbBudget*(twR+_rsBalK*twF))));
+    const rsBalTarget=Math.max(0.001,Math.min(0.999,rsBalFromBalance(ch,arbBalTarget))); // target pure roll-stiffness rear fraction
+    _rsBalK=rsBalTarget/(1-rsBalTarget);                          // target Kr/Kf
+    rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)-rsSpR)/(rsAbBudget*(1+_rsBalK))));
   }
   //
   const lightShare=Math.max(0.001,Math.min(rF,1-rF));          // smaller fraction (guard against div/0 at extremes)
@@ -436,7 +461,7 @@ const computeTune=(ch,phys,gameMode)=>{
   const rsHeavyBudget=rsAbBudget*heavyShare;
   if(rsHeavyBudget>rsHeavyCeil)rsAbBudget=rsHeavyCeil/heavyShare;
   if(_rsBalK!==null)
-    rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)*twF-rsSpR*twR)/(rsAbBudget*(twR+_rsBalK*twF))));
+    rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)-rsSpR)/(rsAbBudget*(1+_rsBalK))));
   const clk=(rs,track)=>{const v=Math.min(Math.min(lim.arb,arbCeil),Math.max(1,rs/(ARB_RS_SCALE*track*track)));return Math.round(v*10)/10;};
   const arbF=clk(rsAbBudget*(1-rF),ch.trackF);
   const arbR=clk(rsAbBudget*rF,ch.trackR);
@@ -450,10 +475,10 @@ const computeTune=(ch,phys,gameMode)=>{
   const bSp=(rsSpF+rsSpR)>0?(nf-(rsSpF/(rsSpF+rsSpR)))*100:0;
   const bAb=(rsAbF+rsAbR)>0?(nf-(rsAbF/(rsAbF+rsAbR)))*100:0;
   const bTot=bSp+bAb;
-  const rsWF=(rsSpF+rsAbF)*twF,rsWR=(rsSpR+rsAbR)*twR;
-  const rsBalance=rsWF+rsWR>0?rsWR/(rsWF+rsWR):1-ch.frontBias/100;
-  const mechBalance=MECH_BALANCE_STIFFNESS_WEIGHT*rsBalance
-                   +(1-MECH_BALANCE_STIFFNESS_WEIGHT)*(1-ch.frontBias/100);
+  // Pure roll-stiffness rear fraction (width is a grip effect, handled in mechBalanceLLT).
+  const rsKf=rsSpF+rsAbF,rsKr=rsSpR+rsAbR;
+  const rsBalance=rsKf+rsKr>0?rsKr/(rsKf+rsKr):1-ch.frontBias/100;
+  const mechBalance=balanceFromRsBal(ch,rsBalance);
   const mechBalClamped=(arbBalMode==='mech'||arbBalMode==='coSolve')&&Math.abs(mechBalance-arbBalTarget)>0.01;
   const settleF=zetaF>0?2.302/((zetaF/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn)
   const settleR=zetaR>0?2.302/((zetaR/100)*effectiveRHz*2*Math.PI):99;
@@ -527,14 +552,11 @@ const computeDiff=(ch,fe,dr)=>{
   // Off by default; manual mode bypasses it entirely.
   let effBiasExit=biasExit, effBiasEntry=biasEntry;
   if(dr.diffComplement&&!dr.diffManual){
-    const K=MECH_BALANCE_STIFFNESS_WEIGHT;
-    const twF=parseTyre(ch.tyreF)?.width??265;
-    const twR=parseTyre(ch.tyreR)?.width??265;
     const cm=cornerMasses(ch);
-    // natural mech balance — geometry + weight only, no springs/ARBs
-    const rsBalNat=(cm.rear*ch.trackR*ch.trackR*twR)
-                  /(cm.front*ch.trackF*ch.trackF*twF+cm.rear*ch.trackR*ch.trackR*twR);
-    const natMechBal=K*rsBalNat+(1-K)*(1-ch.frontBias/100);
+    // natural mech balance — geometry + weight only, no springs/ARBs (pure roll-stiffness fraction)
+    const rsBalNat=(cm.rear*ch.trackR*ch.trackR)
+                  /(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
+    const natMechBal=balanceFromRsBal(ch,rsBalNat);
     const tgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
     const gap=tgt-natMechBal; // positive = user wants more rear/oversteer than natural
     // Cap correction so it can't dominate explicit user slider input
@@ -2127,14 +2149,11 @@ function App(){
 
   // Full chassis geometry analysis — equal Hz, no ARBs
   const chassisAnalysis=(()=>{
-    const K=MECH_BALANCE_STIFFNESS_WEIGHT;
     const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
-    const mF=cm.front,mR=cm.rear;
-    // Weighted roll stiffness terms (Hz cancels — pure geometry ratio)
-    const rsWF=mF*ch.trackF*ch.trackF*twF;
-    const rsWR=mR*ch.trackR*ch.trackR*twR;
-    const rsBalance_nat=rsWR/(rsWF+rsWR);
-    const natBal=K*rsBalance_nat+(1-K)*(1-ch.frontBias/100);
+    // Natural balance: equal springs, no ARBs. Pure roll-stiffness ratio (no width) fed
+    // through the physical model, which applies tyre width as a grip effect.
+    const rsBalance_nat=cm.rear*ch.trackR*ch.trackR/(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
+    const natBal=balanceFromRsBal(ch,rsBalance_nat);
     // Stability index: track width × tire width normalised to typical values
     const avgTrack=(ch.trackF+ch.trackR)/2;   // metres
     const avgTire=(twF+twR)/2;                 // mm
@@ -2142,19 +2161,20 @@ function App(){
     // Recommendation target: co-solve/mech target when active, else neutral 0.50
     const hasMechTarget=fe.arbBalMode==='coSolve'||fe.arbBalMode==='mech';
     const targetBal=hasMechTarget?Math.max(0.40,Math.min(0.90,fe.arbBalTarget??0.55)):0.50;
-    // Required rsBalance to achieve targetBal
-    const rsBalance_tgt=Math.max(0.05,Math.min(0.95,(targetBal-(1-K)*(1-ch.frontBias/100))/K));
-    const R=rsBalance_tgt/(1-rsBalance_tgt);  // rear/front weighted ratio
-    // Ideal tire widths (mm) and track widths (mm) to reach target with equal Hz, no ARBs
+    // Numeric REACH: smallest single-parameter change that brings natural balance to target,
+    // under the physical model (width = grip, track = roll stiffness + transfer). Closed-form
+    // no longer applies because tyre width and track width now push balance in opposite ways.
+    const balOf=o=>{const c={...ch,...o};const m=cornerMasses(c);
+      const rb=m.rear*c.trackR*c.trackR/(m.front*c.trackF*c.trackF+m.rear*c.trackR*c.trackR);
+      return balanceFromRsBal(c,rb);};
+    const tyre=w=>`${Math.round(w)}/35R18`;
+    const scan=f=>{let best=f.lo,err=Infinity; // value in range whose balance is closest to target
+      for(let i=0;i<=80;i++){const v=f.lo+(f.hi-f.lo)*i/80;const e=Math.abs(f.bal(v)-targetBal);if(e<err){err=e;best=v;}}return best;};
     const r5=v=>Math.round(v/5)*5;
-    const twF_ideal=rsWR/(R*mF*ch.trackF*ch.trackF);
-    const twR_ideal=R*rsWF/(mR*ch.trackR*ch.trackR);
-    const trackF_ideal_m=Math.sqrt(rsWR/(R*mF*twF));   // metres
-    const trackR_ideal_m=Math.sqrt(R*rsWF/(mR*twR));
-    const twF_rec=r5(Math.max(150,Math.min(600,twF_ideal)));
-    const twR_rec=r5(Math.max(150,Math.min(600,twR_ideal)));
-    const trackF_rec=r5(Math.max(800,Math.min(2200,trackF_ideal_m*1000)));
-    const trackR_rec=r5(Math.max(800,Math.min(2200,trackR_ideal_m*1000)));
+    const twF_rec=r5(Math.max(150,Math.min(600,scan({lo:150,hi:600,bal:w=>balOf({tyreF:tyre(w)})}))));
+    const twR_rec=r5(Math.max(150,Math.min(600,scan({lo:150,hi:600,bal:w=>balOf({tyreR:tyre(w)})}))));
+    const trackF_rec=r5(Math.max(800,Math.min(2200,scan({lo:0.8,hi:2.2,bal:t=>balOf({trackF:t})})*1000)));
+    const trackR_rec=r5(Math.max(800,Math.min(2200,scan({lo:0.8,hi:2.2,bal:t=>balOf({trackR:t})})*1000)));
     const dTwF=twF_rec-twF,dTwR=twR_rec-twR;
     const trackF_curr=Math.round(ch.trackF*1000),trackR_curr=Math.round(ch.trackR*1000);
     const dTrackF=trackF_rec-trackF_curr,dTrackR=trackR_rec-trackR_curr;
@@ -2607,7 +2627,7 @@ function App(){
               return(<>
                 <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
                   <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>TYRE SIZE</span>
-                  <Hint text="Enter tyre sizes in Forza format (e.g. 265/35R18). Width (first number, in mm) affects how roll stiffness is weighted between axles — wider tyres on one end increase that end's effective grip contribution and shift the mech balance target and ARB split. Aspect ratio and rim diameter determine rolling radius."/>
+                  <Hint text="Enter tyre sizes in Forza format (e.g. 265/35R18). Width (first number, in mm) sets each axle's grip capacity: a wider tyre on one end makes that end grip harder, shifting the limit toward the other axle — so a wider rear reduces oversteer. Aspect ratio and rim diameter determine rolling radius."/>
                 </div>
                 <div style={{display:'flex',gap:8,marginBottom:4}}>
                   {tyreInput('tyreF','FRONT')}
@@ -2667,9 +2687,10 @@ function App(){
                       const allFeasible=[twFfeas,twRfeas,trackFfeas,trackRfeas].some(Boolean);
                       if(!allFeasible) return 'Gap too large for geometry alone — rely on ARBs.';
                       const needOS=targetBal>nm; // target is more oversteer than natural
+                      // Tyre width = grip; track width = roll stiffness — opposite balance effects.
                       return needOS
-                        ?'Wider rear tyre/track or narrower front moves chassis toward oversteer target.'
-                        :'Wider front tyre/track or narrower rear moves chassis toward understeer target.';
+                        ?'Toward oversteer: narrower rear / wider front tyre, or wider rear / narrower front track.'
+                        :'Toward understeer: wider rear / narrower front tyre, or narrower rear / wider front track.';
                     })()}
                   </div>
                 </div>}
