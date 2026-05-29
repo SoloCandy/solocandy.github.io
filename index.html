@@ -225,7 +225,7 @@ const feelToPhysics=(ch,fe)=>{
   if(arbBalModeEarly==='coSolve'&&uiRideRef!=='front'){
     const mc=cornerMasses(ch);
     const abt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
-    const rst=rsBalFromBalance(ch,abt);                  // target pure roll-stiffness rear fraction
+    const rst=Math.max(0.001,Math.min(0.999,abt));        // arbBalTarget IS the rsBalance target
     const S=(fe.springShare??50)/100;
     const A=mc.rear*ch.trackR*ch.trackR/(mc.front*ch.trackF*ch.trackF); // natural rear/front roll-stiffness ratio (no width)
     const Rbl=A/(1+A);
@@ -246,7 +246,7 @@ const feelToPhysics=(ch,fe)=>{
     } else if(rearHzMode==='mech'&&arbBalModeEarly!=='coSolve'){
       const m_m=cornerMasses(ch);
       const arbBalTgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
-      const rsBalTgt=Math.max(0.05,Math.min(0.95,rsBalFromBalance(ch,arbBalTgt)));
+      const rsBalTgt=Math.max(0.05,Math.min(0.95,arbBalTgt));         // arbBalTarget is the rsBalance target
       // Weight ARBs sit at the natural balance ratio and dilute the spring correction.
       // Solve springs to a higher ratio so combined (springs + weight ARBs) still hits rsBalTgt:
       //   combined = (1-p)*b_sp + p*rsBalNat = rsBalTgt  →  b_sp = (rsBalTgt - p*rsBalNat)/(1-p)
@@ -298,7 +298,7 @@ const feelToPhysics=(ch,fe)=>{
     } else if(rearHzMode==='mech'&&arbBalModeEarly!=='coSolve'){
       const m_m=cornerMasses(ch);
       const arbBalTgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
-      const rsBalTgt=Math.max(0.05,Math.min(0.95,rsBalFromBalance(ch,arbBalTgt)));
+      const rsBalTgt=Math.max(0.05,Math.min(0.95,arbBalTgt));         // arbBalTarget is the rsBalance target
       // Weight ARBs sit at the natural balance ratio and dilute the spring correction.
       // Solve springs to a higher ratio so combined (springs + weight ARBs) still hits rsBalTgt:
       //   combined = (1-p)*b_sp + p*rsBalNat = rsBalTgt  →  b_sp = (rsBalTgt - p*rsBalNat)/(1-p)
@@ -391,7 +391,7 @@ const computeTune=(ch,phys,gameMode)=>{
   let effectiveRHz=rHz;
   if(arbBalMode==='coSolve'){
     const rsSpF_cs=Math.pow(fHz*2*Math.PI,2)*m.front*ch.trackF*ch.trackF/2;
-    const targetRsBalance=Math.max(0.001,Math.min(0.999,rsBalFromBalance(ch,arbBalTarget))); // pure roll-stiffness rear fraction
+    const targetRsBalance=Math.max(0.001,Math.min(0.999,arbBalTarget)); // arbBalTarget is the rsBalance target
     const rsSpR_base=Math.pow(fHz*2*Math.PI,2)*m.rear*ch.trackR*ch.trackR/2;
     const R_baseline=rsSpR_base/(rsSpF_cs+rsSpR_base);   // spring-only roll-stiffness rear fraction (no width)
     const S=(phys.springShare??50)/100;
@@ -438,8 +438,7 @@ const computeTune=(ch,phys,gameMode)=>{
   let rF=arbBalance/100;
   let _rsBalK=null;
   if((arbBalMode==='mech'||arbBalMode==='coSolve')&&rsAbBudget>0){
-    const rsBalTarget=Math.max(0.001,Math.min(0.999,rsBalFromBalance(ch,arbBalTarget))); // target pure roll-stiffness rear fraction
-    _rsBalK=rsBalTarget/(1-rsBalTarget);                          // target Kr/Kf
+    _rsBalK=Math.max(0.001,arbBalTarget)/Math.max(0.001,1-Math.min(0.999,arbBalTarget)); // arbBalTarget is rsBalance, convert to Kr/Kf ratio
     rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)-rsSpR)/(rsAbBudget*(1+_rsBalK))));
   }
   //
@@ -475,10 +474,11 @@ const computeTune=(ch,phys,gameMode)=>{
   const bSp=(rsSpF+rsSpR)>0?(nf-(rsSpF/(rsSpF+rsSpR)))*100:0;
   const bAb=(rsAbF+rsAbR)>0?(nf-(rsAbF/(rsAbF+rsAbR)))*100:0;
   const bTot=bSp+bAb;
-  // Pure roll-stiffness rear fraction (width is a grip effect, handled in mechBalanceLLT).
+  // Roll-stiffness rear fraction — matches what Forza displays as "Mech Balance".
   const rsKf=rsSpF+rsAbF,rsKr=rsSpR+rsAbR;
   const rsBalance=rsKf+rsKr>0?rsKr/(rsKf+rsKr):1-ch.frontBias/100;
-  const mechBalance=balanceFromRsBal(ch,rsBalance);
+  const mechBalance=rsBalance;                                     // rsBalance IS the mech balance (matches Forza)
+  const gripBalance=balanceFromRsBal(ch,rsBalance);                // physical at-limit balance from LLT model (informational)
   const mechBalClamped=(arbBalMode==='mech'||arbBalMode==='coSolve')&&Math.abs(mechBalance-arbBalTarget)>0.01;
   const settleF=zetaF>0?2.302/((zetaF/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn)
   const settleR=zetaR>0?2.302/((zetaR/100)*effectiveRHz*2*Math.PI):99;
@@ -488,7 +488,7 @@ const computeTune=(ch,phys,gameMode)=>{
          arbF,arbR,
          fHz,rHz:effectiveRHz,settle:settleF,settleR,rollDeg,rollTarget:arbTargetRoll,rollClamped,mechBalClamped,dampingClamped,
          arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
-         bSp,bAb,bTot,mechBalance,
+         bSp,bAb,bTot,mechBalance,gripBalance,
          rsSpF,rsSpR,rsAbF,rsAbR,
          balArbSplit:(arbBalMode==='mech'||arbBalMode==='coSolve')?Math.round(rF*100):null};
 };
@@ -553,10 +553,9 @@ const computeDiff=(ch,fe,dr)=>{
   let effBiasExit=biasExit, effBiasEntry=biasEntry;
   if(dr.diffComplement&&!dr.diffManual){
     const cm=cornerMasses(ch);
-    // natural mech balance — geometry + weight only, no springs/ARBs (pure roll-stiffness fraction)
-    const rsBalNat=(cm.rear*ch.trackR*ch.trackR)
-                  /(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
-    const natMechBal=balanceFromRsBal(ch,rsBalNat);
+    // natural rsBalance — geometry + weight only, no springs/ARBs (matches Forza's scale)
+    const natMechBal=(cm.rear*ch.trackR*ch.trackR)
+                    /(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
     const tgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
     const gap=tgt-natMechBal; // positive = user wants more rear/oversteer than natural
     // Cap correction so it can't dominate explicit user slider input
@@ -2151,10 +2150,9 @@ function App(){
   // Full chassis geometry analysis — equal Hz, no ARBs
   const chassisAnalysis=(()=>{
     const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
-    // Natural balance: equal springs, no ARBs. Pure roll-stiffness ratio (no width) fed
-    // through the physical model, which applies tyre width as a grip effect.
-    const rsBalance_nat=cm.rear*ch.trackR*ch.trackR/(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
-    const natBal=balanceFromRsBal(ch,rsBalance_nat);
+    // Natural balance = pure roll-stiffness rear fraction at equal springs, no ARBs.
+    // This matches Forza's scale (arbBalTarget is also an rsBalance on this scale).
+    const natBal=cm.rear*ch.trackR*ch.trackR/(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
     // Stability index: track width × tire width normalised to typical values
     const avgTrack=(ch.trackF+ch.trackR)/2;   // metres
     const avgTire=(twF+twR)/2;                 // mm
@@ -2162,21 +2160,19 @@ function App(){
     // Recommendation target: co-solve/mech target when active, else neutral 0.50
     const hasMechTarget=fe.arbBalMode==='coSolve'||fe.arbBalMode==='mech';
     const targetBal=hasMechTarget?Math.max(0.40,Math.min(0.90,fe.arbBalTarget??0.55)):0.50;
-    // Numeric REACH: smallest single-parameter change that brings natural balance to target,
-    // under the physical model (width = grip, track = roll stiffness + transfer). Closed-form
-    // no longer applies because tyre width and track width now push balance in opposite ways.
-    const balOf=o=>{const c={...ch,...o};const m=cornerMasses(c);
-      const rb=m.rear*c.trackR*c.trackR/(m.front*c.trackF*c.trackF+m.rear*c.trackR*c.trackR);
-      return balanceFromRsBal(c,rb);};
-    const tyre=w=>`${Math.round(w)}/35R18`;
-    const scan=f=>{let best=f.lo,err=Infinity; // value in range whose balance is closest to target
+    // REACH: find track-width changes that bring natural rsBalance toward target.
+    // Tyre width affects grip capacity (shown via CHASSIS BAL physical display) but NOT
+    // roll-stiffness fraction, so REACH shows track-only recommendations.
+    const rsBalOf=o=>{const c={...ch,...o};const mc=cornerMasses(c);
+      return mc.rear*c.trackR*c.trackR/(mc.front*c.trackF*c.trackF+mc.rear*c.trackR*c.trackR);};
+    const scan=f=>{let best=f.lo,err=Infinity;
       for(let i=0;i<=80;i++){const v=f.lo+(f.hi-f.lo)*i/80;const e=Math.abs(f.bal(v)-targetBal);if(e<err){err=e;best=v;}}return best;};
     const r5=v=>Math.round(v/5)*5;
-    const twF_rec=r5(Math.max(150,Math.min(600,scan({lo:150,hi:600,bal:w=>balOf({tyreF:tyre(w)})}))));
-    const twR_rec=r5(Math.max(150,Math.min(600,scan({lo:150,hi:600,bal:w=>balOf({tyreR:tyre(w)})}))));
-    const trackF_rec=r5(Math.max(800,Math.min(2200,scan({lo:0.8,hi:2.2,bal:t=>balOf({trackF:t})})*1000)));
-    const trackR_rec=r5(Math.max(800,Math.min(2200,scan({lo:0.8,hi:2.2,bal:t=>balOf({trackR:t})})*1000)));
-    const dTwF=twF_rec-twF,dTwR=twR_rec-twR;
+    // Tyre width recs: no longer computed (tyre width ≠ roll stiffness effect); show current size
+    const twF_rec=twF, twR_rec=twR;
+    const dTwF=0,dTwR=0;
+    const trackF_rec=r5(Math.max(800,Math.min(2200,scan({lo:0.8,hi:2.2,bal:t=>rsBalOf({trackF:t})})*1000)));
+    const trackR_rec=r5(Math.max(800,Math.min(2200,scan({lo:0.8,hi:2.2,bal:t=>rsBalOf({trackR:t})})*1000)));
     const trackF_curr=Math.round(ch.trackF*1000),trackR_curr=Math.round(ch.trackR*1000);
     const dTrackF=trackF_rec-trackF_curr,dTrackR=trackR_rec-trackR_curr;
     // Feasibility: tires ≤ 1.55× current (edge cases allowed), track ± 65mm
@@ -2628,7 +2624,7 @@ function App(){
               return(<>
                 <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
                   <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>TYRE SIZE</span>
-                  <Hint text="Enter tyre sizes in Forza format (e.g. 265/35R18). Width (first number, in mm) sets each axle's grip capacity: a wider tyre on one end makes that end grip harder, shifting the limit toward the other axle — so a wider rear reduces oversteer. Aspect ratio and rim diameter determine rolling radius."/>
+                  <Hint text="Enter tyre sizes in Forza format (e.g. 265/35R18). Width (first number, in mm) sets each axle's grip capacity at the limit — wider = more grip on that end. This affects the GRIP BIAS readout (physical handling at limit) but not the roll stiffness balance directly. Aspect ratio and rim diameter determine rolling radius."/>
                 </div>
                 <div style={{display:'flex',gap:8,marginBottom:4}}>
                   {tyreInput('tyreF','FRONT')}
@@ -2636,12 +2632,27 @@ function App(){
                 </div>
                 {/* Dual metric bar */}
                 <div style={{display:'flex',gap:3,marginBottom:showRec?3:8}}>
-                  <div style={{flex:1,...box}}>
-                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>CHASSIS BAL.</span>
-                    <span style={{display:'flex',alignItems:'baseline',gap:3}}>
-                      <span style={{fontFamily:'Courier New',fontWeight:700,color:nmCol,fontSize:11}}>{nm.toFixed(2)}</span>
-                      <span style={{fontSize:10,color:nmCol,letterSpacing:1}}>{nmLabel}</span>
-                    </span>
+                  <div style={{flex:1,...box,flexDirection:'column',alignItems:'stretch',gap:2}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
+                      <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>CHASSIS BAL.</span>
+                      <span style={{display:'flex',alignItems:'baseline',gap:3}}>
+                        <span style={{fontFamily:'Courier New',fontWeight:700,color:nmCol,fontSize:11}}>{nm.toFixed(2)}</span>
+                        <span style={{fontSize:10,color:nmCol,letterSpacing:1}}>{nmLabel}</span>
+                      </span>
+                    </div>
+                    {(()=>{
+                      const gp=balanceFromRsBal(ch,nm);
+                      const gpd=Math.abs(gp-0.5);
+                      const gpc=gpd<0.04?'#4b5563':gp<0.5?'#3b82f6':'#ef4444';
+                      const gpl=gpd<0.04?'NEUTRAL':gp<0.5?'US':'OS';
+                      return <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',borderTop:'1px solid #0f172a',paddingTop:2,marginTop:1}}>
+                        <span style={{fontSize:9,color:'#4b5563',letterSpacing:0.5}}>GRIP BIAS</span>
+                        <span style={{display:'flex',alignItems:'baseline',gap:2}}>
+                          <span style={{fontFamily:'Courier New',fontSize:10,color:gpc}}>{gp.toFixed(2)}</span>
+                          <span style={{fontSize:9,color:gpc}}>{gpl}</span>
+                        </span>
+                      </div>;
+                    })()}
                   </div>
                   <div style={{flex:1,...box}}>
                     <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>STABILITY</span>
@@ -2654,20 +2665,7 @@ function App(){
                   <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:5}}>
                     REACH {targetBal.toFixed(2)}{hasMechTarget?' · ARB TARGET':' · NEUTRAL'}
                   </div>
-                  {/* Tyre row */}
-                  <div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
-                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:38,flexShrink:0}}>TYRES</span>
-                    <span style={{flex:1,display:'flex',gap:8,fontFamily:'Courier New',fontSize:10}}>
-                      <span style={{color:twFfeas?'#e2e8f0':dimCol}}>
-                        F→{twF_rec}
-                        <span style={{fontSize:10,color:twFfeas?'#94a3b8':dimCol}}> ({fmtD(dTwF)})</span>
-                      </span>
-                      <span style={{color:twRfeas?'#e2e8f0':dimCol}}>
-                        R→{twR_rec}
-                        <span style={{fontSize:10,color:twRfeas?'#94a3b8':dimCol}}> ({fmtD(dTwR)})</span>
-                      </span>
-                    </span>
-                  </div>
+                  {/* Tyre row removed — tyre width affects grip capacity (see GRIP BIAS), not roll stiffness fraction */}
                   {/* Track row */}
                   <div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
                     <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:38,flexShrink:0}}>TRACK</span>
@@ -2685,13 +2683,12 @@ function App(){
                   {/* Guidance note */}
                   <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.4,marginTop:2}}>
                     {(() => {
-                      const allFeasible=[twFfeas,twRfeas,trackFfeas,trackRfeas].some(Boolean);
-                      if(!allFeasible) return 'Gap too large for geometry alone — rely on ARBs.';
-                      const needOS=targetBal>nm; // target is more oversteer than natural
-                      // Tyre width = grip; track width = roll stiffness — opposite balance effects.
+                      const allFeasible=[trackFfeas,trackRfeas].some(Boolean);
+                      if(!allFeasible) return 'Gap too large for track geometry alone — rely on ARBs.';
+                      const needOS=targetBal>nm;
                       return needOS
-                        ?'Toward oversteer: narrower rear / wider front tyre, or wider rear / narrower front track.'
-                        :'Toward understeer: wider rear / narrower front tyre, or narrower rear / wider front track.';
+                        ?'Wider rear track or narrower front track increases rear roll stiffness share toward target.'
+                        :'Wider front track or narrower rear track increases front roll stiffness share toward target.';
                     })()}
                   </div>
                 </div>}
@@ -2724,7 +2721,7 @@ function App(){
               rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}/>
             <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
               min={0.40} max={0.90} step={0.01}
-              hint="Your handling balance goal — think of it as a target delta from your chassis's natural balance (shown as Δ=0 in the BALANCE GUIDE). At the natural value no artificial bias is added; set higher to add oversteer tendency via springs/ARBs, lower to add understeer. MECH and CO-SOLVE modes solve springs and ARBs to hit this target. In WEIGHT mode it is stored but not applied until you switch. The REACH panel in CHASSIS shows what tyre or track changes would bring the natural balance close to this value."/>
+              hint="Roll stiffness rear share — matches what Forza shows as Mech Balance. 0.50 = balanced roll resistance. Higher = more rear bar stiffness (oversteer tendency). Lower = more front (understeer tendency). This is the same scale as Forza's tuning readout, so the value you set here should match what appears in-game. MECH and CO-SOLVE modes solve springs and ARBs to hit this target. CHASSIS BAL. below shows the same scale at your car's natural stiffness. GRIP BIAS shows how this translates to physical handling at the limit."/>
             {(()=>{
               const _layout=dr.layout??'RWD';
               const _build=dr.buildType??'track';
