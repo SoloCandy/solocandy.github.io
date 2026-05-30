@@ -119,7 +119,7 @@ const KMH_PER_MPH=1.60934;
 const NMM_PER_LBIN=LB_IN_TO_NM/100; // ≈1.751 N/mm per lb/in
 const ARB_RS_SCALE=240,CAMBER_GAIN=0.7;
 const rollCenterHeight=ch=>ch.cgHeight*0.20; // scales with CG height; ~0.09m for typical sports cars
-const DAMPING_CALIBRATION=0.001;
+const DAMPING_CALIBRATION=0.00135;
 // Mech-balance model (tyre load sensitivity). See mechBalanceLLT.
 const TIRE_LOAD_SENS=0.15;   // grip falloff per unit Fz/Fz_ref (tyre load sensitivity)
 const MECH_BAL_GAIN=1.8;     // axle capacity delta → balance offset (calibrated to legacy 0.5-neutral scale)

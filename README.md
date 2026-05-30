@@ -208,7 +208,7 @@ Key empirical constants calibrated from real Forza data:
 | Constant | Value | Description |
 |---|---|---|
 | `ARB_RS_SCALE` | 240 | Maps ARB click → roll stiffness (N·m/rad) |
-| `DAMPING_CALIBRATION` | 0.001 | Maps damper click → critical damping coefficient |
+| `DAMPING_CALIBRATION` | 0.00135 | Maps damper click → critical damping coefficient. Empirically validated via SimHub telemetry: Forza uses lbf/ft/s internally, not N/mm/s — the ×1.35 correction factor confirmed by comparing suspension settling behaviour under baseline vs corrected damper values |
 | `TIRE_LOAD_SENS` | 0.15 | Grip falloff per unit Fz/Fz_ref — the tyre load sensitivity that lets roll stiffness shift balance |
 | `MECH_BAL_GAIN` | 1.8 | Axle grip-capacity delta → balance offset (calibrated to the 0.5-neutral scale) |
 | `WIDTH_GRIP_EXP` | 0.4 | Tyre width → grip capacity, sub-linear exponent |
