@@ -8,7 +8,7 @@ const MPH_TO_MS = 0.44704;
 const ARB_RS_SCALE = 240;
 // NOTE: app now uses rollCenterHeight(ch)=ch.cgHeight*0.20 (not a fixed constant)
 const rollCenterHeight = ch => ch.cgHeight * 0.20;
-const DAMPING_CALIBRATION = 0.001;
+const DAMPING_CALIBRATION = 0.00135;
 const GAME_LIMITS = { horizon: { damping: 20, arb: 65 }, motorsport: { damping: 40, arb: 40 } };
 
 // ── mech balance model (must mirror app: mechBalanceLLT / balanceFromRsBal) ──
