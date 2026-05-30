@@ -2017,7 +2017,6 @@ function App(){
   const[metricUnits,setMetricUnits]=usePersist('suspos_units_v1',false);
   const[saves,setSaves]=usePersist('suspos_saves_v9',PRESET_SAVES);
   const[uiMode,setUiMode]=usePersist('suspos_uimode_v1','beginner');
-  const[dampLbfMode,setDampLbfMode]=useState(false); // lbf/ft/s correction toggle (×1.35)
   const[tutSeen,setTutSeen]=usePersist('suspos_tutorial_seen_v1',{beginner:false,intermediate:false,pro:false});
   const[balTutSeen,setBalTutSeen]=usePersist('suspos_baltut_seen_v1',false);
   const[balTutOpen,setBalTutOpen]=useState(false);
@@ -3583,44 +3582,21 @@ function App(){
           </div>
 
           {/* 4 — DAMPERS */}
-          {(()=>{
-            const LBF_FACTOR=1.35; // lbf/ft/s unit correction (Theory 1 — NumberlessMath)
-            const dc=dampLbfMode?LBF_FACTOR:1;
-            const dv=v=>Math.min(lim.damping,Math.round(v*dc*10)/10);
-            const dWarn=v=>v*dc>lim.damping*0.88;
-            return(
-            <Card title="DAMPERS" accent
-              hint="Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in Forza's damping tuning menu. Amber warn when above 88% of the game limit. F/R balance is preserved — if either end exceeds the limit, both are scaled proportionally so the ratio is maintained.">
-              <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'1fr 1fr 1fr 1fr',gap:4}}>
-                <Readout label="REB F"  value={dv(tune.rebF)}  warn={dWarn(tune.rebF)}  unit={`/ ${lim.damping}`} primary/>
-                <Readout label="REB R"  value={dv(tune.rebR)}  warn={dWarn(tune.rebR)}  unit={`/ ${lim.damping}`} primary/>
-                <Readout label="BUMP F" value={dv(tune.bumpF)} warn={dWarn(tune.bumpF)} unit={`/ ${lim.damping}`} primary/>
-                <Readout label="BUMP R" value={dv(tune.bumpR)} warn={dWarn(tune.bumpR)} unit={`/ ${lim.damping}`} primary/>
-              </div>
-              {tune.dampingClamped&&!dampLbfMode&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
-                   marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
-                   border:'1px solid #f5a62333'}}>
-                F/R balance preserved — damper values scaled proportionally to fit within 1–{lim.damping}.
-                Reduce Rebound ζ or Bump Ratio to achieve target damping character.
-              </div>}
-              {/* lbf/ft/s calibration toggle */}
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
-                           marginTop:8,paddingTop:6,borderTop:'1px solid #0f172a'}}>
-                <div style={{display:'flex',alignItems:'center',gap:5}}>
-                  <span style={{fontSize:10,color:dampLbfMode?'#f59e0b':'#4b5563',letterSpacing:1}}>
-                    {dampLbfMode?'LBF/FT/S ×1.35':'N/MM/S BASELINE'}
-                  </span>
-                  <Hint text="Experimental: applies a ×1.35 correction to all damper values based on an unresolved unit ambiguity in NumberlessMath's original calculator. Theory 1 (lbf/ft/s) suggests baseline outputs are 73.7% of true in-game value. Use this to test Profile B alongside the baseline — whichever produces a single clean rebound on the in-game telemetry is correct. Does not affect springs, ARBs, or the handling balance."/>
-                </div>
-                <button className={`tbtn${dampLbfMode?' on':''}`}
-                  onClick={()=>setDampLbfMode(p=>!p)}
-                  style={{fontSize:10,letterSpacing:1,color:dampLbfMode?'#f59e0b':'#4b5563',
-                          borderColor:dampLbfMode?'#f59e0b44':'#1e293b'}}>
-                  {dampLbfMode?'THEORY 1':'BASELINE'}
-                </button>
-              </div>
-            </Card>);
-          })()}
+          <Card title="DAMPERS" accent
+            hint="Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in Forza's damping tuning menu. Amber warn when above 88% of the game limit. F/R balance is preserved — if either end exceeds the limit, both are scaled proportionally so the ratio is maintained.">
+            <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'1fr 1fr 1fr 1fr',gap:4}}>
+              <Readout label="REB F"  value={tune.rebF}  warn={tune.rebF>lim.damping*0.88}  unit={`/ ${lim.damping}`} primary/>
+              <Readout label="REB R"  value={tune.rebR}  warn={tune.rebR>lim.damping*0.88}  unit={`/ ${lim.damping}`} primary/>
+              <Readout label="BUMP F" value={tune.bumpF} warn={tune.bumpF>lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
+              <Readout label="BUMP R" value={tune.bumpR} warn={tune.bumpR>lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
+            </div>
+            {tune.dampingClamped&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
+                 marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
+                 border:'1px solid #f5a62333'}}>
+              F/R balance preserved — damper values scaled proportionally to fit within 1–{lim.damping}.
+              Reduce Rebound ζ or Bump Ratio to achieve target damping character.
+            </div>}
+          </Card>
 
           {/* 5 — BRAKES */}
           <Card title={`BRAKES${br.brakeManual?' · MANUAL':''}`}
