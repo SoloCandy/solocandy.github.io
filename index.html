@@ -1321,7 +1321,6 @@ const balLabel=v=>{
 };
 
 const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bAero,bDampBias,mechBalance,gripBalance})=>{
-  const cl=v=>Math.max(-50,Math.min(50,v));
   const abs=Math.abs(total);
   // positive = oversteer, negative = understeer
   const label=abs<3?'NEUTRAL':total>0?'OVERSTEER':'UNDERSTEER';

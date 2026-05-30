@@ -29,6 +29,20 @@ The result is a tune that starts from a principled baseline rather than trial-an
 
 ---
 
+## Complexity Tiers
+
+A **BEG / INT / PRO** toggle in the header controls how much of the input surface is visible, so the tool scales from one-slider simplicity to full physics control. A short in-app guide opens the first time you enter each tier (reopen any time with the **?** button).
+
+| Tier | Surface |
+|---|---|
+| **BEG** (Beginner) | Minimal inputs — weight, a handling-feel slider, and a balance target. Chassis geometry auto-scales with weight, and CO-SOLVE is selected automatically so springs and ARBs are solved together |
+| **INT** (Intermediate) | Adds full springs/damping/ARB control with the WEIGHT / MECH / CO-SOLVE balance modes, without requiring chassis geometry |
+| **PRO** | Exposes the complete physics surface — geometry inputs, manual alignment, raw differential lock percentages, brake balance, the Balance Guide panel, and cross-solver readouts |
+
+Geometry auto-scales with weight in BEG/INT; in PRO you control it directly.
+
+---
+
 ## Inputs
 
 ### CHASSIS
@@ -41,6 +55,7 @@ The result is a tune that starts from a principled baseline rather than trial-an
 | Wheelbase | Axle-to-axle distance in mm |
 | CG Height | Centre-of-gravity height in mm |
 | Track widths | In the Advanced section — affect lateral weight transfer and ARB calculations |
+| Tyre sizes | Front/rear tyres in Forza format (e.g. `265/35R18`). The **width** (first number, mm) sets each axle's grip capacity at the limit — wider = more grip on that end, which feeds the **GRIP BIAS** readout. Aspect ratio and rim diameter set rolling radius. Width affects grip balance, not the roll-stiffness fraction |
 
 **Derived info strips** (shown automatically below inputs):
 - **F CORNER / R CORNER** — per-wheel corner mass at rest
@@ -51,17 +66,22 @@ The result is a tune that starts from a principled baseline rather than trial-an
 ### FEEL
 | Field | Description |
 |---|---|
-| Ride Stiffness | Front spring frequency slider, 0.80–3.50 Hz. Click the Hz readout to type a target frequency directly. Green **ROAD** and **RACE** tick marks show the typical band for this car's corner weight — lighter cars sit higher on the scale |
-| Rear Hz mode | Three-button toggle controlling how rear frequency is derived |
+| Ride Stiffness | Spring frequency slider, 0.80–3.50 Hz. Click the Hz readout to type a target frequency directly. Green **ROAD** and **RACE** tick marks show the typical band for this car's corner weight — lighter cars sit higher on the scale |
+| Ride Ref | Which axle the stiffness slider anchors to: **FRONT** (default), **SHARED** (both axles move together around the slider as the average), or **REAR**. The opposite axle is then derived by the Rear Hz mode |
+| Rear Hz mode | Controls how the derived axle's frequency relates to the anchored one |
 | Rebound ζ | Damping ratio for the rebound stroke. 70% = Butterworth (critically tuned). >100% = overdamped |
 | Bump | Either a ratio of rebound (BUMP RATIO mode) or independent ζ (INDEPENDENT mode) |
+| Damping Bias | Splits front/rear ζ independently. Positive = more front rebound (resists forward weight transfer → understeer tendency). Shows as the **DAMP** row in the handling balance |
 
 **Rear Hz modes:**
 | Mode | Behaviour |
 |---|---|
-| **FLAT RIDE** | Rear Hz derived from the flat-ride formula: front Hz, wheelbase, and a Target Speed slider. Lower speed = softer rear. **OFF** disables the correction |
-| **MULTIPLIER** | Rear Hz = front Hz × a multiplier (0.50–3.00). ×1.20 is a common starting point |
+| **FLAT RIDE** | Derived axle's Hz comes from the flat-ride formula: anchored Hz, wheelbase, and a Target Speed slider. Lower speed = softer rear. **OFF** disables the correction |
+| **MULTIPLIER** | Derived Hz = anchored Hz × a multiplier (0.50–3.00). ×1.20 is a common starting point |
+| **MECH** | Solves the rear/front Hz ratio from the Mech Balance Target so the springs themselves carry the balance |
 | **INDEPENDENT** | Rear Hz set directly (0.80–4.00 Hz), fully decoupled from front |
+
+> In **CO-SOLVE** ARB balance mode the rear Hz is solved automatically (springs + ARBs together), the mode selector is hidden, and the result appears as **SOLVED REAR Hz** in the ARB section.
 
 **Derived info strips** (shown automatically):
 - **FRONT / ×ratio / REAR Hz** — live front and rear frequencies with the rear/front multiplier
@@ -70,9 +90,18 @@ The result is a tune that starts from a principled baseline rather than trial-an
 - **REB · BUMP · SETTLE** — damping ratios and settle time with a category badge: **STIFF** / **SPORT** / **ROAD** / **SOFT** / **FLOAT**
 
 ### ANTI-ROLL BARS
-- **ARB Bias** — shifts roll stiffness front/rear without changing total stiffness
-- **ARB Mode** — Auto (targets natural roll from springs), Roll ° (manual target), or Share % (manual split)
+- **ARB Mode** — how the total ARB budget is sized: Auto (targets natural roll from springs), Roll ° (manual target), or Share % (manual split of total roll stiffness)
 - **ARB Range** — floor/ceiling clamp on clicks. Game limits enforced: Horizon max 65, Motorsport max 40
+
+**Balance Mode** — how the front/rear split is chosen to hit your handling goal:
+| Mode | Behaviour |
+|---|---|
+| **WEIGHT** | Splits ARBs by weight distribution, with an optional **ARB Bias** offset to shift roll stiffness front/rear |
+| **MECH** | Solves the ARB split to hit the **Mech Balance Target** exactly. The resulting **ARB SPLIT** front/rear % is shown |
+| **CO-SOLVE** | Solves rear spring stiffness **and** ARB split together. **Spring / ARB Mix** (Spring Share) controls how much of the correction comes from springs vs ARBs |
+
+- **Mech Balance Target** — your overall handling-balance goal (0.40–0.90, where 0.5 ≈ neutral, higher = more rear roll stiffness / more rotation). Used by MECH, CO-SOLVE, the MECH rear Hz mode, and (optionally) the diff MATCH CHASSIS feature
+- **Balance Guide** panel — cross-solver readouts linking aero and mechanical balance, showing how much offset a given aero level implies for the mech target
 
 ### ALIGNMENT
 Auto mode computes camber, toe, and caster from build type, layout, CG height, and roll angle. Switch to Manual to override.
@@ -83,8 +112,9 @@ Auto mode computes camber, toe, and caster from build type, layout, CG height, a
 
 ### DRIVETRAIN
 - Layout (FWD / RWD / AWD) and build type (Street / Track / Drift)
-- **Auto** — Corner Exit and Corner Entry sliders shift accel/decel lock without exposing raw percentages
+- **Auto** — Corner Exit and Corner Entry sliders shift accel/decel lock without exposing raw percentages. AWD adds a Center split slider and a front exit-push slider
 - **Manual** — full control over individual accel/decel lock values per axle
+- **Match Chassis** — optional toggle (auto mode only) that biases the diff's exit/entry intent toward the chassis Mech Balance Target, so the differential reinforces the handling balance you set elsewhere. Capped so it can't override explicit slider input
 
 ---
 
@@ -101,18 +131,21 @@ Auto mode computes camber, toe, and caster from build type, layout, CG height, a
 | **Differential** | Accel and decel lock % (or full AWD breakdown). EXIT/ENTRY balance indicators |
 
 ### Handling Balance (pinned)
-A persistent bar at the bottom of the output panel showing the combined handling balance across six contributions:
+A persistent bar at the bottom of the output panel showing the combined handling balance across every contribution. The contributor bars are **sorted by magnitude** — the dominant driver appears first and is visually highlighted:
 
 | Segment | What it measures |
 |---|---|
 | **SPRINGS** | Front/rear spring roll stiffness bias |
 | **ARB** | Front/rear anti-roll bar bias |
-| **DIFF ACCEL** | Differential exit-phase oversteer/understeer tendency |
-| **DIFF DECEL** | Differential entry-phase tendency |
+| **DIFF EXIT / DIFF ENTRY** | Differential on-throttle exit and off-throttle entry tendency (FWD/RWD) |
+| **DIFF F / DIFF R** | AWD per-axle net diff contribution, split by center fraction and axle weight (replaces EXIT/ENTRY in AWD) |
 | **BRAKES** | Brake balance entry-phase contribution |
 | **AERO** | Aero balance contribution, scaled by downforce level (efficiency) |
+| **DAMP** | Damping Bias contribution — front/rear rebound split |
 
-The total runs from UNDERSTEER (+) to OVERSTEER (−). **Tune to zero for a neutral baseline**, then bias deliberately if desired. The compact header also shows MECH BALANCE (0.00–1.00, matching Forza's in-game metric) and, when aero is active, the AERO value with a LOW / MED / HIGH downforce badge.
+The total reads as OVERSTEER (+) or UNDERSTEER (−). **Tune to zero for a neutral baseline**, then bias deliberately if desired. Below the bars, a one-line tip names the dominant contributor and suggests a concrete adjustment.
+
+The header shows **MECH BALANCE** (0.00–1.00, matching Forza's in-game roll-stiffness metric) and, when aero is active, the AERO value with a LOW / MED / HIGH downforce badge. When the physical at-limit tendency diverges from neutral, a **GRIP BIAS** note appears — derived from the tyre-load-sensitivity model and reflecting how the chassis behaves at the limit (an understeer- or oversteer-prone chassis), as distinct from the roll-stiffness mech balance.
 
 ### RAW VALUES strip
 Collapsible compact readout: SP F, SP R, ARB F, ARB R, REB F, REB R, BMP F, BMP R.
@@ -131,7 +164,7 @@ Reverse-calculate natural frequency and damping ratios from existing in-game spr
 Encodes the full tune (chassis + feel + ARBs + drivetrain + brakes + aero) as a compact Base64 string (~150 chars). Paste into IMPORT on any device running SUSP.OS. Old codes from earlier versions decode safely — new fields default gracefully.
 
 ### Save Slots
-Six persistent slots arranged in a 2×3 grid, storing feel + drivetrain configuration. Pre-loaded with **STREET**, **TRACK**, **RALLY**, **DRIFT**, **MOTORSPT**, and **COMFORT** presets.
+Six persistent slots arranged in a 2×3 grid, storing feel + drivetrain configuration. Pre-loaded with **STREET**, **TRACK**, **RALLY**, **DRIFT**, **MOTORSPT**, and **X COUNTRY** presets.
 
 **Car-aware scaling:** each slot stores the corner mass at save time. When loading onto a different-weight car, Ride Stiffness is scaled by `√(savedMass / currentMass)` so the tune maintains the same relative feel rather than applying the raw Hz value.
 
@@ -176,12 +209,14 @@ Key empirical constants calibrated from real Forza data:
 |---|---|---|
 | `ARB_RS_SCALE` | 240 | Maps ARB click → roll stiffness (N·m/rad) |
 | `DAMPING_CALIBRATION` | 0.001 | Maps damper click → critical damping coefficient |
-| `MECH_BALANCE_STIFFNESS_WEIGHT` | 0.698 | FH blends 70% roll-stiffness balance + 30% weight balance |
-| `DIFF_BIAS_SCALE` | 0.08 | Diff lock % → handling bias contribution |
+| `TIRE_LOAD_SENS` | 0.15 | Grip falloff per unit Fz/Fz_ref — the tyre load sensitivity that lets roll stiffness shift balance |
+| `MECH_BAL_GAIN` | 1.8 | Axle grip-capacity delta → balance offset (calibrated to the 0.5-neutral scale) |
+| `WIDTH_GRIP_EXP` | 0.4 | Tyre width → grip capacity, sub-linear exponent |
+| `DIFF_BIAS_SCALE` | 0.14 | Diff lock % → handling bias contribution |
 | `BRAKE_BIAS_SCALE` | 0.20 | Brake balance deviation → handling bias contribution |
 | `AERO_BALANCE_SCALE` | 15 | Aero balance deviation → handling bias contribution (before efficiency scaling) |
 
-Mechanical balance calibrated across 4 data points on a Lexus LC 500 at ride stiffness 29–75 (1.58–2.83 Hz). Error ±0.004 across all points.
+Mechanical balance (the **MECH BALANCE** readout) is the roll-stiffness rear fraction, matching the metric Forza displays. The physical at-limit tendency (**GRIP BIAS**) is derived separately from a lateral-load-transfer model: front/rear load transfer set by the roll-stiffness ratio, tyre load sensitivity (`TIRE_LOAD_SENS`), and tyre width as a sub-linear grip multiplier (`WIDTH_GRIP_EXP`). The two are reconciled by bisection so a balance target round-trips to the spring/ARB split that achieves it.
 
 ---
 
@@ -200,7 +235,7 @@ The entire app is a single HTML file containing:
 - **Physics engine** — `flatRideRearHz`, `computeTune`, `computeAlignment`, `computeDiff` — pure JS, no React dependency
 - **React UI** — in-browser JSX transpilation via `@babel/standalone`
 - **Persistence** — `localStorage` via a custom `usePersist` hook; degrades gracefully in private browsing
-- **Share codec** — pipe-delimited numeric array, Base64-encoded (41 values, fully backward-compatible)
+- **Share codec** — pipe-delimited numeric array, Base64-encoded (54 values, fully backward-compatible — short legacy codes decode with new fields defaulted)
 
 The physics functions are at the top of the `<script>` block and can be read, tested, or extracted independently. A standalone test suite is included in `tests.js` — run with `node tests.js`.
 
