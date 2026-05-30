@@ -2721,9 +2721,9 @@ function App(){
             {uiMode==='pro'&&<>
             <Field label="Wheelbase" value={Math.round(ch.wheelbase*1000)} onChange={v=>pCh('wheelbase')(v/1000)} min={400} max={4000} step={5} unit="mm"
               hint="Distance between front and rear axles in millimetres. Used by the flat-ride formula to match rear spring frequency to your target speed. Typical cars: 2400–2900 mm."/>
-            <Field label="Track Width Front" value={Math.round(ch.trackF*1000)} onChange={v=>pCh('trackF')(v/1000)} min={1000} max={2200} step={5} unit="mm"
+            <Field label="Track Width Front" value={Math.round(ch.trackF*1000)} onChange={v=>pCh('trackF')(v/1000)} min={1000} max={2600} step={5} unit="mm"
               hint="Distance between left and right wheels at the front. Typical: 1400–1800 mm. Wider = more roll resistance."/>
-            <Field label="Track Width Rear" value={Math.round(ch.trackR*1000)} onChange={v=>pCh('trackR')(v/1000)} min={1000} max={2200} step={5} unit="mm"
+            <Field label="Track Width Rear" value={Math.round(ch.trackR*1000)} onChange={v=>pCh('trackR')(v/1000)} min={1000} max={2600} step={5} unit="mm"
               hint="Distance between left and right wheels at the rear. Typical: 1400–1800 mm. Often slightly wider than front."/>
             <Field label="CG Height" value={Math.round(ch.cgHeight*1000)} onChange={v=>pCh('cgHeight')(v/1000)} min={200} max={900} step={5} unit="mm"
               hint="Estimated height of the centre of gravity above ground. Forza doesn't expose this — use 400–460 mm for sports cars, 480–550 mm for sedans, 580–700 mm for SUVs. Affects roll moment and ARB stiffness."/>
