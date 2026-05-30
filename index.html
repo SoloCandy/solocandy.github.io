@@ -2820,6 +2820,19 @@ function App(){
                 </div>
               );
             })()}
+            {hasAero
+              ?<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                  fontSize:11,color:'#94a3b8',padding:'6px 10px',background:'#0a0f1a',
+                  borderRadius:2,border:'1px solid #1e293b',marginBottom:10}}>
+                <span style={{letterSpacing:1}}>REC. AERO BAL</span>
+                <span style={{color:'#7ab8e8',fontFamily:'Courier New',fontSize:12,fontWeight:600}}>
+                  {aeroBalRec.toFixed(2)}
+                  <span style={{color:'#94a3b8',fontSize:10,marginLeft:5,fontWeight:400}}>est.</span>
+                </span>
+              </div>
+              :<div style={{fontSize:10,color:'#94a3b8',textAlign:'center',marginBottom:10,padding:'6px 10px'}}>
+                Set aero balance in CHASSIS to see recommendation
+              </div>}
             {(fe.arbBalMode??'weight')==='weight'&&
               <FeelSlider label="ARB Bias" value={fe.arbBias}
                 onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
@@ -2912,19 +2925,6 @@ function App(){
                   F {tune.balArbSplit!=null?100-tune.balArbSplit:'—'}% / R {tune.balArbSplit??'—'}%
                 </span>
               </div>
-              {hasAero
-                ?<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-                    fontSize:11,color:'#94a3b8',padding:'4px 8px',background:'#060c17',
-                    borderRadius:2,border:'1px solid #1e293b',marginBottom:8}}>
-                  <span style={{letterSpacing:1}}>REC. AERO BAL</span>
-                  <span style={{color:'#7ab8e8',fontFamily:'Courier New'}}>
-                    {aeroBalRec.toFixed(2)}
-                    <span style={{color:'#94a3b8',fontSize:10,marginLeft:5}}>est.</span>
-                  </span>
-                </div>
-                :<div style={{fontSize:10,color:'#94a3b8',textAlign:'center',marginBottom:8}}>
-                  Set aero balance in CHASSIS to see aero recommendation
-                </div>}
             </>}
             {(fe.arbBalMode??'weight')==='coSolve'&&<>
               <div style={{display:'flex',gap:8,marginBottom:10}}>
@@ -2945,19 +2945,6 @@ function App(){
                   </span>
                 </div>
               </div>
-              {hasAero
-                ?<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-                    fontSize:11,color:'#94a3b8',padding:'4px 8px',background:'#060c17',
-                    borderRadius:2,border:'1px solid #1e293b',marginBottom:8}}>
-                  <span style={{letterSpacing:1}}>REC. AERO BAL</span>
-                  <span style={{color:'#7ab8e8',fontFamily:'Courier New'}}>
-                    {aeroBalRec.toFixed(2)}
-                    <span style={{color:'#94a3b8',fontSize:10,marginLeft:5}}>est.</span>
-                  </span>
-                </div>
-                :<div style={{fontSize:10,color:'#94a3b8',textAlign:'center',marginBottom:8}}>
-                  Set aero balance in CHASSIS to see aero recommendation
-                </div>}
               <FeelSlider label="SPRING SHARE" value={fe.springShare??50} onChange={pFe('springShare')}
                 min={0} max={100} leftLabel="ARB ONLY" rightLabel="SPRING ONLY"
                 markers={[{value:50,color:'#94a3b8',label:'50/50'}]}
