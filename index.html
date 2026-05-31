@@ -2111,11 +2111,6 @@ function App(){
   const dispMass=kg=>metricUnits?`${Math.round(kg)} kg`:`${Math.round(kg/KG_TO_LB)} lb`;
   const physics=useMemo(()=>feelToPhysics(ch,fe),[ch,fe]);
   const tune=useMemo(()=>computeTune(ch,physics,fe.gameMode),[ch,physics,fe.gameMode]);
-  useEffect(()=>{
-    if((fe.arbBalMode??'weight')==='man'){
-      setFe(p=>({...p,arbManF:Math.round(tune.arbF*10)/10,arbManR:Math.round(tune.arbR*10)/10}));
-    }
-  },[fe.arbBalMode]);
   const autoAlign=useMemo(()=>computeAlignment(ch,tune,dr.layout,dr.buildType),[ch,tune,dr.layout,dr.buildType]);
   const align=al.alignManual
     ?{recCamberF:al.camberF,recCamberR:al.camberR,
@@ -2887,7 +2882,12 @@ function App(){
                 <button className={`tog${(fe.arbBalMode??'weight')==='coSolve'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('coSolve')}>CO-SOLVE</button>
                 <button className={`tog${(fe.arbBalMode??'weight')==='man'?' on':''}`}
-                  onClick={()=>pFe('arbBalMode')('man')}>MAN</button>
+                  onClick={()=>{
+                    // Capture current tune values BEFORE switching to MAN mode
+                    const arbF=Math.round(tune.arbF*10)/10;
+                    const arbR=Math.round(tune.arbR*10)/10;
+                    setFe(p=>({...p,arbBalMode:'man',arbManF:arbF,arbManR:arbR}));
+                  }}>MAN</button>
               </div>
             </div>
             {(fe.arbBalMode??'weight')==='mech'&&<>
