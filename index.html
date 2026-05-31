@@ -375,12 +375,12 @@ const feelToPhysics=(ch,fe)=>{
   // coSolve overrides rearHz in computeTune via effectiveRHz; flat-ride fallthrough can
   // set rearHzClamped spuriously. mechBalClamped covers coSolve limits instead.
   if(arbBalModeEarly==='coSolve') rearHzClamped=false;
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode,springShare};
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode,springShare,arbManF:fe.arbManF,arbManR:fe.arbManR};
 };
 
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
-  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode}=phys;
+  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode,arbManF,arbManR}=phys;
   // Tyre-width correction: Forza's mech balance display includes a small tyre-width contribution.
   // Pre-compensate the solve target so Forza reads the desired value after tuning.
   const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
@@ -464,8 +464,8 @@ const computeTune=(ch,phys,gameMode)=>{
   let arbF,arbR;
   if(arbBalMode==='man'){
     // Manual mode: use user-input ARB values directly
-    arbF=Math.max(1,Math.min(lim.arb,phys.arbManF??20));
-    arbR=Math.max(1,Math.min(lim.arb,phys.arbManR??20));
+    arbF=Math.max(1,Math.min(lim.arb,arbManF??20));
+    arbR=Math.max(1,Math.min(lim.arb,arbManR??20));
   } else {
     // Auto/WEIGHT/MECH/CO-SOLVE: solve from budget
     arbF=clk(rsAbBudget*(1-rF),ch.trackF);
@@ -1473,7 +1473,7 @@ const REAR_HZ_MODE_DEC=['flatRide','independent','multiplier','mech'];
 const ARB_MODE_ENC={'auto':0,'roll':1,'share':2};
 const ARB_MODE_DEC=['auto','roll','share','auto']; // index 3 was legacy 'balance' → auto
 const ARB_BAL_MODE_ENC={'weight':0,'mech':1,'coSolve':2};
-const ARB_BAL_MODE_DEC=['weight','mech','coSolve'];
+const ARB_BAL_MODE_DEC=['weight','mech','coSolve','man'];
 const RIDE_REF_ENC={'front':0,'rear':1,'shared':2};
 const RIDE_REF_DEC=['front','rear','shared'];
 const LAYOUT_ENC={'FWD':0,'RWD':1,'AWD':2};
