@@ -664,7 +664,6 @@ const usePersist=(key,initial)=>{
 
 const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
-              aeroBalance:0.5,aeroEfficiency:0.9,
               tyreF:'265/35R18',tyreR:'265/35R18'};
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,
@@ -681,7 +680,6 @@ const DEF_AL={alignManual:false,
               camberF:-2.3,camberR:-1.8,toeF:-0.1,toeR:0.1,caster:5.5};
 const DEF_BR={brakeManual:false,brakeBias:50,brakePressure:100};
 const BRAKE_BIAS_SCALE=0.20;
-const AERO_BALANCE_SCALE=15;
 
 const PRESET_SAVES=(()=>{
   const ref=Math.round(cornerMasses(DEF_CH).front);
@@ -1301,10 +1299,7 @@ const BiasSeg=({label,val,hint,primary})=>{
   );
 };
 
-const aeroLoadCtx=eff=>eff<0.5?['HI DRAG','#ef4444']:eff<0.7?['MED DRAG','#f59e0b']:['LO DRAG','#cbd5e1'];
-
-
-const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bAero,bDampBias,mechBalance,gripBalance})=>{
+const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bDampBias,mechBalance,gripBalance})=>{
   const abs=Math.abs(total);
   // positive = oversteer, negative = understeer
   const label=abs<3?'NEUTRAL':total>0?'OVERSTEER':'UNDERSTEER';
@@ -1315,7 +1310,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
     ...(isAWD
       ?[{name:'diff front',val:bDiffFront??0},{name:'diff rear',val:bDiffRear??0}]
       :[{name:'diff exit',val:bDiffAccel??0},{name:'diff entry',val:bDiffDecel??0}]),
-    {name:'brakes',val:bBrakeEntry??0},{name:'aero',val:bAero??0},{name:'damping',val:bDampBias??0}
+    {name:'brakes',val:bBrakeEntry??0},{name:'damping',val:bDampBias??0}
   ];
   // Sort by magnitude so dominant driver appears first
   const sorted=[...contributors].sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
@@ -1330,7 +1325,6 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
     'diff front': total>0?'Reduce front accel lock in the AWD Differential section.':'Raise front accel lock.',
     'diff rear':  total>0?'Reduce rear accel lock in the AWD Differential section.':'Raise rear accel lock.',
     brakes:    total>0?'Increase front brake bias in the Brakes section to reduce entry rotation.':'Reduce front brake bias to add entry rotation.',
-    aero:      total>0?'Lower Aero Balance toward 0.50 (less front-heavy downforce).':'Raise Aero Balance toward 0.50 or above.',
     damping:   total>0?'Increase front rebound (Damping Bias toward positive) to resist forward weight transfer.':'Reduce front rebound bias.',
   };
   const tip=abs<3
@@ -1361,10 +1355,9 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
             'diff exit':diffLayout==='FWD'?'Front accel lock on-throttle exit. Higher lock = more understeer (−).':'Rear accel lock on-throttle exit. Higher lock = more oversteer (+).',
             'diff entry':diffLayout==='FWD'?'Front decel lock off-throttle entry. Higher lock = more entry understeer (−).':'Rear decel lock off-throttle entry. Higher lock = more oversteer on entry (+).',
             brakes:'Brake-balance contribution to entry. High front bias = understeer on entry (−). Low front bias (rear-biased) = oversteer tendency (+). Based on deviation from 50% neutral.',
-            aero:'Aero balance contribution. Front-heavy aero (above 0.50) = oversteer tendency (+). Rear-heavy aero (below 0.50) = understeer tendency (−).',
             damping:'Damping bias contribution. More front rebound damping resists weight transfer off the front, producing understeer tendency (−). More rear damping does the opposite (+).',
           };
-          const labelMap={'diff front':'DIFF F','diff rear':'DIFF R','diff exit':'DIFF EXIT','diff entry':'DIFF ENTRY','brakes':'BRAKES','aero':'AERO','damping':'DAMP'};
+          const labelMap={'diff front':'DIFF F','diff rear':'DIFF R','diff exit':'DIFF EXIT','diff entry':'DIFF ENTRY','brakes':'BRAKES','damping':'DAMP'};
           const isDom=name===dom.name&&domBig;
           return <BiasSeg key={name} label={labelMap[name]??(name.toUpperCase())} val={val}
             hint={hints[name]??''} primary={isDom}/>;
@@ -1492,8 +1485,6 @@ const encodeTune=(ch,fe,dr,br)=>{
     dr.diffFrontAccel??28,dr.diffFrontDecel??0,dr.diffRearAccel??48,dr.diffRearDecel??8,dr.diffCenter??65,
     dr.diffBiasEntry??0,
     (br?.brakeManual?1:0),br?.brakeBias??DEF_BR.brakeBias,br?.brakePressure??DEF_BR.brakePressure,
-    ch.aeroBalance??0.5,
-    ch.aeroEfficiency??0.9,
     REAR_HZ_MODE_ENC[fe.rearHzMode??'flatRide']??0,
     fe.rearHzMan??1.5,
     fe.rearHzMult??1.20,
@@ -1517,10 +1508,7 @@ const decodeTune=(code)=>{
     return{ch:ic,fe:ife,dr:idr,br:ibr};
   }
   const v=raw.split('|').map(Number);
-  const ch={weight:v[0],frontBias:v[1],wheelbase:v[2],cgHeight:v[3],trackF:v[4],trackR:v[5], // v[6],v[7] = legacy motionRatio slots, intentionally unread
-
-            aeroBalance:v.length>=37?v[36]:0.5,
-            aeroEfficiency:v.length>=38?v[37]:0.9};
+  const ch={weight:v[0],frontBias:v[1],wheelbase:v[2],cgHeight:v[3],trackF:v[4],trackR:v[5]}; // v[6],v[7] = legacy motionRatio slots, intentionally unread
   const fe={rideStiffness:v[8],arbBias:v[9],targetSpeed:v[10],gameMode:GAME_MODE_DEC[v[11]]??'horizon',
             dampingMode:DAMPING_MODE_DEC[v[12]]??'ratio',reboundZeta:v[13],bumpRatio:v[14],bumpZeta:v[15],
             arbMode:ARB_MODE_DEC[v[16]]??'auto',arbTargetRollMan:v[17],arbShareMan:v[18],arbFloor:v[19],arbCeil:v[20],
@@ -1562,8 +1550,6 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       cgHeight:     cl(ch?.cgHeight,       0.2,  0.9,  DEF_CH.cgHeight),
       trackF:       cl(ch?.trackF,         1.0,  2.2,  DEF_CH.trackF),
       trackR:       cl(ch?.trackR,         1.0,  2.2,  DEF_CH.trackR),
-      aeroBalance:  cl(ch?.aeroBalance,    0,    1.5,  DEF_CH.aeroBalance),
-      aeroEfficiency:cl(ch?.aeroEfficiency,0.1,  1.0,  DEF_CH.aeroEfficiency),
       tyreF: parseTyre(ch?.tyreF)?ch.tyreF:DEF_CH.tyreF,
       tyreR: parseTyre(ch?.tyreR)?ch.tyreR:DEF_CH.tyreR,
     },
@@ -1783,13 +1769,13 @@ const TUTORIALS={
      body:'The ☰ button opens and closes the input sidebar. BEG / INT / PRO control how many inputs are visible. IMP / MET switches units. HZ / MS switches between Forza Horizon and Motorsport (changes ARB and damper limits). ↩ undoes the last change. ? reopens this guide. Sections in the sidebar are collapsible — tap any section header to expand or collapse it.'},
     {title:'CHASSIS',
      focus:['chassis'],
-     body:'Enter weight, front bias, aero balance, and tyre sizes from Forza\'s car stats and tuning screen. Aero Balance is the front downforce fraction — when set, a REC. MECH TARGET readout appears below it, suggesting a mech balance target to counteract the aero\'s handling bias. The CHASSIS BAL. readout shows the natural balance of your chassis before any solver correction.'},
+     body:'Enter weight, front bias, and tyre sizes from Forza\'s car stats screen. The CHASSIS BAL. readout shows the natural balance of your chassis before any solver correction.'},
     {title:'Anti-Roll Bars',
      focus:['arb'],
      body:'The Mech Balance Target field sets your overall handling balance goal. Three balance modes then determine how the solver achieves it: WEIGHT uses weight distribution with an optional Bias offset. MECH solves the ARB split to hit the target. CO-SOLVE adjusts both rear spring stiffness and ARB split together, with Spring Share controlling how much each contributes.'},
     {title:'Balance Guide',
      focus:['arb'],
-     body:'The BALANCE GUIDE shows your chassis\'s natural balance (Δ=0 baseline) and a RANGE of recommended targets for your layout and build. The range adapts to your specific car — it\'s always a fixed Δ correction above natural, so a staggered or rear-heavy car\'s range band moves with its natural balance. Your TARGET shows how far you\'re pushing from natural (the Δ row). AERO BIAS shows the aero\'s handling push and the adjusted aim point within the range.'},
+     body:'The BALANCE GUIDE shows your chassis\'s natural balance (Δ=0 baseline) and a RANGE of recommended targets for your layout and build. The range adapts to your specific car — it\'s always a fixed Δ correction above natural, so a staggered or rear-heavy car\'s range band moves with its natural balance. Your TARGET shows how far you\'re pushing from natural (the Δ row).'},
     {title:'RIDE — Spring Frequencies',
      focus:['feel'],
      body:'The RIDE REF. toggle sets which axle the stiffness slider anchors to — FRONT (default), SHARED (both axles move together), or REAR. FLAT RIDE derives the rear Hz from wheelbase and target speed for natural pitch response. MULTIPLIER applies a fixed ratio. INDEPENDENT fully decouples front and rear. In CO-SOLVE ARB mode, the rear Hz is solved automatically and shown as SOLVED REAR Hz in the ARB section.'},
@@ -1807,7 +1793,7 @@ const TUTORIALS={
      body:'Springs, Dampers, ARBs, and Alignment show exact in-game click values. Enter them directly in Forza\'s tuning menu. Amber values are near the game limit — soften inputs slightly to bring them down.'},
     {title:'Handling Balance Bar',
      focus:['balance-bar'],
-     body:'The Handling Balance bar shows your total OS/US tendency. The bar is colour-zoned — centre is neutral, the mild band covers typical intentional bias, and the outer zone is aggressive. The green MECH tick shows where springs and ARBs place the balance; the indigo BASELINE tick shows where aero, diff, and brakes sit before mechanical correction. Tap to expand the full per-contributor breakdown.'},
+     body:'The Handling Balance bar shows your total OS/US tendency. The bar is colour-zoned — centre is neutral, the mild band covers typical intentional bias, and the outer zone is aggressive. The green MECH tick shows where springs and ARBs place the balance; the indigo BASELINE tick shows where diff and brakes sit before mechanical correction. Tap to expand the full per-contributor breakdown.'},
     {title:'Presets & Share',
      focus:['presets'],
      body:'The six built-in presets set specific balance targets matched to each build style. Use the PRESETS section to save your own setups. SHARE generates a code you can paste into IMPORT on any device — backward compatible with all previous versions.'},
@@ -1815,7 +1801,7 @@ const TUTORIALS={
   pro:[
     {title:'Welcome — Pro Mode',
      focus:null,
-     body:'Pro mode exposes the full physics surface: geometry inputs, manual alignment, differential lock percentages, and brake balance. The ARB section offers WEIGHT / MECH / CO-SOLVE balance modes, the Balance Guide panel, and cross-solver readouts that link aero and mechanical balance together.'},
+     body:'Pro mode exposes the full physics surface: geometry inputs, manual alignment, differential lock percentages, and brake balance. The ARB section offers WEIGHT / MECH / CO-SOLVE balance modes and the Balance Guide panel.'},
     {title:'Getting Around',
      focus:null,
      body:'The ☰ button opens and closes the input sidebar. BEG / INT / PRO control how many inputs are visible. IMP / MET switches units. HZ / MS switches between Forza Horizon and Motorsport. ↩ undoes the last change. ? reopens this guide. Sections are collapsible — tap any section header to expand or collapse it.'},
@@ -1830,7 +1816,7 @@ const TUTORIALS={
      body:'The Mech Balance Target sets your overall handling goal. WEIGHT mode splits ARBs by weight distribution with an optional Bias offset. MECH solves the ARB split to hit the target exactly — ARB SPLIT shows the resulting front/rear percentages. CO-SOLVE solves both rear spring stiffness and ARB split together — Spring Share controls how much correction comes from each. The floor/ceiling slider limits how extreme the solver can go.'},
     {title:'Balance Guide',
      focus:['arb'],
-     body:'The BALANCE GUIDE tracks your chassis from its natural balance (Δ=0, shown as the gray tick and in the NAT label on the bar axis) to where you want it (TARGET). The RANGE band is calculated for your specific car — it\'s always the same Δ correction above natural, so as your chassis changes, the green band follows. The Δ sub-label on the RANGE row shows the absolute correction window. TARGET Δ shows exactly how much you\'re pushing from natural. AERO BIAS marks the aero-adjusted aim point.'},
+     body:'The BALANCE GUIDE tracks your chassis from its natural balance (Δ=0, shown as the gray tick and in the NAT label on the bar axis) to where you want it (TARGET). The RANGE band is calculated for your specific car — it\'s always the same Δ correction above natural, so as your chassis changes, the green band follows. The Δ sub-label on the RANGE row shows the absolute correction window. TARGET Δ shows exactly how much you\'re pushing from natural.'},
     {title:'Spring Frequencies',
      focus:['feel'],
      body:'RIDE REF. sets which axle the stiffness slider anchors to — FRONT, SHARED, or REAR. FLAT RIDE uses wheelbase and target speed for optimal pitch response. MULTIPLIER applies a fixed ratio. MECH solves the rear Hz ratio from the mech balance target. INDEPENDENT fully decouples both. In CO-SOLVE mode, the mode selector is hidden and SOLVED REAR Hz appears in the ARB section.'},
@@ -1851,7 +1837,7 @@ const TUTORIALS={
      body:'The CHECK button opens a reverse calculator — enter existing in-game spring and damper values to see their natural frequency and damping ratios. Useful for understanding a setup shared by another player or verifying a manually entered tune.'},
     {title:'Handling Balance Bar',
      focus:['balance-bar'],
-     body:'The bar is colour-zoned: the centre band is neutral, the mild zone covers typical intentional bias, the outer zone is aggressive. The green MECH tick shows where springs and ARBs place the balance; the indigo BASELINE tick shows where aero, diff, and brakes sit without mechanical correction. Tap to expand the full per-contributor breakdown and STABLE/AGILE factors.'},
+     body:'The bar is colour-zoned: the centre band is neutral, the mild zone covers typical intentional bias, the outer zone is aggressive. The green MECH tick shows where springs and ARBs place the balance; the indigo BASELINE tick shows where diff and brakes sit without mechanical correction. Tap to expand the full per-contributor breakdown and STABLE/AGILE factors.'},
     {title:'Share & Import',
      focus:['presets'],
      body:'SHARE encodes the full tune as a compact Base64 string. IMPORT decodes it on any device — backward compatible with all previous versions. Missing fields default gracefully, so old codes always load cleanly.'},
@@ -1862,7 +1848,7 @@ const TUTORIALS={
      body:'This breakdown shows how every tuning force combines into a single US/OS total. Positive (+) means oversteer tendency, negative (−) means understeer tendency. Each row is one contributor. Zero is a perfectly neutral baseline — but many drivers intentionally run +10 to +25 OS for rotation and feel. The colour zones on the bar show what\'s neutral, mild, or aggressive.'},
     {title:'Reading Each Row',
      focus:null,
-     body:'SPRINGS and ARB are the primary mechanical forces — controlled directly by your stiffness and balance settings. DIFF, BRAKES, AERO, and DAMP are secondary contributors. A large positive row pushes toward oversteer; a large negative row toward understeer. The green MECH tick on the bar shows the mechanical-only total; the indigo BASELINE tick shows everything else.'},
+     body:'SPRINGS and ARB are the primary mechanical forces — controlled directly by your stiffness and balance settings. DIFF, BRAKES, and DAMP are secondary contributors. A large positive row pushes toward oversteer; a large negative row toward understeer. The green MECH tick on the bar shows the mechanical-only total; the indigo BASELINE tick shows everything else.'},
     {title:'Using the Correction Tip',
      focus:null,
      body:'The text below the total identifies the dominant contributor and suggests an adjustment direction. For large imbalances, correct with the Balance slider or Mech Balance Target first. For small residual bias, fine-tune with alignment toe or damping bias.'},
@@ -2129,16 +2115,8 @@ function App(){
   const brakePressure=br.brakeManual?(br.brakePressure??DEF_BR.brakePressure):100;
   // positive = oversteer, negative = understeer
   const bBrakeEntry=-(brakeBias-50)*BRAKE_BIAS_SCALE; // high front bias → understeer (−)
-  const effectiveAeroBalance=(ch.aeroBalance??0.5)<0.05?0.5:ch.aeroBalance??0.5; // <0.05 = no aero, treat as neutral
-  const bAero=(effectiveAeroBalance-0.5)*AERO_BALANCE_SCALE; // front-heavy (>0.5) → oversteer (+), rear-heavy (<0.5) → understeer (−)
   const bDampBias=-(fe.dampingBias??0)*0.08; // more front damping → understeer (−)
-  const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bAero+bDampBias;
-  // cross-solver recommendations (read-only display)
-  const bMechAndOthers=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bDampBias;
-  const aeroBalRec=Math.max(0.30,Math.min(0.80,0.5-bMechAndOthers/AERO_BALANCE_SCALE));
-  const bOthers=diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bDampBias;
-  const mechTargetRec=Math.max(0.40,Math.min(0.90,0.5+(-(bAero+bOthers))/100));
-  const hasAero=(ch.aeroBalance??0)>=0.05;
+  const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bDampBias;
   const lim=GAME_LIMITS[fe.gameMode];
   const agileFactors=(()=>{
     const hzNorm=Math.min(1,Math.max(0,(physics.frontHz-0.8)/2.7));
@@ -2572,20 +2550,6 @@ function App(){
                 </div>
               </>);
             })()}
-            <Field label="Aero Balance" value={ch.aeroBalance??0.5} onChange={pCh('aeroBalance')}
-              min={0} max={1.5} step={0.01}
-              hint="Front downforce fraction from Forza's aero tuning screen. 0.50 = balanced. Above 0.50 = front-heavy aero → more front grip, rear is relatively light → oversteer tendency. Below 0.50 = rear-heavy aero → understeer tendency. Values above 1.00 are possible with certain aero kits. 0.00 means no aero installed — treated as neutral."/>
-            {hasAero&&<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-              fontSize:11,color:'#94a3b8',padding:'2px 4px',marginTop:-6,marginBottom:2}}>
-              <span style={{letterSpacing:1}}>REC. MECH TARGET</span>
-              <span style={{color:'#e8c97a',fontFamily:'Courier New'}}>
-                {mechTargetRec.toFixed(2)}
-                <span style={{color:'#94a3b8',fontSize:10,marginLeft:5}}>est.</span>
-              </span>
-            </div>}
-            <Field label="Aero Efficiency" value={ch.aeroEfficiency??0.9} onChange={pCh('aeroEfficiency')}
-              min={0.1} max={1.0} step={0.001}
-              hint="Aero efficiency from Forza's tuning menu. This is the downforce-to-drag ratio (L/D) — higher means more downforce per unit of drag and less top speed penalty. Does not affect the handling balance calculation. A car with large wings and an efficient aero design can show high efficiency and high downforce at the same time."/>
             {(()=>{
               const tyreInput=(key,label)=>{
                 const val=ch[key]??DEF_CH[key];
@@ -2747,19 +2711,16 @@ function App(){
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                     <span style={{display:'flex',alignItems:'center',gap:4}}>
                       <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>BALANCE GUIDE</span>
-                      <Hint text="NATURAL is your Δ=0 baseline — where the chassis sits from geometry and weight alone, with no spring or ARB correction. The RANGE adapts to your specific car: it shows how much oversteer bias (Δ from natural) is appropriate for this layout and build. A staggered or rear-heavy car may have a different natural balance, so its range band sits at a different absolute position — the Δ values below it stay the same. TARGET shows how far you're deliberately pushing away from natural. AERO BIAS shows the aero's handling push and the aero-adjusted aim point within the range."/>
+                      <Hint text="NATURAL is your Δ=0 baseline — where the chassis sits from geometry and weight alone, with no spring or ARB correction. The RANGE adapts to your specific car: it shows how much oversteer bias (Δ from natural) is appropriate for this layout and build. A staggered or rear-heavy car may have a different natural balance, so its range band sits at a different absolute position — the Δ values below it stay the same. TARGET shows how far you're deliberately pushing away from natural."/>
                     </span>
                     <span style={{fontSize:10,color:'#94a3b8'}}>{_layout} · {_build.toUpperCase()}</span>
                   </div>
                   {(()=>{
-                    const _aeroBiasNonNeutral=hasAero&&Math.abs(bAero)>1;
-                    const _aimCol=bAero>1?'#60a5fa':bAero<-1?'#f59e0b':'#ca8a04';
                     return(
                     <div style={{position:'relative',height:16,marginBottom:2}}>
                       <div style={{position:'absolute',top:6,left:0,right:0,height:4,background:'#0f172a',borderRadius:2}}/>
                       <div style={{position:'absolute',top:6,left:`${_pct(_lo)}%`,width:`${_pct(_hi)-_pct(_lo)}%`,height:4,background:'#14532d',borderRadius:1}}/>
                       <div style={{position:'absolute',top:3,left:`${_pct(natMechBalance)}%`,transform:'translateX(-50%)',width:2,height:10,background:'#334155',borderRadius:1}}/>
-                      {hasAero&&<div style={{position:'absolute',top:5,left:`${_pct(mechTargetRec)}%`,transform:'translateX(-50%)',width:6,height:6,background:_aimCol,borderRadius:'50%',opacity:_aeroBiasNonNeutral?0.95:0.35}}/>}
                       <div style={{position:'absolute',top:1,left:`${_pct(_cur)}%`,transform:'translateX(-50%)',
                                    width:0,height:0,borderLeft:'5px solid transparent',borderRight:'5px solid transparent',borderTop:`7px solid ${_tc}`}}/>
                     </div>);
@@ -2801,38 +2762,10 @@ function App(){
                         </span>
                       );
                     })()}
-                    {hasAero&&(()=>{
-                      const _push=bAero/100; // positive=OS push (front-heavy aero), negative=US push
-                      const _abs=Math.abs(_push);
-                      const _isOS=bAero>1; const _isUS=bAero<-1;
-                      const _col=_isOS?'#60a5fa':_isUS?'#f59e0b':'#94a3b8';
-                      const _dot=_isOS?'#3b82f6':_isUS?'#ca8a04':'#334155';
-                      return(<>
-                        <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
-                          <span style={{display:'inline-block',width:6,height:6,background:_dot,borderRadius:'50%',flexShrink:0,opacity:_isOS||_isUS?0.95:0.35}}/> AERO BIAS
-                        </span>
-                        <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:_col}}>
-                          {_abs<0.01?'NEUTRAL':(_isOS?`+${_abs.toFixed(2)} OS`:`+${_abs.toFixed(2)} US`)}
-                        </span>
-                      </>);
-                    })()}
                   </div>
                 </div>
               );
             })()}
-            {hasAero
-              ?<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-                  fontSize:11,color:'#94a3b8',padding:'6px 10px',background:'#0a0f1a',
-                  borderRadius:2,border:'1px solid #1e293b',marginBottom:10}}>
-                <span style={{letterSpacing:1}}>REC. AERO BAL</span>
-                <span style={{color:'#7ab8e8',fontFamily:'Courier New',fontSize:12,fontWeight:600}}>
-                  {aeroBalRec.toFixed(2)}
-                  <span style={{color:'#94a3b8',fontSize:10,marginLeft:5,fontWeight:400}}>est.</span>
-                </span>
-              </div>
-              :<div style={{fontSize:10,color:'#94a3b8',textAlign:'center',marginBottom:10,padding:'6px 10px'}}>
-                Set aero balance in CHASSIS to see recommendation
-              </div>}
             {(fe.arbBalMode??'weight')==='weight'&&
               <FeelSlider label="ARB Bias" value={fe.arbBias}
                 onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
@@ -3752,7 +3685,7 @@ function App(){
                   position:'absolute',top:0,height:6,
                   left:`${50+Math.max(-50,Math.min(50,tune.bTot))}%`,
                   width:1,background:'#4ade80',opacity:0.75,transform:'translateX(-50%)'}}/>}
-                {/* C — non-mechanical baseline (aero+diff+brakes+damp without springs/ARBs), bottom half */}
+                {/* C — non-mechanical baseline (diff+brakes+damp without springs/ARBs), bottom half */}
                 {(()=>{
                   const nb=bTotFull-tune.bTot;
                   return Math.abs(nb)>0.5&&<div style={{
@@ -3793,10 +3726,10 @@ function App(){
                   <span style={{display:'inline-block',width:1,height:8,background:'#818cf8',opacity:0.75,flexShrink:0}}/>BASELINE
                 </span>}
                 {(Math.abs(tune.bTot)>0.5||Math.abs(bTotFull-tune.bTot)>0.5)&&
-                  <Hint text="MECH (green) — where springs and ARBs alone place the balance, relative to weight-matched neutral. This is your intentional mechanical correction. BASELINE (indigo) — where aero, diff, brakes, and damping place the car before any spring/ARB correction. The gap between BASELINE and the total fill is what your mechanical setup adds on top."/>}
+                  <Hint text="MECH (green) — where springs and ARBs alone place the balance, relative to weight-matched neutral. This is your intentional mechanical correction. BASELINE (indigo) — where diff, brakes, and damping place the car before any spring/ARB correction. The gap between BASELINE and the total fill is what your mechanical setup adds on top."/>}
               </div>
               {/* secondary metadata pills */}
-              {(tune.mechBalance!=null||(ch.aeroBalance??0.5)!==0.5&&(ch.aeroBalance??0.5)>=0.05)&&
+              {tune.mechBalance!=null&&
                 <div style={{display:'flex',alignItems:'center',gap:10,marginTop:5,flexWrap:'wrap',rowGap:3}}>
                   {tune.mechBalance!=null&&
                     <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>
@@ -3813,20 +3746,6 @@ function App(){
                         </span>;
                       })()}
                     </span>}
-                  {(ch.aeroBalance??0.5)!==0.5&&(ch.aeroBalance??0.5)>=0.05&&(()=>{
-                    const[alabel,acol]=aeroLoadCtx(ch.aeroEfficiency??0.9);
-                    return(
-                      <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>
-                        AERO <span style={{fontFamily:'Courier New',color:'#94a3b8',fontWeight:700}}>
-                          {(ch.aeroBalance??0.5).toFixed(2)}
-                        </span>
-                        {' '}<span style={{color:acol,background:acol+'18',border:`1px solid ${acol}44`,
-                                         borderRadius:2,padding:'1px 4px',letterSpacing:1,fontSize:10}}>
-                          {alabel}
-                        </span>
-                      </span>
-                    );
-                  })()}
                 </div>}
             </div>
             {/* expanded full verdict */}
@@ -3846,7 +3765,7 @@ function App(){
                   bDiffAccel={diff.bDiffAccel} bDiffDecel={diff.bDiffDecel}
                   bDiffFront={diff.bDiffFront} bDiffRear={diff.bDiffRear}
                   diffLayout={diff.layout}
-                  bBrakeEntry={bBrakeEntry} bAero={bAero} bDampBias={bDampBias}
+                  bBrakeEntry={bBrakeEntry} bDampBias={bDampBias}
                   mechBalance={null}/>
                 {/* STABLE / AGILE factor breakdown */}
                 <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid #0f172a'}}>
