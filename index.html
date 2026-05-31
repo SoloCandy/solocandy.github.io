@@ -141,7 +141,7 @@ const parseTyre=str=>{
 };
 // rideStiffness now stores Hz directly (0.80–5.50).
 // Old saves/shares stored integers 0–100 — detect and auto-migrate.
-const rsToHz=rs=>rs>3.5?0.8+(rs/100)*2.7:rs;
+const rsToHz=rs=>rs>6?0.8+(rs/100)*2.7:rs;
 const hzToRs=hz=>Math.round(Math.max(0.80,Math.min(5.50,hz))*100)/100;
 const flatRideRearHz=(fHz,wb,mph)=>{
   if(mph>=200)return{hz:fHz,clamped:false};
@@ -1563,7 +1563,7 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       tyreR: parseTyre(ch?.tyreR)?ch.tyreR:DEF_CH.tyreR,
     },
     fe:{
-      rideStiffness:    (()=>{const rs=n(fe?.rideStiffness,DEF_FE.rideStiffness);const hz=rs>3.5?0.8+(rs/100)*2.7:rs;return Math.max(0.80,Math.min(5.50,Math.round(hz*100)/100));})(),
+      rideStiffness:    (()=>{const rs=n(fe?.rideStiffness,DEF_FE.rideStiffness);const hz=rs>6?0.8+(rs/100)*2.7:rs;return Math.max(0.80,Math.min(5.50,Math.round(hz*100)/100));})(),
       arbBias:          cl(fe?.arbBias,          -50,   50,  DEF_FE.arbBias),
       arbBalTarget:     cl(fe?.arbBalTarget,     0.40, 0.90, DEF_FE.arbBalTarget),
       arbBalMode:       ARB_BAL_MODE_DEC.includes(fe?.arbBalMode)?fe.arbBalMode:DEF_FE.arbBalMode,
