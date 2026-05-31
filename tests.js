@@ -45,14 +45,19 @@ const cornerMasses = ch => {
   return { front: (kg * (ch.frontBias / 100)) / 2, rear: (kg * (1 - ch.frontBias / 100)) / 2 };
 };
 
+// Spring-frequency operating band — must mirror app's HZ_MIN/HZ_MAX.
+const HZ_MIN = 0.8, HZ_MAX = 5.5;
+const rsToHz = rs => rs > 6 ? 0.8 + (rs / 100) * 2.7 : rs;
+const hzToRs = hz => Math.round(Math.max(HZ_MIN, Math.min(HZ_MAX, hz)) * 100) / 100;
+
 const flatRideRearHz = (fHz, wb, mph) => {
   if (mph >= 200) return { hz: fHz, clamped: false };
   const ms = mph * MPH_TO_MS;
   if (ms < 1) return { hz: fHz * 1.2, clamped: false };
   const t = wb / ms, d = (1 / fHz) - (2 * t);
   const raw = d > 0.05 ? 1 / d : fHz * 1.2;
-  const clamped = raw > 4.0; // absolute game ceiling, not a relative cap
-  return { hz: Math.min(raw, 4.0), clamped };
+  const clamped = raw > HZ_MAX; // absolute game ceiling, not a relative cap
+  return { hz: Math.min(raw, HZ_MAX), clamped };
 };
 
 const solveSpring = (hz, mass, mr) => {
@@ -127,10 +132,39 @@ console.log('\nflatRideRearHz');
   assert('70mph rear hz > front', r3.hz - 1.5, 0, 2); // rear should be higher than front
   assertEq('70mph not clamped', r3.clamped, false);
 
-  // cap at 4.0 Hz game ceiling when formula overshoots (stiff spring at medium speed)
-  const r4 = flatRideRearHz(3.5, 2.7, 70); // high fHz at 70mph → raw ≈8.8Hz → clamped at 4.0
-  assert('cap at 4.0 Hz ceiling', r4.hz, 4.0, 0.001);
+  // cap at HZ_MAX game ceiling when formula overshoots (stiff spring at medium speed)
+  const r4 = flatRideRearHz(3.5, 2.7, 70); // high fHz at 70mph → raw overshoots → clamped at HZ_MAX
+  assert('cap at HZ_MAX ceiling', r4.hz, HZ_MAX, 0.001);
   assertEq('clamped flag set', r4.clamped, true);
+
+  // a derived rear Hz in the expanded 4.0–5.5 band must NOT be clamped
+  // (regression guard for the old 4.0 cap that silently truncated stiff rears)
+  const r5 = flatRideRearHz(3.0, 2.7, 90); // raw lands ≈5.0Hz — inside new band
+  assert('4.0–5.5 band: rear hz ≈ 5.0', r5.hz, 5.02, 0.1);
+  assertEq('4.0–5.5 band: above old 4.0 cap', r5.hz > 4.0, true);
+  assertEq('4.0–5.5 band: clamped flag clear', r5.clamped, false);
+}
+
+// ── Hz operating band (HZ_MIN / HZ_MAX) ────────────────────────────────────────
+// Guards the expanded 0.8–5.5 range: hzToRs clamping and the legacy-save migration
+// threshold. Regression coverage for the scattered-magic-number bugs (commits where
+// rear Hz silently re-capped at 4.0 / slider froze at 3.5).
+
+console.log('\nHz operating band');
+{
+  // hzToRs clamps into [HZ_MIN, HZ_MAX]
+  assert('hzToRs clamps below floor', hzToRs(0.2), HZ_MIN, 0.001);
+  assert('hzToRs clamps above ceiling', hzToRs(9.9), HZ_MAX, 0.001);
+  assert('hzToRs passes 5.0 through', hzToRs(5.0), 5.0, 0.001);
+  assert('hzToRs passes 4.5 through', hzToRs(4.5), 4.5, 0.001);
+
+  // legacy migration: old saves stored integers 0–100; only values >6 are legacy.
+  // A genuine 5.0 Hz must NOT be misread as a legacy integer and rescaled down.
+  assert('rsToHz: 5.0 stays 5.0 (not legacy)', rsToHz(5.0), 5.0, 0.001);
+  assert('rsToHz: 4.5 stays 4.5 (not legacy)', rsToHz(4.5), 4.5, 0.001);
+  // a true legacy integer (e.g. 50/100) migrates onto the 0.8+ scale
+  assert('rsToHz: legacy 50 migrates', rsToHz(50), 0.8 + 0.5 * 2.7, 0.001);
+  assertEq('migration threshold is >6 (5.5 not legacy)', rsToHz(5.5), 5.5);
 }
 
 // ── solveSpring ───────────────────────────────────────────────────────────────

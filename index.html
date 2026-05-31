@@ -139,18 +139,22 @@ const parseTyre=str=>{
   const diameter=rim*25.4+2*(width*aspect/100);
   return{width,aspectRatio:aspect,rimDiameter:rim,diameter,radius:diameter/2};
 };
-// rideStiffness now stores Hz directly (0.80–5.50).
+// rideStiffness now stores Hz directly (HZ_MIN–HZ_MAX).
 // Old saves/shares stored integers 0–100 — detect and auto-migrate.
+// Single source of truth for the spring-frequency operating band. Change here to
+// retune the whole app — physics clamps, codec, slot-scaling, and UI sliders all read these.
+const HZ_MIN=0.8,HZ_MAX=5.5;
+const HZ_RANGE=HZ_MAX-HZ_MIN;
 const rsToHz=rs=>rs>6?0.8+(rs/100)*2.7:rs;
-const hzToRs=hz=>Math.round(Math.max(0.80,Math.min(5.50,hz))*100)/100;
+const hzToRs=hz=>Math.round(Math.max(HZ_MIN,Math.min(HZ_MAX,hz))*100)/100;
 const flatRideRearHz=(fHz,wb,mph)=>{
   if(mph>=200)return{hz:fHz,clamped:false};
   const ms=mph*MPH_TO_MS;
   if(ms<1)return{hz:fHz*1.2,clamped:false};
   const t=wb/ms,d=(1/fHz)-(2*t);
   const raw=d>0.05?1/d:fHz*1.2;
-  const clamped=raw>5.5;
-  return{hz:Math.min(raw,5.5),clamped};
+  const clamped=raw>HZ_MAX;
+  return{hz:Math.min(raw,HZ_MAX),clamped};
 };
 // Shared ref: given avgHz = (fHz+rHz)/2 and flat-ride constraint, solve fHz.
 // Substituting rHz=1/(1/fHz−2t) into avg equation gives quadratic:
@@ -158,13 +162,13 @@ const flatRideRearHz=(fHz,wb,mph)=>{
 const flatRideSharedHz=(avgHz,wb,mph)=>{
   if(mph>=200)return{fHz:avgHz,rHz:avgHz,clamped:false};
   const ms=mph*MPH_TO_MS;
-  if(ms<1){const fHz=Math.max(0.8,avgHz/1.1);return{fHz,rHz:Math.max(0.8,2*avgHz-fHz),clamped:false};}
+  if(ms<1){const fHz=Math.max(HZ_MIN,avgHz/1.1);return{fHz,rHz:Math.max(HZ_MIN,2*avgHz-fHz),clamped:false};}
   const t=wb/ms;
   const B=-(1+2*avgHz*t),disc=B*B-4*t*avgHz;
   if(disc<0)return{fHz:avgHz,rHz:avgHz,clamped:true};
-  const fHz=Math.max(0.8,(-B-Math.sqrt(disc))/(2*t));
+  const fHz=Math.max(HZ_MIN,(-B-Math.sqrt(disc))/(2*t));
   const res=flatRideRearHz(fHz,wb,mph);
-  return{fHz,rHz:res.hz,clamped:fHz<0.8||res.clamped};
+  return{fHz,rHz:res.hz,clamped:fHz<HZ_MIN||res.clamped};
 };
 const solveSpring=(hz,mass,mr)=>{
   const wr=Math.pow(hz*2*Math.PI,2)*mass;
@@ -225,8 +229,8 @@ const feelToPhysics=(ch,fe)=>{
     const Rbl=A/(1+A);
     const Rsp=Math.max(0.001,Math.min(0.999,Rbl+S*(rst-Rbl)));
     const Kcs=Math.sqrt(Rsp*mc.front*ch.trackF*ch.trackF/((1-Rsp)*mc.rear*ch.trackR*ch.trackR)); // rear/front Hz ratio (no width)
-    if(uiRideRef==='rear')   frontHz=Math.max(0.8,frontHz/Kcs);
-    else if(uiRideRef==='shared') frontHz=Math.max(0.8,2*frontHz/(1+Kcs));
+    if(uiRideRef==='rear')   frontHz=Math.max(HZ_MIN,frontHz/Kcs);
+    else if(uiRideRef==='shared') frontHz=Math.max(HZ_MIN,2*frontHz/(1+Kcs));
   }
   let rearHz,rearHzClamped;
   if(rideRef==='shared'){
@@ -234,8 +238,8 @@ const feelToPhysics=(ch,fe)=>{
     const avgHz=frontHz;
     if(rearHzMode==='multiplier'){
       const mult=fe.rearHzMult??1.20;
-      frontHz=Math.max(0.8,2*avgHz/(1+mult));
-      rearHz=Math.max(0.8,Math.min(5.5,2*avgHz*mult/(1+mult)));
+      frontHz=Math.max(HZ_MIN,2*avgHz/(1+mult));
+      rearHz=Math.max(HZ_MIN,Math.min(HZ_MAX,2*avgHz*mult/(1+mult)));
       rearHzClamped=false;
     } else if(rearHzMode==='mech'&&arbBalModeEarly!=='coSolve'){
       const m_m=cornerMasses(ch);
@@ -262,8 +266,8 @@ const feelToPhysics=(ch,fe)=>{
             const _eff=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
             const _R=_eff/(1-_eff);
             const _mult=Math.sqrt(_R*m_m.front*ch.trackF*ch.trackF/(m_m.rear*ch.trackR*ch.trackR));
-            _estF=Math.max(0.8,2*avgHz/(1+_mult));
-            _estR=Math.max(0.8,Math.min(5.5,2*avgHz*_mult/(1+_mult)));
+            _estF=Math.max(HZ_MIN,2*avgHz/(1+_mult));
+            _estR=Math.max(HZ_MIN,Math.min(HZ_MAX,2*avgHz*_mult/(1+_mult)));
           }
         }
         // roll mode: ARB budget is absolute (roll-moment-based), not a share fraction — _p_m stays 0
@@ -271,9 +275,9 @@ const feelToPhysics=(ch,fe)=>{
       const _effRsBal_m=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
       const R_m=_effRsBal_m/(1-_effRsBal_m);
       const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF/(m_m.rear*ch.trackR*ch.trackR));
-      frontHz=Math.max(0.8,2*avgHz/(1+mult_m));
-      rearHz=Math.max(0.8,Math.min(5.5,2*avgHz*mult_m/(1+mult_m)));
-      rearHzClamped=frontHz<=0.8||rearHz>=5.5;
+      frontHz=Math.max(HZ_MIN,2*avgHz/(1+mult_m));
+      rearHz=Math.max(HZ_MIN,Math.min(HZ_MAX,2*avgHz*mult_m/(1+mult_m)));
+      rearHzClamped=frontHz<=HZ_MIN||rearHz>=HZ_MAX;
     } else { // flatRide (independent collapses to equal in shared mode)
       const res=flatRideSharedHz(avgHz,ch.wheelbase,fe.targetSpeed);
       frontHz=res.fHz;rearHz=res.rHz;rearHzClamped=res.clamped;
@@ -282,12 +286,12 @@ const feelToPhysics=(ch,fe)=>{
     const primaryHz=frontHz; // frontHz = rsToHz(fe.rideStiffness)
     let secondaryHz,secondaryHzClamped;
     if(rearHzMode==='independent'){
-      secondaryHz=Math.max(0.8,Math.min(5.5,fe.rearHzMan??1.5));
+      secondaryHz=Math.max(HZ_MIN,Math.min(HZ_MAX,fe.rearHzMan??1.5));
       secondaryHzClamped=false;
     } else if(rearHzMode==='multiplier'){
       const mult=fe.rearHzMult??1.20;
       const raw=rideRef==='front'?primaryHz*mult:primaryHz/mult;
-      secondaryHz=Math.max(0.8,Math.min(5.5,raw));
+      secondaryHz=Math.max(HZ_MIN,Math.min(HZ_MAX,raw));
       secondaryHzClamped=false;
     } else if(rearHzMode==='mech'&&arbBalModeEarly!=='coSolve'){
       const m_m=cornerMasses(ch);
@@ -316,7 +320,7 @@ const feelToPhysics=(ch,fe)=>{
             const _eff=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
             const _R=_eff/(1-_eff);
             const _mult=Math.sqrt(_R*m_m.front*ch.trackF*ch.trackF/(m_m.rear*ch.trackR*ch.trackR));
-            _estSec=Math.max(0.8,Math.min(5.5,rideRef==='front'?primaryHz*_mult:primaryHz/_mult));
+            _estSec=Math.max(HZ_MIN,Math.min(HZ_MAX,rideRef==='front'?primaryHz*_mult:primaryHz/_mult));
           }
         }
         // roll mode: ARB budget is absolute (roll-moment-based), not a share fraction — _p_m stays 0
@@ -325,8 +329,8 @@ const feelToPhysics=(ch,fe)=>{
       const R_m=_effRsBal_m/(1-_effRsBal_m);
       const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF/(m_m.rear*ch.trackR*ch.trackR));
       const raw_m=rideRef==='front'?primaryHz*mult_m:primaryHz/mult_m;
-      secondaryHz=Math.max(0.8,Math.min(5.5,raw_m));
-      secondaryHzClamped=raw_m<0.8||raw_m>5.5;
+      secondaryHz=Math.max(HZ_MIN,Math.min(HZ_MAX,raw_m));
+      secondaryHzClamped=raw_m<HZ_MIN||raw_m>HZ_MAX;
     } else { // flatRide
       if(rideRef==='front'){
         const res=flatRideRearHz(primaryHz,ch.wheelbase,fe.targetSpeed);
@@ -338,8 +342,8 @@ const feelToPhysics=(ch,fe)=>{
         } else {
           const ms=Math.max(1,fe.targetSpeed*MPH_TO_MS);
           const raw=1/(1/primaryHz+2*(ch.wheelbase/ms));
-          secondaryHz=Math.max(0.8,raw);
-          secondaryHzClamped=raw<0.8;
+          secondaryHz=Math.max(HZ_MIN,raw);
+          secondaryHzClamped=raw<HZ_MIN;
         }
       }
     }
@@ -395,7 +399,7 @@ const computeTune=(ch,phys,gameMode)=>{
     const S=(phys.springShare??50)/100;
     const R_sp=Math.max(0.001,Math.min(0.999,R_baseline+S*(targetRsBalance-R_baseline)));
     const rsSpR_tgt=R_sp*rsSpF_cs/(1-R_sp);
-    effectiveRHz=Math.max(0.8,Math.min(5.5,Math.sqrt(2*rsSpR_tgt/(m.rear*ch.trackR*ch.trackR))/(2*Math.PI)));
+    effectiveRHz=Math.max(HZ_MIN,Math.min(HZ_MAX,Math.sqrt(2*rsSpR_tgt/(m.rear*ch.trackR*ch.trackR))/(2*Math.PI)));
   }
   const springF=solveSpring(fHz,m.front,1);
   const springR=solveSpring(effectiveRHz,m.rear,1);
@@ -1037,7 +1041,7 @@ const _BalStrip=({rearFrac,wtRearFrac,BY=108})=>{
 const SpringDial=({fHz,rHz,rsSpF,rsSpR,frontBias,clamped})=>{
   const[hover,setHover]=useState(null);
   const{START,SWEEP,polar,arcPath,CX,CY,SIZE}=_dialBase();
-  const MIN_HZ=0.8,MAX_HZ=5.5;
+  const MIN_HZ=HZ_MIN,MAX_HZ=HZ_MAX;
   const toA=hz=>START+((Math.min(Math.max(hz,MIN_HZ),MAX_HZ)-MIN_HZ)/(MAX_HZ-MIN_HZ))*SWEEP;
   const endA=START+SWEEP;
   const a12=toA(1.5),a18=toA(2.5),a25=toA(3.5);
@@ -1563,7 +1567,7 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       tyreR: parseTyre(ch?.tyreR)?ch.tyreR:DEF_CH.tyreR,
     },
     fe:{
-      rideStiffness:    (()=>{const rs=n(fe?.rideStiffness,DEF_FE.rideStiffness);const hz=rs>6?0.8+(rs/100)*2.7:rs;return Math.max(0.80,Math.min(5.50,Math.round(hz*100)/100));})(),
+      rideStiffness:    (()=>{const rs=n(fe?.rideStiffness,DEF_FE.rideStiffness);const hz=rs>6?0.8+(rs/100)*2.7:rs;return Math.max(HZ_MIN,Math.min(HZ_MAX,Math.round(hz*100)/100));})(),
       arbBias:          cl(fe?.arbBias,          -50,   50,  DEF_FE.arbBias),
       arbBalTarget:     cl(fe?.arbBalTarget,     0.40, 0.90, DEF_FE.arbBalTarget),
       arbBalMode:       ARB_BAL_MODE_DEC.includes(fe?.arbBalMode)?fe.arbBalMode:DEF_FE.arbBalMode,
@@ -1581,7 +1585,7 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       arbFloor:         sArbFloor,
       arbCeil:          sArbCeil,
       rearHzMode:       REAR_HZ_MODE_DEC.includes(fe?.rearHzMode)?fe.rearHzMode:DEF_FE.rearHzMode,
-      rearHzMan:        cl(fe?.rearHzMan,          0.8,  5.5, DEF_FE.rearHzMan),
+      rearHzMan:        cl(fe?.rearHzMan,          HZ_MIN, HZ_MAX, DEF_FE.rearHzMan),
       rearHzMult:       cl(fe?.rearHzMult,         0.5,  3.0, DEF_FE.rearHzMult),
       rideRef:          ['front','rear','shared'].includes(fe?.rideRef)?fe.rideRef:'front',
     },
@@ -2180,7 +2184,7 @@ function App(){
       let adjustedFe={...DEF_FE,...s.fe};
       if(s.refCornerMassF){
         const scale=Math.sqrt(s.refCornerMassF/cm.front);
-        const scaledHz=Math.max(0.80,Math.min(5.50,rsToHz(s.fe.rideStiffness)*scale));
+        const scaledHz=Math.max(HZ_MIN,Math.min(HZ_MAX,rsToHz(s.fe.rideStiffness)*scale));
         adjustedFe.rideStiffness=hzToRs(scaledHz);
       }
       if(uiMode==='beginner'){
@@ -2204,7 +2208,7 @@ function App(){
     let adjustedFe={...DEF_FE,...s.fe};
     if(s.refCornerMassF){
       const scale=Math.sqrt(s.refCornerMassF/cm.front);
-      const scaledHz=Math.max(0.80,Math.min(5.50,rsToHz(s.fe.rideStiffness)*scale));
+      const scaledHz=Math.max(HZ_MIN,Math.min(HZ_MAX,rsToHz(s.fe.rideStiffness)*scale));
       adjustedFe.rideStiffness=hzToRs(scaledHz);
     }
     if(uiMode==='beginner'){
@@ -2471,7 +2475,7 @@ function App(){
                 <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,margin:'16px 0 14px'}}>FEEL</div>
                 <FeelSlider label="Ride Stiffness" value={physics.frontHz}
                   onChange={v=>pFe('rideStiffness')(hzToRs(v))}
-                  min={0.80} max={5.50} step={0.01}
+                  min={HZ_MIN} max={HZ_MAX} step={0.01}
                   leftLabel="SOFT" rightLabel="STIFF"
                   readout={<span style={{display:'flex',alignItems:'center',gap:5}}>
                     <span style={{fontSize:11,color:hzCol,fontFamily:'Courier New',fontWeight:700,letterSpacing:1}}>{hzCat}</span>
@@ -2978,14 +2982,14 @@ function App(){
                   label={rRef==='rear'?'Rear Stiffness':rRef==='shared'?'Avg Stiffness':'Ride Stiffness'}
                   value={primaryHz}
                   onChange={v=>pFe('rideStiffness')(hzToRs(v))}
-                  min={0.80} max={5.50} step={0.01} leftLabel="0.80" rightLabel="5.50"
+                  min={HZ_MIN} max={HZ_MAX} step={0.01} leftLabel={HZ_MIN.toFixed(2)} rightLabel={HZ_MAX.toFixed(2)}
                   readout={<span style={{display:'flex',alignItems:'center',gap:3}}>
                     <input type="number" className="num"
                       style={{width:44,fontSize:11,fontWeight:700,color:'#94a3b8',
                               background:'transparent',fontFamily:'Courier New',
                               borderRadius:2,textAlign:'right',padding:'0 2px',
                               border:hzDraft!==null?'1px solid #334155':'1px solid transparent'}}
-                      min={0.80} max={5.50} step={0.01}
+                      min={HZ_MIN} max={HZ_MAX} step={0.01}
                       value={hzDraft??primaryHz.toFixed(2)}
                       onFocus={()=>setHzDraft(primaryHz.toFixed(2))}
                       onChange={e=>setHzDraft(e.target.value)}
@@ -3096,21 +3100,21 @@ function App(){
               : <FeelSlider
                   label={rRef==='rear'?'Front Hz':'Rear Hz'}
                   value={fe.rearHzMan??secHz}
-                  onChange={pFe('rearHzMan')} min={0.8} max={5.5} step={0.01}
-                  leftLabel="0.80" rightLabel="5.50"
+                  onChange={pFe('rearHzMan')} min={HZ_MIN} max={HZ_MAX} step={0.01}
+                  leftLabel={HZ_MIN.toFixed(2)} rightLabel={HZ_MAX.toFixed(2)}
                   readout={<span style={{display:'flex',alignItems:'center',gap:3}}>
                     <input type="number" className="num"
                       style={{width:44,fontSize:11,fontWeight:700,color:'#94a3b8',
                               background:'transparent',fontFamily:'Courier New',
                               borderRadius:2,textAlign:'right',padding:'0 2px',
                               border:rearHzDraft!==null?'1px solid #334155':'1px solid transparent'}}
-                      min={0.80} max={5.50} step={0.01}
+                      min={HZ_MIN} max={HZ_MAX} step={0.01}
                       value={rearHzDraft??secHz.toFixed(2)}
                       onFocus={()=>setRearHzDraft(secHz.toFixed(2))}
                       onChange={e=>setRearHzDraft(e.target.value)}
                       onBlur={()=>{
                         const v=parseFloat(rearHzDraft);
-                        if(!isNaN(v)) pFe('rearHzMan')(Math.max(0.8,Math.min(5.5,v)));
+                        if(!isNaN(v)) pFe('rearHzMan')(Math.max(HZ_MIN,Math.min(HZ_MAX,v)));
                         setRearHzDraft(null);
                       }}
                       onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}/>
