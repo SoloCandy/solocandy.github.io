@@ -1972,6 +1972,22 @@ function App(){
   const closeTut=()=>setTutMode(null);
   // Called only when user clicks DONE on the last step of the beginner guide
   const closeTutDone=()=>{if(tutMode==='beginner'||tutMode==='intermediate')setShowComplexity(true);closeTut();};
+  // Gating: INT requires BEG completion, PRO requires INT completion
+  const canAccessMode=m=>{
+    if(m==='beginner')return true;
+    if(m==='intermediate')return tutSeen.beginner;
+    if(m==='pro')return tutSeen.intermediate;
+    return false;
+  };
+  const tryAccessMode=m=>{
+    if(canAccessMode(m)){
+      setUiMode(m);
+    }else{
+      // Prerequisites not met: open the first missing tutorial
+      const needed=m==='intermediate'?'beginner':'intermediate';
+      openTut(needed);
+    }
+  };
   const tutFocus=tutMode?(TUTORIALS[tutMode]?.[tutStep]?.focus??null):null;
   const dim=(...zones)=>{
     if(!tutMode)return{};
@@ -2308,7 +2324,7 @@ function App(){
               <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
               {[['beginner','BEG'],['intermediate','INT'],['pro','PRO']].map(([mode,label])=>(
                 <button key={mode} className={`tbtn${uiMode===mode?' on':''}`}
-                  onClick={()=>setUiMode(mode)} style={{fontSize:11}}>{label}</button>
+                  onClick={()=>tryAccessMode(mode)} style={{fontSize:11}}>{label}</button>
               ))}
               <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
             </>}
@@ -2334,7 +2350,7 @@ function App(){
           <div style={{display:'flex',gap:4,padding:'0 14px 8px'}}>
             {[['beginner','BEG'],['intermediate','INT'],['pro','PRO']].map(([mode,label])=>(
               <button key={mode} className={`tbtn${uiMode===mode?' on':''}`}
-                onClick={()=>setUiMode(mode)}
+                onClick={()=>tryAccessMode(mode)}
                 style={{flex:1,fontSize:11,padding:'7px 0',textAlign:'center'}}>
                 {label}
               </button>
