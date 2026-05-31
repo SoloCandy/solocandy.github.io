@@ -2882,7 +2882,7 @@ function App(){
                 <button className={`tog${(fe.arbBalMode??'weight')==='coSolve'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('coSolve')}>CO-SOLVE</button>
                 <button className={`tog${(fe.arbBalMode??'weight')==='man'?' on':''}`}
-                  onClick={()=>pFe('arbBalMode')('man')}>MAN</button>
+                  onClick={()=>{pFe('arbManF')(Math.round(tune.arbF*10)/10);pFe('arbManR')(Math.round(tune.arbR*10)/10);pFe('arbBalMode')('man');}}>MAN</button>
               </div>
             </div>
             {(fe.arbBalMode??'weight')==='mech'&&<>
