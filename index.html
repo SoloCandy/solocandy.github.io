@@ -1485,6 +1485,7 @@ const encodeTune=(ch,fe,dr,br)=>{
     dr.diffFrontAccel??28,dr.diffFrontDecel??0,dr.diffRearAccel??48,dr.diffRearDecel??8,dr.diffCenter??65,
     dr.diffBiasEntry??0,
     (br?.brakeManual?1:0),br?.brakeBias??DEF_BR.brakeBias,br?.brakePressure??DEF_BR.brakePressure,
+    0,0, // [36,37] reserved — were aeroBalance / aeroEfficiency; kept as placeholders so downstream positions don't shift
     REAR_HZ_MODE_ENC[fe.rearHzMode??'flatRide']??0,
     fe.rearHzMan??1.5,
     fe.rearHzMult??1.20,
