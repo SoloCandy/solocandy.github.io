@@ -3309,8 +3309,6 @@ function App(){
               diffCenter:DEF_DR.diffCenter}))}>
             <Toggle label="" value={dr.layout} onChange={pDr('layout')}
               options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
-            <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
-              options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}/>
             {uiMode==='pro'&&<div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,marginBottom:10,flexWrap:'wrap'}}>
               <span style={{fontSize:12,color:'#94a3b8'}}>Differential Mode</span>
               <Hint text="AUTO derives lock values from layout, build type, weight bias, and the intent sliders. MANUAL exposes all individual lock percentages directly."/>
