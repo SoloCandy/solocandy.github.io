@@ -2010,6 +2010,7 @@ function App(){
   const[showChecker,setShowChecker]=useState(false);
   const[showResetModal,setShowResetModal]=useState(false);
   const[resetConfirmText,setResetConfirmText]=useState('');
+  const[resetOpts,setResetOpts]=useState({tune:true,zoom:true,mode:true,tutorials:true,units:true});
   const[hzDraft,setHzDraft]=useState(null);     // transient: direct front Hz entry
   const[rearHzDraft,setRearHzDraft]=useState(null); // transient: direct rear Hz entry (independent mode)
   const[sidebarOpen,setSidebarOpen]=useState(true);
@@ -2202,17 +2203,20 @@ function App(){
   const overwriteSlot=i=>setSaves(p=>({...p,[i]:{...p[i],fe,dr,refCornerMassF:Math.round(cm.front)}}));
   const resetSlot=i=>setSaves(p=>({...p,[i]:PRESET_SAVES[i]}));
   const performGlobalReset=()=>{
-    setCh({...DEF_CH});
-    setFe({...DEF_FE});
-    setDr({...DEF_DR});
-    setAl({...DEF_AL});
-    setBr({...DEF_BR});
-    setMetricUnits(false);
-    setUiZoom(1.1);
-    setUiMode('beginner');
-    setTutSeen({beginner:false,intermediate:false,pro:false});
+    if(resetOpts.tune){
+      setCh({...DEF_CH});
+      setFe({...DEF_FE});
+      setDr({...DEF_DR});
+      setAl({...DEF_AL});
+      setBr({...DEF_BR});
+    }
+    if(resetOpts.units)setMetricUnits(false);
+    if(resetOpts.zoom)setUiZoom(1.1);
+    if(resetOpts.mode)setUiMode('beginner');
+    if(resetOpts.tutorials)setTutSeen({beginner:false,intermediate:false,pro:false});
     setShowResetModal(false);
     setResetConfirmText('');
+    setResetOpts({tune:true,zoom:true,mode:true,tutorials:true,units:true});
   };
 
   return(
@@ -2220,12 +2224,24 @@ function App(){
       {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits}/>}
       {showResetModal&&(
         <div style={{position:'fixed',inset:0,background:'#000000cc',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
-             onClick={()=>{setShowResetModal(false);setResetConfirmText('');}}>
+             onClick={()=>{setShowResetModal(false);setResetConfirmText('');setResetOpts({tune:true,zoom:true,mode:true,tutorials:true,units:true});}}>
           <div onClick={e=>e.stopPropagation()}
                style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:6,padding:20,maxWidth:420,width:'100%'}}>
-            <div style={{fontSize:13,letterSpacing:1,color:'#fca5a5',marginBottom:10}}>RESET ALL TUNE STATE</div>
-            <div style={{fontSize:12,color:'#cbd5e1',marginBottom:12,lineHeight:1.5}}>
-              This will reset chassis, feel, drivetrain, alignment, and brakes to defaults. Your saved slots, unit preference, complexity mode, and tutorial progress will be preserved.
+            <div style={{fontSize:13,letterSpacing:1,color:'#fca5a5',marginBottom:12}}>RESET OPTIONS</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:14,fontSize:12}}>
+              {[['tune','Tune (chassis, feel, drivetrain, alignment, brakes)'],
+                ['units','Units (back to imperial)'],
+                ['zoom','Zoom (back to 110%)'],
+                ['mode','Mode (back to Beginner)'],
+                ['tutorials','Tutorials (mark all unseen)']
+              ].map(([key,label])=>(
+                <label key={key} style={{display:'flex',alignItems:'center',gap:8,color:'#cbd5e1',cursor:'pointer'}}>
+                  <input type="checkbox" checked={resetOpts[key]}
+                    onChange={e=>setResetOpts(p=>({...p,[key]:e.target.checked}))}
+                    style={{cursor:'pointer',width:16,height:16}}/>
+                  {label}
+                </label>
+              ))}
             </div>
             <div style={{fontSize:11,color:'#94a3b8',marginBottom:6}}>
               Type <span style={{color:'#fca5a5',fontWeight:'bold'}}>RESET</span> to confirm:
@@ -2236,10 +2252,10 @@ function App(){
               autoFocus
               style={{width:'100%',background:'#020617',border:'1px solid #1e293b',color:'#e2e8f0',padding:'6px 8px',fontSize:13,fontFamily:'monospace',marginBottom:14,borderRadius:3,boxSizing:'border-box'}}/>
             <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
-              <button className="tbtn" onClick={()=>{setShowResetModal(false);setResetConfirmText('');}}>CANCEL</button>
+              <button className="tbtn" onClick={()=>{setShowResetModal(false);setResetConfirmText('');setResetOpts({tune:true,zoom:true,mode:true,tutorials:true,units:true});}}>CANCEL</button>
               <button className="tbtn" disabled={resetConfirmText!=='RESET'} onClick={performGlobalReset}
                 style={{color:resetConfirmText==='RESET'?'#fca5a5':'#94a3b8',borderColor:resetConfirmText==='RESET'?'#7f1d1d':'#1e293b'}}>
-                RESET ALL
+                RESET
               </button>
             </div>
           </div>
