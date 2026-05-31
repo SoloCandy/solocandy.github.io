@@ -461,8 +461,16 @@ const computeTune=(ch,phys,gameMode)=>{
   if(_rsBalK!==null)
     rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)-rsSpR)/(rsAbBudget*(1+_rsBalK))));
   const clk=(rs,track)=>{const v=Math.min(Math.min(lim.arb,arbCeil),Math.max(1,rs/(ARB_RS_SCALE*track*track)));return Math.round(v*10)/10;};
-  const arbF=clk(rsAbBudget*(1-rF),ch.trackF);
-  const arbR=clk(rsAbBudget*rF,ch.trackR);
+  let arbF,arbR;
+  if(arbBalMode==='man'){
+    // Manual mode: use user-input ARB values directly
+    arbF=Math.max(1,Math.min(lim.arb,phys.arbManF??20));
+    arbR=Math.max(1,Math.min(lim.arb,phys.arbManR??20));
+  } else {
+    // Auto/WEIGHT/MECH/CO-SOLVE: solve from budget
+    arbF=clk(rsAbBudget*(1-rF),ch.trackF);
+    arbR=clk(rsAbBudget*rF,ch.trackR);
+  }
   const rsAbF=arbF*ARB_RS_SCALE*ch.trackF*ch.trackF;
   const rsAbR=arbR*ARB_RS_SCALE*ch.trackR*ch.trackR;
   const rsTotal=rsSpF+rsSpR+rsAbF+rsAbR;
@@ -2865,7 +2873,7 @@ function App(){
                 hint="Fraction of total roll stiffness supplied by ARBs. 0% = springs handle all roll resistance. 20–30% is typical sport. Higher = stiffer bars relative to springs, more abrupt load transfer."/>}
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10,marginTop:4}}>
               <span style={{fontSize:12,color:'#94a3b8'}}>Balance Mode</span>
-              <Hint text="WEIGHT splits front/rear ARB from the car's weight distribution, adjusted by the ARB Bias slider. MECH solves the ARB split to hit a target mech balance value. CO-SOLVE adjusts both rear spring stiffness and ARB split together — Spring Share controls how much each contributes."/>
+              <Hint text="WEIGHT splits front/rear ARB from the car's weight distribution, adjusted by the ARB Bias slider. MECH solves the ARB split to hit a target mech balance value. CO-SOLVE adjusts both rear spring stiffness and ARB split together — Spring Share controls how much each contributes. MAN lets you set front/rear ARB clicks directly for calibration testing."/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${(fe.arbBalMode??'weight')==='weight'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('weight')}>WEIGHT</button>
@@ -2873,6 +2881,8 @@ function App(){
                   onClick={()=>pFe('arbBalMode')('mech')}>MECH</button>
                 <button className={`tog${(fe.arbBalMode??'weight')==='coSolve'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('coSolve')}>CO-SOLVE</button>
+                <button className={`tog${(fe.arbBalMode??'weight')==='man'?' on':''}`}
+                  onClick={()=>pFe('arbBalMode')('man')}>MAN</button>
               </div>
             </div>
             {(fe.arbBalMode??'weight')==='mech'&&<>
@@ -2909,6 +2919,12 @@ function App(){
                 markers={[{value:50,color:'#94a3b8',label:'50/50'}]}
                 readout={(fe.springShare??50)===50?'BALANCED':(fe.springShare??50)<50?`ARB +${50-(fe.springShare??50)}`:`SPR +${(fe.springShare??50)-50}`}
                 hint="How much of the mechanical balance correction comes from rear spring stiffness vs ARB split. 0% = ARB handles all correction (rear Hz equals front Hz). 100% = springs handle all correction (ARB split near neutral). 50% = equal contribution from both."/>
+            </>}
+            {(fe.arbBalMode??'weight')==='man'&&<>
+              <div style={{display:'flex',gap:6,marginBottom:10}}>
+                <InputGroup label="ARB F" value={fe.arbManF??20} onChange={pFe('arbManF')} min={1} max={65} step={0.1} hint="Front ARB clicks (manual)"/>
+                <InputGroup label="ARB R" value={fe.arbManR??20} onChange={pFe('arbManR')} min={1} max={65} step={0.1} hint="Rear ARB clicks (manual)"/>
+              </div>
             </>}
           </Sec></div>
 
