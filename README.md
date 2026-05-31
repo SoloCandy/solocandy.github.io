@@ -85,6 +85,11 @@ Geometry auto-scales with weight in BEG/INT; in PRO you control it directly.
 - **DEF F / DEF R** — static spring deflection in mm under the car's own weight (`g ÷ (2π·Hz)²`). Cross-check that your spring travel isn't bottoming
 - **REB · BUMP · SETTLE** — damping ratios and settle time with a category badge: **STIFF** / **SPORT** / **ROAD** / **SOFT** / **FLOAT**
 
+### BUILD
+- **Build Type** — your intended use case (Street / Track / Drift). Determines recommended balance range, diff AUTO behavior, alignment presets, and brake AUTO recommendations
+- **Mech Balance Target** — your overall handling-balance goal (0.40–0.90, where 0.5 ≈ neutral, higher = more rear roll stiffness / more rotation). Used by MECH, CO-SOLVE, the MECH rear Hz mode, and (optionally) the diff MATCH CHASSIS feature. Set this first; it drives everything: ARB split, spring stiffness, alignment, and diff bias
+- **Balance Guide** panel — shows your chassis natural balance, recommended target range for your build type, and how far your current target deviates from natural
+
 ### ANTI-ROLL BARS
 - **ARB Mode** — how the total ARB budget is sized: Auto (targets natural roll from springs), Roll ° (manual target), or Share % (manual split of total roll stiffness)
 - **ARB Range** — floor/ceiling clamp on clicks. Game limits enforced: Horizon max 65, Motorsport max 40
@@ -96,9 +101,6 @@ Geometry auto-scales with weight in BEG/INT; in PRO you control it directly.
 | **MECH** | Solves the ARB split to hit the **Mech Balance Target** exactly. The resulting **ARB SPLIT** front/rear % is shown |
 | **CO-SOLVE** | Solves rear spring stiffness **and** ARB split together. **Spring / ARB Mix** (Spring Share) controls how much of the correction comes from springs vs ARBs |
 
-- **Mech Balance Target** — your overall handling-balance goal (0.40–0.90, where 0.5 ≈ neutral, higher = more rear roll stiffness / more rotation). Used by MECH, CO-SOLVE, the MECH rear Hz mode, and (optionally) the diff MATCH CHASSIS feature
-- **Balance Guide** panel — shows your chassis natural balance, recommended target range, and how far your current target deviates from natural
-
 ### ALIGNMENT
 Auto mode computes camber, toe, and caster from build type, layout, CG height, and roll angle. Switch to Manual to override.
 
@@ -107,7 +109,7 @@ Auto mode computes camber, toe, and caster from build type, layout, CG height, a
 - **Manual** — set brake balance (45–70% front) and brake pressure (50–200%) directly. Both affect the entry-phase contribution in the handling balance
 
 ### DRIVETRAIN
-- Layout (FWD / RWD / AWD) and build type (Street / Track / Drift)
+- **Layout** — FWD / RWD / AWD
 - **Auto** — Corner Exit and Corner Entry sliders shift accel/decel lock without exposing raw percentages. AWD adds a Center split slider and a front exit-push slider
 - **Manual** — full control over individual accel/decel lock values per axle
 - **Match Chassis** — optional toggle (auto mode only) that biases the diff's exit/entry intent toward the chassis Mech Balance Target, so the differential reinforces the handling balance you set elsewhere. Capped so it can't override explicit slider input
