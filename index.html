@@ -2006,7 +2006,7 @@ function App(){
     setOpen(p=>({...p,presetsOpen:!!(tutFocus?.includes('presets'))}));
   },[tutFocus]); // eslint-disable-line
   const[loadMode,setLoadMode]=useState('all'); // 'all'=feel+drivetrain, 'fe'=feel only
-  const[open,setOpen]=useState({chassis:true,ride:true,dampers:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:false,presetsOpen:false});
+  const[open,setOpen]=useState({chassis:true,build:true,ride:true,dampers:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:false,presetsOpen:false});
   const[showChecker,setShowChecker]=useState(false);
   const[showResetModal,setShowResetModal]=useState(false);
   const[resetConfirmText,setResetConfirmText]=useState('');
@@ -2433,6 +2433,8 @@ function App(){
                 <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:14}}>CHASSIS</div>
                 <Toggle label="Layout" value={dr.layout} onChange={pDr('layout')}
                   options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
+                </div>
+                <div id="zone-build-type" style={dim('build-type')}>
                 <Toggle label="Build" value={dr.buildType??'track'} onChange={pDr('buildType')}
                   options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}/>
                 </div>
@@ -2682,28 +2684,17 @@ function App(){
             </> }
           </Sec></div>
 
-          <div id="zone-arb" style={dim('arb')}><Sec title="ANTI-ROLL BARS" open={open.arb} onToggle={tog('arb')}
-            onReset={()=>setFe(p=>({...p,
-              arbBias:DEF_FE.arbBias,
-              arbMode:DEF_FE.arbMode,
-              arbBalTarget:DEF_FE.arbBalTarget,
-              arbBalMode:DEF_FE.arbBalMode,
-              springShare:DEF_FE.springShare,
-              arbTargetRollMan:DEF_FE.arbTargetRollMan,
-              arbShareMan:DEF_FE.arbShareMan,
-              arbFloor:DEF_FE.arbFloor,
-              arbCeil:DEF_FE.arbCeil}))}>
-            <ArbDial arbF={tune.arbF} arbR={tune.arbR} arbLimit={lim.arb}
-              rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}/>
+          <div id="zone-build" style={dim('build')}><Sec title="BUILD & BALANCE TARGET" open={open.build} onToggle={tog('build')}
+            onReset={()=>setFe(p=>({...p,arbBalTarget:DEF_FE.arbBalTarget}))}>
+            <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
+              options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}
+              hint="Determines your intended use. Shifts ARB and differential recommendations, brake balance AUTO, and the recommended Mech Balance Target range."/>
             <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
               min={0.40} max={0.90} step={0.01}
               hint="Roll stiffness rear share — matches what Forza shows as Mech Balance. 0.50 = balanced roll resistance. Higher = more rear bar stiffness (oversteer tendency). Lower = more front (understeer tendency). This is the same scale as Forza's tuning readout, so the value you set here should match what appears in-game. MECH and CO-SOLVE modes solve springs and ARBs to hit this target. CHASSIS BAL. below shows the same scale at your car's natural stiffness. GRIP BIAS shows how this translates to physical handling at the limit."/>
             {(()=>{
               const _layout=dr.layout??'RWD';
               const _build=dr.buildType??'track';
-              // Ranges stored as Δ from natural (car-specific): how much oversteer bias
-              // to add via suspension for this layout and build purpose.
-              // FWD needs more absolute correction (larger Δ) because of its natural US tendency.
               const _deltaMap={
                 FWD:{street:[0.06,0.17],track:[0.11,0.24],drift:[0.18,0.32]},
                 RWD:{street:[0.05,0.16],track:[0.10,0.21],drift:[0.18,0.32]},
@@ -2719,7 +2710,7 @@ function App(){
               const _tc=_inRange?'#4ade80':_cur>_hi?'#f97316':'#60a5fa';
               return(
                 <div style={{background:'#060c17',border:'1px solid #1e293b',borderRadius:2,
-                             padding:'8px 10px',marginBottom:8,marginTop:2}}>
+                             padding:'8px 10px',marginBottom:0,marginTop:8}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                     <span style={{display:'flex',alignItems:'center',gap:4}}>
                       <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>BALANCE GUIDE</span>
@@ -2778,6 +2769,20 @@ function App(){
                 </div>
               );
             })()}
+          </Sec></div>
+
+          <div id="zone-arb" style={dim('arb')}><Sec title="ANTI-ROLL BARS" open={open.arb} onToggle={tog('arb')}
+            onReset={()=>setFe(p=>({...p,
+              arbBias:DEF_FE.arbBias,
+              arbMode:DEF_FE.arbMode,
+              arbBalMode:DEF_FE.arbBalMode,
+              springShare:DEF_FE.springShare,
+              arbTargetRollMan:DEF_FE.arbTargetRollMan,
+              arbShareMan:DEF_FE.arbShareMan,
+              arbFloor:DEF_FE.arbFloor,
+              arbCeil:DEF_FE.arbCeil}))}>
+            <ArbDial arbF={tune.arbF} arbR={tune.arbR} arbLimit={lim.arb}
+              rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}/>
             {(fe.arbBalMode??'weight')==='weight'&&
               <FeelSlider label="ARB Bias" value={fe.arbBias}
                 onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
