@@ -139,10 +139,10 @@ const parseTyre=str=>{
   const diameter=rim*25.4+2*(width*aspect/100);
   return{width,aspectRatio:aspect,rimDiameter:rim,diameter,radius:diameter/2};
 };
-// rideStiffness now stores Hz directly (0.80–3.50).
+// rideStiffness now stores Hz directly (0.80–4.50).
 // Old saves/shares stored integers 0–100 — detect and auto-migrate.
 const rsToHz=rs=>rs>3.5?0.8+(rs/100)*2.7:rs;
-const hzToRs=hz=>Math.round(Math.max(0.80,Math.min(3.50,hz))*100)/100;
+const hzToRs=hz=>Math.round(Math.max(0.80,Math.min(4.50,hz))*100)/100;
 const flatRideRearHz=(fHz,wb,mph)=>{
   if(mph>=200)return{hz:fHz,clamped:false};
   const ms=mph*MPH_TO_MS;
@@ -1563,7 +1563,7 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       tyreR: parseTyre(ch?.tyreR)?ch.tyreR:DEF_CH.tyreR,
     },
     fe:{
-      rideStiffness:    (()=>{const rs=n(fe?.rideStiffness,DEF_FE.rideStiffness);const hz=rs>3.5?0.8+(rs/100)*2.7:rs;return Math.max(0.80,Math.min(3.50,Math.round(hz*100)/100));})(),
+      rideStiffness:    (()=>{const rs=n(fe?.rideStiffness,DEF_FE.rideStiffness);const hz=rs>3.5?0.8+(rs/100)*2.7:rs;return Math.max(0.80,Math.min(4.50,Math.round(hz*100)/100));})(),
       arbBias:          cl(fe?.arbBias,          -50,   50,  DEF_FE.arbBias),
       arbBalTarget:     cl(fe?.arbBalTarget,     0.40, 0.90, DEF_FE.arbBalTarget),
       arbBalMode:       ARB_BAL_MODE_DEC.includes(fe?.arbBalMode)?fe.arbBalMode:DEF_FE.arbBalMode,
@@ -2180,7 +2180,7 @@ function App(){
       let adjustedFe={...DEF_FE,...s.fe};
       if(s.refCornerMassF){
         const scale=Math.sqrt(s.refCornerMassF/cm.front);
-        const scaledHz=Math.max(0.80,Math.min(3.50,rsToHz(s.fe.rideStiffness)*scale));
+        const scaledHz=Math.max(0.80,Math.min(4.50,rsToHz(s.fe.rideStiffness)*scale));
         adjustedFe.rideStiffness=hzToRs(scaledHz);
       }
       if(uiMode==='beginner'){
@@ -2204,7 +2204,7 @@ function App(){
     let adjustedFe={...DEF_FE,...s.fe};
     if(s.refCornerMassF){
       const scale=Math.sqrt(s.refCornerMassF/cm.front);
-      const scaledHz=Math.max(0.80,Math.min(3.50,rsToHz(s.fe.rideStiffness)*scale));
+      const scaledHz=Math.max(0.80,Math.min(4.50,rsToHz(s.fe.rideStiffness)*scale));
       adjustedFe.rideStiffness=hzToRs(scaledHz);
     }
     if(uiMode==='beginner'){
@@ -2471,7 +2471,7 @@ function App(){
                 <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,margin:'16px 0 14px'}}>FEEL</div>
                 <FeelSlider label="Ride Stiffness" value={physics.frontHz}
                   onChange={v=>pFe('rideStiffness')(hzToRs(v))}
-                  min={0.80} max={3.50} step={0.01}
+                  min={0.80} max={4.50} step={0.01}
                   leftLabel="SOFT" rightLabel="STIFF"
                   readout={<span style={{display:'flex',alignItems:'center',gap:5}}>
                     <span style={{fontSize:11,color:hzCol,fontFamily:'Courier New',fontWeight:700,letterSpacing:1}}>{hzCat}</span>
@@ -2978,14 +2978,14 @@ function App(){
                   label={rRef==='rear'?'Rear Stiffness':rRef==='shared'?'Avg Stiffness':'Ride Stiffness'}
                   value={primaryHz}
                   onChange={v=>pFe('rideStiffness')(hzToRs(v))}
-                  min={0.80} max={3.50} step={0.01} leftLabel="0.80" rightLabel="3.50"
+                  min={0.80} max={4.50} step={0.01} leftLabel="0.80" rightLabel="4.50"
                   readout={<span style={{display:'flex',alignItems:'center',gap:3}}>
                     <input type="number" className="num"
                       style={{width:44,fontSize:11,fontWeight:700,color:'#94a3b8',
                               background:'transparent',fontFamily:'Courier New',
                               borderRadius:2,textAlign:'right',padding:'0 2px',
                               border:hzDraft!==null?'1px solid #334155':'1px solid transparent'}}
-                      min={0.80} max={3.50} step={0.01}
+                      min={0.80} max={4.50} step={0.01}
                       value={hzDraft??primaryHz.toFixed(2)}
                       onFocus={()=>setHzDraft(primaryHz.toFixed(2))}
                       onChange={e=>setHzDraft(e.target.value)}
