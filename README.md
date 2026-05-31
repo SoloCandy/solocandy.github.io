@@ -34,7 +34,7 @@ A **BEG / INT / PRO** toggle in the header controls how much of the input surfac
 | Tier | Surface |
 |---|---|
 | **BEG** (Beginner) | Minimal inputs — weight, a handling-feel slider, and a balance target. Chassis geometry auto-scales with weight, and CO-SOLVE is selected automatically so springs and ARBs are solved together |
-| **INT** (Intermediate) | Adds full springs/damping/ARB control with the WEIGHT / MECH / CO-SOLVE balance modes, without requiring chassis geometry |
+| **INT** (Intermediate) | Adds full springs/damping/ARB control with the WEIGHT / MECH / CO-SOLVE / MAN balance modes, without requiring chassis geometry |
 | **PRO** | Exposes the complete physics surface — geometry inputs, manual alignment, raw differential lock percentages, brake balance, the Balance Guide panel, and cross-solver readouts |
 
 Geometry auto-scales with weight in BEG/INT; in PRO you control it directly.
@@ -62,7 +62,7 @@ Geometry auto-scales with weight in BEG/INT; in PRO you control it directly.
 ### FEEL
 | Field | Description |
 |---|---|
-| Ride Stiffness | Spring frequency slider, 0.80–3.50 Hz. Click the Hz readout to type a target frequency directly. Green **ROAD** and **RACE** tick marks show the typical band for this car's corner weight — lighter cars sit higher on the scale |
+| Ride Stiffness | Spring frequency slider, 0.80–5.50 Hz. Click the Hz readout to type a target frequency directly. Green **ROAD** and **RACE** tick marks show the typical band for this car's corner weight — lighter cars sit higher on the scale |
 | Ride Ref | Which axle the stiffness slider anchors to: **FRONT** (default), **SHARED** (both axles move together around the slider as the average), or **REAR**. The opposite axle is then derived by the Rear Hz mode |
 | Rear Hz mode | Controls how the derived axle's frequency relates to the anchored one |
 | Rebound ζ | Damping ratio for the rebound stroke. 70% = Butterworth (critically tuned). >100% = overdamped |
@@ -75,7 +75,7 @@ Geometry auto-scales with weight in BEG/INT; in PRO you control it directly.
 | **FLAT RIDE** | Derived axle's Hz comes from the flat-ride formula: anchored Hz, wheelbase, and a Target Speed slider. Lower speed = softer rear. **OFF** disables the correction |
 | **MULTIPLIER** | Derived Hz = anchored Hz × a multiplier (0.50–3.00). ×1.20 is a common starting point |
 | **MECH** | Solves the rear/front Hz ratio from the Mech Balance Target so the springs themselves carry the balance |
-| **INDEPENDENT** | Rear Hz set directly (0.80–4.00 Hz), fully decoupled from front |
+| **INDEPENDENT** | Rear Hz set directly (0.80–5.50 Hz), fully decoupled from front |
 
 > In **CO-SOLVE** ARB balance mode the rear Hz is solved automatically (springs + ARBs together), the mode selector is hidden, and the result appears as **SOLVED REAR Hz** in the ARB section.
 
@@ -100,6 +100,7 @@ Geometry auto-scales with weight in BEG/INT; in PRO you control it directly.
 | **WEIGHT** | Splits ARBs by weight distribution, with an optional **ARB Bias** offset to shift roll stiffness front/rear |
 | **MECH** | Solves the ARB split to hit the **Mech Balance Target** exactly. The resulting **ARB SPLIT** front/rear % is shown |
 | **CO-SOLVE** | Solves rear spring stiffness **and** ARB split together. **Spring / ARB Mix** (Spring Share) controls how much of the correction comes from springs vs ARBs |
+| **MAN** | Direct manual input of front and rear ARB click values. When switching into MAN mode, the current solved ARB values are pre-filled as a starting point. Useful for isolated ARB calibration testing — enter your real in-game values and observe the calculator's predicted mech balance |
 
 ### ALIGNMENT
 Auto mode computes camber, toe, and caster from build type, layout, CG height, and roll angle. Switch to Manual to override.
