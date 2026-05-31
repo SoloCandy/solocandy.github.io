@@ -685,35 +685,29 @@ const PRESET_SAVES=(()=>{
   const ref=Math.round(cornerMasses(DEF_CH).front);
   return{
     1:{name:'STREET',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:1.64,targetSpeed:60,reboundZeta:60,bumpRatio:50,
-           dampingBias:8,arbFloor:4,arbCeil:30,
-           arbBalMode:'mech',arbBalTarget:0.62},
+       fe:{...DEF_FE,rideStiffness:1.64,rearHzMode:'multiplier',rearHzMultiplier:1.15,
+           reboundZeta:60,bumpRatio:50,dampingBias:8},
        dr:{...DEF_DR,buildType:'street',diffBiasExit:-10,diffBiasEntry:10}},
     2:{name:'TRACK',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:2.29,targetSpeed:120,reboundZeta:72,bumpRatio:58,
-           dampingBias:12,arbFloor:6,arbCeil:55,
-           arbBalMode:'mech',arbBalTarget:0.65},
+       fe:{...DEF_FE,rideStiffness:2.29,rearHzMode:'multiplier',rearHzMultiplier:1.05,
+           reboundZeta:72,bumpRatio:58,dampingBias:12},
        dr:{...DEF_DR,buildType:'track',diffBiasExit:5,diffBiasEntry:0}},
     3:{name:'RALLY',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:1.29,targetSpeed:80,reboundZeta:65,bumpRatio:45,
-           dampingBias:-12,arbFloor:3,arbCeil:20,arbBias:-10,
-           arbBalMode:'mech',arbBalTarget:0.68,springShare:60},
+       fe:{...DEF_FE,rideStiffness:1.29,rearHzMode:'multiplier',rearHzMultiplier:1.35,
+           reboundZeta:65,bumpRatio:45,dampingBias:-12},
        dr:{...DEF_DR,buildType:'street',diffBiasExit:-5,diffBiasEntry:-15}},
     4:{name:'DRIFT',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:1.39,targetSpeed:65,reboundZeta:63,bumpRatio:46,
-           dampingBias:15,arbFloor:3,arbCeil:22,
-           arbBalMode:'mech',arbBalTarget:0.72},
+       fe:{...DEF_FE,rideStiffness:1.39,rearHzMode:'multiplier',rearHzMultiplier:1.30,
+           reboundZeta:63,bumpRatio:46,dampingBias:15},
        dr:{...DEF_DR,buildType:'drift',layout:'RWD',
            diffBiasExit:22,diffBiasEntry:-18,diffRearAccel:65,diffRearDecel:15}},
     5:{name:'MOTORSPT',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:2.83,targetSpeed:145,reboundZeta:77,bumpRatio:62,
-           dampingBias:18,arbFloor:8,arbCeil:65,
-           arbBalMode:'coSolve',arbBalTarget:0.65,springShare:35},
+       fe:{...DEF_FE,rideStiffness:2.83,rearHzMode:'multiplier',rearHzMultiplier:0.95,
+           reboundZeta:77,bumpRatio:62,dampingBias:18},
        dr:{...DEF_DR,buildType:'track',diffBiasExit:10,diffBiasEntry:-5}},
     6:{name:'X COUNTRY',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:0.98,targetSpeed:80,reboundZeta:55,bumpRatio:40,
-           dampingBias:0,arbFloor:1,arbCeil:8,
-           arbBalMode:'mech',arbBalTarget:0.57},
+       fe:{...DEF_FE,rideStiffness:0.98,rearHzMode:'multiplier',rearHzMultiplier:1.22,
+           reboundZeta:55,bumpRatio:40,dampingBias:0},
        dr:{...DEF_DR,buildType:'street'}},
   };
 })();
@@ -2167,8 +2161,8 @@ function App(){
         adjustedFe.rideStiffness=hzToRs(scaledHz);
       }
       if(uiMode==='beginner'){
-        adjustedFe.arbBalMode='coSolve';
-        adjustedFe.arbBalTarget=Math.max(0.50,Math.min(0.80,0.65-(adjustedFe.arbBias??0)*0.003));
+        // Ensure rearHzMode is 'multiplier' for beginner simplicity
+        if(!adjustedFe.rearHzMode||adjustedFe.rearHzMode==='independent')adjustedFe.rearHzMode='multiplier';
       }
       setFe(adjustedFe);
       if(loadMode!=='fe') setDr({...DEF_DR,...s.dr});
@@ -2470,16 +2464,14 @@ function App(){
                   hint="Controls how the balance correction is split between anti-roll bars and rear spring stiffness. ARBs (left) = bars do the work, springs stay symmetric. SPRINGS (right) = rear spring stiffness is adjusted more, bars stay near neutral. BALANCED (centre) splits the correction evenly between both."/>
                 </div>
                 <div id="zone-balance" style={dim('balance')}>
-                <FeelSlider label="Balance" value={fe.arbBias??0}
+                <FeelSlider label="Balance" value={(fe.rearHzMultiplier??1.2-1)*50}
                   onChange={v=>setFe(p=>({...p,
-                    arbBias:v,
-                    arbBalMode:'coSolve',
-                    arbBalTarget:Math.max(0.50,Math.min(0.80,0.65-v*0.003))}))}
+                    rearHzMultiplier:Math.max(0.70,Math.min(1.70,1.2+v*0.01))}))}
                   min={-50} max={50} step={1}
                   leftLabel="OVERSTEER" rightLabel="UNDERSTEER"
                   centered={true}
-                  readout={fe.arbBias===0?'NEUTRAL':fe.arbBias>0?`US +${fe.arbBias}`:`OS ${fe.arbBias}`}
-                  hint="Sets the handling balance target. The calculator automatically adjusts both anti-roll bars and rear spring stiffness together to hit it. Left (oversteer) = rear grip bias, more rotation. Right (understeer) = front grip bias, more stability. Start at centre for most builds."/>
+                  readout={`×${(fe.rearHzMultiplier??1.2).toFixed(2)}`}
+                  hint="Controls the rear spring stiffness relative to front (multiplier). Left (softer rear) = oversteer bias, more rotation. Right (stiffer rear) = understeer bias, more stability. Start at centre for most builds."/>
                 </div>
                 <div id="zone-character" style={dim('character')}>
                 <FeelSlider label="Character" value={stAgVal}
