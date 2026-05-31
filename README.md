@@ -12,8 +12,6 @@ Download `index.html` and open it in any browser. No install, no server, no buil
 
 > **Offline note:** React and Babel load from a CDN on first use. Once cached, the app works fully offline. For a fully air-gapped setup, open it once with internet access, then it works without a connection.
 
-**Or open directly from the hosted URL.**
-
 ---
 
 ## What It Does
@@ -158,7 +156,7 @@ Header toggle switches weight between **lb / kg** and spring rates between **lb/
 Reverse-calculate natural frequency and damping ratios from existing in-game spring and damper values. Useful for verifying a manually-tuned setup or analysing a tune shared by someone else.
 
 ### Share / Import
-Encodes the full tune (chassis + feel + ARBs + drivetrain + brakes) as a compact Base64 string (~150 chars). Paste into IMPORT on any device running SUSP.OS. Old codes from earlier versions decode safely — new fields default gracefully.
+Encodes the full tune (chassis + feel + ARBs + drivetrain + brakes) as a compact Base64 string (~210 chars). Paste into IMPORT on any device running SUSP.OS. Old codes from earlier versions decode safely — new fields default gracefully.
 
 ### Save Slots
 Six persistent slots arranged in a 2×3 grid, storing feel + drivetrain configuration. Pre-loaded with **STREET**, **TRACK**, **RALLY**, **DRIFT**, **MOTORSPT**, and **X COUNTRY** presets.
@@ -216,7 +214,7 @@ The entire app is a single HTML file containing:
 - **Physics engine** — `flatRideRearHz`, `computeTune`, `computeAlignment`, `computeDiff` — pure JS, no React dependency
 - **React UI** — in-browser JSX transpilation via `@babel/standalone`
 - **Persistence** — `localStorage` via a custom `usePersist` hook; degrades gracefully in private browsing
-- **Share codec** — pipe-delimited numeric array, Base64-encoded (54 values, fully backward-compatible — short legacy codes decode with new fields defaulted)
+- **Share codec** — pipe-delimited numeric array, Base64-encoded (~210 chars, 54 values, fully backward-compatible — short legacy codes decode with new fields defaulted)
 
 The physics functions are at the top of the `<script>` block and can be read, tested, or extracted independently. A standalone test suite is included in `tests.js` — run with `node tests.js`.
 
