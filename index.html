@@ -1988,7 +1988,7 @@ function App(){
   const[metricUnits,setMetricUnits]=usePersist('suspos_units_v1',false);
   const[saves,setSaves]=usePersist('suspos_saves_v9',PRESET_SAVES);
   const[uiMode,setUiMode]=usePersist('suspos_uimode_v1','beginner');
-  const[uiZoom,setUiZoom]=usePersist('suspos_zoom_v1',1.0);
+  const[uiZoom,setUiZoom]=usePersist('suspos_zoom_v1',1.1);
   const bumpZoom=d=>setUiZoom(z=>parseFloat(Math.max(0.7,Math.min(1.6,z+d)).toFixed(2)));
   const[tutSeen,setTutSeen]=usePersist('suspos_tutorial_seen_v1',{beginner:false,intermediate:false,pro:false});
   const[balTutSeen,setBalTutSeen]=usePersist('suspos_baltut_seen_v1',false);
@@ -2018,8 +2018,12 @@ function App(){
       openTut(uiMode);
     }
   },[uiMode]); // eslint-disable-line
+  useEffect(()=>{
+    if(!tutMode)return;
+    setOpen(p=>({...p,presetsOpen:!!(tutFocus?.includes('presets'))}));
+  },[tutFocus]); // eslint-disable-line
   const[loadMode,setLoadMode]=useState('all'); // 'all'=feel+drivetrain, 'fe'=feel only
-  const[open,setOpen]=useState({chassis:true,ride:true,dampers:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:false,presetsOpen:true});
+  const[open,setOpen]=useState({chassis:true,ride:true,dampers:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:false,presetsOpen:false});
   const[showChecker,setShowChecker]=useState(false);
   const[showResetModal,setShowResetModal]=useState(false);
   const[resetConfirmText,setResetConfirmText]=useState('');
