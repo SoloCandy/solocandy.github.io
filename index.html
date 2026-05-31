@@ -2922,8 +2922,8 @@ function App(){
             </>}
             {(fe.arbBalMode??'weight')==='man'&&<>
               <div style={{display:'flex',gap:6,marginBottom:10}}>
-                <InputGroup label="ARB F" value={fe.arbManF??20} onChange={pFe('arbManF')} min={1} max={65} step={0.1} hint="Front ARB clicks (manual)"/>
-                <InputGroup label="ARB R" value={fe.arbManR??20} onChange={pFe('arbManR')} min={1} max={65} step={0.1} hint="Rear ARB clicks (manual)"/>
+                <Field label="ARB F" value={fe.arbManF??20} onChange={pFe('arbManF')} min={1} max={65} step={0.1} hint="Front ARB clicks (manual)"/>
+                <Field label="ARB R" value={fe.arbManR??20} onChange={pFe('arbManR')} min={1} max={65} step={0.1} hint="Rear ARB clicks (manual)"/>
               </div>
             </>}
           </Sec></div>
