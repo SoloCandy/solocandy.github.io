@@ -2485,7 +2485,7 @@ function App(){
                   min={0} max={100} step={1}
                   leftLabel="ARBs" rightLabel="SPRINGS"
                   centered={true}
-                  readout={(fe.springShare??50)===50?'BALANCED':(fe.springShare??50)<50?`ARBs +${50-(fe.springShare??50)}`:`SPRINGS +${(fe.springShare??50)-50}`}
+                  readout={`SPR ${fe.springShare??50}% / ARB ${100-(fe.springShare??50)}%`}
                   hint="Controls how the balance correction is split between anti-roll bars and rear spring stiffness. ARBs (left) = bars do the work, springs stay symmetric. SPRINGS (right) = rear spring stiffness is adjusted more, bars stay near neutral. BALANCED (centre) splits the correction evenly between both."/>
                 </div>
                 <div id="zone-balance" style={dim('balance')}>
@@ -2922,7 +2922,7 @@ function App(){
               <FeelSlider label="SPRING SHARE" value={fe.springShare??50} onChange={pFe('springShare')}
                 min={0} max={100} leftLabel="ARB ONLY" rightLabel="SPRING ONLY"
                 markers={[{value:50,color:'#94a3b8',label:'50/50'}]}
-                readout={(fe.springShare??50)===50?'BALANCED':(fe.springShare??50)<50?`ARB +${50-(fe.springShare??50)}`:`SPR +${(fe.springShare??50)-50}`}
+                readout={`SPR ${fe.springShare??50}% / ARB ${100-(fe.springShare??50)}%`}
                 hint="How much of the mechanical balance correction comes from rear spring stiffness vs ARB split. 0% = ARB handles all correction (rear Hz equals front Hz). 100% = springs handle all correction (ARB split near neutral). 50% = equal contribution from both."/>
             </>}
             {(fe.arbBalMode??'weight')==='man'&&<>
