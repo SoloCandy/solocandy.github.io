@@ -124,6 +124,7 @@ const DAMPING_CALIBRATION=0.00135;
 const TIRE_LOAD_SENS=0.15;   // grip falloff per unit Fz/Fz_ref (tyre load sensitivity)
 const MECH_BAL_GAIN=1.8;     // axle capacity delta → balance offset (calibrated to legacy 0.5-neutral scale)
 const WIDTH_GRIP_EXP=0.4;    // tyre width → grip capacity, sub-linear
+const TIRE_MECH_SCALE=0.08;  // tyre width rear/front log-ratio → mech balance correction (calibrated from Forza telemetry)
 const MECH_BALANCE_TARGET=0.65;
 const GAME_LIMITS={horizon:{damping:20,arb:65},motorsport:{damping:40,arb:40}};
 
@@ -380,11 +381,15 @@ const feelToPhysics=(ch,fe)=>{
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
   const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode}=phys;
+  // Tyre-width correction: Forza's mech balance display includes a small tyre-width contribution.
+  // Pre-compensate the solve target so Forza reads the desired value after tuning.
+  const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
+  const tireCorr=TIRE_MECH_SCALE*Math.log(twR/twF);
   // CO-SOLVE: solve rear Hz from spring share + mech balance target before anything else
   let effectiveRHz=rHz;
   if(arbBalMode==='coSolve'){
     const rsSpF_cs=Math.pow(fHz*2*Math.PI,2)*m.front*ch.trackF*ch.trackF/2;
-    const targetRsBalance=Math.max(0.001,Math.min(0.999,arbBalTarget)); // arbBalTarget is the rsBalance target
+    const targetRsBalance=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr)); // pre-compensate for tyre-width offset
     const rsSpR_base=Math.pow(fHz*2*Math.PI,2)*m.rear*ch.trackR*ch.trackR/2;
     const R_baseline=rsSpR_base/(rsSpF_cs+rsSpR_base);   // spring-only roll-stiffness rear fraction (no width)
     const S=(phys.springShare??50)/100;
@@ -431,7 +436,8 @@ const computeTune=(ch,phys,gameMode)=>{
   let rF=arbBalance/100;
   let _rsBalK=null;
   if((arbBalMode==='mech'||arbBalMode==='coSolve')&&rsAbBudget>0){
-    _rsBalK=Math.max(0.001,arbBalTarget)/Math.max(0.001,1-Math.min(0.999,arbBalTarget)); // arbBalTarget is rsBalance, convert to Kr/Kf ratio
+    const _mechTgt=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr)); // pre-compensate for tyre-width offset
+    _rsBalK=_mechTgt/(1-_mechTgt); // convert rsBalance to Kr/Kf ratio
     rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)-rsSpR)/(rsAbBudget*(1+_rsBalK))));
   }
   //
@@ -470,7 +476,7 @@ const computeTune=(ch,phys,gameMode)=>{
   // Roll-stiffness rear fraction — matches what Forza displays as "Mech Balance".
   const rsKf=rsSpF+rsAbF,rsKr=rsSpR+rsAbR;
   const rsBalance=rsKf+rsKr>0?rsKr/(rsKf+rsKr):1-ch.frontBias/100;
-  const mechBalance=rsBalance;                                     // rsBalance IS the mech balance (matches Forza)
+  const mechBalance=Math.max(0,Math.min(1,rsBalance+tireCorr));    // tyre-width corrected: matches Forza's displayed mech balance
   const gripBalance=balanceFromRsBal(ch,rsBalance);                // physical at-limit balance from LLT model (informational)
   const mechBalClamped=(arbBalMode==='mech'||arbBalMode==='coSolve')&&Math.abs(mechBalance-arbBalTarget)>0.01;
   const settleF=zetaF>0?2.302/((zetaF/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn)
