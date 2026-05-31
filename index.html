@@ -1988,6 +1988,8 @@ function App(){
   const[metricUnits,setMetricUnits]=usePersist('suspos_units_v1',false);
   const[saves,setSaves]=usePersist('suspos_saves_v9',PRESET_SAVES);
   const[uiMode,setUiMode]=usePersist('suspos_uimode_v1','beginner');
+  const[uiZoom,setUiZoom]=usePersist('suspos_zoom_v1',1.0);
+  const bumpZoom=d=>setUiZoom(z=>parseFloat(Math.max(0.7,Math.min(1.6,z+d)).toFixed(2)));
   const[tutSeen,setTutSeen]=usePersist('suspos_tutorial_seen_v1',{beginner:false,intermediate:false,pro:false});
   const[balTutSeen,setBalTutSeen]=usePersist('suspos_baltut_seen_v1',false);
   const[balTutOpen,setBalTutOpen]=useState(false);
@@ -2223,7 +2225,7 @@ function App(){
   };
 
   return(
-    <div style={{display:'flex',flexDirection:'column',height:'100vh',minHeight:'-webkit-fill-available',overflow:'hidden'}}>
+    <div style={{display:'flex',flexDirection:'column',height:`calc(100vh / ${uiZoom})`,minHeight:'-webkit-fill-available',overflow:'hidden',zoom:uiZoom}}>
       {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits}/>}
       {showResetModal&&(
         <div style={{position:'fixed',inset:0,background:'#000000cc',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
@@ -2344,6 +2346,16 @@ function App(){
               title={canUndo?'Undo last change':'Nothing to undo'}>↩</button>
             <button className="tbtn" style={{fontSize:11}}
               onClick={()=>openTut(uiMode)}>?</button>
+            <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
+            <button className="tbtn" style={{fontSize:11}} title="Zoom out"
+              onClick={()=>bumpZoom(-0.1)} disabled={uiZoom<=0.7}>−</button>
+            <span style={{fontSize:10,color:uiZoom===1?'#475569':'#94a3b8',
+                          fontFamily:'Courier New',minWidth:28,textAlign:'center',
+                          letterSpacing:0,userSelect:'none'}}>
+              {Math.round(uiZoom*100)}%
+            </span>
+            <button className="tbtn" style={{fontSize:11}} title="Zoom in"
+              onClick={()=>bumpZoom(0.1)} disabled={uiZoom>=1.6}>+</button>
           </div>
         </div>
         {/* Row 2 — mobile only: complexity selector */}
