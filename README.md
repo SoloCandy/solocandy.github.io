@@ -144,9 +144,6 @@ The total reads as OVERSTEER (+) or UNDERSTEER (−). **Tune to zero for a neutr
 
 The header shows **MECH BALANCE** (0.00–1.00, matching Forza's in-game roll-stiffness metric). When the physical at-limit tendency diverges from neutral, a **GRIP BIAS** note appears — derived from the tyre-load-sensitivity model and reflecting how the chassis behaves at the limit (an understeer- or oversteer-prone chassis), as distinct from the roll-stiffness mech balance.
 
-### RAW VALUES strip
-Collapsible compact readout: SP F, SP R, ARB F, ARB R, REB F, REB R, BMP F, BMP R.
-
 ---
 
 ## Tools
