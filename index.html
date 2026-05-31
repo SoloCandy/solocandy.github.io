@@ -1037,10 +1037,10 @@ const _BalStrip=({rearFrac,wtRearFrac,BY=108})=>{
 const SpringDial=({fHz,rHz,rsSpF,rsSpR,frontBias,clamped})=>{
   const[hover,setHover]=useState(null);
   const{START,SWEEP,polar,arcPath,CX,CY,SIZE}=_dialBase();
-  const MIN_HZ=0.8,MAX_HZ=3.5;
+  const MIN_HZ=0.8,MAX_HZ=5.5;
   const toA=hz=>START+((Math.min(Math.max(hz,MIN_HZ),MAX_HZ)-MIN_HZ)/(MAX_HZ-MIN_HZ))*SWEEP;
   const endA=START+SWEEP;
-  const a12=toA(1.2),a18=toA(1.8),a25=toA(2.5);
+  const a12=toA(1.5),a18=toA(2.5),a25=toA(3.5);
   const fA=toA(fHz),rA=toA(rHz);
   const[fxS,fyS]=polar(fA);const[rxS,ryS]=polar(rA);
   const spTot=rsSpF+rsSpR;
