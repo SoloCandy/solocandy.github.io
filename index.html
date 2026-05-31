@@ -1299,7 +1299,7 @@ const BiasSeg=({label,val,hint,primary})=>{
   );
 };
 
-const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bDampBias,mechBalance,gripBalance})=>{
+const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bDampBias,mechBalance,gripBalance,uiMode})=>{
   const abs=Math.abs(total);
   // positive = oversteer, negative = understeer
   const label=abs<3?'NEUTRAL':total>0?'OVERSTEER':'UNDERSTEER';
@@ -1324,7 +1324,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
     'diff entry': total>0?'Reduce rear entry lock in the Differential section.':'Reduce front entry lock.',
     'diff front': total>0?'Reduce front accel lock in the AWD Differential section.':'Raise front accel lock.',
     'diff rear':  total>0?'Reduce rear accel lock in the AWD Differential section.':'Raise rear accel lock.',
-    brakes:    total>0?'Increase front brake bias in the Brakes section to reduce entry rotation.':'Reduce front brake bias to add entry rotation.',
+    ...(uiMode==='pro'?{brakes:total>0?'Add more front brake bias to reduce entry rotation.':'Reduce front brake bias to add entry rotation.'}:{}),
     damping:   total>0?'Increase front rebound (Damping Bias toward positive) to resist forward weight transfer.':'Reduce front rebound bias.',
   };
   const tip=abs<3
@@ -3767,7 +3767,7 @@ function App(){
                   bDiffFront={diff.bDiffFront} bDiffRear={diff.bDiffRear}
                   diffLayout={diff.layout}
                   bBrakeEntry={bBrakeEntry} bDampBias={bDampBias}
-                  mechBalance={null}/>
+                  mechBalance={null} uiMode={uiMode}/>
                 {/* STABLE / AGILE factor breakdown */}
                 <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid #0f172a'}}>
                   <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>STABLE ←————————→ AGILE</span>
