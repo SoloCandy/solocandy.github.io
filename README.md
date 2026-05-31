@@ -20,7 +20,7 @@ Download `index.html` and open it in any browser. No install, no server, no buil
 
 Forza's suspension tuning menus expose raw numbers (spring rate lb/in, damper clicks, ARB clicks) with no guidance on what those numbers mean physically. SUSP.OS bridges that gap:
 
-1. **You describe your car** — weight, weight distribution, wheelbase, CG height, aero balance
+1. **You describe your car** — weight, weight distribution, wheelbase, CG height, tyre sizes
 2. **You choose a handling feel** — how stiff, how much body roll, damping character, diff aggression
 3. **SUSP.OS computes the physics** — flat-ride rear frequency, critical damping coefficients, roll stiffness budget, alignment geometry
 4. **You enter the output values into Forza** — springs, dampers, ARBs, alignment, diff, brakes
@@ -50,8 +50,6 @@ Geometry auto-scales with weight in BEG/INT; in PRO you control it directly.
 |---|---|
 | Weight | Total vehicle weight (lb or kg) — from Forza's car stats screen |
 | Front Weight Bias | % weight on the front axle |
-| Aero Balance | Forza's aero balance readout (0.00–1.50). Enter after setting aero to max cornering — SUSP.OS factors it into the handling balance so you can tune mechanics to cancel it |
-| Aero Efficiency | Forza's aero efficiency readout (0.100–0.900). Lower = more total downforce — scales the aero's contribution to balance proportionally |
 | Wheelbase | Axle-to-axle distance in mm |
 | CG Height | Centre-of-gravity height in mm |
 | Track widths | In the Advanced section — affect lateral weight transfer and ARB calculations |
@@ -101,7 +99,7 @@ Geometry auto-scales with weight in BEG/INT; in PRO you control it directly.
 | **CO-SOLVE** | Solves rear spring stiffness **and** ARB split together. **Spring / ARB Mix** (Spring Share) controls how much of the correction comes from springs vs ARBs |
 
 - **Mech Balance Target** — your overall handling-balance goal (0.40–0.90, where 0.5 ≈ neutral, higher = more rear roll stiffness / more rotation). Used by MECH, CO-SOLVE, the MECH rear Hz mode, and (optionally) the diff MATCH CHASSIS feature
-- **Balance Guide** panel — cross-solver readouts linking aero and mechanical balance, showing how much offset a given aero level implies for the mech target
+- **Balance Guide** panel — shows your chassis natural balance, recommended target range, and how far your current target deviates from natural
 
 ### ALIGNMENT
 Auto mode computes camber, toe, and caster from build type, layout, CG height, and roll angle. Switch to Manual to override.
@@ -140,12 +138,11 @@ A persistent bar at the bottom of the output panel showing the combined handling
 | **DIFF EXIT / DIFF ENTRY** | Differential on-throttle exit and off-throttle entry tendency (FWD/RWD) |
 | **DIFF F / DIFF R** | AWD per-axle net diff contribution, split by center fraction and axle weight (replaces EXIT/ENTRY in AWD) |
 | **BRAKES** | Brake balance entry-phase contribution |
-| **AERO** | Aero balance contribution, scaled by downforce level (efficiency) |
 | **DAMP** | Damping Bias contribution — front/rear rebound split |
 
 The total reads as OVERSTEER (+) or UNDERSTEER (−). **Tune to zero for a neutral baseline**, then bias deliberately if desired. Below the bars, a one-line tip names the dominant contributor and suggests a concrete adjustment.
 
-The header shows **MECH BALANCE** (0.00–1.00, matching Forza's in-game roll-stiffness metric) and, when aero is active, the AERO value with a LOW / MED / HIGH downforce badge. When the physical at-limit tendency diverges from neutral, a **GRIP BIAS** note appears — derived from the tyre-load-sensitivity model and reflecting how the chassis behaves at the limit (an understeer- or oversteer-prone chassis), as distinct from the roll-stiffness mech balance.
+The header shows **MECH BALANCE** (0.00–1.00, matching Forza's in-game roll-stiffness metric). When the physical at-limit tendency diverges from neutral, a **GRIP BIAS** note appears — derived from the tyre-load-sensitivity model and reflecting how the chassis behaves at the limit (an understeer- or oversteer-prone chassis), as distinct from the roll-stiffness mech balance.
 
 ### RAW VALUES strip
 Collapsible compact readout: SP F, SP R, ARB F, ARB R, REB F, REB R, BMP F, BMP R.
@@ -161,7 +158,7 @@ Header toggle switches weight between **lb / kg** and spring rates between **lb/
 Reverse-calculate natural frequency and damping ratios from existing in-game spring and damper values. Useful for verifying a manually-tuned setup or analysing a tune shared by someone else.
 
 ### Share / Import
-Encodes the full tune (chassis + feel + ARBs + drivetrain + brakes + aero) as a compact Base64 string (~150 chars). Paste into IMPORT on any device running SUSP.OS. Old codes from earlier versions decode safely — new fields default gracefully.
+Encodes the full tune (chassis + feel + ARBs + drivetrain + brakes) as a compact Base64 string (~150 chars). Paste into IMPORT on any device running SUSP.OS. Old codes from earlier versions decode safely — new fields default gracefully.
 
 ### Save Slots
 Six persistent slots arranged in a 2×3 grid, storing feel + drivetrain configuration. Pre-loaded with **STREET**, **TRACK**, **RALLY**, **DRIFT**, **MOTORSPT**, and **X COUNTRY** presets.
@@ -186,21 +183,6 @@ Each sidebar section has a RESET button (two-click confirmation) that restores d
 
 ---
 
-## Aero Balancing Workflow
-
-A tuning method for cars with aero parts:
-
-1. Set all aero to **max cornering** in Forza's tuning menu
-2. Read **Aero Balance** (e.g. `0.66`) and **Aero Efficiency** (e.g. `0.42`) from the tuning screen
-3. Enter both values in the **CHASSIS** section of SUSP.OS
-4. The **AERO** segment in the handling balance now shows how much the aero biases the car
-5. Tune springs, ARBs, diff, and brakes until the **total balance reads near zero**
-6. The mechanical setup now counteracts the aero — the car is aerodynamically balanced
-
-The efficiency value scales the aero contribution: a car at 0.30 (high downforce) has 3× the aero effect of a car at 0.90 (near stock), so it needs proportionally more mechanical correction.
-
----
-
 ## Calibration
 
 Key empirical constants calibrated from real Forza data:
@@ -214,7 +196,6 @@ Key empirical constants calibrated from real Forza data:
 | `WIDTH_GRIP_EXP` | 0.4 | Tyre width → grip capacity, sub-linear exponent |
 | `DIFF_BIAS_SCALE` | 0.14 | Diff lock % → handling bias contribution |
 | `BRAKE_BIAS_SCALE` | 0.20 | Brake balance deviation → handling bias contribution |
-| `AERO_BALANCE_SCALE` | 15 | Aero balance deviation → handling bias contribution (before efficiency scaling) |
 
 Mechanical balance (the **MECH BALANCE** readout) is the roll-stiffness rear fraction, matching the metric Forza displays. The physical at-limit tendency (**GRIP BIAS**) is derived separately from a lateral-load-transfer model: front/rear load transfer set by the roll-stiffness ratio, tyre load sensitivity (`TIRE_LOAD_SENS`), and tyre width as a sub-linear grip multiplier (`WIDTH_GRIP_EXP`). The two are reconciled by bisection so a balance target round-trips to the spring/ARB split that achieves it.
 
