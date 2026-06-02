@@ -3777,6 +3777,46 @@ function App(){
                   </div>
                 );
               })()}
+              {/* mech balance reference strip: NAT · CURRENT · TARGET on 0–1 scale */}
+              {tune.mechBalance!=null&&(()=>{
+                const cur=tune.mechBalance;
+                const nat=natMechBalance;
+                const tgt=fe.arbBalTarget??MECH_BALANCE_TARGET;
+                const pct=v=>`${Math.max(0,Math.min(100,v*100)).toFixed(1)}%`;
+                const showTgt=(physics.arbBalMode==='mech'||physics.arbBalMode==='coSolve');
+                return(
+                  <div style={{position:'relative',height:10,background:'#0a0f1a',
+                               borderLeft:'1px solid #1e293b',borderRight:'1px solid #1e293b',
+                               borderBottom:'1px solid #1e293b',borderRadius:'0 0 2px 2px',marginTop:-1,marginBottom:4}}>
+                    {/* filled band from NAT to CURRENT */}
+                    {(()=>{
+                      const lo=Math.min(nat,cur),hi=Math.max(nat,cur);
+                      return lo<hi&&<div style={{position:'absolute',top:2,bottom:2,
+                        left:pct(lo),width:pct(hi-lo),background:'#334155',borderRadius:1}}/>;
+                    })()}
+                    {/* NAT tick */}
+                    <div style={{position:'absolute',top:1,bottom:1,left:pct(nat),width:1,
+                                 background:'#475569',transform:'translateX(-50%)'}}/>
+                    {/* TARGET tick — only shown in MECH/CO-SOLVE */}
+                    {showTgt&&<div style={{position:'absolute',top:0,bottom:0,left:pct(tgt),width:2,
+                                          background:'#60a5fa88',transform:'translateX(-50%)',borderRadius:1}}/>}
+                    {/* CURRENT position */}
+                    <div style={{position:'absolute',top:0,bottom:0,left:pct(cur),width:2,
+                                 background:'#e2e8f0cc',transform:'translateX(-50%)',borderRadius:1}}/>
+                    {/* NAT label */}
+                    <span style={{position:'absolute',bottom:'100%',left:pct(nat),transform:'translateX(-50%)',
+                                  fontSize:8,color:'#475569',letterSpacing:0.5,whiteSpace:'nowrap',lineHeight:1,paddingBottom:1}}>NAT</span>
+                    {/* TARGET label */}
+                    {showTgt&&<span style={{position:'absolute',bottom:'100%',left:pct(tgt),transform:'translateX(-50%)',
+                                  fontSize:8,color:'#60a5fa88',letterSpacing:0.5,whiteSpace:'nowrap',lineHeight:1,paddingBottom:1}}>TGT</span>}
+                    {/* edge labels */}
+                    <span style={{position:'absolute',left:2,top:'50%',transform:'translateY(-50%)',
+                                  fontSize:8,color:'#1e293b',letterSpacing:1}}>F</span>
+                    <span style={{position:'absolute',right:2,top:'50%',transform:'translateY(-50%)',
+                                  fontSize:8,color:'#1e293b',letterSpacing:1}}>R</span>
+                  </div>
+                );
+              })()}
               {/* agility bar header + bar */}
               {(()=>{
                 const{score}=agileFactors;
