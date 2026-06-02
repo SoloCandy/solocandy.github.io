@@ -145,20 +145,20 @@ The total reads as OVERSTEER (+) or UNDERSTEER (−). **Tune to zero for a neutr
 
 The header shows **MECH BALANCE** (0.00–1.00, matching Forza's in-game roll-stiffness metric). When the physical at-limit tendency diverges from neutral, a **GRIP BIAS** note appears — derived from the tyre-load-sensitivity model and reflecting how the chassis behaves at the limit (an understeer- or oversteer-prone chassis), as distinct from the roll-stiffness mech balance.
 
-### Agility Bar
-A second bar below the Handling Balance showing where the setup sits on a **STABLE ↔ AGILE** axis. This reflects **transient response character** — how quickly and freely the car responds to steering inputs. ARBs and weight bias are intentionally excluded: they govern roll moment distribution (already captured by the Handling Balance bar), not response speed.
+### Response Bar
+A second bar below the Handling Balance showing where the setup sits on a **PLANTED ↔ REACTIVE** axis. This reflects **transient response character** — how quickly and freely the car responds to steering inputs. ARBs and weight bias are intentionally excluded: they govern roll moment distribution (already captured by the Handling Balance bar), not response speed.
 
 | Contributor | Weight | Direction |
 |---|---|---|
-| Spring Hz | 50% | Higher frequency → more agile (faster natural response) |
-| Damping ζ | 20% | Lower damping → more agile (less resistance to roll initiation) |
-| Front toe | 15% | Less toe-in → more agile (sharper turn-in) |
-| Caster | 10% | Less caster → more agile (lighter steering, less self-centering) |
-| Rear/front Hz ratio | 5% | Higher ratio → more agile (rear-biased stiffness = more rotation) |
+| Spring Hz | 50% | Higher frequency → more reactive (faster natural response) |
+| Damping ζ | 20% | Lower damping → more reactive (less resistance to roll initiation) |
+| Front toe | 15% | Less toe-in → more reactive (sharper turn-in) |
+| Caster | 10% | Less caster → more reactive (lighter steering, less self-centering) |
+| Rear/front Hz ratio | 5% | Higher ratio → more reactive (rear-biased stiffness = more rotation) |
 
-Centre of the bar is balanced. Left (green) = planted and stable. Right (amber) = responsive and twitchy.
+Centre of the bar is balanced. Left (green) = planted and settled. Right (amber) = reactive and quick to respond.
 
-> Note: the Agility bar reflects *feel*, not lap time. A stable setup can be fast; an agile setup can be difficult to manage. Use it alongside Handling Balance to understand the character of your tune.
+> Note: the Response bar reflects *feel*, not lap time. A planted setup can be fast; a reactive setup can be difficult to manage. Use it alongside Handling Balance to understand the character of your tune.
 
 ---
 

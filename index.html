@@ -1857,7 +1857,7 @@ const TUTORIALS={
      body:'The text below the total identifies the dominant contributor and suggests an adjustment direction. For large imbalances, correct with the Balance slider or Mech Balance Target first. For small residual bias, fine-tune with alignment toe or damping bias.'},
     {title:'Stable / Agile Breakdown',
      focus:null,
-     body:'The lower section rates your setup\'s overall character from STABLE (planted, high damping, stiff ARBs) to AGILE (responsive, lighter damping, lower ARBs). This is independent of the US/OS balance — a car can be neutral and still feel very stable or very agile.'},
+     body:'The RESPONSE bar rates your setup\'s transient character from PLANTED (settled, high damping, stiff springs) to REACTIVE (quick to respond, lighter damping, higher frequency). This is independent of the US/OS balance — a car can be neutral and still feel very planted or very reactive.'},
     {title:'Balance Guide',
      focus:null,
      body:'The BALANCE GUIDE in the ARB section uses your chassis\'s natural balance as Δ=0. The RANGE band is car-specific — it computes how much OS correction (Δ from natural) suits this layout and build, then pins it to your actual natural balance. A staggered rear-engine car and a front-heavy FE car can use the same Δ target but end up at very different absolute values. TARGET Δ shows how much you\'re pushing from natural. Use this alongside the verdict bar to connect static balance intent to dynamic handling character.'},
@@ -2144,7 +2144,7 @@ function App(){
   const bDampBias=-(fe.dampingBias??0)*0.08; // more front damping → understeer (−)
   const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bDampBias;
   const lim=GAME_LIMITS[fe.gameMode];
-  const agileFactors=(()=>{
+  const responseFactors=(()=>{
     // Agility = transient response character: how quickly and freely the car responds to steering inputs.
     // ARBs and weight bias are excluded — they govern roll moment distribution (Handling Balance bar),
     // not response speed. Research (Milliken, OptimumG) confirms ARBs are a balance tool, not agility.
@@ -3819,14 +3819,14 @@ function App(){
               })()}
               {/* agility bar header + bar */}
               {(()=>{
-                const{score}=agileFactors;
+                const{score}=responseFactors;
                 const p=Math.max(-50,Math.min(50,(score-0.5)*100));
-                const aLabel=Math.abs(p)<15?'BALANCED':p>0?'AGILE':'STABLE';
+                const aLabel=Math.abs(p)<15?'BALANCED':p>0?'REACTIVE':'PLANTED';
                 const aCol=Math.abs(p)<15?'#475569':p>0?'#f59e0b':'#22c55e';
                 const fs=p>=0?{left:'50%',width:`${p}%`}:{left:`${50+p}%`,width:`${-p}%`};
                 return(<>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:3}}>
-                    <span style={{fontSize:10,color:'#475569',letterSpacing:2}}>AGILITY</span>
+                    <span style={{fontSize:10,color:'#475569',letterSpacing:2}}>RESPONSE</span>
                     <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>·</span>
                     <span style={{fontFamily:'Courier New',fontSize:11,fontWeight:700,color:aCol}}>
                       {`${p>=0?'+':''}${Math.round(p)}`}
@@ -3844,9 +3844,9 @@ function App(){
                     {p!==0&&<div style={{position:'absolute',top:2,bottom:2,borderRadius:1,
                                         background:p>0?'#f59e0b55':'#22c55e55',...fs}}/>}
                     <div style={{position:'absolute',left:5,top:'50%',transform:'translateY(-50%)',
-                                 fontSize:10,color:'#22c55e',letterSpacing:1,fontWeight:700}}>STABLE</div>
+                                 fontSize:10,color:'#22c55e',letterSpacing:1,fontWeight:700}}>PLANTED</div>
                     <div style={{position:'absolute',right:5,top:'50%',transform:'translateY(-50%)',
-                                 fontSize:10,color:'#f59e0b',letterSpacing:1,fontWeight:700}}>AGILE</div>
+                                 fontSize:10,color:'#f59e0b',letterSpacing:1,fontWeight:700}}>REACTIVE</div>
                   </div>
                 </>);
               })()}
@@ -3886,11 +3886,11 @@ function App(){
                   diffLayout={diff.layout}
                   bBrakeEntry={bBrakeEntry} bDampBias={bDampBias}
                   mechBalance={null} uiMode={uiMode}/>
-                {/* AGILITY factor breakdown */}
+                {/* RESPONSE factor breakdown */}
                 {(()=>{
-                  const{score,hzNorm,dampNorm,toeNorm,casterNorm,rearHzNorm}=agileFactors;
+                  const{score,hzNorm,dampNorm,toeNorm,casterNorm,rearHzNorm}=responseFactors;
                   const segs=[
-                    {label:'SPRINGS',norm:hzNorm,        weight:0.50,hint:'Higher ride frequency = faster natural response. Primary driver of transient agility.'},
+                    {label:'SPRINGS',norm:hzNorm,        weight:0.50,hint:'Higher ride frequency = faster natural response. Primary driver of transient response character.'},
                     {label:'DAMPING',norm:1-dampNorm,    weight:0.20,hint:'Lower rebound damping = less resistance to roll initiation = more agile. Higher damping = more planted.'},
                     {label:'TOE F',  norm:toeNorm,       weight:0.15,hint:'Front toe-out sharpens turn-in response (agile). Toe-in adds straight-line stability.'},
                     {label:'CASTER', norm:1-casterNorm,  weight:0.10,hint:'Lower caster reduces self-centering force, allowing quicker steering response.'},
@@ -3953,7 +3953,7 @@ function App(){
                         );
                       })}
                       <div style={{fontSize:10,color:'#475569',lineHeight:1.5,marginTop:4}}>
-                        Transient response factors. Higher Hz and lower damping shift toward agile.
+                        Transient response factors. Higher Hz and lower damping shift toward reactive.
                       </div>
                     </div>
                   );
