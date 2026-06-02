@@ -3784,40 +3784,56 @@ function App(){
                 const tgt=fe.arbBalTarget??MECH_BALANCE_TARGET;
                 const pct=v=>`${Math.max(0,Math.min(100,v*100)).toFixed(1)}%`;
                 const showTgt=(physics.arbBalMode==='mech'||physics.arbBalMode==='coSolve');
+                const _d=cur-nat;
                 return(
-                  <div style={{position:'relative',height:10,background:'#0a0f1a',
-                               borderLeft:'1px solid #1e293b',borderRight:'1px solid #1e293b',
-                               borderBottom:'1px solid #1e293b',borderRadius:'0 0 2px 2px',marginTop:-1,marginBottom:4}}>
-                    {/* filled band from NAT to CURRENT */}
-                    {(()=>{
-                      const lo=Math.min(nat,cur),hi=Math.max(nat,cur);
-                      return lo<hi&&<div style={{position:'absolute',top:2,bottom:2,
-                        left:pct(lo),width:pct(hi-lo),background:'#334155',borderRadius:1}}/>;
-                    })()}
-                    {/* NAT tick */}
-                    <div style={{position:'absolute',top:1,bottom:1,left:pct(nat),width:1,
-                                 background:'#475569',transform:'translateX(-50%)'}}/>
-                    {/* TARGET tick — only shown in MECH/CO-SOLVE */}
-                    {showTgt&&<div style={{position:'absolute',top:0,bottom:0,left:pct(tgt),width:2,
-                                          background:'#60a5fa88',transform:'translateX(-50%)',borderRadius:1}}/>}
-                    {/* CURRENT position */}
-                    <div style={{position:'absolute',top:0,bottom:0,left:pct(cur),width:2,
-                                 background:'#e2e8f0cc',transform:'translateX(-50%)',borderRadius:1}}/>
-                    {/* NAT label */}
-                    <span style={{position:'absolute',bottom:'100%',left:pct(nat),transform:'translateX(-50%)',
-                                  fontSize:8,color:'#475569',letterSpacing:0.5,whiteSpace:'nowrap',lineHeight:1,paddingBottom:1}}>NAT</span>
-                    {/* TARGET label */}
-                    {showTgt&&<span style={{position:'absolute',bottom:'100%',left:pct(tgt),transform:'translateX(-50%)',
-                                  fontSize:8,color:'#60a5fa88',letterSpacing:0.5,whiteSpace:'nowrap',lineHeight:1,paddingBottom:1}}>TGT</span>}
-                    {/* edge labels */}
-                    <span style={{position:'absolute',left:2,top:'50%',transform:'translateY(-50%)',
-                                  fontSize:8,color:'#1e293b',letterSpacing:1}}>F</span>
-                    <span style={{position:'absolute',right:2,top:'50%',transform:'translateY(-50%)',
-                                  fontSize:8,color:'#1e293b',letterSpacing:1}}>R</span>
+                  <div style={{marginTop:8}}>
+                    {/* label row: section header + inline NAT/CUR/TGT values */}
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
+                      <span style={{fontSize:10,color:'#475569',letterSpacing:2}}>MECH BALANCE</span>
+                      <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>·</span>
+                      <span style={{fontSize:10,color:'#475569',fontFamily:'Courier New'}}>
+                        NAT <span style={{color:'#94a3b8'}}>{nat.toFixed(2)}</span>
+                      </span>
+                      <span style={{fontSize:10,color:'#334155'}}>→</span>
+                      <span style={{fontSize:10,color:'#475569',fontFamily:'Courier New'}}>
+                        CUR <span style={{color:'#e2e8f0'}}>{cur.toFixed(2)}</span>
+                        {Math.abs(_d)>=0.01&&<span style={{color:_d>0?'#60a5fa':'#f59e0b',marginLeft:2}}>
+                          {(_d>=0?'+':'')+_d.toFixed(2)}
+                        </span>}
+                      </span>
+                      {showTgt&&<>
+                        <span style={{fontSize:10,color:'#334155'}}>→</span>
+                        <span style={{fontSize:10,color:'#60a5fa88',fontFamily:'Courier New'}}>
+                          TGT <span style={{color:'#60a5fa'}}>{tgt.toFixed(2)}</span>
+                        </span>
+                      </>}
+                    </div>
+                    <div style={{position:'relative',height:8,background:'#0a0f1a',
+                                 border:'1px solid #1e293b',borderRadius:2}}>
+                      {/* filled band from NAT to CURRENT */}
+                      {(()=>{
+                        const lo=Math.min(nat,cur),hi=Math.max(nat,cur);
+                        return lo<hi&&<div style={{position:'absolute',top:1,bottom:1,
+                          left:pct(lo),width:pct(hi-lo),background:'#1e293b',borderRadius:1}}/>;
+                      })()}
+                      {/* NAT tick */}
+                      <div style={{position:'absolute',top:0,bottom:0,left:pct(nat),width:1,
+                                   background:'#475569',transform:'translateX(-50%)'}}/>
+                      {/* TARGET tick — only shown in MECH/CO-SOLVE */}
+                      {showTgt&&<div style={{position:'absolute',top:0,bottom:0,left:pct(tgt),width:2,
+                                            background:'#60a5fa99',transform:'translateX(-50%)',borderRadius:1}}/>}
+                      {/* CURRENT position */}
+                      <div style={{position:'absolute',top:0,bottom:0,left:pct(cur),width:2,
+                                   background:'#e2e8f0cc',transform:'translateX(-50%)',borderRadius:1}}/>
+                      <span style={{position:'absolute',left:3,top:'50%',transform:'translateY(-50%)',
+                                    fontSize:8,color:'#1e293b',letterSpacing:1}}>F</span>
+                      <span style={{position:'absolute',right:3,top:'50%',transform:'translateY(-50%)',
+                                    fontSize:8,color:'#1e293b',letterSpacing:1}}>R</span>
+                    </div>
                   </div>
                 );
               })()}
-              {/* agility bar header + bar */}
+              {/* response bar */}
               {(()=>{
                 const{score}=responseFactors;
                 const p=Math.max(-50,Math.min(50,(score-0.5)*100));
@@ -3825,7 +3841,7 @@ function App(){
                 const aCol=Math.abs(p)<15?'#475569':p>0?'#f59e0b':'#22c55e';
                 const fs=p>=0?{left:'50%',width:`${p}%`}:{left:`${50+p}%`,width:`${-p}%`};
                 return(<>
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:3}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginTop:8,marginBottom:3}}>
                     <span style={{fontSize:10,color:'#475569',letterSpacing:2}}>RESPONSE</span>
                     <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>·</span>
                     <span style={{fontFamily:'Courier New',fontSize:11,fontWeight:700,color:aCol}}>
