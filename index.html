@@ -482,8 +482,12 @@ const computeTune=(ch,phys,gameMode)=>{
   const rollClamped=arbMode==='roll'&&Math.abs(rollDeg-arbTargetRoll)>0.05;
   const nf=ch.frontBias/100;
   // positive = oversteer (rear-heavy roll stiffness), negative = understeer (front-heavy)
-  const bSp=(rsSpF+rsSpR)>0?(nf-(rsSpF/(rsSpF+rsSpR)))*100:0;
-  const bAb=(rsAbF+rsAbR)>0?(nf-(rsAbF/(rsAbF+rsAbR)))*100:0;
+  // Each term is weighted by its actual share of total roll stiffness so that ARBs
+  // (typically 10–15% of rsTotal) don't appear equally important as springs (85–90%).
+  const spShare=rsTotal>0?(rsSpF+rsSpR)/rsTotal:1;
+  const abShare=rsTotal>0?(rsAbF+rsAbR)/rsTotal:0;
+  const bSp=(rsSpF+rsSpR)>0?(nf-(rsSpF/(rsSpF+rsSpR)))*100*spShare:0;
+  const bAb=(rsAbF+rsAbR)>0?(nf-(rsAbF/(rsAbF+rsAbR)))*100*abShare:0;
   const bTot=bSp+bAb;
   // Roll-stiffness rear fraction — matches what Forza displays as "Mech Balance".
   const rsKf=rsSpF+rsAbF,rsKr=rsSpR+rsAbR;
@@ -2131,8 +2135,9 @@ function App(){
   const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bDampBias;
   const lim=GAME_LIMITS[fe.gameMode];
   const agileFactors=(()=>{
-    const hzNorm=Math.min(1,Math.max(0,(physics.frontHz-0.8)/2.7));
-    const arbNorm=lim.arb>0?(tune.arbF+tune.arbR)/(2*lim.arb):0;
+    const hzNorm=Math.min(1,Math.max(0,(physics.frontHz-HZ_MIN)/(HZ_MAX-HZ_MIN)));
+    // ARBs: more stiffness → more stable/planted, less agile. Inverted vs previous.
+    const arbNorm=lim.arb>0?1-(tune.arbF+tune.arbR)/(2*lim.arb):1;
     const dampNorm=Math.min(1,Math.max(0,(physics.reboundZeta-10)/105));
     const toeNorm=Math.min(1,Math.max(0,(-(align.recToeF??-0.1)+0.5)/1.5));
     const casterNorm=Math.min(1,Math.max(0,(7.5-(align.recCaster??5.5))/3.5));
