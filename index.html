@@ -3777,6 +3777,22 @@ function App(){
                   </div>
                 );
               })()}
+              {/* stacked bar legend — immediately below the bar it describes */}
+              <div style={{display:'flex',gap:8,marginTop:3,paddingLeft:2,alignItems:'center',flexWrap:'wrap'}}>
+                {[
+                  {key:'sp',col:'#60a5fa',label:'SPR',  val:tune.bSp??0},
+                  {key:'ab',col:'#818cf8',label:'ARB',  val:tune.bAb??0},
+                  {key:'df',col:'#f59e0b',label:'DIFF', val:(diff.bDiffAccel??0)+(diff.bDiffDecel??0)},
+                  {key:'br',col:'#34d399',label:'BRK',  val:bBrakeEntry},
+                  {key:'dm',col:'#a78bfa',label:'DAMP', val:bDampBias},
+                ].filter(s=>Math.abs(s.val)>0.3).map(({key,col,label})=>(
+                  <span key={key} style={{display:'flex',alignItems:'center',gap:3,fontSize:10,color:'#94a3b8'}}>
+                    <span style={{display:'inline-block',width:8,height:4,borderRadius:1,background:col+'bb',flexShrink:0}}/>
+                    {label}
+                  </span>
+                ))}
+                <Hint text="Stacked bar shows each contributor as a coloured segment: SPR (springs), ARB (anti-roll bars), DIFF (differential), BRK (brakes), DAMP (damping bias). Segments stack outward from neutral — the bar's total reach is the combined handling balance."/>
+              </div>
               {/* mech balance reference strip: NAT · CURRENT · TARGET on 0–1 scale */}
               {tune.mechBalance!=null&&(()=>{
                 const cur=tune.mechBalance;
@@ -3866,22 +3882,6 @@ function App(){
                   </div>
                 </>);
               })()}
-              {/* stacked bar legend */}
-              <div style={{display:'flex',gap:8,marginTop:3,paddingLeft:2,alignItems:'center',flexWrap:'wrap'}}>
-                {[
-                  {key:'sp',col:'#60a5fa',label:'SPR',  val:tune.bSp??0},
-                  {key:'ab',col:'#818cf8',label:'ARB',  val:tune.bAb??0},
-                  {key:'df',col:'#f59e0b',label:'DIFF', val:(diff.bDiffAccel??0)+(diff.bDiffDecel??0)},
-                  {key:'br',col:'#34d399',label:'BRK',  val:bBrakeEntry},
-                  {key:'dm',col:'#a78bfa',label:'DAMP', val:bDampBias},
-                ].filter(s=>Math.abs(s.val)>0.3).map(({key,col,label})=>(
-                  <span key={key} style={{display:'flex',alignItems:'center',gap:3,fontSize:10,color:'#94a3b8'}}>
-                    <span style={{display:'inline-block',width:8,height:4,borderRadius:1,background:col+'bb',flexShrink:0}}/>
-                    {label}
-                  </span>
-                ))}
-                <Hint text="Stacked bar shows each contributor as a coloured segment: SPR (springs), ARB (anti-roll bars), DIFF (differential), BRK (brakes), DAMP (damping bias). Segments stack outward from neutral — the bar's total reach is the combined handling balance."/>
-              </div>
             </div>
             {/* expanded full verdict */}
             {open.balanceExpanded&&
