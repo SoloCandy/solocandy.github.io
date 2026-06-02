@@ -742,9 +742,15 @@ const Hint=({text})=>{
   const calcPos=()=>{
     if(!ref.current)return null;
     const r=ref.current.getBoundingClientRect();
-    const TW=Math.min(220,window.innerWidth-16),TH=120,GAP=5,PAD=6;
-    const top=r.bottom+GAP+TH>window.innerHeight?r.top-TH-GAP:r.bottom+GAP;
-    const left=Math.max(PAD,Math.min(r.left,window.innerWidth-TW-PAD));
+    const PAD=8,GAP=6;
+    const TW=Math.min(260,window.innerWidth-PAD*2);
+    const TH=240; // generous estimate — ensures correct above/below decision for long tooltips
+    // Prefer below; fall back to above. Clamp both so tooltip never leaves viewport.
+    const showBelow=r.bottom+GAP+TH<=window.innerHeight;
+    const top=Math.max(PAD,showBelow?r.bottom+GAP:r.top-TH-GAP);
+    // Centre on icon, then clamp to viewport edges
+    const iconCx=(r.left+r.right)/2;
+    const left=Math.max(PAD,Math.min(iconCx-TW/2,window.innerWidth-TW-PAD));
     return{top,left,width:TW};
   };
 
