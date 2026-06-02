@@ -1288,15 +1288,17 @@ const Card=({title,accent=false,hint=null,children})=>(
   </div>
 );
 
-const BiasSeg=({label,val,hint,primary})=>{
+const BiasSeg=({label,val,hint,primary,total})=>{
   // positive = oversteer (red/right), negative = understeer (blue/left)
   const c=val>0.5?'#ef4444':val<-0.5?'#3b82f6':'#cbd5e1';
   const scale=15;
   const pct=Math.min(50,Math.abs(val)/scale*50);
   const barStyle=val>=0?{left:'50%',width:`${pct}%`}:{right:'50%',width:`${pct}%`};
+  const pctOfTotal=total&&Math.abs(total)>0.5?Math.round(Math.abs(val)/Math.abs(total)*100):null;
   return(
     <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3,
-                 ...(primary?{background:'#0a0f1a',borderRadius:2,padding:'2px 0',margin:'0 -2px 3px'}:{})}}>
+                 ...(primary?{background:'#0a0f1a',borderLeft:'2px solid '+(val>0?'#ef444466':'#3b82f666'),
+                               borderRadius:2,padding:'3px 0 3px 4px',margin:'0 -2px 3px -4px'}:{})}}>
       <div style={{width:72,display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
         <span style={{fontSize:10,color:primary?'#cbd5e1':'#94a3b8',letterSpacing:1,lineHeight:1.2,
                        fontWeight:primary?700:400}}>{label}</span>
@@ -1305,11 +1307,14 @@ const BiasSeg=({label,val,hint,primary})=>{
       <div style={{flex:1,position:'relative',height:8,background:'#0f172a',borderRadius:2}}>
         <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#1e293b'}}/>
         {Math.abs(val)>0.5&&<div style={{position:'absolute',top:1,bottom:1,borderRadius:1,
-          background:c+(primary?'dd':'bb'),...barStyle}}/>}
+          background:c+(primary?'ee':'99'),...barStyle}}/>}
       </div>
       <span style={{fontFamily:'Courier New',fontSize:11,color:c,width:34,textAlign:'right',flexShrink:0,
                      fontWeight:primary?700:400}}>
         {val>=0?'+':''}{val.toFixed(1)}
+      </span>
+      <span style={{fontSize:10,color:pctOfTotal>40?c:'#475569',width:28,textAlign:'right',flexShrink:0}}>
+        {pctOfTotal!=null?`${pctOfTotal}%`:''}
       </span>
     </div>
   );
@@ -1346,6 +1351,32 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
   const tip=abs<3
     ? 'Setup is well balanced.'+(domBig?' Keep an eye on '+dom.name.toUpperCase()+' if the car feels inconsistent.':'')
     : (domBig?(domTips[dom.name]||'Adjust the dominant contributor.'):'Adjust Balance Target or ARB Bias.');
+  const hints={
+    springs:'Spring roll-stiffness bias vs weight distribution. + = oversteer (rear springs relatively stiffer). − = understeer (front springs relatively stiffer).',
+    ARB:'ARB roll-stiffness bias vs weight distribution. + = oversteer (rear ARBs relatively stiffer). − = understeer (front ARBs relatively stiffer).',
+    'diff front':'AWD front diff net contribution (accel+decel). Front lock pushes understeer (−). Center split and front weight fraction are factored in.',
+    'diff rear':'AWD rear diff net contribution (accel+decel). Rear lock pushes oversteer (+). Center split and rear weight fraction are factored in.',
+    'diff exit':diffLayout==='FWD'?'Front accel lock on-throttle exit. Higher lock = more understeer (−).':'Rear accel lock on-throttle exit. Higher lock = more oversteer (+).',
+    'diff entry':diffLayout==='FWD'?'Front decel lock off-throttle entry. Higher lock = more entry understeer (−).':'Rear decel lock off-throttle entry. Higher lock = more oversteer on entry (+).',
+    brakes:'Brake-balance contribution to entry. High front bias = understeer on entry (−). Low front bias (rear-biased) = oversteer tendency (+). Based on deviation from 50% neutral.',
+    damping:'Damping bias contribution. More front rebound damping resists weight transfer off the front, producing understeer tendency (−). More rear damping does the opposite (+).',
+  };
+  const labelMap={'diff front':'DIFF F','diff rear':'DIFF R','diff exit':'DIFF EXIT','diff entry':'DIFF ENTRY','brakes':'BRAKES','damping':'DAMP'};
+  const mechGroup=contributors.filter(c=>c.name==='springs'||c.name==='ARB')
+    .sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
+  const dynGroup=contributors.filter(c=>c.name!=='springs'&&c.name!=='ARB')
+    .sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
+  const GroupSection=({title,items})=>items.length===0?null:(
+    <div style={{marginBottom:6}}>
+      <div style={{fontSize:9,color:'#475569',letterSpacing:2,marginBottom:3,paddingBottom:2,
+                   borderBottom:'1px solid #0f172a'}}>{title}</div>
+      {items.map(({name,val})=>{
+        const isDom=name===dom.name&&domBig;
+        return <BiasSeg key={name} label={labelMap[name]??(name.toUpperCase())} val={val}
+          hint={hints[name]??''} primary={isDom} total={total}/>;
+      })}
+    </div>
+  );
   return(
     <div>
       {mechBalance!=null&&
@@ -1360,25 +1391,12 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
             <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>0=FRONT · 1=REAR</span>
           </div>
         </div>}
-      {/* contributor bars sorted by magnitude — dominant driver first */}
-      <div style={{marginBottom:8}}>
-        {sorted.map(({name,val})=>{
-          const hints={
-            springs:'Spring roll-stiffness bias vs weight distribution. + = oversteer (rear springs relatively stiffer). − = understeer (front springs relatively stiffer).',
-            ARB:'ARB roll-stiffness bias vs weight distribution. + = oversteer (rear ARBs relatively stiffer). − = understeer (front ARBs relatively stiffer).',
-            'diff front':'AWD front diff net contribution (accel+decel). Front lock pushes understeer (−). Center split and front weight fraction are factored in.',
-            'diff rear':'AWD rear diff net contribution (accel+decel). Rear lock pushes oversteer (+). Center split and rear weight fraction are factored in.',
-            'diff exit':diffLayout==='FWD'?'Front accel lock on-throttle exit. Higher lock = more understeer (−).':'Rear accel lock on-throttle exit. Higher lock = more oversteer (+).',
-            'diff entry':diffLayout==='FWD'?'Front decel lock off-throttle entry. Higher lock = more entry understeer (−).':'Rear decel lock off-throttle entry. Higher lock = more oversteer on entry (+).',
-            brakes:'Brake-balance contribution to entry. High front bias = understeer on entry (−). Low front bias (rear-biased) = oversteer tendency (+). Based on deviation from 50% neutral.',
-            damping:'Damping bias contribution. More front rebound damping resists weight transfer off the front, producing understeer tendency (−). More rear damping does the opposite (+).',
-          };
-          const labelMap={'diff front':'DIFF F','diff rear':'DIFF R','diff exit':'DIFF EXIT','diff entry':'DIFF ENTRY','brakes':'BRAKES','damping':'DAMP'};
-          const isDom=name===dom.name&&domBig;
-          return <BiasSeg key={name} label={labelMap[name]??(name.toUpperCase())} val={val}
-            hint={hints[name]??''} primary={isDom}/>;
-        })}
-      </div>
+      {/* tip first — most actionable info at the top */}
+      <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.6,padding:'6px 8px',marginBottom:8,
+                   background:'#020617',borderRadius:2,border:'1px solid #0f172a'}}>{tip}</div>
+      {/* contributors grouped: MECHANICAL (intentional setup) vs DYNAMIC (phase/behaviour) */}
+      <GroupSection title="MECHANICAL" items={mechGroup}/>
+      <GroupSection title="DYNAMIC" items={dynGroup}/>
       {/* grip balance context — physical at-limit tendency from LLT model */}
       {gripBalance!=null&&Math.abs(gripBalance-0.5)>0.03&&<div style={{
           fontSize:10,color:'#4b5563',lineHeight:1.5,marginBottom:6,
@@ -1387,15 +1405,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
         {gripBalance<0.45?' (understeer-prone chassis — more suspension correction needed for neutral limit balance)':
          gripBalance>0.55?' (oversteer-prone chassis — less correction needed to achieve rotation)':''}
       </div>}
-      <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:5}}>
-        <span style={{fontFamily:'Courier New',fontSize:20,fontWeight:700,color:col,lineHeight:1}}>
-          {`${total>=0?'+':''}${total.toFixed(1)}`}
-        </span>
-        <span style={{fontSize:11,color:col,letterSpacing:2}}>{label}</span>
-      </div>
-      <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.6,padding:'6px 8px',
-                   background:'#020617',borderRadius:2,border:'1px solid #0f172a'}}>{tip}</div>
-      <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.5,marginTop:6}}>
+      <div style={{fontSize:10,color:'#475569',lineHeight:1.5,marginTop:4}}>
         Roll-stiffness and differential contributions. Alignment also affects balance.
       </div>
     </div>
@@ -3710,48 +3720,63 @@ function App(){
                   {Math.abs(bTotFull)<3?'NEUTRAL':bTotFull>0?'OVERSTEER':'UNDERSTEER'}
                 </span>
                 <span style={{flex:1}}/>
-                <span style={{fontSize:10,color:'#94a3b8'}}>
+                {tune.mechBalance!=null&&<span style={{fontSize:10,color:'#475569',letterSpacing:1,fontFamily:'Courier New'}}>
+                  MECH {tune.mechBalance.toFixed(2)}
+                  {(()=>{const _d=tune.mechBalance-natMechBalance;const _a=Math.abs(_d);
+                    if(_a<0.01)return null;
+                    return <span style={{color:_d>0?'#60a5fa':'#f59e0b'}}>{(_d>=0?'+':'')+_d.toFixed(2)}</span>;
+                  })()}
+                </span>}
+                <span style={{fontSize:10,color:'#94a3b8',marginLeft:4}}>
                   {open.balanceExpanded?'▲':'▼'}
                 </span>
               </div>
-              {/* compact bias bar */}
-              <div style={{position:'relative',height:14,background:'#0a0f1a',border:'1px solid #1e293b',
-                           borderRadius:2,overflow:'hidden'}}>
-                {/* A — feel zones: US aggressive | US mild | neutral | OS mild | OS aggressive | OS extreme */}
-                <div style={{position:'absolute',left:'5%', width:'20%',top:0,bottom:0,background:'#3b82f614'}}/>
-                <div style={{position:'absolute',left:'25%',width:'20%',top:0,bottom:0,background:'#3b82f60a'}}/>
-                <div style={{position:'absolute',left:'55%',width:'20%',top:0,bottom:0,background:'#ef44440a'}}/>
-                <div style={{position:'absolute',left:'75%',width:'15%',top:0,bottom:0,background:'#f9731614'}}/>
-                <div style={{position:'absolute',left:'90%',width:'10%',top:0,bottom:0,background:'#ef444422'}}/>
-                {/* center divider */}
-                <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#1e293b'}}/>
-                {/* main fill */}
-                {(()=>{
-                  const cl=v=>Math.max(-50,Math.min(50,v));
-                  const p=cl(bTotFull);
-                  const fs=p>=0?{left:'50%',width:`${p}%`}:{left:`${50+p}%`,width:`${-p}%`};
-                  const fc=p>=0?'#ef444440':'#3b82f640';
-                  return p!==0&&<div style={{position:'absolute',top:2,bottom:2,borderRadius:1,background:fc,...fs}}/>;
-                })()}
-                {/* B — mechanical-only tick (springs + ARBs), top half */}
-                {Math.abs(tune.bTot)>0.5&&<div style={{
-                  position:'absolute',top:0,height:6,
-                  left:`${50+Math.max(-50,Math.min(50,tune.bTot))}%`,
-                  width:1,background:'#4ade80',opacity:0.75,transform:'translateX(-50%)'}}/>}
-                {/* C — non-mechanical baseline (diff+brakes+damp without springs/ARBs), bottom half */}
-                {(()=>{
-                  const nb=bTotFull-tune.bTot;
-                  return Math.abs(nb)>0.5&&<div style={{
-                    position:'absolute',bottom:0,height:6,
-                    left:`${50+Math.max(-50,Math.min(50,nb))}%`,
-                    width:1,background:'#818cf8',opacity:0.75,transform:'translateX(-50%)'
-                  }}/>;
-                })()}
-                <div style={{position:'absolute',left:5,top:'50%',transform:'translateY(-50%)',
-                             fontSize:10,color:'#3b82f6',letterSpacing:1,fontWeight:700}}>US</div>
-                <div style={{position:'absolute',right:5,top:'50%',transform:'translateY(-50%)',
-                             fontSize:10,color:'#ef4444',letterSpacing:1,fontWeight:700}}>OS</div>
-              </div>
+              {/* compact stacked balance bar — each contributor rendered as a segment from centre */}
+              {(()=>{
+                const cl=v=>Math.max(-50,Math.min(50,v));
+                const allSegs=[
+                  {key:'sp', val:tune.bSp??0,   col:'#60a5fa'},  // springs — blue family
+                  {key:'ab', val:tune.bAb??0,   col:'#818cf8'},  // ARBs — indigo
+                  {key:'df', val:(diff.bDiffAccel??0)+(diff.bDiffDecel??0), col:'#f59e0b'}, // diff — amber
+                  {key:'br', val:bBrakeEntry,   col:'#34d399'},  // brakes — green
+                  {key:'dm', val:bDampBias,      col:'#a78bfa'},  // damping — violet
+                ].filter(s=>Math.abs(s.val)>0.3);
+                // Build segments left→right; each stacks outward from the previous
+                // Negative segs grow leftward from centre, positive grow rightward
+                let posOffset=0, negOffset=0;
+                return(
+                  <div style={{position:'relative',height:16,background:'#0a0f1a',border:'1px solid #1e293b',
+                               borderRadius:2,overflow:'hidden'}}>
+                    {/* zone shading */}
+                    <div style={{position:'absolute',left:'5%', width:'20%',top:0,bottom:0,background:'#3b82f614'}}/>
+                    <div style={{position:'absolute',left:'25%',width:'20%',top:0,bottom:0,background:'#3b82f608'}}/>
+                    <div style={{position:'absolute',left:'55%',width:'20%',top:0,bottom:0,background:'#ef444408'}}/>
+                    <div style={{position:'absolute',left:'75%',width:'15%',top:0,bottom:0,background:'#f9731614'}}/>
+                    <div style={{position:'absolute',left:'90%',width:'10%',top:0,bottom:0,background:'#ef444422'}}/>
+                    <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#334155'}}/>
+                    {allSegs.map(({key,val,col})=>{
+                      const p=cl(val);
+                      if(p>=0){
+                        const seg={position:'absolute',top:2,bottom:2,borderRadius:1,
+                          left:`${50+posOffset}%`,width:`${p}%`,
+                          background:col+'bb'};
+                        posOffset+=p;
+                        return <div key={key} style={seg}/>;
+                      } else {
+                        const seg={position:'absolute',top:2,bottom:2,borderRadius:1,
+                          right:`${50+negOffset}%`,width:`${-p}%`,
+                          background:col+'bb'};
+                        negOffset+=(-p);
+                        return <div key={key} style={seg}/>;
+                      }
+                    })}
+                    <div style={{position:'absolute',left:5,top:'50%',transform:'translateY(-50%)',
+                                 fontSize:10,color:'#3b82f6',letterSpacing:1,fontWeight:700}}>US</div>
+                    <div style={{position:'absolute',right:5,top:'50%',transform:'translateY(-50%)',
+                                 fontSize:10,color:'#ef4444',letterSpacing:1,fontWeight:700}}>OS</div>
+                  </div>
+                );
+              })()}
               {/* stability / responsiveness bar */}
               {(()=>{
                 const{score}=agileFactors;
@@ -3760,9 +3785,14 @@ function App(){
                 return(
                   <div style={{position:'relative',height:14,background:'#0a0f1a',border:'1px solid #1e293b',
                                borderRadius:2,overflow:'hidden',marginTop:3}}>
+                    {/* zone shading: planted | balanced | responsive | twitchy */}
+                    <div style={{position:'absolute',left:'0%',  width:'20%',top:0,bottom:0,background:'#22c55e14'}}/>
+                    <div style={{position:'absolute',left:'20%', width:'30%',top:0,bottom:0,background:'#22c55e08'}}/>
+                    <div style={{position:'absolute',left:'55%', width:'25%',top:0,bottom:0,background:'#f59e0b08'}}/>
+                    <div style={{position:'absolute',left:'80%', width:'20%',top:0,bottom:0,background:'#f59e0b18'}}/>
                     <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#1e293b'}}/>
                     {p!==0&&<div style={{position:'absolute',top:2,bottom:2,borderRadius:1,
-                                        background:p>0?'#f59e0b40':'#22c55e40',...fs}}/>}
+                                        background:p>0?'#f59e0b55':'#22c55e55',...fs}}/>}
                     <div style={{position:'absolute',left:5,top:'50%',transform:'translateY(-50%)',
                                  fontSize:10,color:'#22c55e',letterSpacing:1,fontWeight:700}}>STABLE</div>
                     <div style={{position:'absolute',right:5,top:'50%',transform:'translateY(-50%)',
@@ -3770,36 +3800,22 @@ function App(){
                   </div>
                 );
               })()}
-              {/* bar tick legend */}
-              <div style={{display:'flex',gap:10,marginTop:3,paddingLeft:2,alignItems:'center'}}>
-                {Math.abs(tune.bTot)>0.5&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:10,color:'#94a3b8'}}>
-                  <span style={{display:'inline-block',width:1,height:8,background:'#4ade80',opacity:0.75,flexShrink:0}}/>MECH
-                </span>}
-                {Math.abs(bTotFull-tune.bTot)>0.5&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:10,color:'#94a3b8'}}>
-                  <span style={{display:'inline-block',width:1,height:8,background:'#818cf8',opacity:0.75,flexShrink:0}}/>BASELINE
-                </span>}
-                {(Math.abs(tune.bTot)>0.5||Math.abs(bTotFull-tune.bTot)>0.5)&&
-                  <Hint text="MECH (green) — where springs and ARBs alone place the balance, relative to weight-matched neutral. This is your intentional mechanical correction. BASELINE (indigo) — where diff, brakes, and damping place the car before any spring/ARB correction. The gap between BASELINE and the total fill is what your mechanical setup adds on top."/>}
+              {/* stacked bar legend */}
+              <div style={{display:'flex',gap:8,marginTop:3,paddingLeft:2,alignItems:'center',flexWrap:'wrap'}}>
+                {[
+                  {key:'sp',col:'#60a5fa',label:'SPR',  val:tune.bSp??0},
+                  {key:'ab',col:'#818cf8',label:'ARB',  val:tune.bAb??0},
+                  {key:'df',col:'#f59e0b',label:'DIFF', val:(diff.bDiffAccel??0)+(diff.bDiffDecel??0)},
+                  {key:'br',col:'#34d399',label:'BRK',  val:bBrakeEntry},
+                  {key:'dm',col:'#a78bfa',label:'DAMP', val:bDampBias},
+                ].filter(s=>Math.abs(s.val)>0.3).map(({key,col,label})=>(
+                  <span key={key} style={{display:'flex',alignItems:'center',gap:3,fontSize:10,color:'#94a3b8'}}>
+                    <span style={{display:'inline-block',width:8,height:4,borderRadius:1,background:col+'bb',flexShrink:0}}/>
+                    {label}
+                  </span>
+                ))}
+                <Hint text="Stacked bar shows each contributor as a coloured segment: SPR (springs), ARB (anti-roll bars), DIFF (differential), BRK (brakes), DAMP (damping bias). Segments stack outward from neutral — the bar's total reach is the combined handling balance."/>
               </div>
-              {/* secondary metadata pills */}
-              {tune.mechBalance!=null&&
-                <div style={{display:'flex',alignItems:'center',gap:10,marginTop:5,flexWrap:'wrap',rowGap:3}}>
-                  {tune.mechBalance!=null&&
-                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>
-                      MECH <span style={{fontFamily:'Courier New',color:'#94a3b8',fontWeight:700}}>
-                        {tune.mechBalance.toFixed(2)}
-                      </span>
-                      {(()=>{
-                        const _d=tune.mechBalance-natMechBalance;
-                        const _dabs=Math.abs(_d);
-                        if(_dabs<0.01)return null;
-                        const _dcol=_d>0?'#60a5fa':'#f59e0b';
-                        return <span style={{fontFamily:'Courier New',color:_dcol,fontWeight:700,marginLeft:4,letterSpacing:0}}>
-                          {(_d>=0?'+':'')+_d.toFixed(2)}
-                        </span>;
-                      })()}
-                    </span>}
-                </div>}
             </div>
             {/* expanded full verdict */}
             {open.balanceExpanded&&
