@@ -769,7 +769,7 @@ const Hint=({text})=>{
           onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
           onTouchStart={()=>{isTouch.current=true;}}
           onClick={onClick}>
-      <span style={{fontSize:10,color:'#94a3b8',marginLeft:4}}>ⓘ</span>
+      <span style={{fontSize:10,color:'#94a3b8'}}>ⓘ</span>
       {pos&&ReactDOM.createPortal(
         <div style={{position:'fixed',top:pos.top,left:pos.left,zIndex:1000,width:pos.width??220,
                      background:'#0f172a',border:'1px solid #e2e8f011',borderRadius:2,
@@ -3710,6 +3710,7 @@ function App(){
                  style={{padding:'10px 14px',cursor:'pointer'}}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
                 <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>HANDLING BALANCE</span>
+                <Hint text="Combined steady-state handling tendency from all tuning inputs. Positive (+) = oversteer tendency, negative (−) = understeer. Zero is weight-matched neutral — neither end saturates grip first. Tap to expand for contributor breakdown and actionable tip."/>
                 <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>·</span>
                 <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,
                               color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#ef4444':'#3b82f6'}}>
@@ -3720,14 +3721,15 @@ function App(){
                   {Math.abs(bTotFull)<3?'NEUTRAL':bTotFull>0?'OVERSTEER':'UNDERSTEER'}
                 </span>
                 <span style={{flex:1}}/>
-                {tune.mechBalance!=null&&<span style={{fontSize:10,color:'#475569',letterSpacing:1,fontFamily:'Courier New'}}>
-                  MECH {tune.mechBalance.toFixed(2)}
+                {tune.mechBalance!=null&&<span style={{display:'flex',alignItems:'center',gap:4,fontSize:10,color:'#475569',letterSpacing:1,fontFamily:'Courier New'}}>
+                  <span>MECH {tune.mechBalance.toFixed(2)}
                   {(()=>{const _d=tune.mechBalance-natMechBalance;const _a=Math.abs(_d);
                     if(_a<0.01)return null;
                     return <span style={{color:_d>0?'#60a5fa':'#f59e0b'}}>{(_d>=0?'+':'')+_d.toFixed(2)}</span>;
-                  })()}
+                  })()}</span>
+                  <Hint text="Mech Balance is the rear fraction of total roll stiffness (0 = all front, 1 = all rear, 0.5 = even split). This matches Forza's in-game mech balance display. The delta shows how far your setup has shifted from the car's natural balance — blue means more rear-biased than natural, amber means more front-biased."/>
                 </span>}
-                <span style={{fontSize:10,color:'#94a3b8',marginLeft:4}}>
+                <span style={{fontSize:10,color:'#94a3b8'}}>
                   {open.balanceExpanded?'▲':'▼'}
                 </span>
               </div>
@@ -3806,6 +3808,7 @@ function App(){
                     {/* label row: section header + inline NAT/CUR/TGT values */}
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
                       <span style={{fontSize:10,color:'#475569',letterSpacing:2}}>MECH BALANCE</span>
+                      <Hint text="Roll stiffness rear fraction on the 0–1 scale. NAT is the car's natural balance with equal spring rates and no ARBs. CUR is where your current setup lands. TGT (shown in MECH/CO-SOLVE modes) is the balance you are targeting. The band between NAT and CUR shows how much correction your setup applies."/>
                       <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>·</span>
                       <span style={{fontSize:10,color:'#475569',fontFamily:'Courier New'}}>
                         NAT <span style={{color:'#94a3b8'}}>{nat.toFixed(2)}</span>
@@ -3859,6 +3862,7 @@ function App(){
                 return(<>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginTop:8,marginBottom:3}}>
                     <span style={{fontSize:10,color:'#475569',letterSpacing:2}}>RESPONSE</span>
+                    <Hint text="Transient response character — how quickly and freely the car reacts to steering inputs. PLANTED (left) means settled and damped: the car resists sudden direction changes but feels stable and predictable. REACTIVE (right) means quick to respond: the car turns in immediately but can feel nervous. Driven by spring frequency (50%), damping ratio (20%), toe (15%), caster (10%), and rear/front Hz ratio (5%). Independent of handling balance — a car can be neutral and still feel very planted or very reactive."/>
                     <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>·</span>
                     <span style={{fontFamily:'Courier New',fontSize:11,fontWeight:700,color:aCol}}>
                       {`${p>=0?'+':''}${Math.round(p)}`}
