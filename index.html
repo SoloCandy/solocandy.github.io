@@ -2135,18 +2135,17 @@ function App(){
   const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bDampBias;
   const lim=GAME_LIMITS[fe.gameMode];
   const agileFactors=(()=>{
+    // Agility = transient response character: how quickly and freely the car responds to steering inputs.
+    // ARBs and weight bias are excluded — they govern roll moment distribution (Handling Balance bar),
+    // not response speed. Research (Milliken, OptimumG) confirms ARBs are a balance tool, not agility.
     const hzNorm=Math.min(1,Math.max(0,(physics.frontHz-HZ_MIN)/(HZ_MAX-HZ_MIN)));
-    // ARBs: more stiffness → more stable/planted, less agile. Inverted vs previous.
-    const arbNorm=lim.arb>0?1-(tune.arbF+tune.arbR)/(2*lim.arb):1;
     const dampNorm=Math.min(1,Math.max(0,(physics.reboundZeta-10)/105));
     const toeNorm=Math.min(1,Math.max(0,(-(align.recToeF??-0.1)+0.5)/1.5));
     const casterNorm=Math.min(1,Math.max(0,(7.5-(align.recCaster??5.5))/3.5));
     const rearFrontRatio=physics.frontHz>0?physics.rearHz/physics.frontHz:1;
     const rearHzNorm=Math.min(1,Math.max(0,(rearFrontRatio-0.7)/1.1));
-    const biasNorm=Math.min(1,Math.max(0,(65-(ch.frontBias??55))/25));
-    const score=hzNorm*0.35+arbNorm*0.25+(1-dampNorm)*0.15
-               +toeNorm*0.12+casterNorm*0.08+rearHzNorm*0.04+biasNorm*0.01;
-    return{score,hzNorm,arbNorm,dampNorm,toeNorm,casterNorm,rearHzNorm,biasNorm};
+    const score=hzNorm*0.50+(1-dampNorm)*0.20+toeNorm*0.15+casterNorm*0.10+rearHzNorm*0.05;
+    return{score,hzNorm,dampNorm,toeNorm,casterNorm,rearHzNorm};
   })();
 
   // Full chassis geometry analysis — equal Hz, no ARBs
@@ -3825,13 +3824,11 @@ function App(){
                 <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid #0f172a'}}>
                   <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>STABLE ←————————→ AGILE</span>
                   {[
-                    {label:'SPRINGS',val:agileFactors.hzNorm,hint:'Stiffer springs increase ride frequency and shift feel toward agile.'},
-                    {label:'ARB',val:agileFactors.arbNorm,hint:'Higher ARB values reduce body roll, shifting feel toward agile.'},
-                    {label:'DAMPING',val:1-agileFactors.dampNorm,hint:'Lower rebound damping (less resistance to weight transfer) = more agile.'},
-                    {label:'TOE F',val:agileFactors.toeNorm,hint:'Front toe-out sharpens turn-in response (agile). Toe-in adds stability.'},
+                    {label:'SPRINGS',val:agileFactors.hzNorm,hint:'Higher ride frequency = faster natural response. Primary driver of transient agility.'},
+                    {label:'DAMPING',val:1-agileFactors.dampNorm,hint:'Lower rebound damping = less resistance to roll initiation = more agile. Higher damping = more planted.'},
+                    {label:'TOE F',val:agileFactors.toeNorm,hint:'Front toe-out sharpens turn-in response (agile). Toe-in adds straight-line stability.'},
                     {label:'CASTER',val:1-agileFactors.casterNorm,hint:'Lower caster reduces self-centering force, allowing quicker steering response.'},
                     {label:'R/F Hz',val:agileFactors.rearHzNorm,hint:'Stiffer rear relative to front promotes rotation tendency (agile).'},
-                    {label:'BIAS',val:agileFactors.biasNorm,hint:'More rear-heavy weight bias lowers polar moment, making the car rotate more easily.'},
                   ].map(({label,val,hint})=>{
                     const p=Math.round((val-0.5)*100);
                     const c=p>15?'#f59e0b':p<-15?'#22c55e':'#cbd5e1';

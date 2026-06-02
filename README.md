@@ -146,16 +146,15 @@ The total reads as OVERSTEER (+) or UNDERSTEER (−). **Tune to zero for a neutr
 The header shows **MECH BALANCE** (0.00–1.00, matching Forza's in-game roll-stiffness metric). When the physical at-limit tendency diverges from neutral, a **GRIP BIAS** note appears — derived from the tyre-load-sensitivity model and reflecting how the chassis behaves at the limit (an understeer- or oversteer-prone chassis), as distinct from the roll-stiffness mech balance.
 
 ### Agility Bar
-A second bar below the Handling Balance showing where the setup sits on a **STABLE ↔ AGILE** axis. This reflects transient response characteristics and roll compliance — how quickly and freely the car responds to steering inputs:
+A second bar below the Handling Balance showing where the setup sits on a **STABLE ↔ AGILE** axis. This reflects **transient response character** — how quickly and freely the car responds to steering inputs. ARBs and weight bias are intentionally excluded: they govern roll moment distribution (already captured by the Handling Balance bar), not response speed.
 
 | Contributor | Weight | Direction |
 |---|---|---|
-| Spring Hz | 35% | Higher frequency → more agile (faster natural response) |
-| ARB stiffness | 25% | More ARB → more stable (greater roll resistance) |
-| Damping ζ | 15% | Lower damping → more agile (less resistance to roll initiation) |
-| Front toe | 12% | Less toe-in → more agile (reduced straight-line stability) |
-| Caster | 8% | Less caster → more agile (lighter steering, less self-centering) |
-| Rear/front Hz ratio | 4% | Higher ratio → more agile (rear-biased stiffness = more rotation) |
+| Spring Hz | 50% | Higher frequency → more agile (faster natural response) |
+| Damping ζ | 20% | Lower damping → more agile (less resistance to roll initiation) |
+| Front toe | 15% | Less toe-in → more agile (sharper turn-in) |
+| Caster | 10% | Less caster → more agile (lighter steering, less self-centering) |
+| Rear/front Hz ratio | 5% | Higher ratio → more agile (rear-biased stiffness = more rotation) |
 
 Centre of the bar is balanced. Left (green) = planted and stable. Right (amber) = responsive and twitchy.
 
