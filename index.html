@@ -3777,14 +3777,24 @@ function App(){
                   </div>
                 );
               })()}
-              {/* stability / responsiveness bar */}
+              {/* agility bar header + bar */}
               {(()=>{
                 const{score}=agileFactors;
                 const p=Math.max(-50,Math.min(50,(score-0.5)*100));
+                const aLabel=Math.abs(p)<15?'BALANCED':p>0?'AGILE':'STABLE';
+                const aCol=Math.abs(p)<15?'#475569':p>0?'#f59e0b':'#22c55e';
                 const fs=p>=0?{left:'50%',width:`${p}%`}:{left:`${50+p}%`,width:`${-p}%`};
-                return(
+                return(<>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:3}}>
+                    <span style={{fontSize:10,color:'#475569',letterSpacing:2}}>AGILITY</span>
+                    <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>·</span>
+                    <span style={{fontFamily:'Courier New',fontSize:11,fontWeight:700,color:aCol}}>
+                      {`${p>=0?'+':''}${Math.round(p)}`}
+                    </span>
+                    <span style={{fontSize:10,letterSpacing:2,color:aCol}}>{aLabel}</span>
+                  </div>
                   <div style={{position:'relative',height:14,background:'#0a0f1a',border:'1px solid #1e293b',
-                               borderRadius:2,overflow:'hidden',marginTop:3}}>
+                               borderRadius:2,overflow:'hidden'}}>
                     {/* zone shading: planted | balanced | responsive | twitchy */}
                     <div style={{position:'absolute',left:'0%',  width:'20%',top:0,bottom:0,background:'#22c55e14'}}/>
                     <div style={{position:'absolute',left:'20%', width:'30%',top:0,bottom:0,background:'#22c55e08'}}/>
@@ -3798,7 +3808,7 @@ function App(){
                     <div style={{position:'absolute',right:5,top:'50%',transform:'translateY(-50%)',
                                  fontSize:10,color:'#f59e0b',letterSpacing:1,fontWeight:700}}>AGILE</div>
                   </div>
-                );
+                </>);
               })()}
               {/* stacked bar legend */}
               <div style={{display:'flex',gap:8,marginTop:3,paddingLeft:2,alignItems:'center',flexWrap:'wrap'}}>
@@ -3836,38 +3846,78 @@ function App(){
                   diffLayout={diff.layout}
                   bBrakeEntry={bBrakeEntry} bDampBias={bDampBias}
                   mechBalance={null} uiMode={uiMode}/>
-                {/* STABLE / AGILE factor breakdown */}
-                <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid #0f172a'}}>
-                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>STABLE ←————————→ AGILE</span>
-                  {[
-                    {label:'SPRINGS',val:agileFactors.hzNorm,hint:'Higher ride frequency = faster natural response. Primary driver of transient agility.'},
-                    {label:'DAMPING',val:1-agileFactors.dampNorm,hint:'Lower rebound damping = less resistance to roll initiation = more agile. Higher damping = more planted.'},
-                    {label:'TOE F',val:agileFactors.toeNorm,hint:'Front toe-out sharpens turn-in response (agile). Toe-in adds straight-line stability.'},
-                    {label:'CASTER',val:1-agileFactors.casterNorm,hint:'Lower caster reduces self-centering force, allowing quicker steering response.'},
-                    {label:'R/F Hz',val:agileFactors.rearHzNorm,hint:'Stiffer rear relative to front promotes rotation tendency (agile).'},
-                  ].map(({label,val,hint})=>{
-                    const p=Math.round((val-0.5)*100);
-                    const c=p>15?'#f59e0b':p<-15?'#22c55e':'#cbd5e1';
-                    const barW=Math.min(50,Math.abs(p));
-                    const barStyle=p>=0?{left:'50%',width:`${barW}%`}:{right:'50%',width:`${barW}%`};
-                    return(
-                      <div key={label} style={{display:'flex',alignItems:'center',gap:6,marginTop:3}}>
-                        <div style={{width:50,display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
-                          <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>{label}</span>
-                          <Hint text={hint}/>
-                        </div>
-                        <div style={{flex:1,position:'relative',height:6,background:'#0f172a',borderRadius:2}}>
-                          <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#1e293b'}}/>
-                          {Math.abs(p)>3&&<div style={{position:'absolute',top:1,bottom:1,borderRadius:1,
-                            background:c+'aa',...barStyle}}/>}
-                        </div>
-                        <span style={{fontFamily:'Courier New',fontSize:10,color:c,width:28,textAlign:'right',flexShrink:0}}>
-                          {p>=0?'+':''}{p}
-                        </span>
+                {/* AGILITY factor breakdown */}
+                {(()=>{
+                  const{score,hzNorm,dampNorm,toeNorm,casterNorm,rearHzNorm}=agileFactors;
+                  const segs=[
+                    {label:'SPRINGS',norm:hzNorm,        weight:0.50,hint:'Higher ride frequency = faster natural response. Primary driver of transient agility.'},
+                    {label:'DAMPING',norm:1-dampNorm,    weight:0.20,hint:'Lower rebound damping = less resistance to roll initiation = more agile. Higher damping = more planted.'},
+                    {label:'TOE F',  norm:toeNorm,       weight:0.15,hint:'Front toe-out sharpens turn-in response (agile). Toe-in adds straight-line stability.'},
+                    {label:'CASTER', norm:1-casterNorm,  weight:0.10,hint:'Lower caster reduces self-centering force, allowing quicker steering response.'},
+                    {label:'R/F Hz', norm:rearHzNorm,    weight:0.05,hint:'Stiffer rear relative to front promotes rotation tendency (agile).'},
+                  ].map(s=>({...s,
+                    // weighted deviation from neutral: positive = pushing agile, negative = pushing stable
+                    deviation:(s.norm-0.5)*s.weight,
+                    // absolute contribution to total score
+                    contribution:s.norm*s.weight,
+                  }));
+                  const sorted=[...segs].sort((a,b)=>Math.abs(b.deviation)-Math.abs(a.deviation));
+                  const dom=sorted[0];
+                  const domBig=Math.abs(dom.deviation)>0.05;
+                  const agileP=Math.round((score-0.5)*100);
+                  const aCol=Math.abs(agileP)<15?'#94a3b8':agileP>0?'#f59e0b':'#22c55e';
+                  const tips={
+                    SPRINGS: agileP>0?'Soften spring stiffness (lower Hz) for a more planted feel.':'Stiffen springs to improve transient response speed.',
+                    DAMPING: agileP>0?'Increase rebound damping to settle weight transfer more firmly.':'Reduce rebound damping to free up initial roll response.',
+                    'TOE F':  agileP>0?'Add front toe-in to improve straight-line stability.':'Reduce front toe-in to sharpen turn-in response.',
+                    CASTER:  agileP>0?'Increase caster for stronger self-centering and stability.':'Reduce caster for lighter, quicker steering response.',
+                    'R/F Hz': agileP>0?'Soften the rear relative to front to reduce rotation tendency.':'Stiffen the rear relative to front to promote rotation.',
+                  };
+                  const tip=Math.abs(agileP)<15
+                    ?'Transient response is balanced.'+(domBig?' '+dom.label+' is the primary character driver.':'')
+                    :domBig?(tips[dom.label]||'Adjust the dominant factor.'):'Setup is near balanced.';
+                  return(
+                    <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid #0f172a'}}>
+                      <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.6,padding:'6px 8px',marginBottom:8,
+                                   background:'#020617',borderRadius:2,border:'1px solid #0f172a'}}>{tip}</div>
+                      {sorted.map(({label,deviation,contribution,hint,weight})=>{
+                        // bar: deviation scaled so ±0.25 (max spring deviation) = ±50%
+                        const barPct=Math.min(50,Math.abs(deviation)/0.25*50);
+                        const barStyle=deviation>=0?{left:'50%',width:`${barPct}%`}:{right:'50%',width:`${barPct}%`};
+                        const c=deviation>0.02?'#f59e0b':deviation<-0.02?'#22c55e':'#cbd5e1';
+                        const pctOfTotal=score>0.01?Math.round(contribution/score*100):null;
+                        const isDom=label===dom.label&&domBig;
+                        return(
+                          <div key={label} style={{display:'flex',alignItems:'center',gap:6,marginBottom:3,
+                                   ...(isDom?{background:'#0a0f1a',
+                                     borderLeft:'2px solid '+(deviation>0?'#f59e0b66':'#22c55e66'),
+                                     borderRadius:2,padding:'3px 0 3px 4px',margin:'0 -2px 3px -4px'}:{})}}>
+                            <div style={{width:72,display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
+                              <span style={{fontSize:10,color:isDom?'#cbd5e1':'#94a3b8',letterSpacing:1,
+                                             fontWeight:isDom?700:400}}>{label}</span>
+                              <Hint text={hint}/>
+                            </div>
+                            <div style={{flex:1,position:'relative',height:8,background:'#0f172a',borderRadius:2}}>
+                              <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#1e293b'}}/>
+                              {barPct>1&&<div style={{position:'absolute',top:1,bottom:1,borderRadius:1,
+                                background:c+(isDom?'ee':'99'),...barStyle}}/>}
+                            </div>
+                            <span style={{fontFamily:'Courier New',fontSize:11,color:c,width:34,
+                                           textAlign:'right',flexShrink:0,fontWeight:isDom?700:400}}>
+                              {deviation>=0?'+':''}{(deviation*100).toFixed(1)}
+                            </span>
+                            <span style={{fontSize:10,color:pctOfTotal>40?c:'#475569',width:28,textAlign:'right',flexShrink:0}}>
+                              {pctOfTotal!=null?`${pctOfTotal}%`:''}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      <div style={{fontSize:10,color:'#475569',lineHeight:1.5,marginTop:4}}>
+                        Transient response factors. Higher Hz and lower damping shift toward agile.
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  );
+                })()}
               </div>}
           </div>
 
