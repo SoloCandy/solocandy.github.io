@@ -1532,6 +1532,8 @@ const encodeTune=(ch,fe,dr,br)=>{
     fe.springShare??DEF_FE.springShare,
     RIDE_REF_ENC[fe.rideRef??'front']??0,
     (dr.diffComplement?1:0),
+    fe.arbManF??20,  // [54] MAN mode front ARB clicks
+    fe.arbManR??20,  // [55] MAN mode rear ARB clicks
   ];
   return btoa(arr.join('|'));
 };
@@ -1554,7 +1556,9 @@ const decodeTune=(code)=>{
             arbBalTarget:v.length>=49?v[48]:DEF_FE.arbBalTarget,
             arbBalMode:v.length>=50?ARB_BAL_MODE_DEC[v[49]]??'weight':'weight',
             springShare:v.length>=52?v[51]:DEF_FE.springShare,
-            rideRef:v.length>=53?RIDE_REF_DEC[v[52]]??'front':'front'};
+            rideRef:v.length>=53?RIDE_REF_DEC[v[52]]??'front':'front',
+            arbManF:v.length>=55?v[54]:20,
+            arbManR:v.length>=56?v[55]:20};
   const _fW=v.length>=43?v[42]:265,_rW=v.length>=44?v[43]:265;
   const _fA=v.length>=45?v[44]:35, _fR=v.length>=46?v[45]:18;
   const _rA=v.length>=47?v[46]:35, _rR=v.length>=48?v[47]:18;
@@ -1610,6 +1614,8 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       rearHzMan:        cl(fe?.rearHzMan,          HZ_MIN, HZ_MAX, DEF_FE.rearHzMan),
       rearHzMult:       cl(fe?.rearHzMult,         0.5,  3.0, DEF_FE.rearHzMult),
       rideRef:          ['front','rear','shared'].includes(fe?.rideRef)?fe.rideRef:'front',
+      arbManF:          cl(fe?.arbManF,             1,   65,   20),
+      arbManR:          cl(fe?.arbManR,             1,   65,   20),
     },
     dr:{
       layout:         LAYOUT_DEC.includes(dr?.layout)?dr.layout:DEF_DR.layout,
