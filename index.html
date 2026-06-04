@@ -1912,7 +1912,10 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone})=>{
       // Hidden element (sidebar collapsed on desktop) → centre card
       if(r.width===0&&r.height===0){setPos(null);return;}
       const vw=window.innerWidth;
-      const vh=window.innerHeight;
+      // Use the *visible* viewport height (excludes the iOS address bar/toolbar) so the
+      // card never extends below what the user can actually see — otherwise the lower
+      // steps and the NEXT/PREV buttons fall off-screen with no way to scroll to them.
+      const vh=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;
       const midY=(r.top+r.bottom)/2;
       const midX=(r.left+r.right)/2;
       if(midX<vw/2){
@@ -1920,21 +1923,26 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone})=>{
         const sidebar=document.querySelector('.sidebar-scroll');
         const sbRight=sidebar?sidebar.getBoundingClientRect().right:r.right;
         const left=Math.min(sbRight+10,vw-CARD_W-8);
-        const top=Math.max(50,Math.min(vh-220,midY-80));
-        const arrowOff=Math.max(16,Math.min(164,midY-top));
-        setPos({top,left,arrowDir:'left',arrowOff});
+        // Anchor higher when the target sits near the bottom so the card keeps usable height.
+        const top=Math.max(8,Math.min(vh-260,midY-80));
+        const maxH=Math.max(140,vh-top-16);
+        const arrowOff=Math.max(16,Math.min(maxH-16,midY-top));
+        setPos({top,left,arrowDir:'left',arrowOff,maxH});
       } else {
         // RIGHT panel (output, balance-bar): float card above the element
         const top=Math.max(8,r.top-220);
         const left=Math.max(8,Math.min(vw-CARD_W-8,midX-CARD_W/2));
+        const maxH=Math.max(140,vh-top-16);
         const arrowOff=Math.max(12,Math.min(CARD_W-24,midX-left));
-        setPos({top,left,arrowDir:'down',arrowOff});
+        setPos({top,left,arrowDir:'down',arrowOff,maxH});
       }
     };
     // Slight delay lets scrollIntoView settle before we measure
     const tid=setTimeout(measure,120);
     window.addEventListener('resize',measure);
-    return()=>{clearTimeout(tid);window.removeEventListener('resize',measure);};
+    if(window.visualViewport)window.visualViewport.addEventListener('resize',measure);
+    return()=>{clearTimeout(tid);window.removeEventListener('resize',measure);
+      if(window.visualViewport)window.visualViewport.removeEventListener('resize',measure);};
   },[focusKey]); // eslint-disable-line
 
   if(!t)return null;
@@ -1943,12 +1951,12 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone})=>{
     fontFamily:'Courier New',fontSize:10,padding:'4px 10px',cursor:'pointer',letterSpacing:1};
 
   const cardBase={position:'fixed',zIndex:700,width:CARD_W,
-    maxHeight:'calc(100vh - 40px)',display:'flex',flexDirection:'column',
+    maxHeight:'calc(100dvh - 40px)',display:'flex',flexDirection:'column',
     background:'#0f172a',border:'1px solid #334155',borderRadius:4,
     padding:'16px 16px 14px',boxShadow:'0 8px 40px #000d',fontFamily:'Courier New'};
   const cardStyle=pos
     ?{...cardBase,top:pos.top,...(pos.left!==undefined?{left:pos.left}:{right:pos.right}),
-       maxHeight:`calc(100vh - ${pos.top+20}px)`}
+       maxHeight:pos.maxH}
     :{...cardBase,top:'50%',left:'50%',transform:'translate(-50%,-50%)'};
 
   const arrow=(()=>{
@@ -1986,7 +1994,8 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone})=>{
         ))}
       </div>
       <p style={{fontSize:11,color:'#94a3b8',lineHeight:1.65,margin:'0 0 12px',
-                 overflowY:'auto',flex:1,minHeight:0}}>{t.body}</p>
+                 overflowY:'auto',flex:1,minHeight:0,
+                 WebkitOverflowScrolling:'touch',overscrollBehavior:'contain'}}>{t.body}</p>
       <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
         {step>0&&<button style={btnStyle} onClick={onPrev}>← PREV</button>}
         {step<total-1
