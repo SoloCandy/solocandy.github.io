@@ -2806,7 +2806,7 @@ function App(){
               hint="Determines your intended use. Shifts ARB and differential recommendations, brake balance AUTO, and the recommended Mech Balance Target range."/>
             <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
               min={0.40} max={0.90} step={0.01}
-              hint="Roll stiffness rear share — matches what Forza shows as Mech Balance. 0.50 = balanced roll resistance. Higher = more rear bar stiffness (oversteer tendency). Lower = more front (understeer tendency). This is the same scale as Forza's tuning readout, so the value you set here should match what appears in-game. MECH and CO-SOLVE modes solve springs and ARBs to hit this target. CHASSIS BAL. below shows the same scale at your car's natural stiffness. GRIP BIAS shows how this translates to physical handling at the limit."/>
+              hint="Roll stiffness rear share — matches what Forza shows as Mech Balance. 0.50 = balanced roll resistance. Higher = more rear bar stiffness (oversteer tendency). Lower = more front (understeer tendency). MECH and CO-SOLVE modes solve springs and ARBs to hit this target. FH6 surfaces this value in-game so you can verify it directly; on older titles the solver still hits the same target — you just won't see it reflected in the tuning menu. CHASSIS BAL. below shows the same scale at your car's natural stiffness."/>
             {(()=>{
               const _layout=dr.layout??'RWD';
               const _build=dr.buildType??'track';

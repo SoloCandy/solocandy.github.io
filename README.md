@@ -87,7 +87,7 @@ Geometry auto-scales with weight in BEG/INT; in PRO you control it directly.
 
 ### BUILD
 - **Build Type** — your intended use case (Street / Track / Drift). Determines recommended balance range, diff AUTO behavior, alignment presets, and brake AUTO recommendations
-- **Mech Balance Target** — your overall handling-balance goal (0.40–0.90, where 0.5 ≈ neutral, higher = more rear roll stiffness / more rotation). Used by MECH, CO-SOLVE, the MECH rear Hz mode, and (optionally) the diff MATCH CHASSIS feature. Set this first; it drives everything: ARB split, spring stiffness, alignment, and diff bias
+- **Mech Balance Target** — your overall handling-balance goal (0.40–0.90, where 0.5 ≈ neutral, higher = more rear roll stiffness / more rotation). Used by MECH, CO-SOLVE, the MECH rear Hz mode, and (optionally) the diff MATCH CHASSIS feature. Set this first; it drives everything: ARB split, spring stiffness, alignment, and diff bias. FH6 surfaces this value in-game so you can verify it directly; on older titles (FH5, FM, etc.) the solver still targets the same physics — you just won't see it reflected in the tuning menu
 - **Balance Guide** panel — shows your chassis natural balance, recommended target range for your build type, and how far your current target deviates from natural
 
 ### ANTI-ROLL BARS
