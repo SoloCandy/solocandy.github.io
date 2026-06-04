@@ -1929,10 +1929,13 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone})=>{
         const arrowOff=Math.max(16,Math.min(maxH-16,midY-top));
         setPos({top,left,arrowDir:'left',arrowOff,maxH});
       } else {
-        // RIGHT panel (output, balance-bar): float card above the element
-        const top=Math.max(8,r.top-220);
+        // RIGHT panel (output, balance-bar): float card entirely above the element
+        // Fit the card into the space above r.top so it never overlaps the target.
+        const GAP=10; // gap between card bottom and element top
+        const availH=r.top-8-GAP;  // px available above the element
+        const maxH=Math.max(140,Math.min(availH,vh-24));
+        const top=Math.max(8,r.top-maxH-GAP);
         const left=Math.max(8,Math.min(vw-CARD_W-8,midX-CARD_W/2));
-        const maxH=Math.max(140,vh-top-16);
         const arrowOff=Math.max(12,Math.min(CARD_W-24,midX-left));
         setPos({top,left,arrowDir:'down',arrowOff,maxH});
       }
