@@ -1310,9 +1310,9 @@ const BiasSeg=({label,val,hint,primary,total})=>{
     <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3,
                  ...(primary?{background:'#0a0f1a',borderLeft:'2px solid '+(val>0?'#ef444466':'#3b82f666'),
                                borderRadius:2,padding:'3px 0 3px 4px',margin:'0 -2px 3px -4px'}:{})}}>
-      <div style={{width:72,display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
+      <div style={{width:80,display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
         <span style={{fontSize:10,color:primary?'#cbd5e1':'#94a3b8',letterSpacing:1,lineHeight:1.2,
-                       fontWeight:primary?700:400}}>{label}</span>
+                       whiteSpace:'nowrap',fontWeight:primary?700:400}}>{label}</span>
         <Hint text={hint}/>
       </div>
       <div style={{flex:1,position:'relative',height:8,background:'#0f172a',borderRadius:2}}>
@@ -4006,9 +4006,9 @@ function App(){
                                    ...(isDom?{background:'#0a0f1a',
                                      borderLeft:'2px solid '+(deviation>0?'#f59e0b66':'#22c55e66'),
                                      borderRadius:2,padding:'3px 0 3px 4px',margin:'0 -2px 3px -4px'}:{})}}>
-                            <div style={{width:72,display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
+                            <div style={{width:80,display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
                               <span style={{fontSize:10,color:isDom?'#cbd5e1':'#94a3b8',letterSpacing:1,
-                                             fontWeight:isDom?700:400}}>{label}</span>
+                                             whiteSpace:'nowrap',fontWeight:isDom?700:400}}>{label}</span>
                               <Hint text={hint}/>
                             </div>
                             <div style={{flex:1,position:'relative',height:8,background:'#0f172a',borderRadius:2}}>
