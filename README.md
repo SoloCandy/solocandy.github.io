@@ -237,7 +237,7 @@ The UI adapts at two breakpoints:
 - **< 768px (tablet/phone):** the input sidebar becomes a slide-out drawer (☰ toggle, tap-outside to close); unit/game-mode and BEG/INT/PRO controls move out of the header into their own rows.
 - **< 480px (phone portrait):** the page renders at native 1.0× zoom (the zoom controls are hidden), the ANTI-ROLL BARS and SPRINGS cards stack vertically, number inputs shrink to fit, and the pinned **Handling Balance** footer collapses to a single summary line (oversteer value + tendency + mech balance) — tap it to expand the full Balance / Mech / Response bars, then **CONTRIBUTIONS** for the contributor breakdown and actionable tip.
 
-The header and pinned footer respect device safe areas (`env(safe-area-inset-*)`), so they clear the notch and home indicator on modern phones.
+The header and pinned footer respect device safe areas (`env(safe-area-inset-*)`), so they clear the notch and home indicator on modern phones. The layout is sized with the dynamic viewport unit (`100dvh`), so the pinned footer stays visible as the mobile browser's address bar collapses and expands rather than being hidden behind it.
 
 ---
 

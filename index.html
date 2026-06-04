@@ -16,9 +16,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.4/babel.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html{height:100%;height:-webkit-fill-available;}
+html{height:100%;height:-webkit-fill-available;height:100dvh;}
 body{background:#020617;color:#cbd5e1;font-family:'Courier New',monospace;overflow:hidden;
-     -webkit-text-size-adjust:100%;height:100%;height:-webkit-fill-available;}
+     -webkit-text-size-adjust:100%;height:100%;height:-webkit-fill-available;height:100dvh;}
 @media(max-width:768px){
   body{overflow:auto}
   .tog{padding:7px 0;min-height:32px}
@@ -2279,7 +2279,7 @@ function App(){
   // Phones render at natural 1.0× (zoom controls are hidden there); desktop keeps the saved preference.
   const effZoom=isPhone?1:uiZoom;
   return(
-    <div style={{display:'flex',flexDirection:'column',height:`calc(100vh / ${effZoom})`,minHeight:'-webkit-fill-available',overflow:'hidden',zoom:effZoom}}>
+    <div style={{display:'flex',flexDirection:'column',height:`calc(100dvh / ${effZoom})`,minHeight:'-webkit-fill-available',overflow:'hidden',zoom:effZoom}}>
       {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits}/>}
       {showResetModal&&(
         <div style={{position:'fixed',inset:0,background:'#000000cc',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
