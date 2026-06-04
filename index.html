@@ -3998,7 +3998,7 @@ function App(){
                       fontFamily:'Courier New',fontSize:10,padding:'3px 8px',cursor:'pointer',letterSpacing:1};
                     return(<>
                       <button style={{...bs,color:'#94a3b8'}} onClick={e=>{e.stopPropagation();openBalTut();}}>? GUIDE</button>
-                      <button style={{...bs,color:'#94a3b8'}} onClick={e=>{e.stopPropagation();setOpen(p=>({...p,balanceExpanded:false}));}}>✕ CLOSE</button>
+                      {isPhone&&<button style={{...bs,color:'#94a3b8'}} onClick={e=>{e.stopPropagation();setOpen(p=>({...p,balanceExpanded:false}));}}>✕ CLOSE</button>}
                     </>);
                   })()}
                 </div>
