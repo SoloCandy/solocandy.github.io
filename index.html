@@ -21,10 +21,13 @@ body{background:#020617;color:#cbd5e1;font-family:'Courier New',monospace;overfl
      -webkit-text-size-adjust:100%;height:100%;height:-webkit-fill-available;}
 @media(max-width:768px){
   body{overflow:auto}
-  #root>div>div:nth-child(2){flex-direction:column!important;overflow-y:auto}
-  #root>div>div:nth-child(2)>div:first-child{width:100%!important;border-right:none;border-bottom:1px solid #0f172a}
   .tog{padding:7px 0;min-height:32px}
   .tbtn{padding:6px 10px}
+}
+@media(max-width:480px){
+  /* Fluid number inputs so a label + two fields don't overflow a ~375px row.
+     Keep font-size:16px (set on .num) — lowering it makes iOS zoom on focus. */
+  .num{width:62px;min-width:0}
 }
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:#0a0f1a}
@@ -2064,6 +2067,10 @@ function App(){
   const[rearHzDraft,setRearHzDraft]=useState(null); // transient: direct rear Hz entry (independent mode)
   const[sidebarOpen,setSidebarOpen]=useState(true);
   const[isMobile,setIsMobile]=useState(false);
+  const[isPhone,setIsPhone]=useState(()=>window.innerWidth<480);
+  // Phone footer collapses to a one-line summary by default; tap to reveal the full bars.
+  // Initialised once from the launch width so resizes/address-bar jiggle don't reset it.
+  const[footerOpen,setFooterOpen]=useState(()=>window.innerWidth>=480);
   const[windowWidth,setWindowWidth]=useState(window.innerWidth);
   useEffect(()=>{
     const preload=document.getElementById('pre-load');
@@ -2072,6 +2079,7 @@ function App(){
       const w=window.innerWidth;
       const mobile=w<768;
       setIsMobile(mobile);
+      setIsPhone(w<480);
       setWindowWidth(w);
       setSidebarOpen(!mobile);
     };
@@ -2268,8 +2276,10 @@ function App(){
     setResetOpts({tune:false,tutorials:false});
   };
 
+  // Phones render at natural 1.0× (zoom controls are hidden there); desktop keeps the saved preference.
+  const effZoom=isPhone?1:uiZoom;
   return(
-    <div style={{display:'flex',flexDirection:'column',height:`calc(100vh / ${uiZoom})`,minHeight:'-webkit-fill-available',overflow:'hidden',zoom:uiZoom}}>
+    <div style={{display:'flex',flexDirection:'column',height:`calc(100vh / ${effZoom})`,minHeight:'-webkit-fill-available',overflow:'hidden',zoom:effZoom}}>
       {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits}/>}
       {showResetModal&&(
         <div style={{position:'fixed',inset:0,background:'#000000cc',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
@@ -2356,7 +2366,8 @@ function App(){
       )}
 
       {/* HEADER */}
-      <div style={{flexShrink:0,borderBottom:'1px solid #0f172a',background:'#020617'}}>
+      <div style={{flexShrink:0,borderBottom:'1px solid #0f172a',background:'#020617',
+                   paddingTop:'env(safe-area-inset-top,0px)'}}>
         {/* Row 1 — brand + utility */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
                      padding:'0 14px',height:42}}>
@@ -2399,6 +2410,7 @@ function App(){
               title={canUndo?'Undo last change':'Nothing to undo'}>↩</button>
             <button className="tbtn" style={{fontSize:11}}
               onClick={()=>openTut(uiMode)}>?</button>
+            {!isPhone&&<>
             <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
             <button className="tbtn" style={{fontSize:11}} title="Zoom out"
               onClick={()=>bumpZoom(-0.1)} disabled={uiZoom<=0.7}>−</button>
@@ -2409,6 +2421,7 @@ function App(){
             </span>
             <button className="tbtn" style={{fontSize:11}} title="Zoom in"
               onClick={()=>bumpZoom(0.1)} disabled={uiZoom>=1.6}>+</button>
+            </>}
           </div>
         </div>
         {/* Row 2 — mobile only: complexity selector */}
@@ -3510,8 +3523,8 @@ function App(){
             <Readout label="CASTER" value={align.recCaster} unit="°" decimals={1} primary/>
           </Card>
 
-          {/* 2+3 — ANTI-ROLL BARS + SPRINGS side by side */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:6}}>
+          {/* 2+3 — ANTI-ROLL BARS + SPRINGS side by side (stacked on phones) */}
+          <div style={{display:'grid',gridTemplateColumns:isPhone?'1fr':'1fr 1fr',gap:6,marginBottom:6}}>
           <Card title="ANTI-ROLL BARS" accent
             hint="Click values to enter in Forza's ARB tuning menu. Roll angle and ARB share are shown in the ANTI-ROLL BARS section of inputs. Amber warn when above 88% of the game limit.">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
@@ -3673,7 +3686,7 @@ function App(){
               </div>
             </div>}
             {/* action row — always visible */}
-            <div style={{display:'flex',gap:3,alignItems:'center',padding:'0 12px 6px'}}>
+            <div style={{display:'flex',gap:3,alignItems:'center',flexWrap:'wrap',padding:'0 12px 6px'}}>
               <button className={`tbtn${loadMode==='fe'?' on':''}`} style={{fontSize:10,letterSpacing:0.5}}
                 onClick={()=>setLoadMode(m=>m==='all'?'fe':'all')}
                 title={loadMode==='all'
@@ -3716,16 +3729,27 @@ function App(){
           </div>
 
           {/* PINNED — HANDLING BALANCE */}
-          <div id="zone-balance-bar" style={{flexShrink:0,borderTop:'1px solid #1e293b',background:'#020617',...dim('balance-bar')}}>
+          <div id="zone-balance-bar" style={{flexShrink:0,borderTop:'1px solid #1e293b',background:'#020617',
+                                             paddingBottom:'env(safe-area-inset-bottom,0px)',...dim('balance-bar')}}>
             {/* compact header row — tap to expand */}
             <div className="collapsible-hdr"
-                 onClick={()=>setOpen(p=>{
-                   const next=!p.balanceExpanded;
-                   if(next&&!balTutSeen){setBalTutSeen(true);openBalTut();}
-                   return{...p,balanceExpanded:next};
-                 })}
-                 style={{padding:'10px 14px',cursor:'pointer'}}>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
+                 onClick={()=>{
+                   if(isPhone){
+                     // On phones the tap reveals/hides the full bar stack (the summary line stays).
+                     const next=!footerOpen;
+                     setFooterOpen(next);
+                     if(next){ if(!balTutSeen){setBalTutSeen(true);openBalTut();} }
+                     else { setOpen(p=>({...p,balanceExpanded:false})); } // collapsing also hides the detail panel
+                   } else {
+                     setOpen(p=>{
+                       const next=!p.balanceExpanded;
+                       if(next&&!balTutSeen){setBalTutSeen(true);openBalTut();}
+                       return{...p,balanceExpanded:next};
+                     });
+                   }
+                 }}
+                 style={{padding:isPhone?'10px 8px':'10px 14px',cursor:'pointer'}}>
+              <div style={{display:'flex',alignItems:'center',gap:isPhone?5:8,marginBottom:5,flexWrap:'wrap'}}>
                 <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>HANDLING BALANCE</span>
                 <Hint text="Combined steady-state handling tendency from all tuning inputs. Positive (+) = oversteer tendency, negative (−) = understeer. Zero is weight-matched neutral — neither end saturates grip first. Tap to expand for contributor breakdown and actionable tip."/>
                 <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>·</span>
@@ -3747,9 +3771,11 @@ function App(){
                   <Hint text="Mech Balance is the rear fraction of total roll stiffness (0 = all front, 1 = all rear, 0.5 = even split). This matches Forza's in-game mech balance display. The delta shows how far your setup has shifted from the car's natural balance — blue means more rear-biased than natural, amber means more front-biased."/>
                 </span>}
                 <span style={{fontSize:10,color:'#94a3b8'}}>
-                  {open.balanceExpanded?'▲':'▼'}
+                  {(isPhone?footerOpen:open.balanceExpanded)?'▲':'▼'}
                 </span>
               </div>
+              {/* Bar stack — always shown on desktop; on phones it collapses behind the summary line. */}
+              {(!isPhone||footerOpen)&&<>
               {/* compact stacked balance bar — each contributor rendered as a segment from centre */}
               {(()=>{
                 const cl=v=>Math.max(-50,Math.min(50,v));
@@ -3903,6 +3929,15 @@ function App(){
                   </div>
                 </>);
               })()}
+              {/* phones: reach the full contributor breakdown + actionable tip (desktop taps the header for this) */}
+              {isPhone&&<div style={{display:'flex',justifyContent:'center',marginTop:8}}>
+                <button onClick={e=>{e.stopPropagation();setOpen(p=>({...p,balanceExpanded:!p.balanceExpanded}));}}
+                  style={{background:'none',border:'1px solid #1e293b',borderRadius:2,color:'#94a3b8',
+                          fontFamily:'Courier New',fontSize:10,padding:'5px 14px',cursor:'pointer',letterSpacing:1}}>
+                  {open.balanceExpanded?'HIDE DETAIL ▲':'DETAIL ▼'}
+                </button>
+              </div>}
+              </>}
             </div>
             {/* expanded full verdict */}
             {open.balanceExpanded&&
@@ -3917,6 +3952,8 @@ function App(){
                     </>);
                   })()}
                 </div>
+                {/* phones: cap the contributor breakdown height; scroll vertically only (never horizontally) */}
+                <div style={isPhone?{maxHeight:'42vh',overflowY:'auto',overflowX:'hidden',overscrollBehavior:'contain',WebkitOverflowScrolling:'touch'}:undefined}>
                 <HandlingVerdict total={bTotFull} bSp={tune.bSp} bAb={tune.bAb}
                   bDiffAccel={diff.bDiffAccel} bDiffDecel={diff.bDiffDecel}
                   bDiffFront={diff.bDiffFront} bDiffRear={diff.bDiffRear}
@@ -3995,6 +4032,7 @@ function App(){
                     </div>
                   );
                 })()}
+                </div>
               </div>}
           </div>
 
