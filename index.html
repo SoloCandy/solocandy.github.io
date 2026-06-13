@@ -712,28 +712,28 @@ const PRESET_SAVES=(()=>{
   const ref=Math.round(cornerMasses(DEF_CH).front);
   return{
     1:{name:'STREET',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:1.64,rearHzMode:'multiplier',rearHzMultiplier:1.15,
+       fe:{...DEF_FE,rideStiffness:1.64,rearHzMode:'multiplier',rearHzMult:1.15,
            reboundZeta:60,bumpRatio:50,dampingBias:8},
        dr:{...DEF_DR,buildType:'street',diffBiasExit:-10,diffBiasEntry:10}},
     2:{name:'TRACK',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:2.29,rearHzMode:'multiplier',rearHzMultiplier:1.05,
+       fe:{...DEF_FE,rideStiffness:2.29,rearHzMode:'multiplier',rearHzMult:1.05,
            reboundZeta:72,bumpRatio:58,dampingBias:12},
        dr:{...DEF_DR,buildType:'track',diffBiasExit:5,diffBiasEntry:0}},
     3:{name:'RALLY',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:1.29,rearHzMode:'multiplier',rearHzMultiplier:1.35,
+       fe:{...DEF_FE,rideStiffness:1.29,rearHzMode:'multiplier',rearHzMult:1.35,
            reboundZeta:65,bumpRatio:45,dampingBias:-12},
        dr:{...DEF_DR,buildType:'street',diffBiasExit:-5,diffBiasEntry:-15}},
     4:{name:'DRIFT',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:1.39,rearHzMode:'multiplier',rearHzMultiplier:1.30,
+       fe:{...DEF_FE,rideStiffness:1.39,rearHzMode:'multiplier',rearHzMult:1.30,
            reboundZeta:63,bumpRatio:46,dampingBias:15},
        dr:{...DEF_DR,buildType:'drift',layout:'RWD',
            diffBiasExit:22,diffBiasEntry:-18,diffRearAccel:65,diffRearDecel:15}},
     5:{name:'MOTORSPT',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:2.83,rearHzMode:'multiplier',rearHzMultiplier:0.95,
+       fe:{...DEF_FE,rideStiffness:2.83,rearHzMode:'multiplier',rearHzMult:0.95,
            reboundZeta:77,bumpRatio:62,dampingBias:18},
        dr:{...DEF_DR,buildType:'track',diffBiasExit:10,diffBiasEntry:-5}},
     6:{name:'X COUNTRY',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:0.98,rearHzMode:'multiplier',rearHzMultiplier:1.22,
+       fe:{...DEF_FE,rideStiffness:0.98,rearHzMode:'multiplier',rearHzMult:1.22,
            reboundZeta:55,bumpRatio:40,dampingBias:0},
        dr:{...DEF_DR,buildType:'street'}},
   };
@@ -1791,9 +1791,9 @@ const TUTORIALS={
     {title:'Spring / ARB Mix',
      focus:['rear-stiffness'],
      body:'Controls how the balance correction is split between anti-roll bars and rear spring stiffness. ARBs (left) = bars do all the work, springs stay symmetric. SPRINGS (right) = rear spring stiffness carries more correction. BALANCED (centre) splits evenly — a good default.'},
-    {title:'Balance (Rear Hz)',
+    {title:'Balance',
      focus:['balance'],
-     body:'Controls the rear suspension stiffness relative to front — the rear frequency multiplier. Centre (1.0×) is a neutral starting point, matching rear to front. Push toward OVERSTEER (lower, softer rear, 0.5×–0.8×) for more rotation and rear-end freedom. Push toward UNDERSTEER (higher, stiffer rear, 1.2×–2.0×) for more stable corner entry. Combined with Spring / ARB Mix, this tunes your overall balance.'},
+     body:'Shifts the handling balance. Left (OVERSTEER) increases rear roll stiffness — more rotation and rear-end freedom. Right (UNDERSTEER) increases front roll stiffness — more stability and confidence at corner entry. Centre is neutral. Watch the handling balance bar at the bottom update as you move the slider. Combined with Spring / ARB Mix, this sets your overall balance character.'},
     {title:'Character',
      focus:['character'],
      body:'Controls damping feel — how quickly the suspension settles after a bump or weight transfer. STABLE means more damped: planted and predictable. AGILE means lighter damping: livelier and more reactive to inputs. Start at centre for most builds.'},
@@ -2124,7 +2124,7 @@ function App(){
     if(uiMode!=='beginner')return;
     setFe(p=>({...p,
       arbBalMode:'coSolve',
-      arbBalTarget:Math.max(0.50,Math.min(0.80,0.65-(p.arbBias??0)*0.003)),
+      arbBalTarget:Math.max(0.50,Math.min(0.80,p.arbBalTarget??0.65)),
     }));
   },[uiMode]); // eslint-disable-line
 
@@ -2272,7 +2272,7 @@ function App(){
     }
     if(uiMode==='beginner'){
       adjustedFe.arbBalMode='coSolve';
-      adjustedFe.arbBalTarget=Math.max(0.50,Math.min(0.80,0.65-(adjustedFe.arbBias??0)*0.003));
+      adjustedFe.arbBalTarget=0.65;
     }
     setFe(adjustedFe);
     if(loadMode!=='fe')setDr({...DEF_DR,...s.dr});
@@ -2532,6 +2532,7 @@ function App(){
           {uiMode==='beginner'&&(()=>{
             const stAgVal=Math.max(-50,Math.min(50,Math.round((70-(fe.reboundZeta??70))*2)));
             const[hzCat,hzCol]=hzCtx(physics.frontHz);
+            const balVal=Math.max(-50,Math.min(50,Math.round((0.65-(fe.arbBalTarget??0.65))/0.003)));
             return(
               <div style={{padding:'14px 12px 20px'}}>
                 {/* START FROM presets */}
@@ -2587,14 +2588,15 @@ function App(){
                   hint="Controls how the balance correction is split between anti-roll bars and rear spring stiffness. ARBs (left) = bars do the work, springs stay symmetric. SPRINGS (right) = rear spring stiffness is adjusted more, bars stay near neutral. BALANCED (centre) splits the correction evenly between both."/>
                 </div>
                 <div id="zone-balance" style={dim('balance')}>
-                <FeelSlider label="Balance" value={(fe.rearHzMultiplier??1.2-1)*50}
+                <FeelSlider label="Balance" value={balVal}
                   onChange={v=>setFe(p=>({...p,
-                    rearHzMultiplier:Math.max(0.70,Math.min(1.70,1.2+v*0.01))}))}
+                    arbBalMode:'coSolve',
+                    arbBalTarget:Math.max(0.50,Math.min(0.80,0.65-v*0.003))}))}
                   min={-50} max={50} step={1}
                   leftLabel="OVERSTEER" rightLabel="UNDERSTEER"
                   centered={true}
-                  readout={`×${(fe.rearHzMultiplier??1.2).toFixed(2)}`}
-                  hint="Controls the rear spring stiffness relative to front (multiplier). Left (softer rear) = oversteer bias, more rotation. Right (stiffer rear) = understeer bias, more stability. Start at centre for most builds."/>
+                  readout={balVal<-10?'OVERSTEER':balVal>10?'UNDERSTEER':'NEUTRAL'}
+                  hint="Shifts the handling balance. Left (OVERSTEER) increases rear roll stiffness — more rotation, freer rear end. Right (UNDERSTEER) increases front roll stiffness — more stability. Start at centre for most builds."/>
                 </div>
                 <div id="zone-character" style={dim('character')}>
                 <FeelSlider label="Character" value={stAgVal}
