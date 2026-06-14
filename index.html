@@ -1696,95 +1696,6 @@ const OverwriteBtn=({onConfirm})=>{
   );
 };
 
-const PresetBtn=({name,onLoad})=>{
-  const[pending,handle]=useTwoTap(onLoad);
-  return(
-    <button className="tbtn"
-      style={{fontSize:10,padding:'5px 2px',textAlign:'center',
-              ...(pending?{borderColor:'#f59e0b88',color:'#f59e0b'}:{})}}
-      onClick={handle}
-      title={pending?`Click again to load ${name}`:`Load ${name} preset`}>
-      {pending?'SURE?':name}
-    </button>
-  );
-};
-
-const IconBtn=({onClick,color='#94a3b8',activeBorder,activeColor,title,char,active=false,style:xStyle={}})=>
-  <button onClick={onClick}
-    style={{background:'none',border:`1px solid ${active?activeBorder:'#1e293b'}`,borderRadius:2,
-            color:active?activeColor:color,cursor:'pointer',fontSize:10,
-            padding:0,lineHeight:'22px',flexShrink:0,transition:'color .12s,border-color .12s',...xStyle}}
-    title={title}>{char}</button>;
-
-const SaveSlot=({i,s,onLoad,onSave,onClear,onRename,onNotes,onSaveOver,onResetDefault})=>{
-  const[editing,setEditing]=useState(false);
-  const[draft,setDraft]=useState('');
-  const[pendingLoad,handleLoad]=useTwoTap(onLoad);
-  const[pendingClear,handleClear]=useTwoTap(onClear);
-  const[pendingOver,handleOver]=useTwoTap(onSaveOver);
-  const[pendingReset,handleReset]=useTwoTap(onResetDefault);
-  const inputRef=useRef(null);
-
-  const startEdit=e=>{
-    e.stopPropagation();
-    setDraft(s.name);
-    setEditing(true);
-    setTimeout(()=>{inputRef.current?.select();},10);
-  };
-  const commit=()=>{
-    const name=draft.trim().slice(0,12)||s.name;
-    onRename(i,name);
-    setEditing(false);
-  };
-
-  const btnRow={display:'flex',gap:2,width:'100%'};
-  const iconStyle={flex:1,lineHeight:'20px',textAlign:'center'};
-
-  if(!s) return(
-    <button className="tbtn" style={{fontSize:11,color:'#94a3b8',borderStyle:'dashed',width:'100%',padding:'10px 8px'}}
-      onClick={onSave} title={`Save current tune to slot ${i}`}>
-      + {i}
-    </button>
-  );
-
-  const notesTip=s.notes?` — ${s.notes}`:'';
-  return(
-    <div style={{display:'flex',flexDirection:'column',gap:2,width:'100%'}}>
-      {editing
-        ? <input ref={inputRef} autoFocus
-            value={draft} onChange={e=>setDraft(e.target.value)}
-            onBlur={commit}
-            onKeyDown={e=>{if(e.key==='Enter')commit();if(e.key==='Escape'){setEditing(false);}}}
-            style={{width:'100%',background:'#0a0f1a',border:'1px solid #e2e8f033',borderRadius:2,
-                    color:'#e2e8f0',fontFamily:'Courier New',fontSize:11,padding:'7px 8px',
-                    outline:'none',textTransform:'uppercase',boxSizing:'border-box'}}/>
-        : <button className="tbtn saved"
-            style={{fontSize:11,width:'100%',padding:'9px 8px',overflow:'hidden',
-                    textOverflow:'ellipsis',whiteSpace:'nowrap',
-                    ...(pendingLoad?{borderColor:'#f59e0b88',color:'#f59e0b'}:{})}}
-            onClick={handleLoad} title={pendingLoad?`Click again to load ${s.name}`:`${s.name}${notesTip}`}>
-            {pendingLoad?'SURE?':s.name.slice(0,12).toUpperCase()}
-          </button>}
-      <div style={btnRow}>
-        <IconBtn onClick={startEdit} title="Rename" char="✎" style={iconStyle}/>
-        <IconBtn
-          onClick={()=>{const n=prompt('Notes (shown on hover):',s.notes??'');if(n!==null)onNotes(i,n.slice(0,80));}}
-          color={s.notes?'#60a5fa':'#94a3b8'} activeBorder="#60a5fa44" activeColor="#60a5fa"
-          title={s.notes||'Add notes'} char="ⓘ" active={!!s.notes} style={iconStyle}/>
-        <IconBtn onClick={handleOver} activeBorder="#34d39944" activeColor="#34d399"
-          title={pendingOver?'Click again to overwrite with current tune':'Overwrite with current tune'}
-          char="↺" active={pendingOver} style={iconStyle}/>
-        <IconBtn onClick={handleReset} activeBorder="#818cf844" activeColor="#818cf8"
-          title={pendingReset?'Click again to restore default preset':'Reset to default preset'}
-          char="↩" active={pendingReset} style={iconStyle}/>
-        <IconBtn onClick={handleClear} activeBorder="#f59e0b44" activeColor="#f59e0b"
-          title={pendingClear?'Click again to clear':'Clear slot'}
-          char={pendingClear?'✓':'✕'} active={pendingClear} style={iconStyle}/>
-      </div>
-    </div>
-  );
-};
-
 class ErrorBoundary extends React.Component{
   constructor(p){super(p);this.state={err:null};}
   static getDerivedStateFromError(e){return{err:e};}
@@ -2058,7 +1969,7 @@ function App(){
   const[al,setAl]=usePersist('suspos_al_v2',DEF_AL);
   const[br,setBr]=usePersist('suspos_br_v1',DEF_BR);
   const[metricUnits,setMetricUnits]=usePersist('suspos_units_v1',false);
-  const[saves,setSaves]=usePersist('suspos_saves_v9',PRESET_SAVES);
+  const[saves]=usePersist('suspos_saves_v9',PRESET_SAVES); // read-only: legacy slots, source for one-time MY BUILDS migration
   const[uiMode,setUiMode]=usePersist('suspos_uimode_v1','beginner');
   const[uiZoom,setUiZoom]=usePersist('suspos_zoom_v1',1.1);
   const bumpZoom=d=>setUiZoom(z=>parseFloat(Math.max(0.7,Math.min(1.6,z+d)).toFixed(2)));
@@ -2304,31 +2215,6 @@ function App(){
   })();
   const natMechBalance=chassisAnalysis.natBal;
 
-  const handleSlot=i=>{
-    const s=saves[i];
-    if(s){
-      let adjustedFe={...DEF_FE,...s.fe};
-      if(s.refCornerMassF){
-        const scale=Math.sqrt(s.refCornerMassF/cm.front);
-        const scaledHz=Math.max(HZ_MIN,Math.min(HZ_MAX,rsToHz(s.fe.rideStiffness)*scale));
-        adjustedFe.rideStiffness=hzToRs(scaledHz);
-      }
-      if(uiMode==='beginner'){
-        // Ensure rearHzMode is 'multiplier' for beginner simplicity
-        if(!adjustedFe.rearHzMode||adjustedFe.rearHzMode==='independent')adjustedFe.rearHzMode='multiplier';
-      }
-      setFe(adjustedFe);
-      if(loadMode!=='fe') setDr({...DEF_DR,...s.dr});
-    }
-    else{
-      const hz=physics.frontHz.toFixed(2);
-      const build=(dr.buildType??'track').toUpperCase();
-      setSaves(p=>({...p,[i]:{fe,dr,
-        name:`${build} ${hz}`,
-        refCornerMassF:Math.round(cm.front),
-        notes:''}}));
-    }
-  };
   const loadPreset=i=>{
     const s=PRESET_SAVES[i];if(!s)return;
     let adjustedFe={...DEF_FE,...s.fe};
@@ -2344,11 +2230,6 @@ function App(){
     setFe(adjustedFe);
     if(loadMode!=='fe')setDr({...DEF_DR,...s.dr});
   };
-  const clearSlot=i=>setSaves(p=>{const n={...p};delete n[i];return n;});
-  const renameSlot=(i,name)=>setSaves(p=>({...p,[i]:{...p[i],name}}));
-  const notesSlot=(i,notes)=>setSaves(p=>({...p,[i]:{...p[i],notes}}));
-  const overwriteSlot=i=>setSaves(p=>({...p,[i]:{...p[i],fe,dr,refCornerMassF:Math.round(cm.front)}}));
-  const resetSlot=i=>setSaves(p=>({...p,[i]:PRESET_SAVES[i]}));
   const performGlobalReset=()=>{
     if(resetOpts.tune){
       setCh({...DEF_CH});
