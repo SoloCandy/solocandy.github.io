@@ -427,7 +427,9 @@ const computeTune=(ch,phys,gameMode)=>{
   if(phys.settleMode){
     const biasMult=Math.pow(2,(phys.settleBias??0)/50);
     zetaR=Math.max(10,Math.min(115,phys.reboundZeta*(fHz/effectiveRHz)*biasMult));
-    bumpZetaR=Math.max(10,Math.min(zetaR,zetaR*(phys.bumpRatioVal??56)/100));
+    bumpZetaR=phys.dampingMode==='ratio'
+      ? Math.max(10,Math.min(zetaR,zetaR*(phys.bumpRatioVal??56)/100))
+      : Math.max(10,Math.min(zetaR,phys.bumpZeta??39));
   }
   const springF=solveSpring(fHz,m.front,1);
   const springR=solveSpring(effectiveRHz,m.rear,1);
@@ -4059,7 +4061,7 @@ function App(){
                   bDiffFront={diff.bDiffFront} bDiffRear={diff.bDiffRear}
                   diffLayout={diff.layout}
                   bBrakeEntry={bBrakeEntry} bDampBias={bDampBias}
-                  mechBalance={null} uiMode={uiMode}/>
+                  gripBalance={tune.gripBalance} mechBalance={null} uiMode={uiMode}/>
                 {/* RESPONSE factor breakdown */}
                 {(()=>{
                   const{score,hzNorm,dampNorm,toeNorm,casterNorm,rearHzNorm}=responseFactors;
