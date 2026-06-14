@@ -2212,7 +2212,7 @@ function App(){
   const brakePressure=br.brakeManual?(br.brakePressure??DEF_BR.brakePressure):100;
   // positive = oversteer, negative = understeer
   const bBrakeEntry=-(brakeBias-50)*BRAKE_BIAS_SCALE; // high front bias → understeer (−)
-  const bDampBias=-(fe.dampingBias??0)*0.08; // more front damping → understeer (−)
+  const bDampBias=-(physics.zetaF-physics.zetaR)*16/(fe.reboundZeta??70); // more front rebound → understeer (−)
   const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bDampBias;
   const lim=GAME_LIMITS[fe.gameMode];
   const responseFactors=(()=>{
