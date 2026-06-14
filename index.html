@@ -2758,10 +2758,10 @@ function App(){
                                         padding:'6px 7px',display:'flex',flexDirection:'column',gap:3,
                                         minWidth:0}}>
                                 <div style={{display:'flex',alignItems:'flex-start',gap:3,minWidth:0}}>
+                                  <OverwriteBtn onConfirm={()=>setGarage(g=>g.map(x=>x.id===s.id?{...x,ch:{...ch},savedAt:new Date().toLocaleDateString()}:x))}/>
                                   <span style={{fontSize:11,color:'#cbd5e1',fontWeight:600,
                                                 flex:1,overflow:'hidden',textOverflow:'ellipsis',
                                                 whiteSpace:'nowrap',minWidth:0}}>{s.name}</span>
-                                  <OverwriteBtn onConfirm={()=>setGarage(g=>g.map(x=>x.id===s.id?{...x,ch:{...ch},savedAt:new Date().toLocaleDateString()}:x))}/>
                                   <button onClick={()=>deleteSave(s.id)}
                                     style={{background:'none',border:'none',color:'#374151',
                                             cursor:'pointer',fontSize:12,lineHeight:1,
@@ -3928,10 +3928,10 @@ function App(){
                 <div key={key} style={{background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
                                        padding:'6px 7px',display:'flex',flexDirection:'column',gap:3,minWidth:0}}>
                   <div style={{display:'flex',alignItems:'flex-start',gap:3,minWidth:0}}>
+                    {onOverwrite&&<OverwriteBtn onConfirm={onOverwrite}/>}
                     <span style={{fontSize:11,color:'#cbd5e1',fontWeight:600,flex:1,
                                   overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
                                   minWidth:0}}>{name}</span>
-                    {onOverwrite&&<OverwriteBtn onConfirm={onOverwrite}/>}
                     {onDel&&<button onClick={onDel}
                       style={{background:'none',border:'none',color:'#374151',cursor:'pointer',
                               fontSize:12,lineHeight:1,padding:'0 0 0 2px',flexShrink:0}}>×</button>}
