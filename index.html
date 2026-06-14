@@ -1803,10 +1803,10 @@ const TUTORIALS={
   beginner:[
     {title:'Welcome to SUSP.OS',
      focus:null,sidebar:'close',spotlight:'hamburger',
-     body:'This app calculates exact Forza suspension values from your car\'s stats and a handling target. A few inputs are all you need — the physics engine solves springs, damping, and anti-roll bars automatically. Tap the ☰ button to open the input sidebar. This guide covers the basics — INT and PRO each have their own guide that picks up where this leaves off.'},
+     body:'This app calculates suspension values from your car\'s stats and a handling target. A few inputs are all you need — the physics engine solves springs, damping, and anti-roll bars automatically. Tap the ☰ button to open the input sidebar. This guide covers the basics — INT and PRO each have their own guide that picks up where this leaves off.'},
     {title:'Getting Around',
      focus:null,
-     body:'The ☰ button opens and closes the input sidebar — the right panel shows live results and updates as you type. BEG / INT / PRO control how many inputs are visible. IMP / MET switches units. HZ / MS switches between Forza Horizon and Motorsport. ↩ undoes the last change. ? reopens this guide at any time.'},
+     body:'The ☰ button opens and closes the input sidebar — the right panel shows live results and updates as you type. BEG / INT / PRO control how many inputs are visible. IMP / MET switches units. HZ / MS switches output limits between Horizon and Motorsport. ↩ undoes the last change. ? reopens this guide at any time.'},
     {title:'Start From a Preset',
      focus:['presets'],
      body:'Tap one of the six preset buttons to load a baseline tune. STREET, TRACK, RALLY, DRIFT, MOTORSPT, and X COUNTRY each set a different balance target, stiffness level, and damping character. Pick the closest to your build, then adjust from there.'},
@@ -1815,7 +1815,7 @@ const TUTORIALS={
      body:'Select your drive layout (FWD / RWD / AWD) and build style. Layout affects how differential lock contributes to handling balance. Build type shifts the recommended mech balance range and diff recommendations toward street, track, or drift behaviour.'},
     {title:'Weight & Front Bias',
      focus:['weight'],
-     body:'Enter your car\'s total weight and front weight bias from Forza\'s car stat screen — use the selection screen, not the tuning menu. These two numbers drive almost every calculation in the app.'},
+     body:'Enter your car\'s total weight and front weight bias from the car stat screen — use the selection screen, not the tuning menu. These two numbers drive almost every calculation in the app.'},
     {title:'Ride Stiffness',
      focus:['ride-stiffness'],
      body:'Controls overall suspension stiffness. SOFT is comfortable on rough surfaces. ROAD is a balanced starting point. FIRM is responsive sport. RACE is a stiff competition setup. The badge updates as you move the slider.'},
@@ -1833,7 +1833,7 @@ const TUTORIALS={
      body:'The Handling Balance bar is pinned at the bottom of the results panel. It shows your total oversteer or understeer tendency as a number and a bar. The bar is colour-zoned — the centre band is neutral, the mild zone is typical for intentional OS/US bias, and the outer zone is aggressive. Tap to expand a full breakdown of every contributor.'},
     {title:'Reading the Results',
      focus:['output'],
-     body:'The right panel shows exact values to enter in Forza\'s tuning menu: Springs, Dampers, Anti-Roll Bars, and Alignment. Amber values mean you\'re near a game limit — soften your inputs slightly if that happens.'},
+     body:'The right panel shows exact values to enter in the tuning menu: Springs, Dampers, Anti-Roll Bars, and Alignment. Amber values mean you\'re near a game limit — soften your inputs slightly if that happens.'},
   ],
   intermediate:[
     {title:'Welcome — Intermediate Mode',
@@ -1841,7 +1841,7 @@ const TUTORIALS={
      body:'Intermediate mode unlocks the full input surface on top of what you learned in Beginner. Everything is the same — just more controls. Sections in the sidebar are collapsible. This guide only covers what\'s new.'},
     {title:'Tyre Sizes',
      focus:['chassis'],
-     body:'The CHASSIS section now includes tyre sizes. Enter front and rear in Forza format (e.g. 265/35R18). Tyre width sets grip capacity at the limit — wider = more grip on that axle. This feeds the CHASSIS BAL. readout (natural mechanical balance) and GRIP BIAS (at-limit handling tendency) below the inputs.'},
+     body:'The CHASSIS section now includes tyre sizes. Enter front and rear tyre sizes (e.g. 265/35R18). Tyre width sets grip capacity at the limit — wider = more grip on that axle. This feeds the CHASSIS BAL. readout (natural mechanical balance) and GRIP BIAS (at-limit handling tendency) below the inputs.'},
     {title:'Build Type & Balance Target',
      focus:['build'],
      body:'The BUILD section contains three key controls. Build type (STREET/TRACK/DRIFT) sets your intended use — it determines the recommended balance range, diff AUTO behaviour, alignment presets, and brake AUTO recommendations. Mech Balance Target (0.40–0.90) is your primary tuning intent — the roll-stiffness rear fraction you want. The BALANCE GUIDE bar shows your car\'s natural balance, the recommended range for your build type, and where your target sits. Set build type first, then choose a balance target within the recommended range.'},
@@ -2635,7 +2635,7 @@ function App(){
                   onChange={metricUnits?v=>pCh('weight')(v*KG_TO_LB):pCh('weight')}
                   min={metricUnits?45:100} max={metricUnits?8165:18000} step={1}
                   unit={metricUnits?'kg':'lb'} logScale={true} logMid={metricUnits?2722:6000}
-                  hint="Total vehicle weight. Find this on the car's stat page in Forza."/>
+                  hint="Total vehicle weight. Find this on the car's stat page."/>
                 <Field label="Front Weight Bias" value={ch.frontBias} onChange={pCh('frontBias')}
                   min={30} max={70} step={1} unit="%"
                   hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance."/>
@@ -2778,8 +2778,8 @@ function App(){
               min={metricUnits?45:100} max={metricUnits?8165:18000} step={1}
               unit={metricUnits?'kg':'lb'} logScale={true} logMid={metricUnits?2722:6000}
               hint={metricUnits
-                ?"Total vehicle weight in kg. Find this on the car's stat page in Forza. Affects spring rates, damper forces, and ARB stiffness directly."
-                :"Total vehicle weight in pounds. Find this on the car's stat page in Forza. Affects spring rates, damper forces, and ARB stiffness directly."}/>
+                ?"Total vehicle weight in kg. Find this on the car's stat page. Affects spring rates, damper forces, and ARB stiffness directly."
+                :"Total vehicle weight in pounds. Find this on the car's stat page. Affects spring rates, damper forces, and ARB stiffness directly."}/>
             <Field label="Front Weight Bias" value={ch.frontBias} onChange={pCh('frontBias')} min={30} max={70} step={1} unit="%"
               hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance. Most front-engined cars are 52–58% front."/>
             {uiMode==='pro'&&<div style={{display:'flex',alignItems:'center',gap:6,
@@ -2864,7 +2864,7 @@ function App(){
               return(<>
                 <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
                   <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>TYRE SIZE</span>
-                  <Hint text="Enter tyre sizes in Forza format (e.g. 265/35R18). Width (first number, in mm) sets each axle's grip capacity at the limit — wider = more grip on that end. This affects the GRIP BIAS readout (physical handling at limit) but not the roll stiffness balance directly. Aspect ratio and rim diameter determine rolling radius."/>
+                  <Hint text="Enter tyre sizes (e.g. 265/35R18). Width (first number, in mm) sets each axle's grip capacity at the limit — wider = more grip on that end. This affects the GRIP BIAS readout (physical handling at limit) but not the roll stiffness balance directly. Aspect ratio and rim diameter determine rolling radius."/>
                 </div>
                 <div style={{display:'flex',gap:8,marginBottom:4}}>
                   {tyreInput('tyreF','FRONT')}
@@ -2942,7 +2942,7 @@ function App(){
             <Field label="Track Width Rear" value={Math.round(ch.trackR*1000)} onChange={v=>pCh('trackR')(v/1000)} min={1000} max={2600} step={5} unit="mm"
               hint="Distance between left and right wheels at the rear. Typical: 1400–1800 mm. Often slightly wider than front."/>
             <Field label="CG Height" value={Math.round(ch.cgHeight*1000)} onChange={v=>pCh('cgHeight')(v/1000)} min={200} max={900} step={5} unit="mm"
-              hint="Estimated height of the centre of gravity above ground. Forza doesn't expose this — use 400–460 mm for sports cars, 480–550 mm for sedans, 580–700 mm for SUVs. Affects roll moment and ARB stiffness."/>
+              hint="Estimated height of the centre of gravity above ground. The game doesn't expose this — use 400–460 mm for sports cars, 480–550 mm for sedans, 580–700 mm for SUVs. Affects roll moment and ARB stiffness."/>
             </> }
           </Sec></div>
 
@@ -3742,7 +3742,7 @@ function App(){
           {/* 2+3 — ANTI-ROLL BARS + SPRINGS side by side (stacked on phones) */}
           <div style={{display:'grid',gridTemplateColumns:isPhone?'1fr':'1fr 1fr',gap:6,marginBottom:6}}>
           <Card title="ANTI-ROLL BARS" accent
-            hint="Click values to enter in Forza's ARB tuning menu. Roll angle and ARB share are shown in the ANTI-ROLL BARS section of inputs. Amber warn when above 88% of the game limit.">
+            hint="Click values to enter in the ARB tuning menu. Roll angle and ARB share are shown in the ANTI-ROLL BARS section of inputs. Amber warn when above 88% of the game limit.">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               <Readout label="FRONT" value={tune.arbF} warn={tune.arbF>lim.arb*0.88}
                 unit={`/ ${lim.arb}`} ctx={arbCtx(tune.arbF,lim.arb)} primary/>
@@ -3768,7 +3768,7 @@ function App(){
           </Card>
 
           <Card title="SPRINGS" accent
-            hint="Spring rates in lb/in to enter in Forza. The badge shows the frequency category — SOFT/ROAD/FIRM/RACE. Hz values are shown in the FEEL section of inputs.">
+            hint="Spring rates in lb/in to enter in the tuning menu. The badge shows the frequency category — SOFT/ROAD/FIRM/RACE. Hz values are shown in the FEEL section of inputs.">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               <Readout label="FRONT"
                 value={metricUnits?tune.springF*NMM_PER_LBIN:tune.springF}
@@ -3789,7 +3789,7 @@ function App(){
 
           {/* 4 — DAMPERS */}
           <Card title="DAMPERS" accent
-            hint="Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in Forza's damping tuning menu. Amber warn when above 88% of the game limit. F/R balance is preserved — if either end exceeds the limit, both are scaled proportionally so the ratio is maintained.">
+            hint="Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in the damping tuning menu. Amber warn when above 88% of the game limit. F/R balance is preserved — if either end exceeds the limit, both are scaled proportionally so the ratio is maintained.">
             <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'1fr 1fr 1fr 1fr',gap:4}}>
               <Readout label="REB F"  value={tune.rebF}  warn={tune.rebF>lim.damping*0.88}  unit={`/ ${lim.damping}`} primary/>
               <Readout label="REB R"  value={tune.rebR}  warn={tune.rebR>lim.damping*0.88}  unit={`/ ${lim.damping}`} primary/>
@@ -3874,6 +3874,13 @@ function App(){
           </Card>
 
           </div>{/* end cards */}
+
+          {/* DISCLAIMER */}
+          <div style={{flexShrink:0,borderTop:'1px solid #0f172a',padding:'6px 12px',...dim('presets')}}>
+            <p style={{margin:0,fontSize:9,color:'#334155',lineHeight:1.5,textAlign:'center'}}>
+              SUSP.OS is an independent tool not affiliated with, endorsed by, or associated with Microsoft Corporation or Turn 10 Studios. Forza Horizon and Forza Motorsport are registered trademarks of Microsoft Corporation.
+            </p>
+          </div>
 
           {/* TOOLBAR — builds, check, share, import */}
           <div style={{flexShrink:0,borderTop:'1px solid #0f172a',background:'#020617',...dim('presets')}}>
