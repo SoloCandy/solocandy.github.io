@@ -1686,6 +1686,16 @@ const useTwoTap=(callback,delay=2000)=>{
   return[pending,handle];
 };
 
+const OverwriteBtn=({onConfirm})=>{
+  const[pending,handle]=useTwoTap(onConfirm);
+  return(
+    <button onClick={handle}
+      style={{background:'none',border:'none',cursor:'pointer',fontSize:12,lineHeight:1,
+              padding:'0 0 0 3px',flexShrink:0,color:pending?'#f59e0b':'#374151'}}
+      title={pending?'Click again to overwrite':'Overwrite with current data'}>↺</button>
+  );
+};
+
 const PresetBtn=({name,onLoad})=>{
   const[pending,handle]=useTwoTap(onLoad);
   return(
@@ -2751,6 +2761,7 @@ function App(){
                                   <span style={{fontSize:11,color:'#cbd5e1',fontWeight:600,
                                                 flex:1,overflow:'hidden',textOverflow:'ellipsis',
                                                 whiteSpace:'nowrap',minWidth:0}}>{s.name}</span>
+                                  <OverwriteBtn onConfirm={()=>setGarage(g=>g.map(x=>x.id===s.id?{...x,ch:{...ch},savedAt:new Date().toLocaleDateString()}:x))}/>
                                   <button onClick={()=>deleteSave(s.id)}
                                     style={{background:'none',border:'none',color:'#374151',
                                             cursor:'pointer',fontSize:12,lineHeight:1,
@@ -3913,13 +3924,14 @@ function App(){
                   {children}
                 </div>
               );
-              const card=(key,name,line1,line2,onLoad,onDel)=>(
+              const card=(key,name,line1,line2,onLoad,onDel,onOverwrite)=>(
                 <div key={key} style={{background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
                                        padding:'6px 7px',display:'flex',flexDirection:'column',gap:3,minWidth:0}}>
                   <div style={{display:'flex',alignItems:'flex-start',gap:3,minWidth:0}}>
                     <span style={{fontSize:11,color:'#cbd5e1',fontWeight:600,flex:1,
                                   overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
                                   minWidth:0}}>{name}</span>
+                    {onOverwrite&&<OverwriteBtn onConfirm={onOverwrite}/>}
                     {onDel&&<button onClick={onDel}
                       style={{background:'none',border:'none',color:'#374151',cursor:'pointer',
                               fontSize:12,lineHeight:1,padding:'0 0 0 2px',flexShrink:0}}>×</button>}
@@ -3966,7 +3978,8 @@ function App(){
                               if(loadMode==='fe'){setFe({...DEF_FE,...b.fe});}
                               else{setFe({...DEF_FE,...b.fe});setDr({...DEF_DR,...b.dr});}
                             },
-                            ()=>setMyBuilds(p=>p.filter(x=>x.id!==b.id)));
+                            ()=>setMyBuilds(p=>p.filter(x=>x.id!==b.id)),
+                            ()=>setMyBuilds(p=>p.map(x=>x.id===b.id?{...x,fe:{...fe},dr:{...dr},savedAt:new Date().toLocaleDateString()}:x)));
                         }),220)}
                   </div>
                 </div>
