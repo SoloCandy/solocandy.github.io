@@ -2059,6 +2059,9 @@ function App(){
   const openBalTut=()=>{setBalTutStep(0);setBalTutOpen(true);};
   const closeBalTut=()=>setBalTutOpen(false);
   const[onboardSeen,setOnboardSeen]=usePersist('suspos_onboard_v1',true);
+  const[garage,setGarage]=usePersist('suspos_garage_v1',[]);
+  const[garageOpen,setGarageOpen]=useState(false);
+  const[garageName,setGarageName]=useState('');
   const[showComplexity,setShowComplexity]=useState(false);
   const closeOnboard=()=>{setOnboardSeen(true);setShowComplexity(false);};
   const[tutMode,setTutMode]=useState(null);
@@ -2658,6 +2661,76 @@ function App(){
           {uiMode!=='beginner'&&<>
           <div id="zone-chassis" style={dim('chassis')}><Sec title="CHASSIS" open={open.chassis} onToggle={tog('chassis')}
             onReset={()=>setCh({...DEF_CH})}>
+            {/* ── Garage drawer ── */}
+            {(()=>{
+              const saveCurrentChassis=()=>{
+                const name=garageName.trim()||'Untitled';
+                setGarage(g=>[{id:Date.now(),name,ch:{...ch},savedAt:new Date().toLocaleDateString()}, ...g]);
+                setGarageName('');
+              };
+              const deleteSave=id=>setGarage(g=>g.filter(s=>s.id!==id));
+              return(
+                <div style={{marginBottom:10}}>
+                  {/* drawer header */}
+                  <div onClick={()=>setGarageOpen(o=>!o)}
+                    style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',
+                            padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
+                            border:'1px solid #1e293b',userSelect:'none'}}>
+                    <span style={{fontSize:10,letterSpacing:2,color:'#64748b'}}>GARAGE</span>
+                    {garage.length>0&&<span style={{fontSize:10,color:'#475569',marginLeft:2}}>{garage.length}</span>}
+                    <span style={{marginLeft:'auto',fontSize:10,color:'#475569'}}>{garageOpen?'▲':'▼'}</span>
+                  </div>
+                  {garageOpen&&(
+                    <div style={{background:'#080c14',border:'1px solid #1e293b',borderTop:'none',
+                                 borderRadius:'0 0 2px 2px',padding:'8px 8px 6px'}}>
+                      {/* save row */}
+                      <div style={{display:'flex',gap:4,marginBottom:8}}>
+                        <input value={garageName} onChange={e=>setGarageName(e.target.value)}
+                          onKeyDown={e=>e.key==='Enter'&&saveCurrentChassis()}
+                          placeholder="Name this chassis…"
+                          style={{flex:1,background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
+                                  padding:'4px 7px',fontSize:11,color:'#e2e8f0',outline:'none',
+                                  fontFamily:'inherit'}}/>
+                        <button onClick={saveCurrentChassis}
+                          style={{padding:'4px 10px',fontSize:10,letterSpacing:1,
+                                  background:'#1e293b',border:'1px solid #334155',borderRadius:2,
+                                  color:'#94a3b8',cursor:'pointer',flexShrink:0}}>SAVE</button>
+                      </div>
+                      {/* saved list */}
+                      {garage.length===0
+                        ? <div style={{fontSize:10,color:'#374151',textAlign:'center',padding:'10px 0',letterSpacing:1}}>NO SAVED CHASSIS</div>
+                        : <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:4,
+                                       maxHeight:220,overflowY:'auto',overscrollBehavior:'contain'}}>
+                            {garage.map(s=>(
+                              <div key={s.id}
+                                style={{background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
+                                        padding:'6px 7px',display:'flex',flexDirection:'column',gap:3,
+                                        minWidth:0}}>
+                                <div style={{display:'flex',alignItems:'flex-start',gap:3,minWidth:0}}>
+                                  <span style={{fontSize:11,color:'#cbd5e1',fontWeight:600,
+                                                flex:1,overflow:'hidden',textOverflow:'ellipsis',
+                                                whiteSpace:'nowrap',minWidth:0}}>{s.name}</span>
+                                  <button onClick={()=>deleteSave(s.id)}
+                                    style={{background:'none',border:'none',color:'#374151',
+                                            cursor:'pointer',fontSize:12,lineHeight:1,
+                                            padding:'0 0 0 2px',flexShrink:0}}>×</button>
+                                </div>
+                                <div style={{fontSize:9,color:'#475569',letterSpacing:.5}}>
+                                  {Math.round(s.ch.weight)}lb · {s.ch.frontBias}% F · {s.ch.wheelbase}m wb
+                                </div>
+                                <div style={{fontSize:9,color:'#374151'}}>{s.savedAt}</div>
+                                <button onClick={()=>setCh({...DEF_CH,...s.ch})}
+                                  style={{marginTop:2,padding:'2px 0',fontSize:9,letterSpacing:1,
+                                          background:'#1e293b',border:'1px solid #334155',borderRadius:1,
+                                          color:'#64748b',cursor:'pointer',width:'100%'}}>LOAD</button>
+                              </div>
+                            ))}
+                          </div>}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             <Field label="Weight"
               value={metricUnits?ch.weight/KG_TO_LB:ch.weight}
               onChange={metricUnits?v=>pCh('weight')(v*KG_TO_LB):pCh('weight')}
