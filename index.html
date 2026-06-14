@@ -2062,6 +2062,8 @@ function App(){
   const[garage,setGarage]=usePersist('suspos_garage_v1',[]);
   const[garageOpen,setGarageOpen]=useState(false);
   const[garageName,setGarageName]=useState('');
+  const[myBuilds,setMyBuilds]=usePersist('suspos_builds_v1',[]);
+  const[buildName,setBuildName]=useState('');
   const[showComplexity,setShowComplexity]=useState(false);
   const closeOnboard=()=>{setOnboardSeen(true);setShowComplexity(false);};
   const[tutMode,setTutMode]=useState(null);
@@ -2586,7 +2588,7 @@ function App(){
                         style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',
                                 padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
                                 border:'1px solid #1e293b',userSelect:'none',marginBottom:open.startFromOpen?0:0}}>
-                        <span style={{fontSize:10,letterSpacing:2,color:'#64748b'}}>START FROM</span>
+                        <span style={{fontSize:10,letterSpacing:2,color:'#64748b'}}>FACTORY</span>
                         <span style={{marginLeft:'auto',fontSize:10,color:'#475569'}}>{open.startFromOpen?'▲':'▼'}</span>
                       </div>
                       {open.startFromOpen&&(
@@ -3873,32 +3875,96 @@ function App(){
 
           </div>{/* end cards */}
 
-          {/* AT-A-GLANCE STRIP — collapsible */}
-          {/* TOOLBAR — saves, check, share, import */}
+          {/* TOOLBAR — builds, check, share, import */}
           <div style={{flexShrink:0,borderTop:'1px solid #0f172a',background:'#020617',...dim('presets')}}>
-            {/* presets header — collapsible */}
+            {/* builds header — collapsible */}
             <div className="collapsible-hdr"
                  onClick={()=>setOpen(p=>({...p,presetsOpen:!p.presetsOpen}))}
                  style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',userSelect:'none',
                          padding:'7px 12px',background:'#0a0f1a',borderBottom:'1px solid #1e293b'}}>
-              <span style={{fontSize:10,letterSpacing:2,color:'#64748b'}}>PRESETS</span>
+              <span style={{fontSize:10,letterSpacing:2,color:'#64748b'}}>BUILDS</span>
+              {myBuilds.length>0&&<span style={{fontSize:10,color:'#475569'}}>{myBuilds.length}</span>}
               <span style={{fontSize:10,color:'#475569',marginLeft:'auto'}}>{open.presetsOpen?'▲':'▼'}</span>
             </div>
-            {/* 3×2 slot grid (2 cols, 3 rows) */}
-            {open.presetsOpen&&<div style={{padding:'0 12px 8px'}}>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
-                {[1,2,3,4,5,6].map(i=>(
-                  <SaveSlot key={i} i={i} s={saves[i]}
-                    onLoad={()=>handleSlot(i)}
-                    onSave={()=>handleSlot(i)}
-                    onClear={()=>clearSlot(i)}
-                    onRename={renameSlot}
-                    onNotes={notesSlot}
-                    onSaveOver={()=>overwriteSlot(i)}
-                    onResetDefault={()=>resetSlot(i)}/>
-                ))}
-              </div>
-            </div>}
+            {open.presetsOpen&&(()=>{
+              const PRESET_DESC={
+                1:{tag:'Road comfort',sub:'Soft · compliant'},
+                2:{tag:'Corner focus',sub:'Firm · front load'},
+                3:{tag:'High travel',sub:'Soft · loose rear'},
+                4:{tag:'Rotation',sub:'Rear-biased · exit'},
+                5:{tag:'Max grip',sub:'Very stiff · track'},
+                6:{tag:'Max travel',sub:'Very soft · float'},
+              };
+              const saveCurrentBuild=()=>{
+                const name=buildName.trim()||'Untitled';
+                setMyBuilds(b=>[{id:Date.now(),name,fe:{...fe},dr:{...dr},savedAt:new Date().toLocaleDateString()},...b]);
+                setBuildName('');
+              };
+              const cardGrid=(children,maxH=180)=>(
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:4,
+                             maxHeight:maxH,overflowY:'auto',overscrollBehavior:'contain'}}>
+                  {children}
+                </div>
+              );
+              const card=(key,name,line1,line2,onLoad,onDel)=>(
+                <div key={key} style={{background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
+                                       padding:'6px 7px',display:'flex',flexDirection:'column',gap:3,minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'flex-start',gap:3,minWidth:0}}>
+                    <span style={{fontSize:11,color:'#cbd5e1',fontWeight:600,flex:1,
+                                  overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+                                  minWidth:0}}>{name}</span>
+                    {onDel&&<button onClick={onDel}
+                      style={{background:'none',border:'none',color:'#374151',cursor:'pointer',
+                              fontSize:12,lineHeight:1,padding:'0 0 0 2px',flexShrink:0}}>×</button>}
+                  </div>
+                  <span style={{fontSize:9,color:'#475569'}}>{line1}</span>
+                  <span style={{fontSize:8,color:'#334155'}}>{line2}</span>
+                  <button onClick={onLoad}
+                    style={{marginTop:2,padding:'2px 0',fontSize:9,letterSpacing:1,
+                            background:'#1e293b',border:'1px solid #334155',borderRadius:1,
+                            color:'#64748b',cursor:'pointer',width:'100%'}}>LOAD</button>
+                </div>
+              );
+              return(
+                <div style={{padding:'8px 10px 6px',display:'flex',flexDirection:'column',gap:8}}>
+                  {/* FACTORY group */}
+                  <div>
+                    <div style={{fontSize:9,letterSpacing:2,color:'#334155',marginBottom:4}}>FACTORY</div>
+                    {cardGrid([1,2,3,4,5,6].map(i=>
+                      card(i,PRESET_SAVES[i].name,PRESET_DESC[i].tag,PRESET_DESC[i].sub,
+                        ()=>loadPreset(i),null)
+                    ))}
+                  </div>
+                  {/* MY BUILDS group */}
+                  <div>
+                    <div style={{fontSize:9,letterSpacing:2,color:'#334155',marginBottom:4}}>MY BUILDS</div>
+                    <div style={{display:'flex',gap:4,marginBottom:6}}>
+                      <input value={buildName} onChange={e=>setBuildName(e.target.value)}
+                        onKeyDown={e=>e.key==='Enter'&&saveCurrentBuild()}
+                        placeholder="Name this build…"
+                        style={{flex:1,background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
+                                padding:'4px 7px',fontSize:11,color:'#e2e8f0',outline:'none',
+                                fontFamily:'inherit'}}/>
+                      <button onClick={saveCurrentBuild}
+                        style={{padding:'4px 10px',fontSize:10,letterSpacing:1,background:'#1e293b',
+                                border:'1px solid #334155',borderRadius:2,color:'#94a3b8',
+                                cursor:'pointer',flexShrink:0}}>SAVE</button>
+                    </div>
+                    {myBuilds.length===0
+                      ? <div style={{fontSize:10,color:'#374151',textAlign:'center',padding:'8px 0',letterSpacing:1}}>NO SAVED BUILDS</div>
+                      : cardGrid(myBuilds.map(b=>{
+                          const bType=(b.dr?.buildType??'track').toUpperCase();
+                          return card(b.id,b.name,`${bType} · ${b.savedAt}`,'',
+                            ()=>{
+                              if(loadMode==='fe'){setFe({...DEF_FE,...b.fe});}
+                              else{setFe({...DEF_FE,...b.fe});setDr({...DEF_DR,...b.dr});}
+                            },
+                            ()=>setMyBuilds(p=>p.filter(x=>x.id!==b.id)));
+                        }),220)}
+                  </div>
+                </div>
+              );
+            })()}
             {/* action row — always visible */}
             <div style={{display:'flex',gap:3,alignItems:'center',flexWrap:'wrap',padding:'0 12px 6px'}}>
               <button className={`tbtn${loadMode==='fe'?' on':''}`} style={{fontSize:10,letterSpacing:0.5}}
