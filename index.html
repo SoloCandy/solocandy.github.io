@@ -185,6 +185,17 @@ const solveDampRaw=(hz,mass,z)=>{
   const wr=Math.pow(hz*2*Math.PI,2)*mass,cc=2*Math.sqrt(wr*mass);
   return cc*(z/100)*DAMPING_CALIBRATION; // truly unclamped — bounds applied after proportional scaling
 };
+// Equal-settle damping ratios anchored to the ride-reference axle.
+// The reference axle (the one the stiffness slider anchors) holds refZeta; the other axle's
+// zeta is derived for equal settle time (ζ·Hz constant). settleBias>0 = rear settles faster,
+// preserved across all refs. Returns unclamped {zF,zR}.
+const settleZetas=(rideRef,fHz,rHz,refZeta,biasMult)=>{
+  if(fHz<=0||rHz<=0) return {zF:refZeta,zR:refZeta};
+  if(rideRef==='rear')   return {zR:refZeta, zF:refZeta*(rHz/fHz)/biasMult};
+  if(rideRef==='shared'){const avg=(fHz+rHz)/2,b=Math.sqrt(biasMult);
+                         return {zF:refZeta*(avg/fHz)/b, zR:refZeta*(avg/rHz)*b};}
+  return {zF:refZeta, zR:refZeta*(fHz/rHz)*biasMult}; // front (default)
+};
 
 // ── Mech balance — steady-state US/OS from physics ───────────────────────────
 // Derived from lateral-load-transfer distribution (set by the front/rear roll-
@@ -370,10 +381,12 @@ const feelToPhysics=(ch,fe)=>{
   if(settleMode){
     const sB=Math.max(-50,Math.min(50,fe.settleBias??0));
     const biasMult=Math.pow(2,sB/50);
-    zetaF=reboundZeta;
-    const zetaRBase=rearHz>0?reboundZeta*(frontHz/rearHz):reboundZeta;
-    zetaR=Math.max(10,Math.min(115,zetaRBase*biasMult));
-    bumpZetaF=Math.max(10,Math.min(zetaF,bumpZeta));
+    const{zF,zR}=settleZetas(uiRideRef,frontHz,rearHz,reboundZeta,biasMult);
+    zetaF=Math.max(10,Math.min(115,zF));
+    zetaR=Math.max(10,Math.min(115,zR));
+    bumpZetaF=dampingMode==='ratio'
+      ? Math.max(10,Math.min(zetaF,zetaF*bumpRatioVal/100))
+      : Math.max(10,Math.min(zetaF,bumpZeta));
     bumpZetaR=dampingMode==='ratio'
       ? Math.max(10,Math.min(zetaR,zetaR*bumpRatioVal/100))
       : Math.max(10,Math.min(zetaR,bumpZeta));
@@ -405,8 +418,8 @@ const feelToPhysics=(ch,fe)=>{
 
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
-  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF,zetaR:zetaR0,bumpZetaF,bumpZetaR:bumpZetaR0,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode,arbManF,arbManR}=phys;
-  let zetaR=zetaR0,bumpZetaR=bumpZetaR0;
+  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF:zetaF0,zetaR:zetaR0,bumpZetaF:bumpZetaF0,bumpZetaR:bumpZetaR0,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode,arbManF,arbManR}=phys;
+  let zetaF=zetaF0,zetaR=zetaR0,bumpZetaF=bumpZetaF0,bumpZetaR=bumpZetaR0;
   // Tyre-width correction: Forza's mech balance display includes a small tyre-width contribution.
   // Pre-compensate the solve target so Forza reads the desired value after tuning.
   const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
@@ -423,13 +436,16 @@ const computeTune=(ch,phys,gameMode)=>{
     const rsSpR_tgt=R_sp*rsSpF_cs/(1-R_sp);
     effectiveRHz=Math.max(HZ_MIN,Math.min(HZ_MAX,Math.sqrt(2*rsSpR_tgt/(m.rear*ch.trackR*ch.trackR))/(2*Math.PI)));
   }
-  // SETTLE mode: recompute rear zeta using final effectiveRHz so settle times match post-coSolve Hz
+  // SETTLE mode: recompute zetas using final effectiveRHz so settle times match post-coSolve Hz.
+  // Anchor reboundZeta to the user's ride-reference axle; derive the other(s) for equal settle.
   if(phys.settleMode){
     const biasMult=Math.pow(2,(phys.settleBias??0)/50);
-    zetaR=Math.max(10,Math.min(115,phys.reboundZeta*(fHz/effectiveRHz)*biasMult));
-    bumpZetaR=phys.dampingMode==='ratio'
-      ? Math.max(10,Math.min(zetaR,zetaR*(phys.bumpRatioVal??56)/100))
-      : Math.max(10,Math.min(zetaR,phys.bumpZeta??39));
+    const bumpRatioVal=phys.bumpRatioVal??56,bumpZ=phys.bumpZeta??39,ratio=phys.dampingMode==='ratio';
+    const{zF,zR}=settleZetas(phys.rideRef,fHz,effectiveRHz,phys.reboundZeta,biasMult);
+    zetaF=Math.max(10,Math.min(115,zF));
+    zetaR=Math.max(10,Math.min(115,zR));
+    bumpZetaF=ratio?Math.max(10,Math.min(zetaF,zetaF*bumpRatioVal/100)):Math.max(10,Math.min(zetaF,bumpZ));
+    bumpZetaR=ratio?Math.max(10,Math.min(zetaR,zetaR*bumpRatioVal/100)):Math.max(10,Math.min(zetaR,bumpZ));
   }
   const springF=solveSpring(fHz,m.front,1);
   const springR=solveSpring(effectiveRHz,m.rear,1);

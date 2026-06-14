@@ -68,6 +68,7 @@ Geometry auto-scales with weight in BEG/INT; in PRO you control it directly.
 | Rebound ζ | Damping ratio for the rebound stroke. 70% = Butterworth (critically tuned). >100% = overdamped |
 | Bump | Either a ratio of rebound (BUMP RATIO mode) or independent ζ (INDEPENDENT mode) |
 | Damping Bias | Splits front/rear ζ independently. Positive = more front rebound (resists forward weight transfer → understeer tendency). Shows as the **DAMP** row in the handling balance |
+| Settle Sync | Toggle (ON/OFF). When ON, replaces Damping Bias with a **Settle Bias** slider and matches front/rear settle time: the **ride-reference axle** holds your Rebound ζ and the other axle's ζ is derived so both settle in the same time. (FRONT ref anchors the front, REAR ref the rear, SHARED anchors the average.) Settle Bias skews the split — positive = rear settles faster |
 
 **Rear Hz modes:**
 | Mode | Behaviour |

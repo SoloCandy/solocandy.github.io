@@ -265,6 +265,48 @@ console.log('\nmechBalanceLLT');
   assert('default car natural balance ≈ 0.47', balanceFromRsBal(ch, natRs), 0.469, 0.02);
 }
 
+// ── settle mode: ride-reference anchoring ───────────────────────────────────
+
+console.log('\nsettle mode ride-reference anchoring');
+{
+  // Mirror of app's settleZetas (index.html). Reference axle holds refZeta;
+  // the other is derived for equal settle time (ζ·Hz constant).
+  const settleZetas = (rideRef, fHz, rHz, refZeta, biasMult) => {
+    if (fHz <= 0 || rHz <= 0) return { zF: refZeta, zR: refZeta };
+    if (rideRef === 'rear')   return { zR: refZeta, zF: refZeta * (rHz / fHz) / biasMult };
+    if (rideRef === 'shared') { const avg = (fHz + rHz) / 2, b = Math.sqrt(biasMult);
+                                return { zF: refZeta * (avg / fHz) / b, zR: refZeta * (avg / rHz) * b }; }
+    return { zF: refZeta, zR: refZeta * (fHz / rHz) * biasMult };
+  };
+  // settle time = ln(10)/(ζ·ωn); equal when ζ·Hz matches front vs rear.
+  const settle = (zeta, hz) => 2.302 / ((zeta / 100) * hz * 2 * Math.PI);
+  const fHz = 2.0, rHz = 2.6, RZ = 70, NOBIAS = 1;
+
+  // front ref: front holds reboundZeta, rear derived
+  const fr = settleZetas('front', fHz, rHz, RZ, NOBIAS);
+  assert('front ref anchors zetaF = reboundZeta', fr.zF, RZ, 1e-9);
+  assert('front ref equal settle time', settle(fr.zF, fHz), settle(fr.zR, rHz), 1e-6);
+
+  // rear ref: rear holds reboundZeta, front derived
+  const rr = settleZetas('rear', fHz, rHz, RZ, NOBIAS);
+  assert('rear ref anchors zetaR = reboundZeta', rr.zR, RZ, 1e-9);
+  assertEq('rear ref derives front (≠ reboundZeta)', Math.abs(rr.zF - RZ) > 1, true);
+  assert('rear ref equal settle time', settle(rr.zF, fHz), settle(rr.zR, rHz), 1e-6);
+
+  // shared ref: neither axle is exactly reboundZeta; both equal settle at bias 0
+  const sh = settleZetas('shared', fHz, rHz, RZ, NOBIAS);
+  assert('shared ref equal settle time', settle(sh.zF, fHz), settle(sh.zR, rHz), 1e-6);
+  assertEq('shared ref front between ref and rear-ref value', sh.zF > RZ && sh.zF < rr.zF, true);
+
+  // front-ref output is unchanged from the pre-fix formula (regression guard)
+  const legacyZR = RZ * (fHz / rHz) * NOBIAS;
+  assert('front ref matches legacy rear formula', fr.zR, legacyZR, 1e-9);
+
+  // bias direction: settleBias>0 (biasMult>1) → rear settles faster (shorter rear settle time)
+  const biased = settleZetas('front', fHz, rHz, RZ, 2);
+  assertEq('positive bias → rear settles faster', settle(biased.zR, rHz) < settle(biased.zF, fHz), true);
+}
+
 // ── summary ───────────────────────────────────────────────────────────────────
 
 console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed\n`);
