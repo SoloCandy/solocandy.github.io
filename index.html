@@ -2074,6 +2074,27 @@ function App(){
   const[garageName,setGarageName]=useState('');
   const[myBuilds,setMyBuilds]=usePersist('suspos_builds_v1',[]);
   const[buildName,setBuildName]=useState('');
+  // One-time migration: pull any customized old preset slots (suspos_saves_v9) into MY BUILDS.
+  // The 6 factory slots that match their defaults are skipped; only renamed/overwritten slots move.
+  // Non-destructive (old key left intact); guarded by a flag so it runs at most once per browser.
+  useEffect(()=>{
+    try{
+      if(localStorage.getItem('suspos_builds_migrated_v1'))return;
+      const migrated=[];
+      for(let i=1;i<=6;i++){
+        const s=saves[i],def=PRESET_SAVES[i];
+        if(!s||!def)continue;
+        const customized=s.name!==def.name||JSON.stringify(s.fe)!==JSON.stringify(def.fe)||JSON.stringify(s.dr)!==JSON.stringify(def.dr);
+        if(!customized)continue;
+        // skip if MY BUILDS already has an identical entry (idempotency safety)
+        const dup=myBuilds.some(b=>b.name===s.name&&JSON.stringify(b.fe)===JSON.stringify(s.fe)&&JSON.stringify(b.dr)===JSON.stringify(s.dr));
+        if(dup)continue;
+        migrated.push({id:Date.now()+i,name:s.name,fe:{...DEF_FE,...s.fe},dr:{...DEF_DR,...s.dr},savedAt:'imported'});
+      }
+      if(migrated.length)setMyBuilds(b=>[...migrated,...b]);
+      localStorage.setItem('suspos_builds_migrated_v1','1');
+    }catch(e){/* corrupt/unavailable storage — skip migration, never block load */}
+  },[]); // eslint-disable-line
   const[showComplexity,setShowComplexity]=useState(false);
   const closeOnboard=()=>{setOnboardSeen(true);setShowComplexity(false);};
   const[tutMode,setTutMode]=useState(null);
