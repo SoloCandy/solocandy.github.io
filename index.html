@@ -2623,6 +2623,18 @@ function App(){
                   readout={stAgVal===0?'NEUTRAL':stAgVal>0?'AGILE':'STABLE'}
                   hint="Controls damping character. Stable (left) = higher damping, settles quickly, more predictable. Agile (right) = lighter damping, more lively and responsive, quicker direction changes. Start at centre."/>
                 </div>
+                <div style={{display:'flex',justifyContent:'flex-end',marginTop:18}}>
+                  <button className="tbtn" style={{fontSize:10,color:'#fca5a5'}}
+                    onClick={()=>{
+                      setCh(p=>({...p,weight:DEF_CH.weight,frontBias:DEF_CH.frontBias,
+                        tyreF:DEF_CH.tyreF,tyreR:DEF_CH.tyreR}));
+                      setDr(p=>({...p,layout:DEF_DR.layout,buildType:DEF_DR.buildType}));
+                      setFe(p=>({...p,rideStiffness:DEF_FE.rideStiffness,
+                        springShare:DEF_FE.springShare??50,
+                        arbBalTarget:DEF_FE.arbBalTarget,arbBalMode:'coSolve',
+                        reboundZeta:DEF_FE.reboundZeta,bumpRatio:DEF_FE.bumpRatio}));
+                    }}>RESET</button>
+                </div>
               </div>
             );
           })()}
