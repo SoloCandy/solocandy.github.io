@@ -35,7 +35,7 @@ A **BEG / INT / PRO** toggle in the header controls how much of the input surfac
 |---|---|
 | **BEG** (Beginner) | Minimal inputs — weight, a handling-feel slider, and a balance target. Chassis geometry auto-scales with weight, and CO-SOLVE is selected automatically so springs and ARBs are solved together |
 | **INT** (Intermediate) | Adds full springs/damping/ARB control with the WEIGHT / MECH / CO-SOLVE / MAN balance modes, without requiring chassis geometry |
-| **PRO** | Exposes the complete physics surface — geometry inputs, manual alignment, raw differential lock percentages, brake balance, the Balance Guide panel, and cross-solver readouts |
+| **PRO** | Exposes the complete physics surface — geometry inputs, raw differential lock percentages, the Balance Guide panel, and cross-solver readouts |
 
 Geometry auto-scales with weight in BEG/INT; in PRO you control it directly.
 
@@ -103,13 +103,6 @@ Geometry auto-scales with weight in BEG/INT; in PRO you control it directly.
 | **CO-SOLVE** | Solves rear spring stiffness **and** ARB split together. **Spring / ARB Mix** (Spring Share) controls how much of the correction comes from springs vs ARBs |
 | **MAN** | Direct manual input of front and rear ARB click values. When switching into MAN mode, the current solved ARB values are pre-filled as a starting point. Useful for isolated ARB calibration testing — enter your real in-game values and observe the calculator's predicted mech balance |
 
-### ALIGNMENT
-Auto mode computes camber, toe, and caster from build type, layout, CG height, and roll angle. Switch to Manual to override.
-
-### BRAKES
-- **Auto** — recommends brake balance from front weight bias and build type
-- **Manual** — set brake balance (45–70% front) and brake pressure (50–200%) directly. Both affect the entry-phase contribution in the handling balance
-
 ### DRIVETRAIN
 - **Layout** — FWD / RWD / AWD
 - **Auto** — Corner Exit and Corner Entry sliders shift accel/decel lock without exposing raw percentages. AWD adds a Center split slider and a front exit-push slider
@@ -171,26 +164,28 @@ Header toggle switches weight between **lb / kg** and spring rates between **lb/
 ### Tune Check
 Reverse-calculate natural frequency and damping ratios from existing in-game spring and damper values. Useful for verifying a manually-tuned setup or analysing a tune shared by someone else.
 
-### Share / Import
-Encodes the full tune (chassis + feel + ARBs + drivetrain + brakes) as a compact Base64 string (~210 chars). Paste into IMPORT on any device running SUSP.OS. Old codes from earlier versions decode safely — new fields default gracefully.
+### DATA (Share / Import / Export)
+The **DATA** button opens a unified modal with a mode selector at the top:
 
-### Save Slots
-Six persistent slots arranged in a 2×3 grid, storing feel + drivetrain configuration. Pre-loaded with **STREET**, **TRACK**, **RALLY**, **DRIFT**, **MOTORSPT**, and **X COUNTRY** presets.
+**SHARE — generate a tune code**
+Encodes chassis, feel, and/or drivetrain as a compact Base64 string (~210 chars). Choose which sections to include via checkboxes before copying. Paste the code into IMPORT on any device running SUSP.OS. Old codes from earlier versions decode safely — new fields default gracefully. Brake and alignment values are computed outputs and are not included in share codes.
 
-**Car-aware scaling:** each slot stores the corner mass at save time. When loading onto a different-weight car, Ride Stiffness is scaled by `√(savedMass / currentMass)` so the tune maintains the same relative feel rather than applying the raw Hz value.
+**IMPORT — load from a tune code**
+Paste a tune code and choose which sections to apply (CHASSIS, FEEL, DRIVETRAIN) via checkboxes before loading.
 
-**Slot controls:**
-| Button | Action |
-|---|---|
-| Slot name | Load tune into current session |
-| ✎ | Rename the slot (inline edit) |
-| ⓘ | Add/edit notes (shown in hover tooltip; blue when notes exist) |
-| ↺ | Overwrite slot with current tune — tap once to arm (turns green), tap again within 2s to confirm |
-| ✕ | Clear slot — tap once to arm (turns amber), tap again within 2s to confirm |
+**EXPORT — back up saved data**
+Downloads a `suspos-data.json` file containing your GARAGE saves, MY BUILDS saves, or both. Use this to transfer data between browsers or devices.
 
-**FE / FE+DR toggle** (bottom-left of toolbar): switches between loading feel + drivetrain together (default) and loading feel only, leaving your current drivetrain settings untouched.
+### Garage
+Persistent chassis saves, accessible from the CHASSIS section of the sidebar. Each save stores weight, weight bias, tyre sizes, wheelbase, track widths, and CG height. The **OVERWRITE** button (top-left of each card, two-tap to confirm) updates a slot in place without deleting it.
 
-**Auto-naming:** new saves are named `BUILD Hz` (e.g. `TRACK 2.14`) from the current build type and front frequency.
+### Builds
+Persistent tune saves in the BUILDS drawer at the bottom of the output panel.
+
+- **FACTORY** — six read-only presets: STREET, TRACK, RALLY, DRIFT, MOTORSPT, X COUNTRY. Each loads feel + drivetrain settings.
+- **MY BUILDS** — user-created saves. Name a build and press SAVE; each card shows build type and save date. The **OVERWRITE** button (two-tap to confirm) updates a saved build with the current tune without deleting it.
+
+Loading a build (FACTORY or MY BUILDS) always applies both feel and drivetrain settings.
 
 ### Section Resets
 Each sidebar section has a RESET button (two-click confirmation) that restores defaults for that section only.
@@ -248,7 +243,7 @@ The entire app is a single HTML file containing:
 - **Physics engine** — `flatRideRearHz`, `computeTune`, `computeAlignment`, `computeDiff` — pure JS, no React dependency
 - **React UI** — in-browser JSX transpilation via `@babel/standalone`
 - **Persistence** — `localStorage` via a custom `usePersist` hook; degrades gracefully in private browsing
-- **Share codec** — pipe-delimited numeric array, Base64-encoded (~210 chars, 54 values, fully backward-compatible — short legacy codes decode with new fields defaulted)
+- **Share codec** — pipe-delimited numeric array, Base64-encoded (~210 chars, 58 values, fully backward-compatible — short legacy codes decode with new fields defaulted)
 
 The physics functions are at the top of the `<script>` block and can be read, tested, or extracted independently. A standalone test suite is included in `tests.js` — run with `node tests.js`.
 
