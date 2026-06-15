@@ -756,7 +756,7 @@ const PRESET_SAVES=(()=>{
   const ref=Math.round(cornerMasses(DEF_CH).front);
   return{
     1:{name:'STREET',refCornerMassF:ref,notes:'',
-       fe:{...DEF_FE,rideStiffness:1.64,rearHzMode:'multiplier',rearHzMult:1.15,
+       fe:{...DEF_FE,rideStiffness:2.20,rearHzMode:'multiplier',rearHzMult:1.15,
            reboundZeta:60,bumpRatio:50,dampingBias:8},
        dr:{...DEF_DR,buildType:'street',diffBiasExit:-10,diffBiasEntry:10}},
     2:{name:'TRACK',refCornerMassF:ref,notes:'',
@@ -2127,7 +2127,7 @@ function App(){
     if(uiMode!=='beginner')return;
     setFe(p=>({...p,
       arbBalMode:'coSolve',
-      arbBalTarget:Math.max(0.50,Math.min(0.80,p.arbBalTarget??0.65)),
+      arbBalTarget:Math.max(0.30,Math.min(0.90,p.arbBalTarget??natMechBalance)),
     }));
   },[uiMode]); // eslint-disable-line
 
@@ -2243,14 +2243,11 @@ function App(){
   const loadPreset=i=>{
     const s=PRESET_SAVES[i];if(!s)return;
     let adjustedFe={...DEF_FE,...s.fe};
-    if(s.refCornerMassF){
-      const scale=Math.sqrt(s.refCornerMassF/cm.front);
-      const scaledHz=Math.max(HZ_MIN,Math.min(HZ_MAX,rsToHz(s.fe.rideStiffness)*scale));
-      adjustedFe.rideStiffness=hzToRs(scaledHz);
-    }
+    // Hz is already weight-neutral (spring rate = Hz² × cornerMass), so no scaling needed.
     if(uiMode==='beginner'){
       adjustedFe.arbBalMode='coSolve';
-      adjustedFe.arbBalTarget=0.65;
+      // Anchor balance to the car's natural roll-stiffness fraction so ARBs start near zero.
+      adjustedFe.arbBalTarget=Math.round(natMechBalance*1000)/1000;
     }
     setFe(adjustedFe);
     setDr({...DEF_DR,...s.dr});
@@ -2507,7 +2504,7 @@ function App(){
           {uiMode==='beginner'&&(()=>{
             const stAgVal=Math.max(-50,Math.min(50,Math.round((70-(fe.reboundZeta??70))*2)));
             const[hzCat,hzCol]=hzCtx(physics.frontHz);
-            const balVal=Math.max(-50,Math.min(50,Math.round((0.65-(fe.arbBalTarget??0.65))/0.003)));
+            const balVal=Math.max(-50,Math.min(50,Math.round((natMechBalance-(fe.arbBalTarget??natMechBalance))/0.003)));
             return(
               <div style={{padding:'14px 12px 20px'}}>
                 {/* START FROM presets */}
@@ -2605,7 +2602,7 @@ function App(){
                 <FeelSlider label="Balance" value={balVal}
                   onChange={v=>setFe(p=>({...p,
                     arbBalMode:'coSolve',
-                    arbBalTarget:Math.max(0.50,Math.min(0.80,0.65-v*0.003))}))}
+                    arbBalTarget:Math.max(0.30,Math.min(0.90,natMechBalance-v*0.003))}))}
                   min={-50} max={50} step={1}
                   leftLabel="OVERSTEER" rightLabel="UNDERSTEER"
                   centered={true}
@@ -2633,9 +2630,11 @@ function App(){
                       setCh(p=>({...p,weight:DEF_CH.weight,frontBias:DEF_CH.frontBias,
                         tyreF:DEF_CH.tyreF,tyreR:DEF_CH.tyreR}));
                       setDr(p=>({...p,layout:DEF_DR.layout,buildType:DEF_DR.buildType}));
+                      const mc0=cornerMasses(DEF_CH);
+                      const nat0=mc0.rear*DEF_CH.trackR*DEF_CH.trackR/(mc0.front*DEF_CH.trackF*DEF_CH.trackF+mc0.rear*DEF_CH.trackR*DEF_CH.trackR);
                       setFe(p=>({...p,rideStiffness:DEF_FE.rideStiffness,
                         springShare:DEF_FE.springShare??50,
-                        arbBalTarget:DEF_FE.arbBalTarget,arbBalMode:'coSolve',
+                        arbBalTarget:Math.round(nat0*1000)/1000,arbBalMode:'coSolve',
                         reboundZeta:DEF_FE.reboundZeta,bumpRatio:DEF_FE.bumpRatio}));
                     }}>{begResetArmed?'CONFIRM':'RESET'}</button>
                 </div>
