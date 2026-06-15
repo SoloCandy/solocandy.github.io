@@ -1744,9 +1744,9 @@ const TUTORIALS={
     {title:'Getting Around',
      focus:null,
      body:'The ☰ button opens and closes the input sidebar — the right panel shows live results and updates as you type. BEG / INT / PRO control how many inputs are visible. IMP / MET switches units. HZ / MS switches output limits between Horizon and Motorsport. ↩ undoes the last change. ? reopens this guide at any time.'},
-    {title:'Start From a Preset',
+    {title:'Start From a Build',
      focus:['presets'],
-     body:'Tap one of the six preset buttons to load a baseline tune. STREET, TRACK, RALLY, DRIFT, MOTORSPT, and X COUNTRY each set a different balance target, stiffness level, and damping character. Pick the closest to your build, then adjust from there.'},
+     body:'Open the BUILDS drawer at the bottom of the results panel. The FACTORY group has six presets — STREET, TRACK, RALLY, DRIFT, MOTORSPT, and X COUNTRY — each with a different balance target, stiffness level, and damping character. Hit LOAD on the closest one, then adjust from there.'},
     {title:'Layout & Build Type',
      focus:['layout-build'],
      body:'Select your drive layout (FWD / RWD / AWD) and build style. Layout affects how differential lock contributes to handling balance. Build type shifts the recommended mech balance range and diff recommendations toward street, track, or drift behaviour.'},
@@ -1770,7 +1770,7 @@ const TUTORIALS={
      body:'The Handling Balance bar is pinned at the bottom of the results panel. It shows your total oversteer or understeer tendency as a number and a bar. The bar is colour-zoned — the centre band is neutral, the mild zone is typical for intentional OS/US bias, and the outer zone is aggressive. Tap to expand a full breakdown of every contributor.'},
     {title:'Reading the Results',
      focus:['output'],
-     body:'The right panel shows exact values to enter in the tuning menu: Springs, Dampers, Anti-Roll Bars, and Alignment. Amber values mean you\'re near a game limit — soften your inputs slightly if that happens.'},
+     body:'The right panel shows exact values to enter in the tuning menu: Springs, Dampers, Anti-Roll Bars, Alignment, and Brakes. Alignment and brakes are always computed automatically from your other inputs. Amber values mean you\'re near a game limit — soften your inputs slightly if that happens.'},
   ],
   intermediate:[
     {title:'Welcome — Intermediate Mode',
@@ -1794,14 +1794,14 @@ const TUTORIALS={
     {title:'Drivetrain Sliders',
      focus:['drivetrain'],
      body:'Corner Exit controls on-throttle differential aggression. Corner Entry controls trail-braking rotation. AWD adds a Power Split slider (front/rear torque bias) and a Front Exit Push (how aggressively the front axle supplements on exit). All DIFF rows in the Handling Balance bar update live.'},
-    {title:'Save Slots',
+    {title:'Garage & Builds',
      focus:['presets'],
-     body:'The PRESETS section now shows the full six save slots. Use ↺ to overwrite a slot with your current tune (two-tap to confirm), ✎ to rename it, and ⓘ to add notes. FE / FE+DR at the bottom of the toolbar controls whether loading a slot brings in feel only or feel and drivetrain together. SHARE generates a code — paste into IMPORT on any device.'},
+     body:'GARAGE (in the CHASSIS section) saves your car\'s physical setup — weight, bias, tyre sizes, geometry. MY BUILDS (in the BUILDS drawer) saves your tune — feel settings and drivetrain. Loading a build always applies both. The DATA button in the toolbar handles sharing codes between devices (SHARE/IMPORT) and backing up your saved data as a JSON file (EXPORT).'},
   ],
   pro:[
     {title:'Welcome — Pro Mode',
      focus:null,
-     body:'Pro mode adds the full physics surface on top of Intermediate: chassis geometry (wheelbase, track widths, CG height), a complete Alignment section, the Brakes section, and manual differential control. This guide only covers what\'s new.'},
+     body:'Pro mode adds the full physics surface on top of Intermediate: chassis geometry (wheelbase, track widths, CG height) and manual differential control. Alignment and brakes are always computed automatically. This guide only covers what\'s new.'},
     {title:'Chassis Geometry',
      focus:['chassis'],
      body:'Wheelbase, track widths, and CG height now drive the physics directly. The REACH panel shows what track width changes would shift your natural balance toward the target. Defaults suit most sports cars — enter exact values if you have them.'},
@@ -1814,12 +1814,9 @@ const TUTORIALS={
     {title:'ARB Solving Modes',
      focus:['arb'],
      body:'Three modes solve springs and ARBs toward your Mech Balance Target. WEIGHT uses weight distribution as the baseline, optionally shifted by ARB Bias. MECH solves the ARB split exactly to hit the target, leaving rear Hz independent. CO-SOLVE adjusts both rear spring Hz and ARB split together — use this when you control ride stiffness and Hz mode explicitly and want springs and ARBs to work together. Spring Share (in CO-SOLVE) controls how much of the correction comes from each.'},
-    {title:'Alignment',
+    {title:'Alignment & Brakes',
      focus:['alignment'],
-     body:'AUTO derives camber, toe, and caster from build type, layout, CG height, and roll angle. Switch to MANUAL to seed from the auto values and override each axis independently. Negative front toe (toe-out) sharpens turn-in on RWD; positive rear toe stabilises the rear. Alignment affects the STABLE/AGILE breakdown.'},
-    {title:'Brakes',
-     focus:['brakes'],
-     body:'AUTO recommends brake balance from front weight bias and build type. MANUAL lets you set bias (45–70% front) and pressure (50–200%) directly. Brake balance deviation from 50% appears as the BRAKES row in the Handling Balance bar — rear-biased brakes add oversteer on entry.'},
+     body:'Alignment (camber, toe, caster) and brake balance are both computed automatically from your build type, layout, weight bias, and chassis geometry. No manual override is needed — the outputs update live as you adjust other inputs. The BRAKES row in the Handling Balance bar reflects the computed brake balance contribution to entry-phase balance.'},
     {title:'Manual Differential',
      focus:['drivetrain'],
      body:'MANUAL diff exposes individual accel and decel lock percentages per axle. AWD adds separate front/rear locks plus center power split. Match Chassis (AUTO mode only) biases the diff toward your Mech Balance Target so the differential reinforces the balance set elsewhere.'},
@@ -1839,7 +1836,7 @@ const TUTORIALS={
      body:'Contributors are split into two groups. MECHANICAL (springs and ARBs) are your primary intentional forces — controlled by stiffness and balance settings. DYNAMIC (diff, brakes, damping) are phase and behaviour contributors. Each row shows its value and percentage of the total so you can see at a glance which is dominant. On the compact bar, each contributor appears as a colour-coded segment stacking outward from neutral.'},
     {title:'Using the Correction Tip',
      focus:null,
-     body:'The tip appears at the top of the expanded panel — above the contributor rows — and names the dominant contributor with a concrete adjustment suggestion. For large imbalances, correct with the Balance slider or Mech Balance Target first. For small residual bias, fine-tune with alignment toe or damping bias.'},
+     body:'The tip appears at the top of the expanded panel — above the contributor rows — and names the dominant contributor with a concrete adjustment suggestion. For large imbalances, correct with the Balance slider or Mech Balance Target first. For small residual bias, fine-tune with the ARB Bias or Damping Bias sliders.'},
     {title:'Response Bar',
      focus:null,
      body:'The RESPONSE bar rates transient character — how quickly and freely the car reacts to steering inputs. PLANTED (left) means settled and damped: predictable but slow to change direction. REACTIVE (right) means quick to respond: sharp turn-in but can feel nervous. Driven by spring frequency (50%), damping ratio (20%), front toe (15%), caster (10%), and rear/front Hz ratio (5%). Independent of the US/OS balance — a car can be neutral and still feel very planted or very reactive.'},
@@ -1849,7 +1846,7 @@ const TUTORIALS={
   ],
 };
 
-const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone})=>{
+const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone,zoom=1})=>{
   const steps=TUTORIALS[mode]??[];
   const total=steps.length;
   const t=steps[step];
@@ -1876,20 +1873,21 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone})=>{
     }
     const measure=()=>{
       if(!el){setPos(null);return;}
-      const r=el.getBoundingClientRect();
+      const raw=el.getBoundingClientRect();
       // Hidden element (sidebar collapsed on desktop) → centre card
-      if(r.width===0&&r.height===0){setPos(null);return;}
-      const vw=window.innerWidth;
-      // Use the *visible* viewport height (excludes the iOS address bar/toolbar) so the
-      // card never extends below what the user can actually see — otherwise the lower
-      // steps and the NEXT/PREV buttons fall off-screen with no way to scroll to them.
-      const vh=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;
+      if(raw.width===0&&raw.height===0){setPos(null);return;}
+      // getBoundingClientRect() returns visual (viewport) pixels, but position:fixed
+      // coordinates inside a CSS-zoomed container are in zoomed units (divide by zoom).
+      const r={top:raw.top/zoom,bottom:raw.bottom/zoom,left:raw.left/zoom,right:raw.right/zoom};
+      const vw=window.innerWidth/zoom;
+      // Use the *visible* viewport height (excludes the iOS address bar/toolbar).
+      const vh=((window.visualViewport&&window.visualViewport.height)||window.innerHeight)/zoom;
       const midY=(r.top+r.bottom)/2;
       const midX=(r.left+r.right)/2;
       if(midX<vw/2){
         // LEFT panel: float card just past the sidebar's right edge
         const sidebar=document.querySelector('.sidebar-scroll');
-        const sbRight=sidebar?sidebar.getBoundingClientRect().right:r.right;
+        const sbRight=sidebar?sidebar.getBoundingClientRect().right/zoom:r.right;
         const left=Math.min(sbRight+10,vw-CARD_W-8);
         // Anchor higher when the target sits near the bottom so the card keeps usable height.
         const top=Math.max(8,Math.min(vh-260,midY-80));
@@ -1898,9 +1896,8 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone})=>{
         setPos({top,left,arrowDir:'left',arrowOff,maxH});
       } else {
         // RIGHT panel (output, balance-bar): float card entirely above the element
-        // Fit the card into the space above r.top so it never overlaps the target.
-        const GAP=10; // gap between card bottom and element top
-        const availH=r.top-8-GAP;  // px available above the element
+        const GAP=10;
+        const availH=r.top-8-GAP;
         const maxH=Math.max(140,Math.min(availH,vh-24));
         const top=Math.max(8,r.top-maxH-GAP);
         const left=Math.max(8,Math.min(vw-CARD_W-8,midX-CARD_W/2));
@@ -2071,10 +2068,17 @@ function App(){
     if(stepMeta?.sidebar==='close')setSidebarOpen(false);
     else if(stepMeta?.sidebar==='open')setSidebarOpen(true);
   },[tutMode,tutStep]); // eslint-disable-line
-  const[loadMode,setLoadMode]=useState('all'); // 'all'=feel+drivetrain, 'fe'=feel only
-  const[open,setOpen]=useState({chassis:true,build:true,ride:true,dampers:true,arb:true,alignment:true,drivetrain:true,brakes:true,balanceExpanded:false,presetsOpen:false,startFromOpen:true});
+  const[open,setOpen]=useState({chassis:true,build:true,ride:true,dampers:true,arb:true,drivetrain:true,balanceExpanded:false,presetsOpen:false,startFromOpen:true});
   const[showChecker,setShowChecker]=useState(false);
   const[showResetModal,setShowResetModal]=useState(false);
+  const[showDataModal,setShowDataModal]=useState(false);
+  const[dataMode,setDataMode]=useState('share'); // 'share'|'import'|'export'
+  const[exportSel,setExportSel]=useState({garage:true,builds:true});
+  const[importCode,setImportCode]=useState('');
+  const[importSel,setImportSel]=useState({ch:true,fe:true,dr:true});
+  const[importErr,setImportErr]=useState('');
+  const[shareCopied,setShareCopied]=useState(false);
+  const[shareSel,setShareSel]=useState({ch:true,fe:true,dr:true});
   const[resetConfirmText,setResetConfirmText]=useState('');
   const[resetOpts,setResetOpts]=useState({tune:false,tutorials:false});
   const[hzDraft,setHzDraft]=useState(null);     // transient: direct front Hz entry
@@ -2244,7 +2248,7 @@ function App(){
       adjustedFe.arbBalTarget=0.65;
     }
     setFe(adjustedFe);
-    if(loadMode!=='fe')setDr({...DEF_DR,...s.dr});
+    setDr({...DEF_DR,...s.dr});
   };
   const performGlobalReset=()=>{
     if(resetOpts.tune){
@@ -2335,11 +2339,13 @@ function App(){
         onNext={()=>setTutStep(s=>Math.min(s+1,(TUTORIALS[tutMode]?.length??1)-1))}
         onPrev={()=>setTutStep(s=>Math.max(s-1,0))}
         onClose={closeTut}
-        onDone={closeTutDone}/>}
+        onDone={closeTutDone}
+        zoom={effZoom}/>}
       {balTutOpen&&<TutorialPanel mode='balance' step={balTutStep}
         onNext={()=>setBalTutStep(s=>Math.min(s+1,(TUTORIALS.balance?.length??1)-1))}
         onPrev={()=>setBalTutStep(s=>Math.max(s-1,0))}
-        onClose={closeBalTut}/>}
+        onClose={closeBalTut}
+        zoom={effZoom}/>}
 
       {/* ONBOARDING POPUP */}
       {(!onboardSeen||showComplexity)&&(
@@ -3452,39 +3458,6 @@ function App(){
             })()}
           </Sec></div>
 
-          {uiMode==='pro'&&<div id="zone-alignment" style={dim('alignment')}><Sec title="ALIGNMENT" open={open.alignment} onToggle={tog('alignment')}
-            onReset={()=>setAl({...DEF_AL})}>
-            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
-              <span style={{fontSize:12,color:'#94a3b8'}}>Alignment Mode</span>
-              <Hint text="AUTO derives camber, toe, and caster from build type, layout, CG height, and roll angle. MANUAL lets you enter specific values — seeds from the current AUTO recommendation when switching."/>
-              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
-                <button className={`tog${!al.alignManual?' on':''}`}
-                  onClick={()=>setAl(p=>({...p,alignManual:false}))}>AUTO</button>
-                {uiMode==='pro'&&<button className={`tog${al.alignManual?' on':''}`}
-                  onClick={()=>setAl(p=>({...p,alignManual:true,
-                    camberF:autoAlign.recCamberF,camberR:autoAlign.recCamberR,
-                    toeF:autoAlign.recToeF,toeR:autoAlign.recToeR,
-                    caster:autoAlign.recCaster}))}>MANUAL</button>}
-              </div>
-            </div>
-            {al.alignManual&&<>
-              <Field label="Camber Front" value={al.camberF} onChange={pAl('camberF')}
-                min={-4.0} max={0.0} step={0.1} unit="°"
-                hint="Static front camber. Negative camber tilts the top of the tyre inward. Compensates for camber gain during body roll — outer tyre stays flat through corners."/>
-              <Field label="Camber Rear" value={al.camberR} onChange={pAl('camberR')}
-                min={-3.5} max={0.0} step={0.1} unit="°"
-                hint="Static rear camber. Rear typically needs less than front since body roll is shared more evenly and rear suspension often has lower camber gain."/>
-              <Field label="Toe Front" value={al.toeF} onChange={pAl('toeF')}
-                min={-0.2} max={0.2} step={0.1} unit="°"
-                hint="Front toe angle. Negative = toe-out (improves turn-in, can cause instability). Positive = toe-in (more stable, slower turn-in). FWD typically toe-in, RWD typically slight toe-out."/>
-              <Field label="Toe Rear" value={al.toeR} onChange={pAl('toeR')}
-                min={0.0} max={0.3} step={0.1} unit="°"
-                hint="Rear toe angle. Positive = toe-in (increases stability, reduces rotation). Near zero for drift/rotation, higher for stability builds."/>
-              <Field label="Caster" value={al.caster} onChange={pAl('caster')}
-                min={4.0} max={7.5} step={0.1} unit="°"
-                hint="Steering axis tilt. Higher caster improves straight-line stability and adds camber gain through steering input. Lower caster reduces steering effort (useful for FWD). 5.0–6.5° is typical."/>
-            </>}
-          </Sec></div>}
 
           <div id="zone-drivetrain" style={dim('drivetrain')}><Sec title="DRIVETRAIN" open={open.drivetrain} onToggle={tog('drivetrain')}
             onReset={()=>setDr(p=>({...p,
@@ -3621,28 +3594,6 @@ function App(){
             ))}
           </Sec></div>
 
-          {uiMode==='pro'&&<div id="zone-brakes" style={dim('brakes')}><Sec title="BRAKES" open={open.brakes} onToggle={tog('brakes')}
-            onReset={()=>setBr({...DEF_BR})}>
-            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
-              <span style={{fontSize:12,color:'#94a3b8'}}>Brake Mode</span>
-              <Hint text="AUTO derives a recommended brake balance from your front weight bias and build type. MANUAL lets you set specific values."/>
-              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
-                <button className={`tog${!br.brakeManual?' on':''}`}
-                  onClick={()=>setBr(p=>({...p,brakeManual:false}))}>AUTO</button>
-                {uiMode==='pro'&&<button className={`tog${br.brakeManual?' on':''}`}
-                  onClick={()=>setBr(p=>({...p,brakeManual:true,
-                    brakeBias:recBrakeBias,brakePressure:100}))}>MANUAL</button>}
-              </div>
-            </div>
-            {br.brakeManual&&<>
-              <Field label="Brake Balance" value={br.brakeBias??DEF_BR.brakeBias}
-                onChange={pBr('brakeBias')} min={45} max={70} step={1} unit="% front"
-                hint="Front brake bias. Higher front bias = stronger front braking, more resistance to corner entry rotation (understeer). Lower = more rear braking, more rotation tendency (oversteer). Start at your front weight distribution and adjust by feel."/>
-              <Field label="Brake Pressure" value={br.brakePressure??DEF_BR.brakePressure}
-                onChange={pBr('brakePressure')} min={50} max={200} step={5} unit="%"
-                hint="Overall brake force multiplier. 100% is the default. Increase if the car doesn't slow down fast enough; decrease if the wheels lock under light braking. Tune this to match your tyre grip level."/>
-            </>}
-          </Sec></div>}
           </>}
         </div>
 
@@ -3653,7 +3604,7 @@ function App(){
           <div id="zone-output" style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',overscrollBehavior:'contain',padding:'8px 10px 6px',minHeight:0,...dim('output')}}>
 
           {/* 1 — ALIGNMENT */}
-          <Card title={`ALIGNMENT${al.alignManual?' · MANUAL':''}`}
+          <Card title="ALIGNMENT"
             hint={dr.layout==='FWD'
               ?`${al.alignManual?'Manual values.':'Recommended starting point.'} Camber targets ${({street:'-1.0°',track:'-1.5°',drift:'-2.5°'})[dr.buildType??'track']} dynamic. FWD front camber reduced for traction. Toe-in front and rear for stability.`
               :dr.layout==='RWD'
@@ -3734,7 +3685,7 @@ function App(){
           </Card>
 
           {/* 5 — BRAKES */}
-          <Card title={`BRAKES${br.brakeManual?' · MANUAL':''}`}
+          <Card title="BRAKES"
             hint="Brake balance and pressure starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. Fine-tune in 1% steps by feel.">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               <Readout label="BALANCE" value={brakeBias} unit="% F"                ctx={brakeBias>55?['FRONT','#3b82f6']:brakeBias<50?['REAR','#ef4444']:['NEUTRAL','#cbd5e1']}/>
@@ -3892,10 +3843,7 @@ function App(){
                       : cardGrid(myBuilds.map(b=>{
                           const bType=(b.dr?.buildType??'track').toUpperCase();
                           return card(b.id,b.name,`${bType} · ${b.savedAt}`,'',
-                            ()=>{
-                              if(loadMode==='fe'){setFe({...DEF_FE,...b.fe});}
-                              else{setFe({...DEF_FE,...b.fe});setDr({...DEF_DR,...b.dr});}
-                            },
+                            ()=>{setFe({...DEF_FE,...b.fe});setDr({...DEF_DR,...b.dr});},
                             ()=>setMyBuilds(p=>p.filter(x=>x.id!==b.id)),
                             ()=>setMyBuilds(p=>p.map(x=>x.id===b.id?{...x,fe:{...fe},dr:{...dr},savedAt:new Date().toLocaleDateString()}:x)));
                         }),220)}
@@ -3905,46 +3853,166 @@ function App(){
             })()}
             {/* action row — always visible */}
             <div style={{display:'flex',gap:3,alignItems:'center',flexWrap:'wrap',padding:'0 12px 6px'}}>
-              <button className={`tbtn${loadMode==='fe'?' on':''}`} style={{fontSize:10,letterSpacing:0.5}}
-                onClick={()=>setLoadMode(m=>m==='all'?'fe':'all')}
-                title={loadMode==='all'
-                  ?'Loading feel + drivetrain. Click to load feel only (keeps your current drivetrain).'
-                  :'Loading feel only. Click to restore full feel + drivetrain loading.'}>
-                {loadMode==='all'?'FE+DR':'FE'}
-              </button>
-              <div style={{flex:1}}/>
               <button className="tbtn" onClick={()=>setShowResetModal(true)} style={{fontSize:11,color:'#fca5a5'}}
                 title="Reset entire app to defaults: tune, zoom, mode, tutorials, units (saves preserved)">RESET</button>
+              <div style={{flex:1}}/>
               <button className="tbtn" onClick={()=>setShowChecker(true)} style={{fontSize:11}}>CHECK</button>
               <button className="tbtn" style={{fontSize:11}} onClick={()=>{
-                try{
-                  const payload=encodeTune(ch,fe,dr,br);
-                  if(navigator.clipboard&&navigator.clipboard.writeText){
-                    navigator.clipboard.writeText(payload).then(()=>{
-                      alert('Tune code copied to clipboard. Share it with anyone running SUSP OS.');
-                    }).catch(()=>prompt('Copy this tune code:',payload));
-                  } else {
-                    prompt('Copy this tune code:',payload);
-                  }
-                }catch(e){console.error('Share failed',e);}
-              }}>SHARE</button>
-              <button className="tbtn" style={{fontSize:11}} onClick={()=>{
-                const raw=prompt('Paste a tune code:');
-                if(!raw)return;
-                const code=raw.replace(/\s/g,'');
-                try{
-                  const{ch:ic,fe:ife,dr:idr,br:ibr}=sanitizeTune(decodeTune(code));
-                  setCh({...DEF_CH,...ic});
-                  setFe({...DEF_FE,...ife});
-                  setDr({...DEF_DR,...idr});
-                  setBr({...DEF_BR,...ibr});
-                }catch(e){
-                  console.error('Import failed:',e,code);
-                  alert('Invalid tune code: '+e.message+'\n\nMake sure you pasted the full string.');
-                }
-              }}>IMPORT</button>
+                setDataMode('share');setShareSel({ch:true,fe:true,dr:true});
+                setShareCopied(false);setImportCode('');setImportErr('');
+                setImportSel({ch:true,fe:true,dr:true});
+                setExportSel({garage:true,builds:true});setShowDataModal(true);
+              }}>DATA</button>
             </div>
           </div>
+
+
+
+          {/* DATA MODAL — share / import / export */}
+          {showDataModal&&(()=>{
+            const close=()=>setShowDataModal(false);
+            const sharePayload=encodeTune(
+              shareSel.ch?ch:DEF_CH,
+              shareSel.fe?fe:DEF_FE,
+              shareSel.dr?dr:DEF_DR,
+              DEF_BR
+            );
+            const doCopy=()=>{
+              if(navigator.clipboard&&navigator.clipboard.writeText){
+                navigator.clipboard.writeText(sharePayload).then(()=>setShareCopied(true)).catch(()=>{});
+              } else {
+                const ta=document.createElement('textarea');
+                ta.value=sharePayload;document.body.appendChild(ta);ta.select();
+                document.execCommand('copy');document.body.removeChild(ta);
+                setShareCopied(true);
+              }
+            };
+            const selectStyle={width:'100%',background:'#020617',border:'1px solid #1e293b',
+              borderRadius:2,padding:'5px 8px',fontSize:11,color:'#e2e8f0',outline:'none',
+              fontFamily:'Courier New',letterSpacing:1,marginBottom:14,cursor:'pointer',
+              appearance:'none',WebkitAppearance:'none'};
+            const chkRow=(key,label,sub,checked,onChange)=>(
+              <label key={key} style={{display:'flex',alignItems:'center',gap:10,
+                                       padding:'7px 0',borderBottom:'1px solid #1e293b',
+                                       cursor:'pointer',userSelect:'none'}}>
+                <input type="checkbox" checked={checked}
+                  onChange={onChange}
+                  style={{accentColor:'#94a3b8',width:14,height:14,cursor:'pointer'}}/>
+                <div>
+                  <div style={{fontSize:11,color:'#e2e8f0',letterSpacing:1}}>{label}</div>
+                  <div style={{fontSize:9,color:'#475569'}}>{sub}</div>
+                </div>
+              </label>
+            );
+            return(
+            <div style={{position:'fixed',inset:0,zIndex:900,display:'flex',alignItems:'center',
+                         justifyContent:'center',background:'#000a'}}
+                 onClick={e=>{if(e.target===e.currentTarget)close();}}>
+              <div style={{background:'#0f172a',border:'1px solid #334155',borderRadius:4,
+                           padding:'20px 22px',width:280,fontFamily:'Courier New',
+                           boxShadow:'0 8px 40px #000d'}}>
+                <div style={{fontSize:11,letterSpacing:2,color:'#94a3b8',marginBottom:12}}>DATA</div>
+                {/* mode selector */}
+                <div style={{position:'relative',marginBottom:14}}>
+                  <select value={dataMode} onChange={e=>{setDataMode(e.target.value);setShareCopied(false);setImportErr('');}}
+                    style={selectStyle}>
+                    <option value="share">SHARE — generate a tune code</option>
+                    <option value="import">IMPORT — load from a tune code</option>
+                    <option value="export">EXPORT — back up saved data</option>
+                  </select>
+                  <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',
+                                color:'#475569',pointerEvents:'none',fontSize:10}}>▾</span>
+                </div>
+
+                {/* SHARE */}
+                {dataMode==='share'&&(<>
+                  <div style={{fontSize:9,letterSpacing:2,color:'#475569',marginBottom:6}}>INCLUDE</div>
+                  {[
+                    {key:'ch',label:'CHASSIS',sub:'Weight · bias · tyres · geometry'},
+                    {key:'fe',label:'FEEL',sub:'Ride · damping · ARB · balance'},
+                    {key:'dr',label:'DRIVETRAIN',sub:'Layout · build type · diff'},
+                  ].map(({key,label,sub})=>chkRow(key,label,sub,shareSel[key],
+                    e=>{setShareSel(s=>({...s,[key]:e.target.checked}));setShareCopied(false);}))}
+                  <textarea readOnly value={sharePayload} rows={3} onFocus={e=>e.target.select()}
+                    style={{width:'100%',background:'#020617',border:'1px solid #1e293b',borderRadius:2,
+                            padding:'6px 8px',fontSize:10,color:'#e2e8f0',outline:'none',resize:'none',
+                            fontFamily:'Courier New',letterSpacing:0.5,marginTop:10,marginBottom:6,cursor:'text'}}/>
+                  <div style={{fontSize:9,color:'#475569',marginBottom:12,letterSpacing:0.5}}>
+                    Paste into IMPORT on any device running SUSP.OS
+                  </div>
+                  <div style={{display:'flex',gap:6}}>
+                    <button className="tbtn" style={{flex:1,fontSize:11}} onClick={close}>CLOSE</button>
+                    <button className={`tbtn${shareCopied?' saved':' on'}`} style={{flex:1,fontSize:11}}
+                      onClick={doCopy}>{shareCopied?'COPIED':'COPY'}</button>
+                  </div>
+                </>)}
+
+                {/* IMPORT */}
+                {dataMode==='import'&&(<>
+                  <textarea value={importCode} onChange={e=>{setImportCode(e.target.value);setImportErr('');}}
+                    placeholder="Paste tune code here…" rows={3}
+                    style={{width:'100%',background:'#020617',border:'1px solid #1e293b',borderRadius:2,
+                            padding:'6px 8px',fontSize:10,color:'#e2e8f0',outline:'none',resize:'none',
+                            fontFamily:'Courier New',letterSpacing:0.5,marginBottom:10}}/>
+                  {importErr&&<div style={{fontSize:9,color:'#f87171',marginBottom:8,letterSpacing:0.5}}>{importErr}</div>}
+                  <div style={{fontSize:9,letterSpacing:2,color:'#475569',marginBottom:6}}>APPLY TO</div>
+                  {[
+                    {key:'ch',label:'CHASSIS',sub:'Weight · bias · tyres · geometry'},
+                    {key:'fe',label:'FEEL',sub:'Ride · damping · ARB · balance'},
+                    {key:'dr',label:'DRIVETRAIN',sub:'Layout · build type · diff'},
+                  ].map(({key,label,sub})=>chkRow(key,label,sub,importSel[key],
+                    e=>setImportSel(s=>({...s,[key]:e.target.checked}))))}
+                  <div style={{display:'flex',gap:6,marginTop:14}}>
+                    <button className="tbtn" style={{flex:1,fontSize:11}} onClick={close}>CANCEL</button>
+                    <button className="tbtn on" style={{flex:1,fontSize:11}}
+                      disabled={!importCode.trim()||(!importSel.ch&&!importSel.fe&&!importSel.dr)}
+                      onClick={()=>{
+                        const code=importCode.replace(/\s/g,'');
+                        try{
+                          const{ch:ic,fe:ife,dr:idr}=sanitizeTune(decodeTune(code));
+                          if(importSel.ch) setCh({...DEF_CH,...ic});
+                          if(importSel.fe) setFe({...DEF_FE,...ife});
+                          if(importSel.dr) setDr({...DEF_DR,...idr});
+                          close();
+                        }catch(e){
+                          console.error('Import failed:',e,code);
+                          setImportErr('Invalid code — make sure you pasted the full string.');
+                        }
+                      }}>LOAD</button>
+                  </div>
+                </>)}
+
+                {/* EXPORT */}
+                {dataMode==='export'&&(<>
+                  <div style={{fontSize:9,color:'#475569',marginBottom:10,letterSpacing:0.5,lineHeight:1.5}}>
+                    Download a JSON backup of your saved data. Use this to transfer between devices or browsers.
+                  </div>
+                  {[
+                    {key:'garage',label:'GARAGE',sub:'Chassis saves'},
+                    {key:'builds',label:'MY BUILDS',sub:'Tune saves'},
+                  ].map(({key,label,sub})=>chkRow(key,label,sub,exportSel[key],
+                    e=>setExportSel(s=>({...s,[key]:e.target.checked}))))}
+                  <div style={{display:'flex',gap:6,marginTop:14}}>
+                    <button className="tbtn" style={{flex:1,fontSize:11}} onClick={close}>CANCEL</button>
+                    <button className="tbtn on" style={{flex:1,fontSize:11}}
+                      disabled={!exportSel.garage&&!exportSel.builds}
+                      onClick={()=>{
+                        const out={};
+                        if(exportSel.garage) out.garage=garage;
+                        if(exportSel.builds) out.builds=myBuilds;
+                        const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+                        const url=URL.createObjectURL(blob);
+                        const a=document.createElement('a');
+                        a.href=url;a.download='suspos-data.json';a.click();
+                        URL.revokeObjectURL(url);
+                        close();
+                      }}>DOWNLOAD</button>
+                  </div>
+                </>)}
+              </div>
+            </div>
+            );
+          })()}
 
           {/* PINNED — HANDLING BALANCE */}
           <div id="zone-balance-bar" style={{flexShrink:0,borderTop:'1px solid #1e293b',background:'#020617',
