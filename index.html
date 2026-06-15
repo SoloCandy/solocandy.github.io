@@ -237,7 +237,10 @@ const feelToPhysics=(ch,fe)=>{
   if(arbBalModeEarly==='coSolve'&&uiRideRef!=='front'){
     const mc=cornerMasses(ch);
     const abt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
-    const rst=Math.max(0.001,Math.min(0.999,abt));        // arbBalTarget IS the rsBalance target
+    // Match computeTune: subtract the same tyre-width correction so Kcs is consistent.
+    const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
+    const tireCorr=TIRE_MECH_SCALE*Math.log(twR/twF);
+    const rst=Math.max(0.001,Math.min(0.999,abt-tireCorr));
     const S=(fe.springShare??50)/100;
     const A=mc.rear*ch.trackR*ch.trackR/(mc.front*ch.trackF*ch.trackF); // natural rear/front roll-stiffness ratio (no width)
     const Rbl=A/(1+A);
