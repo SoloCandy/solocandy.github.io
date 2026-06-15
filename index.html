@@ -1763,12 +1763,9 @@ const TUTORIALS={
     {title:'Ride Stiffness',
      focus:['ride-stiffness'],
      body:'Controls overall suspension stiffness. SOFT is comfortable on rough surfaces. ROAD is a balanced starting point. FIRM is responsive sport. RACE is a stiff competition setup. The badge updates as you move the slider.'},
-    {title:'Spring / ARB Mix',
-     focus:['rear-stiffness'],
-     body:'Controls how the balance correction is split between anti-roll bars and rear spring stiffness. ARBs (left) = bars do all the work, springs stay symmetric. SPRINGS (right) = rear spring stiffness carries more correction. BALANCED (centre) splits evenly — a good default.'},
     {title:'Balance',
      focus:['balance'],
-     body:'Shifts the handling balance. Left (OVERSTEER) increases rear roll stiffness — more rotation and rear-end freedom. Right (UNDERSTEER) increases front roll stiffness — more stability and confidence at corner entry. Centre is neutral. Watch the handling balance bar at the bottom update as you move the slider. Combined with Spring / ARB Mix, this sets your overall balance character.'},
+     body:'Shifts the handling balance. Left (OVERSTEER) increases rear roll stiffness — more rotation and rear-end freedom. Right (UNDERSTEER) increases front roll stiffness — more stability and confidence at corner entry. Centre is neutral for your car\'s geometry. Watch the handling balance bar at the bottom update as you move the slider.'},
     {title:'Character',
      focus:['character'],
      body:'Controls damping feel — how quickly the suspension settles after a bump or weight transfer. STABLE means more damped: planted and predictable. AGILE means lighter damping: livelier and more reactive to inputs. Start at centre for most builds.'},
@@ -2131,7 +2128,8 @@ function App(){
     if(uiMode!=='beginner')return;
     setFe(p=>({...p,
       arbBalMode:'coSolve',
-      arbBalTarget:Math.max(0.30,Math.min(0.90,p.arbBalTarget??natMechBalance)),
+      arbBalTarget:Math.max(0.30,Math.min(0.90,natMechBalance)),
+      springShare:50,
     }));
   },[uiMode]); // eslint-disable-line
 
@@ -2592,15 +2590,6 @@ function App(){
                     <span style={{fontSize:10,color:'#94a3b8',fontFamily:'Courier New'}}>{physics.frontHz.toFixed(2)} Hz</span>
                   </span>}
                   hint="How stiff the suspension feels. SOFT = comfortable street ride. ROAD = balanced. FIRM = responsive sport. RACE = stiff competition setup."/>
-                </div>
-                <div id="zone-rear-stiffness" style={dim('rear-stiffness')}>
-                <FeelSlider label="Spring / ARB Mix" value={fe.springShare??50}
-                  onChange={v=>pFe('springShare')(Math.round(v))}
-                  min={0} max={100} step={1}
-                  leftLabel="ARBs" rightLabel="SPRINGS"
-                  centered={true}
-                  readout={`SPR ${fe.springShare??50}% / ARB ${100-(fe.springShare??50)}%`}
-                  hint="Controls how the balance correction is split between anti-roll bars and rear spring stiffness. ARBs (left) = bars do the work, springs stay symmetric. SPRINGS (right) = rear spring stiffness is adjusted more, bars stay near neutral. BALANCED (centre) splits the correction evenly between both."/>
                 </div>
                 <div id="zone-balance" style={dim('balance')}>
                 <FeelSlider label="Balance" value={balVal}
