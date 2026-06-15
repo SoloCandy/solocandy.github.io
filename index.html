@@ -2075,6 +2075,7 @@ function App(){
   const[open,setOpen]=useState({chassis:true,build:true,ride:true,dampers:true,arb:true,drivetrain:true,balanceExpanded:false,presetsOpen:false,startFromOpen:true});
   const[showChecker,setShowChecker]=useState(false);
   const[showResetModal,setShowResetModal]=useState(false);
+  const[begResetArmed,setBegResetArmed]=useState(false);
   const[showDataModal,setShowDataModal]=useState(false);
   const[dataMode,setDataMode]=useState('share'); // 'share'|'import'|'export'
   const[exportSel,setExportSel]=useState({garage:true,builds:true});
@@ -2624,8 +2625,11 @@ function App(){
                   hint="Controls damping character. Stable (left) = higher damping, settles quickly, more predictable. Agile (right) = lighter damping, more lively and responsive, quicker direction changes. Start at centre."/>
                 </div>
                 <div style={{display:'flex',justifyContent:'flex-end',marginTop:18}}>
-                  <button className="tbtn" style={{fontSize:10,color:'#fca5a5'}}
+                  <button className="tbtn" style={{fontSize:10,color:begResetArmed?'#ffffff':'#fca5a5',
+                    background:begResetArmed?'#7f1d1d':'',transition:'background 0.15s,color 0.15s'}}
                     onClick={()=>{
+                      if(!begResetArmed){setBegResetArmed(true);setTimeout(()=>setBegResetArmed(false),2000);return;}
+                      setBegResetArmed(false);
                       setCh(p=>({...p,weight:DEF_CH.weight,frontBias:DEF_CH.frontBias,
                         tyreF:DEF_CH.tyreF,tyreR:DEF_CH.tyreR}));
                       setDr(p=>({...p,layout:DEF_DR.layout,buildType:DEF_DR.buildType}));
@@ -2633,7 +2637,7 @@ function App(){
                         springShare:DEF_FE.springShare??50,
                         arbBalTarget:DEF_FE.arbBalTarget,arbBalMode:'coSolve',
                         reboundZeta:DEF_FE.reboundZeta,bumpRatio:DEF_FE.bumpRatio}));
-                    }}>RESET</button>
+                    }}>{begResetArmed?'CONFIRM':'RESET'}</button>
                 </div>
               </div>
             );
