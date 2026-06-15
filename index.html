@@ -2043,8 +2043,9 @@ function App(){
     if(canAccessMode(m)){
       setUiMode(m);
     }else{
-      // Prerequisites not met: open the first missing tutorial
+      // Prerequisites not met: switch to the needed mode (so tutSeen gets marked) and open its tutorial
       const needed=m==='intermediate'?'beginner':'intermediate';
+      setUiMode(needed);
       openTut(needed);
     }
   };
