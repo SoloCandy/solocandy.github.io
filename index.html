@@ -2319,7 +2319,10 @@ function App(){
     // Hz is already weight-neutral (spring rate = Hz² × cornerMass), so no scaling needed.
     if(uiMode==='beginner'){
       adjustedFe.arbBalMode='mech';
-      adjustedFe.arbBalTarget=Math.round((100-ch.frontBias)/100*1000)/1000;
+      const _naturalBal=(100-ch.frontBias)/100;
+      const _buildType=s.dr?.buildType??'street';
+      const _balOffset=_buildType==='drift'?0.20:_buildType==='track'?0.10:0;
+      adjustedFe.arbBalTarget=Math.round(Math.min(0.90,Math.max(0.40,_naturalBal+_balOffset))*1000)/1000;
       adjustedFe.rearHzMode='multiplier';
       if(adjustedFe.rearHzMult==null) adjustedFe.rearHzMult=1.0;
     }
