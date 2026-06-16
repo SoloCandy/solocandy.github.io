@@ -3435,6 +3435,7 @@ function App(){
               leftLabel="10%" rightLabel="115%"
               hint="Damping ratio for the rebound (extension) stroke — how quickly the suspension returns after compression. 55–70% is typical. Above 70% (Butterworth) the car feels planted but stiff. Above 100% (overdamped) the suspension moves sluggishly."
               markers={[
+                {value:40, color:'#60a5fa',label:'UNDER'},
                 {value:70, color:'#f59e0b',label:'BWORTH'},
                 {value:100,color:'#ef4444',label:'OVER'},
               ]}
@@ -3449,7 +3450,7 @@ function App(){
                   onChange={pFe('bumpRatio')} min={10} max={100} step={1}
                   leftLabel="10%" rightLabel="100%"
                   hint="Bump damping as a percentage of rebound. Lower = softer over sharp hits, more compliant on rough roads. Higher = more consistent feel between bump and rebound strokes. 40–65% is the typical range for most builds. Readout shows ratio / resulting bump ζ."
-                  markers={[{value:65,color:'#f59e0b',label:'FIRM'}]}
+                  markers={[{value:30,color:'#60a5fa',label:'UNDER'},{value:65,color:'#f59e0b',label:'FIRM'}]}
                   readout={(()=>{
                     const ratio=Math.min(100,fe.bumpRatio??56);
                     const bz=Math.max(10,Math.min((fe.reboundZeta??70),(fe.reboundZeta??70)*ratio/100));
@@ -3462,6 +3463,11 @@ function App(){
                   onChange={pFe('bumpZeta')} min={10} max={115} step={1}
                   leftLabel="10%" rightLabel="115%"
                   hint="Bump damping ratio set independently from rebound. Useful when you want precise control — e.g. soft bump for road compliance with firm rebound for body control. Keep below rebound for normal handling."
+                  markers={[
+                    {value:40, color:'#60a5fa',label:'UNDER'},
+                    {value:70, color:'#f59e0b',label:'BWORTH'},
+                    {value:100,color:'#ef4444',label:'OVER'},
+                  ]}
                   readout={(()=>{
                     const z=fe.bumpZeta??39;
                     const r=fe.reboundZeta??70;
