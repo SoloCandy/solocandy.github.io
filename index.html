@@ -1869,7 +1869,7 @@ const TUTORIALS={
      body:'Pro mode adds the full physics surface on top of Intermediate: chassis geometry (wheelbase, track widths, CG height) and manual differential control. Alignment and brakes are always computed automatically. This guide only covers what\'s new.'},
     {title:'Chassis Geometry',
      focus:['chassis'],
-     body:'Wheelbase, track widths, and CG height now drive the physics directly. The REACH panel shows what track width changes would shift your natural balance toward the target. Defaults suit most sports cars — enter exact values if you have them.'},
+     body:'Wheelbase, track widths, and CG height now drive the physics directly. Defaults suit most sports cars — enter exact values if you have them. The GEOMETRY GAP panel in BUILD & BALANCE TARGET shows whether track width changes could help close the gap between your chassis natural balance and your target.'},
     {title:'Weight Transfer Strips',
      focus:['chassis'],
      body:'XFER F/R shows lateral load transfer per axle per g of cornering. OUT/IN show outer and inner wheel loads at 1g. Wider track and lower CG both reduce transfer. These inform ARB aggressiveness and how much camber the outer tyre needs under load.'},
@@ -2874,72 +2874,10 @@ function App(){
                   <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>TYRE SIZE</span>
                   <Hint text="Enter tyre sizes (e.g. 265/35R18). Width (first number, in mm) sets each axle's grip capacity at the limit — wider = more grip on that end. This affects the GRIP BIAS readout (physical handling at limit) but not the roll stiffness balance directly. Aspect ratio and rim diameter determine rolling radius."/>
                 </div>
-                <div style={{display:'flex',gap:8,marginBottom:4}}>
+                <div style={{display:'flex',gap:8,marginBottom:8}}>
                   {tyreInput('tyreF','FRONT')}
                   {tyreInput('tyreR','REAR')}
                 </div>
-                {/* Dual metric bar */}
-                <div style={{display:'flex',gap:3,marginBottom:showRec?3:8}}>
-                  <div style={{flex:1,...box,flexDirection:'column',alignItems:'stretch',gap:2}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
-                      <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>CHASSIS BAL.</span>
-                      <span style={{display:'flex',alignItems:'baseline',gap:3}}>
-                        <span style={{fontFamily:'Courier New',fontWeight:700,color:nmCol,fontSize:11}}>{nm.toFixed(2)}</span>
-                        <span style={{fontSize:10,color:nmCol,letterSpacing:1}}>{nmLabel}</span>
-                      </span>
-                    </div>
-                    {(()=>{
-                      const gp=balanceFromRsBal(ch,nm);
-                      const gpd=Math.abs(gp-0.5);
-                      const gpc=gpd<0.04?'#4b5563':gp<0.5?'#3b82f6':'#ef4444';
-                      const gpl=gpd<0.04?'NEUTRAL':gp<0.5?'US':'OS';
-                      return <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',borderTop:'1px solid #0f172a',paddingTop:2,marginTop:1}}>
-                        <span style={{fontSize:9,color:'#4b5563',letterSpacing:0.5}}>GRIP BIAS</span>
-                        <span style={{display:'flex',alignItems:'baseline',gap:2}}>
-                          <span style={{fontFamily:'Courier New',fontSize:10,color:gpc}}>{gp.toFixed(2)}</span>
-                          <span style={{fontSize:9,color:gpc}}>{gpl}</span>
-                        </span>
-                      </div>;
-                    })()}
-                  </div>
-                  <div style={{flex:1,...box}}>
-                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>STABILITY</span>
-                    <span style={{fontFamily:'Courier New',fontSize:11,fontWeight:700,color:stabCol}}>{stabLabel}</span>
-                  </div>
-                </div>
-                {/* Recommendation panel */}
-                {showRec&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',
-                  borderRadius:2,padding:'6px 7px',marginBottom:8}}>
-                  <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:5}}>
-                    REACH {targetBal.toFixed(2)}{hasMechTarget?' · ARB TARGET':' · NEUTRAL'}
-                  </div>
-                  {/* Tyre row removed — tyre width affects grip capacity (see GRIP BIAS), not roll stiffness fraction */}
-                  {/* Track row */}
-                  <div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
-                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:38,flexShrink:0}}>TRACK</span>
-                    <span style={{flex:1,display:'flex',gap:8,fontFamily:'Courier New',fontSize:10}}>
-                      <span style={{color:trackFfeas?'#e2e8f0':dimCol}}>
-                        F {fmtD(dTrackF)}mm
-                        {!trackFfeas&&<span style={{fontSize:10,color:dimCol}}> ✗</span>}
-                      </span>
-                      <span style={{color:trackRfeas?'#e2e8f0':dimCol}}>
-                        R {fmtD(dTrackR)}mm
-                        {!trackRfeas&&<span style={{fontSize:10,color:dimCol}}> ✗</span>}
-                      </span>
-                    </span>
-                  </div>
-                  {/* Guidance note */}
-                  <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.4,marginTop:2}}>
-                    {(() => {
-                      const allFeasible=[trackFfeas,trackRfeas].some(Boolean);
-                      if(!allFeasible) return 'Gap too large for track geometry alone — rely on ARBs.';
-                      const needOS=targetBal>nm;
-                      return needOS
-                        ?'Wider rear track or narrower front track increases rear roll stiffness share toward target.'
-                        :'Wider front track or narrower rear track increases front roll stiffness share toward target.';
-                    })()}
-                  </div>
-                </div>}
               </>);
             })()}
             {uiMode==='pro'&&<>
@@ -3038,6 +2976,73 @@ function App(){
                   </div>
                 </div>
               );
+            })()}
+            {(()=>{
+              const{natBal:nm,stabIdx,targetBal,hasMechTarget,
+                    dTrackF,dTrackR,trackFfeas,trackRfeas,gap}=chassisAnalysis;
+              const nmDelta=nm-0.5;
+              const nmCol=Math.abs(nmDelta)<0.03?'#9ca3af':nmDelta>0?'#ef4444':'#3b82f6';
+              const nmLabel=Math.abs(nmDelta)<0.03?'NEUTRAL':nmDelta>0?'OS':'US';
+              const[stabLabel,stabCol]=stabIdx<0.85?['AGILE','#f59e0b']
+                :stabIdx<0.97?['BALANCED','#9ca3af']
+                :stabIdx<1.10?['STABLE','#60a5fa']
+                :['PLANTED','#3b82f6'];
+              const showRec=gap>0.015;
+              const anyFeasible=trackFfeas||trackRfeas;
+              const box={background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,
+                         padding:'4px 7px',display:'flex',justifyContent:'space-between',alignItems:'center'};
+              const fmtD=d=>(d>=0?'+':'')+Math.round(d);
+              const dSign=gap>=0?'+':'-';
+              return(<>
+                <div style={{display:'flex',gap:3,marginTop:8,marginBottom:showRec?3:0}}>
+                  <div style={{flex:1,...box,flexDirection:'column',alignItems:'stretch',gap:2}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
+                      <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>CHASSIS BAL.</span>
+                      <span style={{display:'flex',alignItems:'baseline',gap:3}}>
+                        <span style={{fontFamily:'Courier New',fontWeight:700,color:nmCol,fontSize:11}}>{nm.toFixed(2)}</span>
+                        <span style={{fontSize:10,color:nmCol,letterSpacing:1}}>{nmLabel}</span>
+                      </span>
+                    </div>
+                    {(()=>{
+                      const gp=balanceFromRsBal(ch,nm);
+                      const gpd=Math.abs(gp-0.5);
+                      const gpc=gpd<0.04?'#4b5563':gp<0.5?'#3b82f6':'#ef4444';
+                      const gpl=gpd<0.04?'NEUTRAL':gp<0.5?'US':'OS';
+                      return<div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',borderTop:'1px solid #0f172a',paddingTop:2,marginTop:1}}>
+                        <span style={{fontSize:9,color:'#4b5563',letterSpacing:0.5}}>GRIP BIAS</span>
+                        <span style={{display:'flex',alignItems:'baseline',gap:2}}>
+                          <span style={{fontFamily:'Courier New',fontSize:10,color:gpc}}>{gp.toFixed(2)}</span>
+                          <span style={{fontSize:9,color:gpc}}>{gpl}</span>
+                        </span>
+                      </div>;
+                    })()}
+                  </div>
+                  <div style={{flex:1,...box}}>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>STABILITY</span>
+                    <span style={{fontFamily:'Courier New',fontSize:11,fontWeight:700,color:stabCol}}>{stabLabel}</span>
+                  </div>
+                </div>
+                {showRec&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 7px'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:anyFeasible?4:3}}>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>GEOMETRY GAP</span>
+                    <span style={{fontFamily:'Courier New',fontSize:10,color:'#475569'}}>{dSign}{gap.toFixed(2)}</span>
+                  </div>
+                  {anyFeasible&&<div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:38,flexShrink:0}}>TRACK</span>
+                    <span style={{flex:1,display:'flex',gap:8,fontFamily:'Courier New',fontSize:10}}>
+                      {trackFfeas&&<span style={{color:'#e2e8f0'}}>F {fmtD(dTrackF)}mm</span>}
+                      {trackRfeas&&<span style={{color:'#e2e8f0'}}>R {fmtD(dTrackR)}mm</span>}
+                    </span>
+                  </div>}
+                  <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.4}}>
+                    {!anyFeasible
+                      ?'Gap exceeds track geometry range — use ARBs to reach the target.'
+                      :(targetBal>nm
+                        ?'Wider rear track or narrower front increases rear roll stiffness toward target.'
+                        :'Wider front track or narrower rear increases front roll stiffness toward target.')}
+                  </div>
+                </div>}
+              </>);
             })()}
           </Sec></div>
 
