@@ -126,7 +126,7 @@ In order, top to bottom:
 
 | Control | Description |
 |---|---|
-| **Damping dial** | Visual rebound/bump ratio |
+| **Damping dial** | Live rebound (red) and bump (blue) damping ratios on an arc from 10–115%. Center displays the bump-to-rebound ratio. Fill between the dots turns amber if bump exceeds rebound. Hover a dot to read its value |
 | **Damping Mode** | **BUMP RATIO** (bump as a % of rebound) or **INDEPENDENT** (bump ζ set separately) |
 | **Rebound ζ** | Damping ratio for the rebound stroke, 10–115%. Tick markers: **40%** = underdamping threshold (blue), **70%** = Butterworth (amber), **100%** = overdamped (red) |
 | **Bump Ratio / Bump ζ** | Bump damping, as a ratio of rebound or an independent ratio depending on the mode. Bump Ratio tick markers: **30%** = underdamping threshold (blue), **65%** = firm (amber). Bump ζ shares the same three markers as Rebound ζ |
