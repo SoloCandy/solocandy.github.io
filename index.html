@@ -1846,7 +1846,7 @@ const TUTORIALS={
      body:'The CHASSIS section now includes tyre sizes. Enter front and rear tyre sizes (e.g. 265/35R18). Tyre width sets grip capacity at the limit — wider = more grip on that axle. This feeds the CHASSIS BAL. readout (natural mechanical balance) and GRIP BIAS (at-limit handling tendency) below the inputs.'},
     {title:'Build Type & Balance Target',
      focus:['build'],
-     body:'The BUILD section contains three key controls. Build type (STREET/TRACK/DRIFT) sets your intended use — it determines the recommended balance range, diff AUTO behaviour, alignment presets, and brake AUTO recommendations. Mech Balance Target (0.40–0.90) is your primary tuning intent — the roll-stiffness rear fraction you want. The BALANCE GUIDE bar shows your car\'s natural balance, the recommended range for your build type, and where your target sits. Set build type first, then choose a balance target within the recommended range.'},
+     body:'The BUILD section contains three key controls. Build type (STREET/TRACK/DRIFT) sets your intended use — it determines the recommended balance range, diff AUTO behaviour, alignment presets, and brake AUTO recommendations. Mech Balance Target (0.40–0.90) is your primary tuning intent — the roll-stiffness rear fraction you want Forza to display. The right target depends on drivetrain: RWD track builds typically aim for 0.60–0.70 — rear roll bias helps rotation and rear-end feel under power. AWD targets 0.55–0.65 — mild rear bias for rotation while torque split prevents snap oversteer. FWD targets 0.45–0.55 — neutral to slight front bias keeps the nose planted under power. The BALANCE GUIDE bar shows your car\'s natural balance, the recommended range for your layout and build type, and where your target sits. The closer your natural balance is to your target, the less ARB correction is needed — a small gap means softer, more compliant ARBs.'},
     {title:'ARB Balance Modes',
      focus:['arb'],
      body:'Three modes control how the ARB split reaches your balance target. WEIGHT uses weight distribution as the baseline — good for setups where you want ARBs to follow the car\'s natural character with optional fine-tuning via ARB Bias. MECH solves the ARB split alone to hit your Mech Balance Target exactly, leaving rear Hz independent — best for most track builds. CO-SOLVE adjusts both rear spring Hz and ARB split together — use this when you want springs and ARBs to share the work, controlled by the Spring Share slider.'},
@@ -1875,7 +1875,7 @@ const TUTORIALS={
      body:'XFER F/R shows lateral load transfer per axle per g of cornering. OUT/IN show outer and inner wheel loads at 1g. Wider track and lower CG both reduce transfer. These inform ARB aggressiveness and how much camber the outer tyre needs under load.'},
     {title:'Build Type & Balance Target',
      focus:['build'],
-     body:'The BUILD section is where you set your tuning intent. Build type (STREET/TRACK/DRIFT) determines the recommended balance range — the Mech Balance Target recommendations shift based on your layout and build. Mech Balance Target (0.40–0.90) is the roll-stiffness rear fraction you want to achieve. It drives everything: ARB split, spring stiffness, alignment recommendations, even differential bias if Match Chassis is on. The BALANCE GUIDE shows your natural balance, the range suited to your build, and how far from natural your target is. Set these first, then choose your solving mode (WEIGHT/MECH/CO-SOLVE) and fine-tune.'},
+     body:'The BUILD section is where you set your tuning intent. Build type (STREET/TRACK/DRIFT) determines the recommended balance range. Mech Balance Target (0.40–0.90) is the roll-stiffness rear fraction you want to achieve — it drives ARB split, spring stiffness, alignment recommendations, and differential bias if Match Chassis is on. The right target depends on drivetrain: RWD track builds target 0.60–0.70 for rotation and rear-end feel. AWD targets 0.55–0.65 — mild rear bias while torque split handles the rest. FWD targets 0.45–0.55 — neutral to slight front bias to keep the nose planted. The BALANCE GUIDE shows your natural balance, the recommended range for your layout and build, and how far your target is from natural. In PRO mode the GEOMETRY GAP panel shows whether track or tyre width changes could close that gap — a smaller gap means softer, more compliant ARBs are enough to reach the target. Set build type and target first, then choose your solving mode.'},
     {title:'ARB Solving Modes',
      focus:['arb'],
      body:'Three modes solve springs and ARBs toward your Mech Balance Target. WEIGHT uses weight distribution as the baseline, optionally shifted by ARB Bias. MECH solves the ARB split exactly to hit the target, leaving rear Hz independent. CO-SOLVE adjusts both rear spring Hz and ARB split together — use this when you control ride stiffness and Hz mode explicitly and want springs and ARBs to work together. Spring Share (in CO-SOLVE) controls how much of the correction comes from each.'},
@@ -2300,8 +2300,16 @@ function App(){
     const trackFfeas=Math.abs(dTrackF)<=65;
     const trackRfeas=Math.abs(dTrackR)<=65;
     const gap=Math.abs(natBal-targetBal);
+    const signedGap=targetBal-natBal;
+    const r10=v=>Math.round(v/10)*10;
+    const twR_rec=r10(Math.max(100,Math.min(500,twF*Math.exp(signedGap/TIRE_MECH_SCALE))));
+    const twF_rec=r10(Math.max(100,Math.min(500,twR*Math.exp(-signedGap/TIRE_MECH_SCALE))));
+    const dTyreR=twR_rec-twR,dTyreF=twF_rec-twF;
+    const tyreRfeas=Math.abs(dTyreR)>=10&&Math.abs(dTyreR)<=80;
+    const tyreFfeas=Math.abs(dTyreF)>=10&&Math.abs(dTyreF)<=80;
     return{natBal,stabIdx,targetBal,hasMechTarget,
-           trackF_rec,trackR_rec,dTrackF,dTrackR,trackFfeas,trackRfeas,gap};
+           trackF_rec,trackR_rec,dTrackF,dTrackR,trackFfeas,trackRfeas,gap,
+           dTyreF,dTyreR,tyreFfeas,tyreRfeas};
   })();
   const natMechBalance=chassisAnalysis.natBal;
 
@@ -2899,7 +2907,7 @@ function App(){
               hint="Determines your intended use. Shifts ARB and differential recommendations, brake balance AUTO, and the recommended Mech Balance Target range."/>
             <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
               min={0.40} max={0.90} step={0.01}
-              hint="Roll stiffness rear share — matches what Forza shows as Mech Balance. 0.50 = balanced roll resistance. Higher = more rear bar stiffness (oversteer tendency). Lower = more front (understeer tendency). MECH and CO-SOLVE modes solve springs and ARBs to hit this target. FH6 surfaces this value in-game so you can verify it directly; on older titles the solver still hits the same target — you just won't see it reflected in the tuning menu. CHASSIS BAL. below shows the same scale at your car's natural stiffness."/>
+              hint="Roll stiffness rear share — matches what Forza shows as Mech Balance. 0.50 = equal roll resistance front and rear. Higher = rear-biased (oversteer tendency). Lower = front-biased (understeer tendency). Target by drivetrain: RWD track builds target 0.60–0.70 — rear roll bias helps rotation and rear-end feel under power. AWD targets 0.55–0.65 — mild rear bias for rotation while torque split prevents snap oversteer. FWD targets 0.45–0.55 — neutral to slight front bias keeps the nose planted; too much rear bias causes understeer under power. The closer your chassis natural balance (NAT) is to the target, the less ARB correction is needed to reach it — a lower natural gap means softer, more compliant ARBs. MECH and CO-SOLVE modes solve springs and ARBs to hit this target exactly. FH6 surfaces this value in-game so you can verify it directly."/>
             {(()=>{
               const _layout=dr.layout??'RWD';
               const _build=dr.buildType??'track';
@@ -2979,7 +2987,8 @@ function App(){
             })()}
             {(()=>{
               const{natBal:nm,stabIdx,targetBal,hasMechTarget,
-                    dTrackF,dTrackR,trackFfeas,trackRfeas,gap}=chassisAnalysis;
+                    dTrackF,dTrackR,trackFfeas,trackRfeas,gap,
+                    dTyreF,dTyreR,tyreFfeas,tyreRfeas}=chassisAnalysis;
               const nmDelta=nm-0.5;
               const nmCol=Math.abs(nmDelta)<0.03?'#9ca3af':nmDelta>0?'#ef4444':'#3b82f6';
               const nmLabel=Math.abs(nmDelta)<0.03?'NEUTRAL':nmDelta>0?'OS':'US';
@@ -2988,7 +2997,7 @@ function App(){
                 :stabIdx<1.10?['STABLE','#60a5fa']
                 :['PLANTED','#3b82f6'];
               const showRec=gap>0.015;
-              const anyFeasible=trackFfeas||trackRfeas;
+              const anyFeasible=trackFfeas||trackRfeas||tyreFfeas||tyreRfeas;
               const box={background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,
                          padding:'4px 7px',display:'flex',justifyContent:'space-between',alignItems:'center'};
               const fmtD=d=>(d>=0?'+':'')+Math.round(d);
@@ -3027,19 +3036,26 @@ function App(){
                     <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>GEOMETRY GAP</span>
                     <span style={{fontFamily:'Courier New',fontSize:10,color:'#475569'}}>{dSign}{gap.toFixed(2)}</span>
                   </div>
-                  {anyFeasible&&<div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
+                  {(trackFfeas||trackRfeas)&&<div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
                     <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:38,flexShrink:0}}>TRACK</span>
                     <span style={{flex:1,display:'flex',gap:8,fontFamily:'Courier New',fontSize:10}}>
                       {trackFfeas&&<span style={{color:'#e2e8f0'}}>F {fmtD(dTrackF)}mm</span>}
                       {trackRfeas&&<span style={{color:'#e2e8f0'}}>R {fmtD(dTrackR)}mm</span>}
                     </span>
                   </div>}
+                  {(tyreFfeas||tyreRfeas)&&<div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:38,flexShrink:0}}>TYRE</span>
+                    <span style={{flex:1,display:'flex',gap:8,fontFamily:'Courier New',fontSize:10}}>
+                      {tyreFfeas&&<span style={{color:'#e2e8f0'}}>F {fmtD(dTyreF)}mm</span>}
+                      {tyreRfeas&&<span style={{color:'#e2e8f0'}}>R {fmtD(dTyreR)}mm</span>}
+                    </span>
+                  </div>}
                   <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.4}}>
                     {!anyFeasible
-                      ?'Gap exceeds track geometry range — use ARBs to reach the target.'
+                      ?'Gap exceeds geometry range — use ARBs to reach the target.'
                       :(targetBal>nm
-                        ?'Wider rear track or narrower front increases rear roll stiffness toward target.'
-                        :'Wider front track or narrower rear increases front roll stiffness toward target.')}
+                        ?'Wider rear track/tyre or narrower front increases rear roll stiffness toward target.'
+                        :'Wider front track/tyre or narrower rear increases front roll stiffness toward target.')}
                   </div>
                 </div>}
               </>);
