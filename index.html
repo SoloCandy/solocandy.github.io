@@ -684,12 +684,21 @@ const computeDiff=(ch,fe,dr)=>{
   return{...vals,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear};
 };
 
+// SOFT | ROAD | FIRM | RACE band boundaries (Hz). Single source of truth shared by
+// the hzCtx badge, the RIDE spring dial zones, and the Ride Stiffness slider markers —
+// change here and all three stay in sync.
+const HZ_BANDS=[1.2,1.8,2.5];
+const HZ_BAND_COLS=['#60a5fa','#22c55e','#f59e0b','#ef4444']; // SOFT, ROAD, FIRM, RACE
 const hzCtx=hz=>{
-  if(hz<1.2)return['SOFT','#60a5fa'];
-  if(hz<1.8)return['ROAD','#22c55e'];
-  if(hz<2.5)return['FIRM','#f59e0b'];
-  return['RACE','#ef4444'];
+  if(hz<HZ_BANDS[0])return['SOFT',HZ_BAND_COLS[0]];
+  if(hz<HZ_BANDS[1])return['ROAD',HZ_BAND_COLS[1]];
+  if(hz<HZ_BANDS[2])return['FIRM',HZ_BAND_COLS[2]];
+  return['RACE',HZ_BAND_COLS[3]];
 };
+// Slider ticks at each band boundary, labelled with the band that begins there
+// (SOFT is the implicit floor). Colour matches that band's hzCtx colour.
+const HZ_MARKERS=HZ_BANDS.map((v,i)=>({value:v,color:HZ_BAND_COLS[i+1],
+  label:['ROAD','FIRM','RACE'][i]}));
 const arbCtx=(arb,limit)=>{
   const p=(arb-1)/(limit-1);
   if(p<0.50)return['LOW','#60a5fa'];
@@ -1085,7 +1094,9 @@ const _dialBase=(SIZE=120,CX=60,CY=58,R=46,GAP_DEG=60)=>{
   return{START,SWEEP,polar,arcPath,CX,CY,R,SIZE};
 };
 
-// balance strip rendered inside an SVG at BY coordinate
+// balance strip rendered inside an SVG at BY coordinate.
+// Shows this subsystem's actual rear roll-stiffness share (bright marker) vs the
+// weight-distribution reference (grey tick). Natural/target now live on the arc as ghosts.
 const _BalStrip=({rearFrac,wtRearFrac,BY=108})=>{
   const BX=18,BW=84;
   const splitX=BX+rearFrac*BW;
@@ -1101,47 +1112,70 @@ const _BalStrip=({rearFrac,wtRearFrac,BY=108})=>{
   </>);
 };
 
-const SpringDial=({fHz,rHz,rsSpF,rsSpR,frontBias,clamped})=>{
+const SpringDial=({fHz,rHz,rsSpF,rsSpR,frontBias,clamped,natBal,target,rideRef})=>{
   const[hover,setHover]=useState(null);
   const{START,SWEEP,polar,arcPath,CX,CY,SIZE}=_dialBase();
   const MIN_HZ=HZ_MIN,MAX_HZ=HZ_MAX;
   const toA=hz=>START+((Math.min(Math.max(hz,MIN_HZ),MAX_HZ)-MIN_HZ)/(MAX_HZ-MIN_HZ))*SWEEP;
   const endA=START+SWEEP;
-  const a12=toA(1.5),a18=toA(2.5),a25=toA(3.5);
+  const a12=toA(HZ_BANDS[0]),a18=toA(HZ_BANDS[1]),a25=toA(HZ_BANDS[2]);
   const fA=toA(fHz),rA=toA(rHz);
   const[fxS,fyS]=polar(fA);const[rxS,ryS]=polar(rA);
   const spTot=rsSpF+rsSpR;
   const rearSpFrac=spTot>0?rsSpR/spTot:1-(frontBias/100);
   const wtRearFrac=1-frontBias/100;
+  // Ghost dots: where the derived axle (the one the ride ref ISN'T) would sit for the
+  // spring split to carry a given rear roll-stiffness fraction. Roll stiffness ∝ Hz², so
+  // hold the reference axle fixed and scale the derived axle's Hz by √(target rs / current rs).
+  const derived=rideRef==='rear'?'front':'rear';
+  const ghostHz=frac=>{
+    if(frac==null||rsSpF<=0||rsSpR<=0)return null;
+    const f=Math.max(0.05,Math.min(0.95,frac));
+    const hz=derived==='rear'
+      ? rHz*Math.sqrt((f/(1-f)*rsSpF)/rsSpR)
+      : fHz*Math.sqrt(((1-f)/f*rsSpR)/rsSpF);
+    return(hz>=MIN_HZ&&hz<=MAX_HZ)?hz:null;
+  };
+  const natG=ghostHz(natBal),tgtG=ghostHz(target);
+  const showTgtG=tgtG!=null&&(natG==null||Math.abs(tgtG-natG)>0.03);
+  const ghostDot=(hz,col,key)=>{if(hz==null)return null;const[x,y]=polar(toA(hz));
+    return<circle key={key} cx={x} cy={y} r={4} fill="none" stroke={col} strokeWidth={1.5} opacity={0.75}/>;};
   const dispVal=hover==='front'?fHz.toFixed(2):hover==='rear'?rHz.toFixed(2)
     :(fHz>0?`×${(rHz/fHz).toFixed(2)}`:'-');
   const dispSub=hover==='front'?'FRONT':hover==='rear'?'REAR':'F/R';
   const centerCol=clamped?'#f59e0b':'#e2e8f0';
   return(
     <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
-      <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
-        <path d={arcPath(START,endA)} fill="none" stroke="#1e293b" strokeWidth={4} strokeLinecap="round"/>
-        <path d={arcPath(START,a12)} fill="none" stroke="#1e3a5f" strokeWidth={4} strokeLinecap="round"/>
-        <path d={arcPath(a12,a18)}   fill="none" stroke="#14532d" strokeWidth={4} strokeLinecap="round"/>
-        <path d={arcPath(a18,a25)}   fill="none" stroke="#713f12" strokeWidth={4} strokeLinecap="round"/>
-        <path d={arcPath(a25,endA)}  fill="none" stroke="#7f1d1d" strokeWidth={4} strokeLinecap="round"/>
-        <circle cx={fxS} cy={fyS} r={5} fill="#818cf8" stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
-          onMouseEnter={()=>setHover('front')} onMouseLeave={()=>setHover(null)}
-          onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='front'?null:'front');}}/>
-        <circle cx={rxS} cy={ryS} r={5} fill="#38bdf8" stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
-          onMouseEnter={()=>setHover('rear')} onMouseLeave={()=>setHover(null)}
-          onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='rear'?null:'rear');}}/>
-        <text x={CX} y={CY-4} textAnchor="middle" fill={centerCol}
-          fontSize={15} fontFamily="Courier New" fontWeight="700">{dispVal}</text>
-        <text x={CX} y={CY+11} textAnchor="middle" fill="#475569"
-          fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{dispSub}</text>
-        <_BalStrip rearFrac={rearSpFrac} wtRearFrac={wtRearFrac}/>
-      </svg>
+      <div style={{position:'relative',display:'inline-block'}}>
+        <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
+          <path d={arcPath(START,endA)} fill="none" stroke="#1e293b" strokeWidth={4} strokeLinecap="round"/>
+          <path d={arcPath(START,a12)} fill="none" stroke="#1e3a5f" strokeWidth={4} strokeLinecap="round"/>
+          <path d={arcPath(a12,a18)}   fill="none" stroke="#14532d" strokeWidth={4} strokeLinecap="round"/>
+          <path d={arcPath(a18,a25)}   fill="none" stroke="#713f12" strokeWidth={4} strokeLinecap="round"/>
+          <path d={arcPath(a25,endA)}  fill="none" stroke="#7f1d1d" strokeWidth={4} strokeLinecap="round"/>
+          {ghostDot(natG,'#64748b','natG')}
+          {showTgtG&&ghostDot(tgtG,'#4ade80','tgtG')}
+          <circle cx={fxS} cy={fyS} r={5} fill="#818cf8" stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
+            onMouseEnter={()=>setHover('front')} onMouseLeave={()=>setHover(null)}
+            onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='front'?null:'front');}}/>
+          <circle cx={rxS} cy={ryS} r={5} fill="#38bdf8" stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
+            onMouseEnter={()=>setHover('rear')} onMouseLeave={()=>setHover(null)}
+            onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='rear'?null:'rear');}}/>
+          <text x={CX} y={CY-4} textAnchor="middle" fill={centerCol}
+            fontSize={15} fontFamily="Courier New" fontWeight="700">{dispVal}</text>
+          <text x={CX} y={CY+11} textAnchor="middle" fill="#475569"
+            fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{dispSub}</text>
+          <_BalStrip rearFrac={rearSpFrac} wtRearFrac={wtRearFrac}/>
+        </svg>
+        <span style={{position:'absolute',top:2,right:2,lineHeight:1}}>
+          <Hint text="Indigo dot = front spring Hz, sky dot = rear Hz, plotted on a SOFT→RACE arc. Hover a dot to read its value. Hollow rings mark where the derived axle would need to sit for natural balance (grey) and your target (green) — close the gap to green to hit your balance target."/>
+        </span>
+      </div>
     </div>
   );
 };
 
-const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,frontBias})=>{
+const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,frontBias,natBal,target,rideRef})=>{
   const[hover,setHover]=useState(null);
   const{START,SWEEP,polar,arcPath,CX,CY,SIZE}=_dialBase();
   const toA=v=>START+(Math.min(Math.max(v,0),arbLimit)/arbLimit)*SWEEP;
@@ -1152,6 +1186,21 @@ const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,frontBias})=>{
   const abTot=rsAbF+rsAbR;
   const rearAbFrac=abTot>0?rsAbR/abTot:1-(frontBias/100);
   const wtRearFrac=1-frontBias/100;
+  // Ghost dots: where the derived axle's ARB clicks would land for the ARB split to carry a
+  // given rear roll-stiffness fraction. ARB roll stiffness ∝ clicks, so scale linearly.
+  const derived=rideRef==='rear'?'front':'rear';
+  const ghostClicks=frac=>{
+    if(frac==null||rsAbF<=0||rsAbR<=0)return null;
+    const f=Math.max(0.05,Math.min(0.95,frac));
+    const v=derived==='rear'
+      ? arbR*((f/(1-f)*rsAbF)/rsAbR)
+      : arbF*(((1-f)/f*rsAbR)/rsAbF);
+    return(v>=0&&v<=arbLimit)?v:null;
+  };
+  const natG=ghostClicks(natBal),tgtG=ghostClicks(target);
+  const showTgtG=tgtG!=null&&(natG==null||Math.abs(tgtG-natG)>arbLimit*0.02);
+  const ghostDot=(v,col,key)=>{if(v==null)return null;const[x,y]=polar(toA(v));
+    return<circle key={key} cx={x} cy={y} r={4} fill="none" stroke={col} strokeWidth={1.5} opacity={0.75}/>;};
   const rearPct=Math.round(rearAbFrac*100);
   const dispVal=hover==='front'?arbF.toFixed(1):hover==='rear'?arbR.toFixed(1):`${rearPct}%`;
   const dispSub=hover==='front'?`/ ${arbLimit} F`:hover==='rear'?`/ ${arbLimit} R`:'R SPLIT';
@@ -1159,24 +1208,31 @@ const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,frontBias})=>{
   const centerCol=warnF||warnR?'#f59e0b':'#e2e8f0';
   return(
     <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
-      <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
-        <path d={arcPath(START,endA)} fill="none" stroke="#1e293b" strokeWidth={4} strokeLinecap="round"/>
-        <path d={arcPath(START,a50)} fill="none" stroke="#1e3a5f" strokeWidth={4} strokeLinecap="round"/>
-        <path d={arcPath(a50,a75)}   fill="none" stroke="#713f12" strokeWidth={4} strokeLinecap="round"/>
-        <path d={arcPath(a75,a90)}   fill="none" stroke="#7c2d12" strokeWidth={4} strokeLinecap="round"/>
-        <path d={arcPath(a90,endA)}  fill="none" stroke="#7f1d1d" strokeWidth={4} strokeLinecap="round"/>
-        <circle cx={fxS} cy={fyS} r={5} fill={warnF?'#f59e0b':'#818cf8'} stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
-          onMouseEnter={()=>setHover('front')} onMouseLeave={()=>setHover(null)}
-          onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='front'?null:'front');}}/>
-        <circle cx={rxS} cy={ryS} r={5} fill={warnR?'#f59e0b':'#38bdf8'} stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
-          onMouseEnter={()=>setHover('rear')} onMouseLeave={()=>setHover(null)}
-          onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='rear'?null:'rear');}}/>
-        <text x={CX} y={CY-4} textAnchor="middle" fill={centerCol}
-          fontSize={15} fontFamily="Courier New" fontWeight="700">{dispVal}</text>
-        <text x={CX} y={CY+11} textAnchor="middle" fill="#475569"
-          fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{dispSub}</text>
-        <_BalStrip rearFrac={rearAbFrac} wtRearFrac={wtRearFrac}/>
-      </svg>
+      <div style={{position:'relative',display:'inline-block'}}>
+        <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
+          <path d={arcPath(START,endA)} fill="none" stroke="#1e293b" strokeWidth={4} strokeLinecap="round"/>
+          <path d={arcPath(START,a50)} fill="none" stroke="#1e3a5f" strokeWidth={4} strokeLinecap="round"/>
+          <path d={arcPath(a50,a75)}   fill="none" stroke="#713f12" strokeWidth={4} strokeLinecap="round"/>
+          <path d={arcPath(a75,a90)}   fill="none" stroke="#7c2d12" strokeWidth={4} strokeLinecap="round"/>
+          <path d={arcPath(a90,endA)}  fill="none" stroke="#7f1d1d" strokeWidth={4} strokeLinecap="round"/>
+          {ghostDot(natG,'#64748b','natG')}
+          {showTgtG&&ghostDot(tgtG,'#4ade80','tgtG')}
+          <circle cx={fxS} cy={fyS} r={5} fill={warnF?'#f59e0b':'#818cf8'} stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
+            onMouseEnter={()=>setHover('front')} onMouseLeave={()=>setHover(null)}
+            onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='front'?null:'front');}}/>
+          <circle cx={rxS} cy={ryS} r={5} fill={warnR?'#f59e0b':'#38bdf8'} stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
+            onMouseEnter={()=>setHover('rear')} onMouseLeave={()=>setHover(null)}
+            onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='rear'?null:'rear');}}/>
+          <text x={CX} y={CY-4} textAnchor="middle" fill={centerCol}
+            fontSize={15} fontFamily="Courier New" fontWeight="700">{dispVal}</text>
+          <text x={CX} y={CY+11} textAnchor="middle" fill="#475569"
+            fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{dispSub}</text>
+          <_BalStrip rearFrac={rearAbFrac} wtRearFrac={wtRearFrac}/>
+        </svg>
+        <span style={{position:'absolute',top:2,right:2,lineHeight:1}}>
+          <Hint text="Indigo dot = front ARB clicks, sky dot = rear ARB clicks, plotted from 0 to your ceiling. Hover a dot to read its value. Hollow rings mark where the derived axle would need to sit for natural balance (grey) and your target (green)."/>
+        </span>
+      </div>
     </div>
   );
 };
@@ -1751,15 +1807,15 @@ const TUTORIALS={
     {title:'Getting Around',
      focus:null,
      body:'The ☰ button opens and closes the input sidebar — the right panel shows live results and updates as you type. BEG / INT / PRO control how many inputs are visible. IMP / MET switches units. HZ / MS switches output limits between Horizon and Motorsport. ↩ undoes the last change. ? reopens this guide at any time.'},
-    {title:'Start From a Build',
-     focus:['presets'],
-     body:'Open the BUILDS drawer at the bottom of the results panel. The FACTORY group has six presets — STREET, TRACK, RALLY, DRIFT, MOTORSPT, and X COUNTRY — each with a different balance target, stiffness level, and damping character. Hit LOAD on the closest one, then adjust from there.'},
     {title:'Layout & Build Type',
      focus:['layout-build'],
-     body:'Select your drive layout (FWD / RWD / AWD) and build style. Layout affects how differential lock contributes to handling balance. Build type shifts the recommended mech balance range and diff recommendations toward street, track, or drift behaviour.'},
+     body:'Select your drive layout (FWD / RWD / AWD) and build style. Layout affects how differential lock contributes to handling balance. Build type shifts diff recommendations toward street, track, or drift behaviour.'},
     {title:'Weight & Front Bias',
      focus:['weight'],
-     body:'Enter your car\'s total weight and front weight bias from the car stat screen — use the selection screen, not the tuning menu. These two numbers drive almost every calculation in the app.'},
+     body:'Enter your car\'s total weight and front weight bias from the car stat screen — use the selection screen, not the tuning menu. These two numbers drive almost every calculation in the app, including the factory presets.'},
+    {title:'Start From a Build',
+     focus:['presets'],
+     body:'Open the FACTORY drawer. The six presets — STREET, TRACK, RALLY, DRIFT, MOTORSPT, X COUNTRY — each set a stiffness level, rear spring ratio, and damping character tuned for that build style. Load the closest one after entering your car\'s weight and bias, then adjust from there.'},
     {title:'Ride Stiffness',
      focus:['ride-stiffness'],
      body:'Controls overall suspension stiffness. SOFT is comfortable on rough surfaces. ROAD is a balanced starting point. FIRM is responsive sport. RACE is a stiff competition setup. The badge updates as you move the slider.'},
@@ -2513,7 +2569,28 @@ function App(){
             const balVal=Math.max(-50,Math.min(50,Math.round((begBalCenter-(fe.arbBalTarget??begBalCenter))/0.003)));
             return(
               <div style={{padding:'14px 12px 20px'}}>
-                {/* START FROM presets */}
+                <div id="zone-layout-build" style={dim('layout-build')}>
+                <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:14}}>CHASSIS</div>
+                <Toggle label="Layout" value={dr.layout} onChange={pDr('layout')}
+                  options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
+                </div>
+                <div id="zone-build-type" style={dim('build-type')}>
+                <Toggle label="Build" value={dr.buildType??'track'} onChange={pDr('buildType')}
+                  options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}/>
+                </div>
+                <div id="zone-weight" style={dim('weight')}>
+                <Field label="Weight"
+                  value={metricUnits?ch.weight/KG_TO_LB:ch.weight}
+                  onChange={metricUnits?v=>pCh('weight')(v*KG_TO_LB):pCh('weight')}
+                  min={metricUnits?45:100} max={metricUnits?8165:18000} step={1}
+                  unit={metricUnits?'kg':'lb'} logScale={true} logMid={metricUnits?2722:6000}
+                  hint="Total vehicle weight. Find this on the car's stat page."/>
+                <Field label="Front Weight Bias" value={ch.frontBias} onChange={pCh('frontBias')}
+                  min={30} max={70} step={1} unit="%"
+                  hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance."/>
+                </div>
+
+                {/* START FROM presets — after weight inputs so they apply correctly */}
                 <div id="zone-presets" style={dim('presets')}>
                 {(()=>{
                   const PRESET_DESC={
@@ -2562,33 +2639,13 @@ function App(){
                 })()}
                 </div>
 
-                <div id="zone-layout-build" style={dim('layout-build')}>
-                <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:14}}>CHASSIS</div>
-                <Toggle label="Layout" value={dr.layout} onChange={pDr('layout')}
-                  options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
-                </div>
-                <div id="zone-build-type" style={dim('build-type')}>
-                <Toggle label="Build" value={dr.buildType??'track'} onChange={pDr('buildType')}
-                  options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}/>
-                </div>
-                <div id="zone-weight" style={dim('weight')}>
-                <Field label="Weight"
-                  value={metricUnits?ch.weight/KG_TO_LB:ch.weight}
-                  onChange={metricUnits?v=>pCh('weight')(v*KG_TO_LB):pCh('weight')}
-                  min={metricUnits?45:100} max={metricUnits?8165:18000} step={1}
-                  unit={metricUnits?'kg':'lb'} logScale={true} logMid={metricUnits?2722:6000}
-                  hint="Total vehicle weight. Find this on the car's stat page."/>
-                <Field label="Front Weight Bias" value={ch.frontBias} onChange={pCh('frontBias')}
-                  min={30} max={70} step={1} unit="%"
-                  hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance."/>
-                </div>
-
                 <div id="zone-ride-stiffness" style={dim('ride-stiffness')}>
                 <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,margin:'16px 0 14px'}}>FEEL</div>
                 <FeelSlider label="Ride Stiffness" value={physics.frontHz}
                   onChange={v=>pFe('rideStiffness')(hzToRs(v))}
                   min={HZ_MIN} max={HZ_MAX} step={0.01}
                   leftLabel="SOFT" rightLabel="STIFF"
+                  markers={HZ_MARKERS}
                   readout={<span style={{display:'flex',alignItems:'center',gap:5}}>
                     <span style={{fontSize:11,color:hzCol,fontFamily:'Courier New',fontWeight:700,letterSpacing:1}}>{hzCat}</span>
                     <span style={{fontSize:10,color:'#94a3b8',fontFamily:'Courier New'}}>{physics.frontHz.toFixed(2)} Hz</span>
@@ -2624,13 +2681,10 @@ function App(){
                     onClick={()=>{
                       if(!begResetArmed){setBegResetArmed(true);setTimeout(()=>setBegResetArmed(false),2000);return;}
                       setBegResetArmed(false);
-                      setCh(p=>({...p,weight:DEF_CH.weight,frontBias:DEF_CH.frontBias,
-                        tyreF:DEF_CH.tyreF,tyreR:DEF_CH.tyreR}));
-                      setDr(p=>({...p,layout:DEF_DR.layout,buildType:DEF_DR.buildType}));
-                      setFe(p=>({...p,rideStiffness:DEF_FE.rideStiffness,
-                        springShare:50,rearHzMode:'multiplier',rearHzMult:1.0,
-                        arbBalMode:'mech',arbBalTarget:(100-DEF_CH.frontBias)/100,
-                        reboundZeta:DEF_FE.reboundZeta,bumpRatio:DEF_FE.bumpRatio}));
+                      setCh({...DEF_CH});
+                      setDr({...DEF_DR});
+                      setFe({...DEF_FE,springShare:50,rearHzMode:'multiplier',rearHzMult:1.0,
+                        arbBalMode:'mech',arbBalTarget:(100-DEF_CH.frontBias)/100});
                     }}>{begResetArmed?'CONFIRM':'RESET'}</button>
                 </div>
               </div>
@@ -2993,7 +3047,8 @@ function App(){
               arbFloor:DEF_FE.arbFloor,
               arbCeil:DEF_FE.arbCeil}))}>
             <ArbDial arbF={tune.arbF} arbR={tune.arbR} arbLimit={lim.arb}
-              rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}/>
+              rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}
+              natBal={natMechBalance} target={fe.arbBalTarget??0.65} rideRef={physics.rideRef}/>
             {(fe.arbBalMode??'weight')==='weight'&&
               <FeelSlider label="ARB Bias" value={fe.arbBias}
                 onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
@@ -3137,7 +3192,8 @@ function App(){
               rideRef:DEF_FE.rideRef}))}>
             <SpringDial fHz={tune.fHz} rHz={tune.rHz}
               rsSpF={tune.rsSpF} rsSpR={tune.rsSpR}
-              frontBias={ch.frontBias} clamped={physics.rearHzClamped}/>
+              frontBias={ch.frontBias} clamped={physics.rearHzClamped}
+              natBal={natMechBalance} target={fe.arbBalTarget??0.65} rideRef={physics.rideRef}/>
             <div style={dim('feel')}>
             {(()=>{
               const isCoSolve=(fe.arbBalMode??'weight')==='coSolve';
@@ -3173,6 +3229,7 @@ function App(){
                   value={primaryHz}
                   onChange={v=>pFe('rideStiffness')(hzToRs(v))}
                   min={HZ_MIN} max={HZ_MAX} step={0.01} leftLabel={HZ_MIN.toFixed(2)} rightLabel={HZ_MAX.toFixed(2)}
+                  markers={HZ_MARKERS}
                   readout={<span style={{display:'flex',alignItems:'center',gap:3}}>
                     <input type="number" className="num"
                       style={{width:44,fontSize:11,fontWeight:700,color:'#94a3b8',
