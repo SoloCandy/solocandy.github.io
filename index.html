@@ -1053,32 +1053,37 @@ const DampingDial=({rebound,bump})=>{
   const crossed=bump>rebound;
   return(
     <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
-      <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
-        {/* background track */}
-        <path d={arcPath(START,endA)} fill="none" stroke="#1e293b" strokeWidth={4} strokeLinecap="round"/>
-        {/* rebound arc: START → rebA, red */}
-        <path d={arcPath(START,rebA)} fill="none" stroke="#ef4444" strokeWidth={4} strokeLinecap="round" opacity={0.7}/>
-        {/* bump arc: START → bumpA, blue */}
-        <path d={arcPath(START,bumpA)} fill="none" stroke="#3b82f6" strokeWidth={4} strokeLinecap="round" opacity={0.7}/>
-        {/* fill between thumbs */}
-        <path d={arcPath(loA,hiA)} fill="none"
-          stroke={crossed?'#f59e0b':'#7c3aed'} strokeWidth={3} strokeLinecap="round" opacity={0.5}/>
-        {/* rebound thumb */}
-        <circle cx={rxSvg} cy={rySvg} r={5} fill="#ef4444" stroke="#0f172a" strokeWidth={1.5}
-          style={{cursor:'default'}}
-          onMouseEnter={()=>setHover('rebound')} onMouseLeave={()=>setHover(null)}
-          onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='rebound'?null:'rebound');}}/>
-        {/* bump thumb */}
-        <circle cx={bxSvg} cy={bySvg} r={5} fill="#3b82f6" stroke="#0f172a" strokeWidth={1.5}
-          style={{cursor:'default'}}
-          onMouseEnter={()=>setHover('bump')} onMouseLeave={()=>setHover(null)}
-          onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='bump'?null:'bump');}}/>
-        {/* center label */}
-        <text x={CX} y={CY-4} textAnchor="middle" fill={crossed?'#f59e0b':'#e2e8f0'}
-          fontSize={16} fontFamily="Courier New" fontWeight="700">{label}</text>
-        <text x={CX} y={CY+11} textAnchor="middle" fill="#475569"
-          fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{labelSub}</text>
-      </svg>
+      <div style={{position:'relative',display:'inline-block'}}>
+        <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
+          {/* background track */}
+          <path d={arcPath(START,endA)} fill="none" stroke="#1e293b" strokeWidth={4} strokeLinecap="round"/>
+          {/* rebound arc: START → rebA, red */}
+          <path d={arcPath(START,rebA)} fill="none" stroke="#ef4444" strokeWidth={4} strokeLinecap="round" opacity={0.7}/>
+          {/* bump arc: START → bumpA, blue */}
+          <path d={arcPath(START,bumpA)} fill="none" stroke="#3b82f6" strokeWidth={4} strokeLinecap="round" opacity={0.7}/>
+          {/* fill between thumbs */}
+          <path d={arcPath(loA,hiA)} fill="none"
+            stroke={crossed?'#f59e0b':'#7c3aed'} strokeWidth={3} strokeLinecap="round" opacity={0.5}/>
+          {/* rebound thumb */}
+          <circle cx={rxSvg} cy={rySvg} r={5} fill="#ef4444" stroke="#0f172a" strokeWidth={1.5}
+            style={{cursor:'default'}}
+            onMouseEnter={()=>setHover('rebound')} onMouseLeave={()=>setHover(null)}
+            onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='rebound'?null:'rebound');}}/>
+          {/* bump thumb */}
+          <circle cx={bxSvg} cy={bySvg} r={5} fill="#3b82f6" stroke="#0f172a" strokeWidth={1.5}
+            style={{cursor:'default'}}
+            onMouseEnter={()=>setHover('bump')} onMouseLeave={()=>setHover(null)}
+            onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='bump'?null:'bump');}}/>
+          {/* center label */}
+          <text x={CX} y={CY-4} textAnchor="middle" fill={crossed?'#f59e0b':'#e2e8f0'}
+            fontSize={16} fontFamily="Courier New" fontWeight="700">{label}</text>
+          <text x={CX} y={CY+11} textAnchor="middle" fill="#475569"
+            fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{labelSub}</text>
+        </svg>
+        <span style={{position:'absolute',top:2,right:2,lineHeight:1}}>
+          <Hint text="Red dot = rebound damping %, blue dot = bump damping %, both on a 10–115 range. Hover a dot to read its value. Center shows the bump-to-rebound ratio. The fill between them turns amber if bump exceeds rebound — bump should generally be softer (lower %) than rebound for a compliant, predictable ride."/>
+        </span>
+      </div>
     </div>
   );
 };
