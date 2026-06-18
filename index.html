@@ -1359,9 +1359,9 @@ const Sec=({title,open,onToggle,onReset,extra,children})=>{
           <div style={{width:2,height:10,borderRadius:1,flexShrink:0,
                        background:open?'#e2e8f0':'#1e293b',transition:'background .12s'}}/>
           <span>{title}</span>
+          {extra}
         </div>
         <div style={{display:'flex',alignItems:'center',gap:6}}>
-          {extra}
           {onReset&&<span
             onClick={handleReset}
             title={pending?'Click again to confirm':'Reset to defaults'}
