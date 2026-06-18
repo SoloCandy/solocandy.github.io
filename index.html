@@ -2406,6 +2406,7 @@ function App(){
         const rSetX=Math.min(W-1,(tune.settleR??2)*xScale);
         const isCoSolve=(fe.arbBalMode??'weight')==='coSolve';
         const rRef=physics.rideRef??'front';
+        const isShared=rRef==='shared';
         const secHz=rRef==='rear'?physics.frontHz:physics.rearHz;
         const secLabel=rRef==='rear'?'Front':'Rear';
         const rearHzMode=fe.rearHzMode??'flatRide';
@@ -2453,6 +2454,23 @@ function App(){
                 </div>
               ))}
             </div>
+            {!isCoSolve&&<>
+              <div style={{display:'flex',alignItems:'center',marginBottom:3}}>
+                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>Hz MODE</span>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:isShared?'1fr 1fr 1fr':'1fr 1fr',gap:3,marginBottom:10}}>
+                <button className={`tog${rearHzMode==='flatRide'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,rearHzMode:'flatRide'}))}>FLAT RIDE</button>
+                <button className={`tog${rearHzMode==='multiplier'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,rearHzMode:'multiplier',
+                    rearHzMult:Math.round(physics.rearHz/physics.frontHz*100)/100}))}>MULTIPLIER</button>
+                <button className={`tog${rearHzMode==='mech'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,rearHzMode:'mech'}))}>MECH</button>
+                {!isShared&&<button className={`tog${rearHzMode==='independent'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,rearHzMode:'independent',
+                    rearHzMan:Math.round((rRef==='rear'?physics.frontHz:physics.rearHz)*100)/100}))}>INDEPENDENT</button>}
+              </div>
+            </>}
             {rearHzControl}
             <FeelSlider label="Ride Stiffness" value={physics.frontHz}
               onChange={v=>pFe('rideStiffness')(hzToRs(v))}
