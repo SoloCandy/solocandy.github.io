@@ -1861,7 +1861,7 @@ const TUTORIALS={
      body:'Corner Exit controls on-throttle differential aggression. Corner Entry controls trail-braking rotation. AWD adds a Power Split slider (front/rear torque bias) and a Front Exit Push (how aggressively the front axle supplements on exit). All DIFF rows in the Handling Balance bar update live.'},
     {title:'Garage & Builds',
      focus:['presets'],
-     body:'GARAGE (in the CHASSIS section) saves your car\'s physical setup — weight, bias, tyre sizes, geometry. MY BUILDS (in the BUILDS drawer) saves your tune — feel settings and drivetrain. Loading a build always applies both. The DATA button in the toolbar handles sharing codes between devices (SHARE/IMPORT) and backing up your saved data as a JSON file (EXPORT).'},
+     body:'GARAGE (in the CHASSIS section) saves your car\'s physical setup — weight, bias, tyre sizes, geometry. MY BUILDS (in the BUILDS drawer) saves your tune — feel settings and drivetrain. Loading a build always applies both. The SHARE button in the toolbar handles sharing codes between devices (COPY CODE / LOAD CODE), backing up your saved data as a JSON file (BACKUP), and restoring from a backup file (RESTORE).'},
   ],
   pro:[
     {title:'Welcome — Pro Mode',
@@ -2139,13 +2139,16 @@ function App(){
   const[showResetModal,setShowResetModal]=useState(false);
   const[begResetArmed,setBegResetArmed]=useState(false);
   const[showDataModal,setShowDataModal]=useState(false);
-  const[dataMode,setDataMode]=useState('share'); // 'share'|'import'|'export'
+  const[dataMode,setDataMode]=useState('share'); // 'share'|'load'|'backup'|'restore'
   const[exportSel,setExportSel]=useState({garage:true,builds:true});
   const[importCode,setImportCode]=useState('');
   const[importSel,setImportSel]=useState({ch:true,fe:true,dr:true});
   const[importErr,setImportErr]=useState('');
   const[shareCopied,setShareCopied]=useState(false);
   const[shareSel,setShareSel]=useState({ch:true,fe:true,dr:true});
+  const[restoreData,setRestoreData]=useState(null);
+  const[restoreErr,setRestoreErr]=useState('');
+  const[restoreSel,setRestoreSel]=useState({garage:true,builds:true});
   const[resetConfirmText,setResetConfirmText]=useState('');
   const[resetOpts,setResetOpts]=useState({tune:false,tutorials:false});
   const[hzDraft,setHzDraft]=useState(null);     // transient: direct front Hz entry
@@ -3968,7 +3971,7 @@ function App(){
                 setShareCopied(false);setImportCode('');setImportErr('');
                 setImportSel({ch:true,fe:true,dr:true});
                 setExportSel({garage:true,builds:true});setShowDataModal(true);
-              }}>DATA</button>
+              }}>SHARE</button>
             </div>
           </div>
 
@@ -3997,13 +4000,14 @@ function App(){
               borderRadius:2,padding:'5px 8px',fontSize:11,color:'#e2e8f0',outline:'none',
               fontFamily:'Courier New',letterSpacing:1,marginBottom:14,cursor:'pointer',
               appearance:'none',WebkitAppearance:'none'};
-            const chkRow=(key,label,sub,checked,onChange)=>(
+            const chkRow=(key,label,sub,checked,onChange,disabled=false)=>(
               <label key={key} style={{display:'flex',alignItems:'center',gap:10,
                                        padding:'7px 0',borderBottom:'1px solid #1e293b',
-                                       cursor:'pointer',userSelect:'none'}}>
-                <input type="checkbox" checked={checked}
+                                       cursor:disabled?'default':'pointer',userSelect:'none',
+                                       opacity:disabled?0.35:1}}>
+                <input type="checkbox" checked={checked} disabled={disabled}
                   onChange={onChange}
-                  style={{accentColor:'#94a3b8',width:14,height:14,cursor:'pointer'}}/>
+                  style={{accentColor:'#94a3b8',width:14,height:14,cursor:disabled?'default':'pointer'}}/>
                 <div>
                   <div style={{fontSize:11,color:'#e2e8f0',letterSpacing:1}}>{label}</div>
                   <div style={{fontSize:9,color:'#475569'}}>{sub}</div>
@@ -4017,14 +4021,15 @@ function App(){
               <div style={{background:'#0f172a',border:'1px solid #334155',borderRadius:4,
                            padding:'20px 22px',width:280,fontFamily:'Courier New',
                            boxShadow:'0 8px 40px #000d'}}>
-                <div style={{fontSize:11,letterSpacing:2,color:'#94a3b8',marginBottom:12}}>DATA</div>
+                <div style={{fontSize:11,letterSpacing:2,color:'#94a3b8',marginBottom:12}}>SHARE</div>
                 {/* mode selector */}
                 <div style={{position:'relative',marginBottom:14}}>
-                  <select value={dataMode} onChange={e=>{setDataMode(e.target.value);setShareCopied(false);setImportErr('');}}
+                  <select value={dataMode} onChange={e=>{setDataMode(e.target.value);setShareCopied(false);setImportErr('');setRestoreData(null);setRestoreErr('');}}
                     style={selectStyle}>
-                    <option value="share">SHARE — generate a tune code</option>
-                    <option value="import">IMPORT — load from a tune code</option>
-                    <option value="export">EXPORT — back up saved data</option>
+                    <option value="share">COPY CODE — generate a tune code</option>
+                    <option value="load">LOAD CODE — load from a tune code</option>
+                    <option value="backup">BACKUP — download saved data</option>
+                    <option value="restore">RESTORE — load from a backup file</option>
                   </select>
                   <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',
                                 color:'#475569',pointerEvents:'none',fontSize:10}}>▾</span>
@@ -4044,7 +4049,7 @@ function App(){
                             padding:'6px 8px',fontSize:10,color:'#e2e8f0',outline:'none',resize:'none',
                             fontFamily:'Courier New',letterSpacing:0.5,marginTop:10,marginBottom:6,cursor:'text'}}/>
                   <div style={{fontSize:9,color:'#475569',marginBottom:12,letterSpacing:0.5}}>
-                    Paste into IMPORT on any device running SUSP.OS
+                    Paste into LOAD CODE on any device running SUSP.OS
                   </div>
                   <div style={{display:'flex',gap:6}}>
                     <button className="tbtn" style={{flex:1,fontSize:11}} onClick={close}>CLOSE</button>
@@ -4053,8 +4058,8 @@ function App(){
                   </div>
                 </>)}
 
-                {/* IMPORT */}
-                {dataMode==='import'&&(<>
+                {/* LOAD CODE */}
+                {dataMode==='load'&&(<>
                   <textarea value={importCode} onChange={e=>{setImportCode(e.target.value);setImportErr('');}}
                     placeholder="Paste tune code here…" rows={3}
                     style={{width:'100%',background:'#020617',border:'1px solid #1e293b',borderRadius:2,
@@ -4088,8 +4093,8 @@ function App(){
                   </div>
                 </>)}
 
-                {/* EXPORT */}
-                {dataMode==='export'&&(<>
+                {/* BACKUP */}
+                {dataMode==='backup'&&(<>
                   <div style={{fontSize:9,color:'#475569',marginBottom:10,letterSpacing:0.5,lineHeight:1.5}}>
                     Download a JSON backup of your saved data. Use this to transfer between devices or browsers.
                   </div>
@@ -4114,6 +4119,61 @@ function App(){
                         close();
                       }}>DOWNLOAD</button>
                   </div>
+                </>)}
+
+                {/* RESTORE */}
+                {dataMode==='restore'&&(<>
+                  {!restoreData&&(<>
+                    <div style={{fontSize:9,color:'#475569',marginBottom:10,letterSpacing:0.5,lineHeight:1.5}}>
+                      Load a suspos-data.json backup file to restore saved data.
+                    </div>
+                    {restoreErr&&<div style={{fontSize:9,color:'#f87171',marginBottom:8,letterSpacing:0.5}}>{restoreErr}</div>}
+                    <div style={{display:'flex',gap:6,marginTop:4}}>
+                      <button className="tbtn" style={{flex:1,fontSize:11}} onClick={close}>CANCEL</button>
+                      <button className="tbtn on" style={{flex:1,fontSize:11}} onClick={()=>{
+                        const inp=document.createElement('input');
+                        inp.type='file';inp.accept='.json,application/json';
+                        inp.onchange=e=>{
+                          const file=e.target.files?.[0];
+                          if(!file)return;
+                          const reader=new FileReader();
+                          reader.onload=ev=>{
+                            try{
+                              const parsed=JSON.parse(ev.target.result);
+                              if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw new Error();
+                              if(!Array.isArray(parsed.garage)&&!Array.isArray(parsed.builds))throw new Error();
+                              setRestoreData(parsed);
+                              setRestoreSel({garage:Array.isArray(parsed.garage),builds:Array.isArray(parsed.builds)});
+                              setRestoreErr('');
+                            }catch{setRestoreErr('Invalid backup file.');}
+                          };
+                          reader.readAsText(file);
+                        };
+                        inp.click();
+                      }}>CHOOSE FILE</button>
+                    </div>
+                  </>)}
+                  {restoreData&&(<>
+                    <div style={{fontSize:9,color:'#475569',marginBottom:8,letterSpacing:0.5,lineHeight:1.5}}>
+                      Select what to restore. This will overwrite your current saves.
+                    </div>
+                    {[
+                      {key:'garage',label:'GARAGE',sub:'Chassis saves'},
+                      {key:'builds',label:'MY BUILDS',sub:'Tune saves'},
+                    ].map(({key,label,sub})=>chkRow(key,label,sub,restoreSel[key],
+                      e=>setRestoreSel(s=>({...s,[key]:e.target.checked})),
+                      !Array.isArray(restoreData[key])))}
+                    <div style={{display:'flex',gap:6,marginTop:14}}>
+                      <button className="tbtn" style={{flex:1,fontSize:11}} onClick={close}>CANCEL</button>
+                      <button className="tbtn on" style={{flex:1,fontSize:11}}
+                        disabled={!restoreSel.garage&&!restoreSel.builds}
+                        onClick={()=>{
+                          if(restoreSel.garage&&Array.isArray(restoreData.garage)) setGarage(restoreData.garage);
+                          if(restoreSel.builds&&Array.isArray(restoreData.builds)) setMyBuilds(restoreData.builds);
+                          close();
+                        }}>RESTORE</button>
+                    </div>
+                  </>)}
                 </>)}
               </div>
             </div>

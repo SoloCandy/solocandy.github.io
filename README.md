@@ -18,10 +18,10 @@ Download `index.html` and open it in any browser. No install, no server, no buil
 
 Forza's suspension tuning menus expose raw numbers — spring rate lb/in, damper clicks, ARB clicks — with no guidance on what those numbers mean physically. SUSP.OS bridges that gap:
 
-1. **You describe your car** — weight, weight distribution, tyre sizes (and, in PRO, full geometry)
-2. **You choose a handling feel** — how stiff, how much body roll, damping character, diff aggression
-3. **SUSP.OS computes the physics** — rear spring frequency, critical damping coefficients, roll stiffness budget, alignment geometry
-4. **You enter the output values into Forza** — springs, dampers, ARBs, alignment, diff, brakes
+1. **You describe your car** — weight, front weight bias, drivetrain layout, build type, and tyre sizes. In PRO mode: wheelbase, track widths, and CG height for full chassis geometry.
+2. **You set a handling target** — ride stiffness, mech balance target (how rear-biased the roll stiffness should be for your drivetrain and build), damping character, and differential intent. The balance guide shows recommended ranges for your layout and build type, and flags how far your chassis natural balance sits from the target.
+3. **SUSP.OS computes the physics** — spring rates from natural frequency targets, damper clicks from critical damping coefficients, ARB split solved to hit your mech balance target, alignment geometry, brake bias, and differential lock percentages.
+4. **You enter the output values into Forza** — springs, dampers, ARBs, alignment, brakes, and differential.
 
 The result is a tune that starts from a principled baseline rather than trial-and-error guessing.
 
@@ -33,9 +33,9 @@ A **BEG / INT / PRO** toggle in the header controls how much of the input surfac
 
 | Tier | Surface |
 |---|---|
-| **BEG** | Three feel sliders (Ride Stiffness, Balance, Character) plus layout, build type, weight, and front bias. ARB balance solved purely from weight distribution |
-| **INT** | Full input sections — tyre sizes, ARB control with multiple balance modes, separate RIDE and DAMPERS sections, drivetrain intent sliders |
-| **PRO** | Direct geometry inputs (wheelbase, track widths, CG height), per-wheel load strips, differential MANUAL mode, MATCH CHASSIS |
+| **BEG** | Layout, build type, weight, and front bias plus three feel sliders (Ride Stiffness, Balance, Character). Factory presets provide build-appropriate starting points. ARB balance is set automatically for your layout and build type. |
+| **INT** | All BEG inputs plus tyre sizes, mech balance target with balance guide, multiple ARB solving modes (WEIGHT / MECH / CO-SOLVE), individual ride frequency and damping controls, and drivetrain intent sliders. |
+| **PRO** | All INT inputs plus full chassis geometry (wheelbase, track widths, CG height), per-wheel load transfer readouts, the GEOMETRY GAP panel (track and tyre width suggestions to close the balance gap), and differential MANUAL mode with MATCH CHASSIS. |
 
 ---
 
@@ -53,6 +53,8 @@ Key empirical constants calibrated from real Forza data:
 | `WIDTH_GRIP_EXP` | 0.4 | Tyre width → grip capacity, sub-linear exponent |
 | `DIFF_BIAS_SCALE` | 0.14 | Diff lock % → handling bias contribution |
 | `BRAKE_BIAS_SCALE` | 0.20 | Brake balance deviation → handling bias contribution |
+
+Constants validated through a structured test protocol across three cars — 2017 Mazda MX-5 Cup, 2015 Ultima Evolution Coupe 1020, and 2011 Volkswagen Scirocco R — covering balanced, understeer, and oversteer tyre configurations and ARB ±10 click sensitivity sweeps.
 
 **Game limits:** Horizon — ARB 65 clicks, damper 20 clicks. Motorsport — ARB 40 clicks, damper 40 clicks.
 
@@ -102,7 +104,6 @@ node tests.js   # run physics unit tests
 ## Credits
 
 - Physics foundation: [NumberlessMath](https://forums.forza.net/t/beta-forza-suspension-calculator/97135) (2020)
-- Mechanical balance calibration: Forza early access data (4-point LC 500 dataset)
 
 ---
 
