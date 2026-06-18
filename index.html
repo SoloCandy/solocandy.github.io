@@ -159,6 +159,17 @@ const flatRideRearHz=(fHz,wb,mph)=>{
   const clamped=raw>HZ_MAX;
   return{hz:Math.min(raw,HZ_MAX),clamped};
 };
+const computeOscillation=(hz,zetaReb100,zetaBump100,durationSec,nPts=300)=>{
+  const wn=2*Math.PI*hz,dt=durationSec/nPts;
+  const pts=[];let x=1.0,v=0.0;
+  for(let i=0;i<=nPts;i++){
+    pts.push({t:i*dt,x});
+    const zeta=(v<=0?zetaReb100:zetaBump100)/100;
+    const a=-wn*wn*x-2*zeta*wn*v;
+    v+=a*dt;x+=v*dt;
+  }
+  return pts;
+};
 // Shared ref: given avgHz = (fHz+rHz)/2 and flat-ride constraint, solve fHz.
 // Substituting rHz=1/(1/fHz−2t) into avg equation gives quadratic:
 //   t·fHz² − fHz·(1+2·avg·t) + avg = 0  →  smaller root = frontHz
@@ -2137,7 +2148,9 @@ function App(){
   const[open,setOpen]=useState({chassis:true,build:true,ride:true,dampers:true,arb:true,drivetrain:true,balanceExpanded:false,presetsOpen:false,startFromOpen:true});
   const[showChecker,setShowChecker]=useState(false);
   const[showResetModal,setShowResetModal]=useState(false);
+  const[showOscModal,setShowOscModal]=useState(false);
   const[begResetArmed,setBegResetArmed]=useState(false);
+
   const[showDataModal,setShowDataModal]=useState(false);
   const[dataMode,setDataMode]=useState('share'); // 'share'|'load'|'backup'|'restore'
   const[exportSel,setExportSel]=useState({garage:true,builds:true});
@@ -2149,8 +2162,7 @@ function App(){
   const[restoreData,setRestoreData]=useState(null);
   const[restoreErr,setRestoreErr]=useState('');
   const[restoreSel,setRestoreSel]=useState({garage:true,builds:true});
-  const[resetConfirmText,setResetConfirmText]=useState('');
-  const[resetOpts,setResetOpts]=useState({tune:false,tutorials:false});
+  const[resetOpts,setResetOpts]=useState({tune:true,tutorials:false});
   const[hzDraft,setHzDraft]=useState(null);     // transient: direct front Hz entry
   const[rearHzDraft,setRearHzDraft]=useState(null); // transient: direct rear Hz entry (independent mode)
   const[sidebarOpen,setSidebarOpen]=useState(true);
@@ -2342,8 +2354,7 @@ function App(){
     }
     if(resetOpts.tutorials)setTutSeen({beginner:false,intermediate:false,pro:false});
     setShowResetModal(false);
-    setResetConfirmText('');
-    setResetOpts({tune:false,tutorials:false});
+    setResetOpts({tune:true,tutorials:false});
   };
 
   // Phones render at natural 1.0× (zoom controls are hidden there); desktop keeps the saved preference.
@@ -2353,11 +2364,11 @@ function App(){
       {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits}/>}
       {showResetModal&&(
         <div style={{position:'fixed',inset:0,background:'#000000cc',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
-             onClick={()=>{setShowResetModal(false);setResetConfirmText('');setResetOpts({tune:false,tutorials:false});}}>
+             onClick={()=>{setShowResetModal(false);setResetOpts({tune:true,tutorials:false});}}>
           <div onClick={e=>e.stopPropagation()}
                style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:6,padding:20,maxWidth:420,width:'100%'}}>
-            <div style={{fontSize:13,letterSpacing:1,color:'#fca5a5',marginBottom:12}}>RESET OPTIONS</div>
-            <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:14,fontSize:12}}>
+            <div style={{fontSize:13,letterSpacing:1,color:'#fca5a5',marginBottom:12}}>RESET</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:12,fontSize:12}}>
               {[['tune','Tune (chassis, feel, drivetrain, alignment, brakes)'],
                 ['tutorials','Tutorials (mark all unseen)']
               ].map(([key,label])=>(
@@ -2369,24 +2380,130 @@ function App(){
                 </label>
               ))}
             </div>
-            <div style={{fontSize:11,color:'#94a3b8',marginBottom:6}}>
-              Type <span style={{color:'#fca5a5',fontWeight:'bold'}}>RESET</span> to confirm:
+            <div style={{fontSize:10,color:'#475569',marginBottom:14,letterSpacing:0.3}}>
+              Your saved garage and builds are not affected.
             </div>
-            <input type="text" value={resetConfirmText}
-              onChange={e=>setResetConfirmText(e.target.value)}
-              onKeyDown={e=>{if(e.key==='Escape'){setShowResetModal(false);setResetConfirmText('');}else if(e.key==='Enter'&&resetConfirmText==='RESET'){performGlobalReset();}}}
-              autoFocus
-              style={{width:'100%',background:'#020617',border:'1px solid #1e293b',color:'#e2e8f0',padding:'6px 8px',fontSize:13,fontFamily:'monospace',marginBottom:14,borderRadius:3,boxSizing:'border-box'}}/>
             <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
-              <button className="tbtn" onClick={()=>{setShowResetModal(false);setResetConfirmText('');setResetOpts({tune:false,tutorials:false});}}>CANCEL</button>
-              <button className="tbtn" disabled={resetConfirmText!=='RESET'} onClick={performGlobalReset}
-                style={{color:resetConfirmText==='RESET'?'#fca5a5':'#94a3b8',borderColor:resetConfirmText==='RESET'?'#7f1d1d':'#1e293b'}}>
+              <button className="tbtn" onClick={()=>{setShowResetModal(false);setResetOpts({tune:true,tutorials:false});}}>CANCEL</button>
+              <button className="tbtn" disabled={!resetOpts.tune&&!resetOpts.tutorials} onClick={performGlobalReset}
+                style={{color:'#fca5a5',borderColor:'#7f1d1d'}}>
                 RESET
               </button>
             </div>
           </div>
         </div>
       )}
+      {showOscModal&&(()=>{
+        const close=()=>setShowOscModal(false);
+        const durSec=Math.min(4,Math.max(1.5,Math.max(tune.settle??2,tune.settleR??2)*1.8));
+        const fReb=physics.zetaF??physics.reboundZeta??70;
+        const fBmp=physics.bumpZetaF??physics.bumpZeta??39;
+        const rReb=physics.zetaR??physics.reboundZeta??70;
+        const rBmp=physics.bumpZetaR??physics.bumpZeta??39;
+        const frontPts=computeOscillation(tune.fHz,fReb,fBmp,durSec);
+        const rearPts =computeOscillation(tune.rHz,rReb,rBmp,durSec);
+        const W=340,H=130,midY=65,yScale=52,xScale=W/durSec;
+        const toPolyPts=pts=>pts.map(p=>`${(p.t*xScale).toFixed(1)},${(midY-p.x*yScale).toFixed(1)}`).join(' ');
+        const fSetX=Math.min(W-1,(tune.settle??2)*xScale);
+        const rSetX=Math.min(W-1,(tune.settleR??2)*xScale);
+        const isCoSolve=(fe.arbBalMode??'weight')==='coSolve';
+        const rRef=physics.rideRef??'front';
+        const secHz=rRef==='rear'?physics.frontHz:physics.rearHz;
+        const secLabel=rRef==='rear'?'Front':'Rear';
+        const rearHzMode=fe.rearHzMode??'flatRide';
+        let rearHzControl;
+        if(isCoSolve){
+          rearHzControl=<div style={{fontSize:9,color:'#475569',marginBottom:8,letterSpacing:0.3}}>REAR Hz set by CO-SOLVE — adjust balance target in ARB section</div>;
+        }else if(rearHzMode==='multiplier'){
+          rearHzControl=<FeelSlider label={rRef==='rear'?'Front Multiplier':rRef==='shared'?'F/R Ratio':'Rear Multiplier'} value={fe.rearHzMult??1.20} onChange={pFe('rearHzMult')} min={0.50} max={3.00} step={0.01} leftLabel="×0.50" rightLabel="×3.00" markers={[{value:1.00,color:'#94a3b8',label:'MATCH'}]} readout={`\xd7${(fe.rearHzMult??1.20).toFixed(2)} → ${secHz.toFixed(2)} Hz ${secLabel.toLowerCase()}`}/>;
+        }else if(rearHzMode==='flatRide'){
+          const spd=fe.targetSpeed??80;
+          const spdReadout=spd>=200?`FLAT RIDE OFF \xb7 ${secHz.toFixed(2)} Hz ${secLabel.toLowerCase()}`:metricUnits?`${Math.round(spd*KMH_PER_MPH)} km/h \xb7 ${secHz.toFixed(2)} Hz ${secLabel.toLowerCase()}`:`${spd} mph \xb7 ${secHz.toFixed(2)} Hz ${secLabel.toLowerCase()}`;
+          rearHzControl=<FeelSlider label="Target Speed" value={240-spd} onChange={v=>pFe('targetSpeed')(240-v)} min={40} max={180} step={5} leftLabel="OFF" rightLabel="CITY" readout={spdReadout}/>;
+        }else if(rearHzMode==='independent'){
+          rearHzControl=<FeelSlider label={`${secLabel} Hz`} value={fe.rearHzMan??secHz} onChange={pFe('rearHzMan')} min={HZ_MIN} max={HZ_MAX} step={0.01} leftLabel={HZ_MIN.toFixed(2)} rightLabel={HZ_MAX.toFixed(2)} readout={`${(fe.rearHzMan??secHz).toFixed(2)} Hz`}/>;
+        }else{
+          rearHzControl=<div style={{fontSize:9,color:'#475569',marginBottom:8,letterSpacing:0.3}}>{secLabel} Hz solved by MECH → {secHz.toFixed(2)} Hz</div>;
+        }
+        return(
+        <div style={{position:'fixed',inset:0,zIndex:950,display:'flex',alignItems:'center',
+                     justifyContent:'center',background:'#000a'}}
+             onClick={e=>{if(e.target===e.currentTarget)close();}}>
+          <div style={{background:'#0f172a',border:'1px solid #334155',borderRadius:4,
+                       padding:'18px 20px',width:'min(360px,calc(100vw - 24px))',
+                       fontFamily:'Courier New',boxShadow:'0 8px 40px #000d'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+              <span style={{fontSize:11,letterSpacing:2,color:'#94a3b8'}}>WAVE</span>
+              <button className="tbtn" style={{fontSize:10,padding:'2px 6px'}} onClick={close}>&#x2715;</button>
+            </div>
+            <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}
+                 style={{display:'block',background:'#020617',borderRadius:3,marginBottom:10}}>
+              <line x1={0} y1={midY} x2={W} y2={midY} stroke="#1e293b" strokeWidth={1}/>
+              <line x1={fSetX} y1={0} x2={fSetX} y2={H} stroke="#38bdf855" strokeWidth={1} strokeDasharray="3 3"/>
+              <line x1={rSetX} y1={0} x2={rSetX} y2={H} stroke="#fb923c55" strokeWidth={1} strokeDasharray="3 3"/>
+              <polyline points={toPolyPts(rearPts)}  fill="none" stroke="#fb923c" strokeWidth={1.5} strokeLinejoin="round"/>
+              <polyline points={toPolyPts(frontPts)} fill="none" stroke="#38bdf8" strokeWidth={1.5} strokeLinejoin="round"/>
+              <text x={W-6} y={13} textAnchor="end" fontSize={9} fill="#38bdf8" fontFamily="Courier New">F</text>
+              <text x={W-6} y={25} textAnchor="end" fontSize={9} fill="#fb923c" fontFamily="Courier New">R</text>
+            </svg>
+            <div style={{display:'flex',gap:0,marginBottom:10}}>
+              {[['FRONT','#38bdf8',tune.fHz,tune.settle??0],['REAR','#fb923c',tune.rHz,tune.settleR??0]].map(([lbl,col,hz,st])=>(
+                <div key={lbl} style={{flex:1,display:'flex',flexDirection:'column',gap:2}}>
+                  <span style={{fontSize:9,color:col,letterSpacing:1}}>{lbl}</span>
+                  <span style={{fontSize:13,color:'#e2e8f0',fontWeight:700}}>{hz.toFixed(2)}<span style={{fontSize:10,color:'#94a3b8',fontWeight:400}}> Hz</span></span>
+                  <span style={{fontSize:9,color:'#475569'}}>{st.toFixed(2)}s settle</span>
+                </div>
+              ))}
+            </div>
+            {rearHzControl}
+            <FeelSlider label="Ride Stiffness" value={physics.frontHz}
+              onChange={v=>pFe('rideStiffness')(hzToRs(v))}
+              min={HZ_MIN} max={HZ_MAX} step={0.01}
+              leftLabel="SOFT" rightLabel="STIFF" markers={HZ_MARKERS}
+              readout={<span style={{fontSize:10,fontFamily:'Courier New',color:'#94a3b8'}}>{physics.frontHz.toFixed(2)} Hz</span>}/>
+            <div style={{display:'flex',gap:3,margin:'10px 0'}}>
+              <button className={`tog${(fe.dampingMode??'ratio')==='ratio'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampingMode:'ratio'}))}>BUMP RATIO</button>
+              <button className={`tog${(fe.dampingMode??'ratio')==='independent'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampingMode:'independent',bumpZeta:Math.round(physics.bumpZeta)}))}>INDEPENDENT</button>
+            </div>
+            <FeelSlider label="Rebound ζ" value={fe.reboundZeta??70}
+              onChange={pFe('reboundZeta')} min={10} max={115} step={1}
+              leftLabel="10%" rightLabel="115%"
+              markers={[{value:40,color:'#60a5fa',label:'UNDER'},{value:70,color:'#f59e0b',label:'BWORTH'},{value:100,color:'#ef4444',label:'OVER'}]}
+              readout={(()=>{const z=fe.reboundZeta??70;return z>100?`${z}% ⚠`:z>70?`${z}% · BWORTH`:`${z}%`;})()}/>
+            {(fe.dampingMode??'ratio')==='ratio'
+              ?<FeelSlider label="Bump Ratio" value={fe.bumpRatio??56}
+                  onChange={pFe('bumpRatio')} min={10} max={100} step={1}
+                  leftLabel="10%" rightLabel="100%"
+                  markers={[{value:30,color:'#60a5fa',label:'SOFT'},{value:65,color:'#f59e0b',label:'FIRM'}]}
+                  readout={(()=>{const ratio=Math.min(100,fe.bumpRatio??56);const bz=Math.max(10,Math.min(fe.reboundZeta??70,(fe.reboundZeta??70)*ratio/100));return`${ratio}% / ${Math.round(bz)}%`;})()}/>
+              :<FeelSlider label="Bump ζ" value={fe.bumpZeta??39}
+                  onChange={pFe('bumpZeta')} min={10} max={115} step={1}
+                  leftLabel="10%" rightLabel="115%"
+                  markers={[{value:40,color:'#60a5fa',label:'UNDER'},{value:70,color:'#f59e0b',label:'BWORTH'},{value:100,color:'#ef4444',label:'OVER'}]}
+                  readout={(()=>{const z=fe.bumpZeta??39;return z>100?`${z}% ⚠`:z>70?`${z}% · BWORTH`:`${z}%`;})()}/>}
+            <div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,marginBottom:6}}>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,flex:1}}>SETTLE SYNC</span>
+              <button className={`tog${fe.settleMode?' on':''}`}
+                onClick={()=>setFe(p=>({...p,settleMode:!p.settleMode}))}>
+                {fe.settleMode?'ON':'OFF'}
+              </button>
+            </div>
+            {fe.settleMode
+              ?<FeelSlider label="Settle Bias" value={fe.settleBias??0}
+                  onChange={pFe('settleBias')} min={-50} max={50} step={1}
+                  leftLabel="FRONT" rightLabel="REAR" centered={true}
+                  readout={Math.abs((tune.settle??0)-(tune.settleR??0))<0.01?'EQUAL':`F ${(tune.settle??0).toFixed(2)}s | ${(tune.settleR??0).toFixed(2)}s R`}/>
+              :<FeelSlider label="Damping Bias" value={-(fe.dampingBias??0)}
+                  onChange={v=>pFe('dampingBias')(-v)} min={-50} max={50} step={1}
+                  leftLabel="FRONT" rightLabel="REAR" centered={true}
+                  readout={(()=>{const tot=physics.zetaF+physics.zetaR;const fP=tot>0?Math.round(physics.zetaF/tot*100):50;return`F ${fP} | ${100-fP} R`;})()}/>}
+            <button className="tbtn" style={{width:'100%',marginTop:14,fontSize:11}} onClick={close}>CLOSE</button>
+          </div>
+        </div>
+        );
+      })()}
       {tutMode&&(()=>{
         const stepMeta=TUTORIALS[tutMode]?.[tutStep];
         if(stepMeta?.spotlight==='hamburger'){
@@ -3226,6 +3343,10 @@ function App(){
               rsSpF={tune.rsSpF} rsSpR={tune.rsSpR}
               frontBias={ch.frontBias} clamped={physics.rearHzClamped}
               natBal={natMechBalance} target={fe.arbBalTarget??0.65} rideRef={physics.rideRef}/>
+            <div style={{display:'flex',justifyContent:'flex-end',marginBottom:4}}>
+              <button className="tbtn" style={{fontSize:10,padding:'2px 8px',letterSpacing:1}}
+                onClick={()=>setShowOscModal(true)}>WAVE</button>
+            </div>
             <div style={dim('feel')}>
             {(()=>{
               const isCoSolve=(fe.arbBalMode??'weight')==='coSolve';
@@ -3963,7 +4084,7 @@ function App(){
             {/* action row — always visible */}
             <div style={{display:'flex',gap:3,alignItems:'center',flexWrap:'wrap',padding:'0 12px 6px'}}>
               <button className="tbtn" onClick={()=>setShowResetModal(true)} style={{fontSize:11,color:'#fca5a5'}}
-                title="Reset entire app to defaults: tune, zoom, mode, tutorials, units (saves preserved)">RESET</button>
+                title="Reset tune or tutorials to defaults (saves not affected)">RESET</button>
               <div style={{flex:1}}/>
               <button className="tbtn" onClick={()=>setShowChecker(true)} style={{fontSize:11}}>CHECK</button>
               <button className="tbtn" style={{fontSize:11}} onClick={()=>{
