@@ -2432,7 +2432,7 @@ function App(){
                        padding:'18px 20px',width:'min(360px,calc(100vw - 24px))',
                        fontFamily:'Courier New',boxShadow:'0 8px 40px #000d'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-              <span style={{fontSize:11,letterSpacing:2,color:'#94a3b8'}}>WAVE</span>
+              <span style={{fontSize:11,letterSpacing:2,color:'#94a3b8'}}>DYNAMICS</span>
               <button className="tbtn" style={{fontSize:10,padding:'2px 6px'}} onClick={close}>&#x2715;</button>
             </div>
             <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}
@@ -3574,7 +3574,7 @@ function App(){
             </div>
           </Sec></div>
 
-          <div id="zone-damping" style={dim('damping')}><Sec title="DAMPERS" open={open.dampers} onToggle={tog('dampers')} extra={<span style={{fontSize:10,padding:'1px 6px',letterSpacing:1,cursor:'pointer',border:'1px solid #1e293b',borderRadius:2,color:'#6b7280',fontFamily:'Courier New',transition:'all .12s',userSelect:'none'}} onClick={e=>{e.stopPropagation();setShowOscModal(true);}}>WAVE</span>}
+          <div id="zone-damping" style={dim('damping')}><Sec title="DAMPERS" open={open.dampers} onToggle={tog('dampers')} extra={<span style={{fontSize:10,padding:'1px 6px',letterSpacing:1,cursor:'pointer',border:'1px solid #1e293b',borderRadius:2,color:'#6b7280',fontFamily:'Courier New',transition:'all .12s',userSelect:'none'}} onClick={e=>{e.stopPropagation();setShowOscModal(true);}}>DYNAMICS</span>}
             onReset={()=>setFe(p=>({...p,
               dampingMode:DEF_FE.dampingMode,
               dampingBias:DEF_FE.dampingBias,
