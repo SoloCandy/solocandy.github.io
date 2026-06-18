@@ -1307,13 +1307,10 @@ const ArbRangeSlider=({floor,ceil,onFloor,onCeil,min=1,max=65})=>{
     width:14,height:14,borderRadius:"50%",background:"#e2e8f0",
     cursor:"grab",boxSizing:"border-box",zIndex:2,boxShadow:"0 0 0 2px #02061799",touchAction:"none"};
   return(
-    <div style={{marginBottom:12}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:4}}>
-        <span style={{fontSize:12,color:"#9ca3af"}}>ARB Range</span>
-          <Hint text="Sets the minimum and maximum ARB click values the solver is allowed to use. Left thumb = floor (minimum clicks at high ride stiffness, preserves balance authority). Right thumb = ceiling (maximum clicks at soft ride stiffness, prevents bars from dominating). Both sides scale proportionally to preserve the front/rear balance ratio."/>
-        <span style={{fontSize:11,color:"#9ca3af",fontFamily:"Courier New"}}>
-          {floor}–{ceil} clicks
-        </span>
+    <div style={{marginBottom:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:3}}>
+        <span style={{fontSize:12,color:"#9ca3af"}}>ARB Range<Hint text="Sets the minimum and maximum ARB click values the solver is allowed to use. Left thumb = floor (minimum clicks at high ride stiffness, preserves balance authority). Right thumb = ceiling (maximum clicks at soft ride stiffness, prevents bars from dominating). Both sides scale proportionally to preserve the front/rear balance ratio."/></span>
+        <span style={{fontSize:11,color:"#9ca3af",fontFamily:"Courier New"}}>{floor}–{ceil} clicks</span>
       </div>
       <div ref={trackRef} style={{position:"relative",height:22,display:"flex",alignItems:"center",
                                   cursor:"default",userSelect:"none",touchAction:"none"}}>
@@ -1328,8 +1325,8 @@ const ArbRangeSlider=({floor,ceil,onFloor,onCeil,min=1,max=65})=>{
           onTouchStart={e=>startDrag(e,"ceil")}/>
       </div>
       <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
-        <span style={{fontSize:10,color:"#374151",letterSpacing:1}}>1 SOFT</span>
-        <span style={{fontSize:10,color:"#374151",letterSpacing:1}}>{max} STIFF</span>
+        <span style={{fontSize:10,color:"#94a3b8",letterSpacing:1}}>SOFT</span>
+        <span style={{fontSize:10,color:"#94a3b8",letterSpacing:1}}>STIFF</span>
       </div>
     </div>
   );
@@ -2493,11 +2490,13 @@ function App(){
             {fe.settleMode
               ?<FeelSlider label="Settle Bias" value={fe.settleBias??0}
                   onChange={pFe('settleBias')} min={-50} max={50} step={1}
-                  leftLabel="FRONT" rightLabel="REAR" centered={true}
+                  leftLabel="FRONT" rightLabel="REAR"
+                  markers={[{value:0,color:'#94a3b8',label:'EQUAL'}]}
                   readout={Math.abs((tune.settle??0)-(tune.settleR??0))<0.01?'EQUAL':`F ${(tune.settle??0).toFixed(2)}s | ${(tune.settleR??0).toFixed(2)}s R`}/>
               :<FeelSlider label="Damping Bias" value={-(fe.dampingBias??0)}
                   onChange={v=>pFe('dampingBias')(-v)} min={-50} max={50} step={1}
-                  leftLabel="FRONT" rightLabel="REAR" centered={true}
+                  leftLabel="FRONT" rightLabel="REAR"
+                  markers={[{value:0,color:'#94a3b8',label:'EQUAL'}]}
                   readout={(()=>{const tot=physics.zetaF+physics.zetaR;const fP=tot>0?Math.round(physics.zetaF/tot*100):50;return`F ${fP} | ${100-fP} R`;})()}/>}
             <button className="tbtn" style={{width:'100%',marginTop:14,fontSize:11}} onClick={close}>CLOSE</button>
           </div>
@@ -2795,7 +2794,7 @@ function App(){
                     arbBalTarget:Math.max(0.30,Math.min(0.90,begBalCenter-v*0.003))}))}
                   min={-50} max={50} step={1}
                   leftLabel="OVERSTEER" rightLabel="UNDERSTEER"
-                  centered={true}
+                  markers={[{value:0,color:'#94a3b8',label:'NEUTRAL'}]}
                   readout={balVal<-10?'OVERSTEER':balVal>10?'UNDERSTEER':'NEUTRAL'}
                   hint="Shifts the handling balance. Left (OVERSTEER) increases rear roll stiffness — more rotation, freer rear end. Right (UNDERSTEER) increases front roll stiffness — more stability. Start at centre for most builds."/>
                 </div>
@@ -2807,7 +2806,7 @@ function App(){
                   }))}
                   min={-50} max={50} step={1}
                   leftLabel="STABLE" rightLabel="AGILE"
-                  centered={true}
+                  markers={[{value:0,color:'#94a3b8',label:'NEUTRAL'}]}
                   readout={stAgVal===0?'NEUTRAL':stAgVal>0?'AGILE':'STABLE'}
                   hint="Controls damping character. Stable (left) = higher damping, settles quickly, more predictable. Agile (right) = lighter damping, more lively and responsive, quicker direction changes. Start at centre."/>
                 </div>
@@ -3201,7 +3200,7 @@ function App(){
             {(fe.arbBalMode??'weight')==='weight'&&
               <FeelSlider label="ARB Bias" value={fe.arbBias}
                 onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
-                centered={true}
+                markers={[{value:0,color:'#94a3b8',label:'NEUTRAL'}]}
                 hint="Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."
                 readout={`F ${Math.round((1-(physics.arbBalance/100))*100)}% / R ${Math.round(physics.arbBalance/100*100)}%`}/>
             }
@@ -3638,7 +3637,7 @@ function App(){
               ? <FeelSlider label="Settle Bias" value={fe.settleBias??0}
                   onChange={pFe('settleBias')} min={-50} max={50} step={1}
                   leftLabel="FRONT" rightLabel="REAR"
-                  centered={true}
+                  markers={[{value:0,color:'#94a3b8',label:'EQUAL'}]}
                   readout={(()=>{
                     return Math.abs(tune.settle-tune.settleR)<0.01?'EQUAL':`F ${tune.settle.toFixed(2)}s | ${tune.settleR.toFixed(2)}s R`;
                   })()}
@@ -3646,7 +3645,7 @@ function App(){
               : <FeelSlider label="Damping Bias" value={-(fe.dampingBias??0)}
                   onChange={v=>pFe('dampingBias')(-v)} min={-50} max={50} step={1}
                   leftLabel="FRONT" rightLabel="REAR"
-                  centered={true}
+                  markers={[{value:0,color:'#94a3b8',label:'EQUAL'}]}
                   readout={(()=>{const tot=physics.zetaF+physics.zetaR;const fP=tot>0?Math.round(physics.zetaF/tot*100):50;return`F ${fP} | ${100-fP} R`;})()}
                   hint="Biases damping toward one axle by softening the opposite side. The biased axle stays at the base ζ; the other drops up to 25% at ±50. Front bias: rear gets softer — more rotation tendency, looser rear feel. Rear bias: front gets softer — more entry compliance, easier direction changes."/>}
             {(()=>{
@@ -3740,7 +3739,7 @@ function App(){
                 min={-50} max={50}
                 leftLabel={dr.layout==='FWD'?'ROTATION':'GRIP'}
                 rightLabel={dr.layout==='FWD'?'PUSH':'ROTATE'}
-                centered={true}
+                markers={[{value:0,color:'#475569'}]}
                 hint={(dr.layout==='FWD'
                   ?'Front diff accel lock. Toward PUSH increases lock — more traction but more understeer on corner exit. Toward ROTATION reduces lock for cleaner pivot and less push.'
                   :dr.layout==='RWD'
@@ -3758,7 +3757,7 @@ function App(){
                   min={-50} max={50}
                   leftLabel="NEUTRAL"
                   rightLabel="PUSH"
-                  centered={true}
+                  markers={[{value:0,color:'#475569'}]}
                   hint="Front diff accel lock for AWD. Toward PUSH increases front accel lock — more front-axle pull and understeer tendency on exit. Useful for AWD cars with strong rear rotation."
                   readout={`F.Accel ${diff.frontAccel}%`}/>}
               {dr.layout==='AWD'&&uiMode!=='beginner'&&
@@ -3769,7 +3768,7 @@ function App(){
                   min={-30} max={30}
                   leftLabel="FRONT"
                   rightLabel="REAR"
-                  centered={true}
+                  markers={[{value:0,color:'#475569'}]}
                   hint="AWD center torque split. Toward REAR sends more power rearward — increases oversteer tendency and rear diff contribution to handling balance. 60–70% rear is typical for track."
                   readout={`${diff.center??65}% rear`}/>}
               <FeelSlider
@@ -3779,7 +3778,7 @@ function App(){
                 min={-50} max={50}
                 leftLabel="LOOSE"
                 rightLabel="STABLE"
-                centered={true}
+                markers={[{value:0,color:'#475569'}]}
                 hint={(dr.layout==='FWD'
                   ?'Front diff decel lock. Toward STABLE increases lock — more resistance to rotation on entry (understeer). Toward LOOSE reduces lock for freer corner entry.'
                   :dr.layout==='RWD'
