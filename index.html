@@ -1343,7 +1343,7 @@ const Toggle=({label,value,onChange,options})=>(
   </div>
 );
 
-const Sec=({title,open,onToggle,onReset,children})=>{
+const Sec=({title,open,onToggle,onReset,extra,children})=>{
   const[pending,setPending]=useState(false);
   const timer=useRef(null);
   const handleReset=e=>{
@@ -1361,6 +1361,7 @@ const Sec=({title,open,onToggle,onReset,children})=>{
           <span>{title}</span>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:6}}>
+          {extra}
           {onReset&&<span
             onClick={handleReset}
             title={pending?'Click again to confirm':'Reset to defaults'}
@@ -3342,10 +3343,6 @@ function App(){
               rsSpF={tune.rsSpF} rsSpR={tune.rsSpR}
               frontBias={ch.frontBias} clamped={physics.rearHzClamped}
               natBal={natMechBalance} target={fe.arbBalTarget??0.65} rideRef={physics.rideRef}/>
-            <div style={{display:'flex',justifyContent:'flex-end',marginBottom:4}}>
-              <button className="tbtn" style={{fontSize:10,padding:'2px 8px',letterSpacing:1}}
-                onClick={()=>setShowOscModal(true)}>WAVE</button>
-            </div>
             <div style={dim('feel')}>
             {(()=>{
               const isCoSolve=(fe.arbBalMode??'weight')==='coSolve';
@@ -3559,7 +3556,7 @@ function App(){
             </div>
           </Sec></div>
 
-          <div id="zone-damping" style={dim('damping')}><Sec title="DAMPERS" open={open.dampers} onToggle={tog('dampers')}
+          <div id="zone-damping" style={dim('damping')}><Sec title="DAMPERS" open={open.dampers} onToggle={tog('dampers')} extra={<span style={{fontSize:10,padding:'1px 6px',letterSpacing:1,cursor:'pointer',border:'1px solid #1e293b',borderRadius:2,color:'#6b7280',fontFamily:'Courier New',transition:'all .12s',userSelect:'none'}} onClick={e=>{e.stopPropagation();setShowOscModal(true);}}>WAVE</span>}
             onReset={()=>setFe(p=>({...p,
               dampingMode:DEF_FE.dampingMode,
               dampingBias:DEF_FE.dampingBias,
