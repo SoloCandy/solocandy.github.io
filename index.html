@@ -3574,13 +3574,16 @@ function App(){
             </div>
           </Sec></div>
 
-          <div id="zone-damping" style={dim('damping')}><Sec title="DAMPERS" open={open.dampers} onToggle={tog('dampers')} extra={<span style={{fontSize:10,padding:'1px 6px',letterSpacing:1,cursor:'pointer',border:'1px solid #1e293b',borderRadius:2,color:'#6b7280',fontFamily:'Courier New',transition:'all .12s',userSelect:'none'}} onClick={e=>{e.stopPropagation();setShowOscModal(true);}}>DYNAMICS<Hint text="Visualise the damped spring step response — see how ride stiffness and damping shape the car's oscillation and settle time"/></span>}
+          <div id="zone-damping" style={dim('damping')}><Sec title="DAMPERS" open={open.dampers} onToggle={tog('dampers')}
             onReset={()=>setFe(p=>({...p,
               dampingMode:DEF_FE.dampingMode,
               dampingBias:DEF_FE.dampingBias,
               reboundZeta:DEF_FE.reboundZeta,
               bumpRatio:DEF_FE.bumpRatio,
               bumpZeta:DEF_FE.bumpZeta}))}>
+            <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
+              <button className="tog" onClick={()=>setShowOscModal(true)}>DYNAMICS<Hint text="Visualise the damped spring step response — see how ride stiffness and damping shape the car's oscillation and settle time"/></button>
+            </div>
             <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
               <DampingDial rebound={fe.reboundZeta??70} bump={physics.bumpZeta}/>
             </div>
