@@ -2896,7 +2896,7 @@ function App(){
                       {/* saved list */}
                       {garage.length===0
                         ? <div style={{fontSize:10,color:'#374151',textAlign:'center',padding:'10px 0',letterSpacing:1}}>NO SAVED CHASSIS</div>
-                        : <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:4,
+                        : <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,
                                        maxHeight:220,overflowY:'auto',overscrollBehavior:'contain'}}>
                             {garage.map(s=>(
                               <div key={s.id}
