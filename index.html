@@ -1849,7 +1849,7 @@ const TUTORIALS={
   intermediate:[
     {title:'Welcome — Intermediate Mode',
      focus:null,
-     body:'Intermediate mode unlocks more of the tuning surface on top of Beginner — tyre sizes, individual ride frequency and damping controls, ARB modes, and garage saves. Sections in the sidebar are collapsible. This guide only covers what\'s new.'},
+     body:'Intermediate mode unlocks more of the tuning surface on top of Beginner — individual ride frequency and damping controls, ARB modes, and garage saves. Sections in the sidebar are collapsible. This guide only covers what\'s new.'},
     {title:'Build Type',
      focus:['build'],
      body:'The BUILD section shows Build Type (STREET/TRACK/DRIFT) — this sets your intended use and determines the recommended balance range, diff AUTO behaviour, and alignment presets.'},
@@ -1858,7 +1858,10 @@ const TUTORIALS={
      body:'WEIGHT splits the front/rear ARB from the car\'s weight distribution — fine-tune the split using the ARB Bias slider. MAN lets you set front and rear ARB clicks directly, useful if you want to calibrate against a real in-game reading. The ARB Range slider (new in INT) sets the floor and ceiling clicks the solver can use, so you can keep the output within a range that feels right for the car.'},
     {title:'Ride Ref & Rear Hz',
      focus:['feel'],
-     body:'RIDE REF. sets which axle the stiffness slider anchors — FRONT, SHARED, or REAR. The secondary axle frequency is derived by the Hz mode: FLAT RIDE (the mathematically ideal pitch-cancelling ratio for a target speed), MULTIPLIER (a fixed ratio of the anchored axle), or INDEPENDENT (set manually, free of the other axle). The DYNAMICS button in the DAMPERS section opens a visualiser showing how ride stiffness and damping shape the car\'s settling behaviour.'},
+     body:'RIDE REF. sets which axle the stiffness slider anchors — FRONT, SHARED, or REAR. The secondary axle frequency is derived by the Hz mode: FLAT RIDE (the mathematically ideal pitch-cancelling ratio for a target speed), MULTIPLIER (a fixed ratio of the anchored axle), or INDEPENDENT (set manually, free of the other axle).'},
+    {title:'DYNAMICS Visualiser',
+     focus:['damping'],
+     body:'The DYNAMICS button at the top of the DAMPERS section opens an oscillation visualiser — new in INT. It shows your car\'s step response: how fast the suspension settles, whether it overshoots, and how ride stiffness and damping interact. Use it to sense-check damping character before committing to final values. The Hz MODE selector here controls how the secondary axle frequency is derived.'},
     {title:'Dampers',
      focus:['damping'],
      body:'Rebound ζ at 70% (Butterworth) is the sweet spot — the car settles cleanly without oscillating. Below 40% the suspension is underdamped and will bounce; above 100% it\'s overdamped and sluggish. Bump Ratio sets compression as a fraction of rebound — 40–65% is the typical range. Damping Bias splits front and rear rebound: FRONT bias keeps the front firmly damped while the rear softens (mild understeer, more planted entry). REAR bias softens the front (more entry compliance, easier direction changes). The DAMP row in the Handling Balance bar shows this contribution.'},
@@ -3046,7 +3049,7 @@ function App(){
             </> }
           </Sec></div>
 
-          <div id="zone-build" style={dim('build')}><Sec title="BUILD & BALANCE TARGET" open={open.build} onToggle={tog('build')}
+          <div id="zone-build" style={dim('build')}><Sec title={uiMode==='pro'?'BUILD & BALANCE TARGET':'BUILD'} open={open.build} onToggle={tog('build')}
             onReset={()=>setFe(p=>({...p,arbBalTarget:DEF_FE.arbBalTarget}))}>
             <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}
@@ -4436,7 +4439,7 @@ function App(){
                 <Hint text="Stacked bar shows each contributor as a coloured segment: SPR (springs), ARB (anti-roll bars), DIFF (differential), BRK (brakes), DAMP (damping bias). Segments stack outward from neutral — the bar's total reach is the combined handling balance."/>
               </div>
               {/* mech balance reference strip: NAT · CURRENT · TARGET on 0–1 scale */}
-              {tune.mechBalance!=null&&(()=>{
+              {uiMode==='pro'&&tune.mechBalance!=null&&(()=>{
                 const cur=tune.mechBalance;
                 const nat=natMechBalance;
                 const tgt=fe.arbBalTarget??MECH_BALANCE_TARGET;
