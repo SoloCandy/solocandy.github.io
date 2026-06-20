@@ -2849,49 +2849,34 @@ function App(){
                 :"Total vehicle weight in pounds. Find this on the car's stat page. Affects spring rates, damper forces, and ARB stiffness directly."}/>
             <Field label="Front Weight Bias" value={ch.frontBias} onChange={pCh('frontBias')} min={30} max={70} step={1} unit="%"
               hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance. Most front-engined cars are 52–58% front."/>
-            {uiMode==='pro'&&<div style={{display:'flex',alignItems:'center',gap:6,
-                         padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
-                         border:'1px solid #1e293b',marginBottom:10,marginTop:-4}}>
-              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>F CORNER</span>
-              <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.front)}</span>
-              <div style={{flex:1,height:1,background:'#1e293b'}}/>
-              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>R CORNER</span>
-              <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.rear)}</span>
-            </div>}
             {uiMode==='pro'&&(()=>{
               // Axle lateral load transfer at 1g = M_axle·h/track. cm is corner (½-axle)
               // mass, so use 2·cm = full axle mass. OUT/IN below add/subtract this.
               const xferF=2*cm.front*ch.cgHeight/ch.trackF;
               const xferR=2*cm.rear*ch.cgHeight/ch.trackR;
-              return(<>
-                <div style={{display:'flex',alignItems:'center',gap:6,
-                             padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
-                             border:'1px solid #1e293b',marginBottom:4,marginTop:-6}}>
-                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>XFER F</span>
-                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(xferF)}/g</span>
+              const Row=({la,lv,ra,rv,dim,last})=>(
+                <div style={{display:'flex',alignItems:'center',gap:6,padding:'3px 8px',
+                             ...(last?{}:{borderBottom:'1px solid #1e293b'}),
+                             opacity:dim?0.6:1}}>
+                  <span style={{fontSize:9,color:'#64748b',letterSpacing:1,minWidth:54}}>{la}</span>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{lv}</span>
                   <div style={{flex:1,height:1,background:'#1e293b'}}/>
-                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>XFER R</span>
-                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(xferR)}/g</span>
+                  <span style={{fontSize:9,color:'#64748b',letterSpacing:1}}>{ra}</span>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{rv}</span>
                 </div>
-                <div style={{display:'flex',alignItems:'center',gap:6,
-                             padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
-                             border:'1px solid #1e293b',marginBottom:4}}>
-                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>OUT F</span>
-                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.front+xferF)}</span>
-                  <div style={{flex:1,height:1,background:'#1e293b'}}/>
-                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>OUT R</span>
-                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(cm.rear+xferR)}</span>
+              );
+              return(
+                <div style={{marginBottom:10,marginTop:-4,border:'1px solid #1e293b',borderRadius:2,overflow:'hidden',background:'#0a0f1a'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,padding:'2px 8px',background:'#040d1a',borderBottom:'1px solid #1e293b'}}>
+                    <span style={{fontSize:9,color:'#475569',letterSpacing:2}}>LOAD TRANSFER</span>
+                    <Hint text="Corner weights and lateral load transfer at 1g cornering. CORNER WT: static per-corner mass from weight and bias. XFER: total axle load transfer per g — how much weight shifts to the outer tyre under cornering. OUT/IN: outer and inner wheel loads at 1g. Wider track and lower CG reduce transfer. High XFER calls for stiffer ARBs and more outer camber to compensate."/>
+                  </div>
+                  <Row la="F CORNER" lv={dispMass(cm.front)} ra="R CORNER" rv={dispMass(cm.rear)} dim/>
+                  <Row la="XFER F" lv={`${dispMass(xferF)}/g`} ra="XFER R" rv={`${dispMass(xferR)}/g`}/>
+                  <Row la="OUT F" lv={dispMass(cm.front+xferF)} ra="OUT R" rv={dispMass(cm.rear+xferR)}/>
+                  <Row la="IN F" lv={dispMass(Math.max(0,cm.front-xferF))} ra="IN R" rv={dispMass(Math.max(0,cm.rear-xferR))} last/>
                 </div>
-                <div style={{display:'flex',alignItems:'center',gap:6,
-                             padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
-                             border:'1px solid #1e293b',marginBottom:10}}>
-                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>IN F</span>
-                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(Math.max(0,cm.front-xferF))}</span>
-                  <div style={{flex:1,height:1,background:'#1e293b'}}/>
-                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>IN R</span>
-                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{dispMass(Math.max(0,cm.rear-xferR))}</span>
-                </div>
-              </>);
+              );
             })()}
             {(()=>{
               if(uiMode!=='pro')return null;
