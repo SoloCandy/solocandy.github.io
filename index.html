@@ -1850,12 +1850,9 @@ const TUTORIALS={
     {title:'Welcome — Intermediate Mode',
      focus:null,
      body:'Intermediate mode unlocks more of the tuning surface on top of Beginner — tyre sizes, individual ride frequency and damping controls, ARB modes, and garage saves. Sections in the sidebar are collapsible. This guide only covers what\'s new.'},
-    {title:'Tyre Sizes',
-     focus:['chassis'],
-     body:'The CHASSIS section now includes tyre sizes. Enter front and rear tyre sizes (e.g. 265/35R18). Tyre width sets grip capacity at the limit — wider = more grip on that axle. This feeds the CHASSIS BAL. readout (natural mechanical balance) and GRIP BIAS (at-limit handling tendency) below the inputs.'},
-    {title:'Build Type & Balance Target',
+    {title:'Build Type',
      focus:['build'],
-     body:'The BUILD section shows Build Type (STREET/TRACK/DRIFT) — this sets your intended use and determines the recommended balance range, diff AUTO behaviour, and alignment presets. The BALANCE GUIDE bar shows your car\'s natural mechanical balance (NAT) and the recommended range for your layout and build type, so you can see at a glance how much ARB correction is needed to reach the target range.'},
+     body:'The BUILD section shows Build Type (STREET/TRACK/DRIFT) — this sets your intended use and determines the recommended balance range, diff AUTO behaviour, and alignment presets.'},
     {title:'ARB Balance Modes',
      focus:['arb'],
      body:'WEIGHT splits the front/rear ARB from the car\'s weight distribution — fine-tune the split using the ARB Bias slider. MAN lets you set front and rear ARB clicks directly, useful if you want to calibrate against a real in-game reading. The ARB Range slider (new in INT) sets the floor and ceiling clicks the solver can use, so you can keep the output within a range that feels right for the car.'},
@@ -1878,7 +1875,7 @@ const TUTORIALS={
      body:'Pro mode adds the full physics surface on top of Intermediate: Mech Balance Target with MECH and CO-SOLVE ARB solving, Hz MECH mode, chassis geometry (wheelbase, track widths, CG height), and manual differential control. Alignment and brakes are always computed automatically. This guide only covers what\'s new.'},
     {title:'Chassis Geometry',
      focus:['chassis'],
-     body:'Wheelbase, track widths, and CG height now drive the physics directly. Defaults suit most sports cars — enter exact values if you have them. The GEOMETRY GAP panel in BUILD & BALANCE TARGET shows whether track width changes could help close the gap between your chassis natural balance and your target.'},
+     body:'Tyre sizes, wheelbase, track widths, and CG height are all now available in the CHASSIS section. Tyre width sets each axle\'s grip capacity at the limit and drives the CHASSIS BAL. (natural mechanical balance), GRIP BIAS (at-limit handling tendency), and STABILITY readouts below. Chassis geometry defaults suit most cars — enter exact values if you have them. The GEOMETRY GAP panel in BUILD & BALANCE TARGET shows whether track or tyre width changes could help close the gap between your chassis natural balance and your target.'},
     {title:'Weight Transfer Strips',
      focus:['chassis'],
      body:'XFER F/R shows lateral load transfer per axle per g of cornering. OUT/IN show outer and inner wheel loads at 1g. Wider track and lower CG both reduce transfer. These inform ARB aggressiveness and how much camber the outer tyre needs under load.'},
@@ -2991,6 +2988,7 @@ function App(){
               </>);
             })()}
             {(()=>{
+              if(uiMode!=='pro')return null;
               const tyreInput=(key,label)=>{
                 const val=ch[key]??DEF_CH[key];
                 const parsed=parseTyre(val);
@@ -3057,6 +3055,7 @@ function App(){
               min={0.40} max={0.90} step={0.01}
               hint="Roll stiffness rear share — matches what Forza shows as Mech Balance. 0.50 = equal roll resistance front and rear. Higher = rear-biased (oversteer tendency). Lower = front-biased (understeer tendency). Target by drivetrain: RWD track builds target 0.60–0.70 — rear roll bias helps rotation and rear-end feel under power. AWD targets 0.55–0.65 — mild rear bias for rotation while torque split prevents snap oversteer. FWD targets 0.45–0.55 — neutral to slight front bias keeps the nose planted; too much rear bias causes understeer under power. The closer your chassis natural balance (NAT) is to the target, the less ARB correction is needed to reach it — a lower natural gap means softer, more compliant ARBs. MECH and CO-SOLVE modes solve springs and ARBs to hit this target exactly. FH6 surfaces this value in-game so you can verify it directly."/>}
             {(()=>{
+              if(uiMode!=='pro')return null;
               const _layout=dr.layout??'RWD';
               const _build=dr.buildType??'track';
               const _deltaMap={
@@ -3134,6 +3133,7 @@ function App(){
               );
             })()}
             {(()=>{
+              if(uiMode!=='pro')return null;
               const{natBal:nm,stabIdx,targetBal,hasMechTarget,
                     dTrackF,dTrackR,trackFfeas,trackRfeas,gap,
                     dTyreF,dTyreR,tyreFfeas,tyreRfeas}=chassisAnalysis;
