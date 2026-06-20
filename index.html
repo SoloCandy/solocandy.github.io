@@ -419,20 +419,18 @@ const feelToPhysics=(ch,fe)=>{
     ? Math.max(0.3,Math.min(5.0,fe.arbTargetRollMan))
     : 0;
   const arbShareMan=Math.max(0,Math.min(80,fe.arbShareMan??15));
-  const arbFloor=Math.max(1,Math.min(fe.arbFloor??6,fe.arbCeil??gameLim));
-  const arbCeil =Math.max(arbFloor+1,Math.min(gameLim,fe.arbCeil??gameLim));
   const arbBalTarget=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
   const arbBalMode=ARB_BAL_MODE_DEC.includes(fe.arbBalMode)?fe.arbBalMode:'weight';
   const springShare=Math.max(0,Math.min(100,fe.springShare??50));
   // coSolve overrides rearHz in computeTune via effectiveRHz; flat-ride fallthrough can
   // set rearHzClamped spuriously. mechBalClamped covers coSolve limits instead.
   if(arbBalModeEarly==='coSolve') rearHzClamped=false;
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode,springShare,arbManF:fe.arbManF,arbManR:fe.arbManR};
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,springShare,arbManF:fe.arbManF,arbManR:fe.arbManR};
 };
 
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
-  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF:zetaF0,zetaR:zetaR0,bumpZetaF:bumpZetaF0,bumpZetaR:bumpZetaR0,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbFloor,arbCeil,arbBalTarget,arbBalMode,arbManF,arbManR}=phys;
+  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF:zetaF0,zetaR:zetaR0,bumpZetaF:bumpZetaF0,bumpZetaR:bumpZetaR0,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,arbManF,arbManR}=phys;
   let zetaF=zetaF0,zetaR=zetaR0,bumpZetaF=bumpZetaF0,bumpZetaR=bumpZetaR0;
   // Tyre-width correction: Forza's mech balance display includes a small tyre-width contribution.
   // Pre-compensate the solve target so Forza reads the desired value after tuning.
@@ -513,18 +511,9 @@ const computeTune=(ch,phys,gameMode)=>{
   // Skip the proportional floor raise — it can inflate the budget by 100–1000× when
   // the balance solver produces an extreme rF (near 0 or 1), silently overriding the
   // user's setting. Per-bar game minimum is still enforced by clk() below.
-  if(arbMode!=='share'){
-    const rsLightFloor=arbFloor*ARB_RS_SCALE*lightTrack*lightTrack;
-    const rsHeavyFloor=rsLightFloor*(heavyShare/lightShare);
-    const budgetFloor=rsLightFloor+rsHeavyFloor;
-    if(rsAbBudget<budgetFloor)rsAbBudget=budgetFloor;
-  }
-  const rsHeavyCeil=arbCeil*ARB_RS_SCALE*heavyTrack*heavyTrack;
-  const rsHeavyBudget=rsAbBudget*heavyShare;
-  if(rsHeavyBudget>rsHeavyCeil)rsAbBudget=rsHeavyCeil/heavyShare;
   if(_rsBalK!==null)
     rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)-rsSpR)/(rsAbBudget*(1+_rsBalK))));
-  const clk=(rs,track)=>{const v=Math.min(Math.min(lim.arb,arbCeil),Math.max(1,rs/(ARB_RS_SCALE*track*track)));return Math.round(v*10)/10;};
+  const clk=(rs,track)=>{const v=Math.min(lim.arb,Math.max(1,rs/(ARB_RS_SCALE*track*track)));return Math.round(v*10)/10;};
   let arbF,arbR;
   if(arbBalMode==='man'){
     // Manual mode: use user-input ARB values directly
@@ -758,7 +747,7 @@ const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               tyreF:'265/35R18',tyreR:'265/35R18'};
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,settleMode:false,settleBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,
-              arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,arbFloor:6,arbCeil:65,
+              arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,
               arbBalTarget:0.65,arbBalMode:'weight',springShare:50,
               rearHzMode:'flatRide',rearHzMan:1.5,rearHzMult:1.20,rideRef:'front'};
 const DEF_DR={layout:'RWD',buildType:'track',
@@ -1253,85 +1242,6 @@ const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,frontBias,natBal,target,rideRef})
   );
 };
 
-const ArbRangeSlider=({floor,ceil,onFloor,onCeil,min=1,max=65})=>{
-  const trackRef=useRef(null);
-  const floorRef=useRef(floor); floorRef.current=floor;
-  const ceilRef=useRef(ceil);   ceilRef.current=ceil;
-  const pct=v=>((v-min)/(max-min))*100;
-  const fromPct=p=>Math.round(min+(max-min)*(p/100));
-  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
-
-  const startDrag=useCallback((e,thumb)=>{
-    e.preventDefault();
-    const track=trackRef.current;
-    if(!track)return;
-    const move=ev=>{
-      const client=ev.touches?ev.touches[0].clientX:ev.clientX;
-      const{left,width}=track.getBoundingClientRect();
-      const raw=clamp(((client-left)/width)*100,0,100);
-      const val=fromPct(raw);
-      if(thumb==="floor") onFloor(clamp(val,min,ceilRef.current-1));
-      else                onCeil (clamp(val,floorRef.current+1,max));
-    };
-    const up=()=>{
-      window.removeEventListener("mousemove",move);window.removeEventListener("mouseup",up);
-      window.removeEventListener("touchmove",move);window.removeEventListener("touchend",up);
-    };
-    window.addEventListener("mousemove",move);window.addEventListener("mouseup",up);
-    window.addEventListener("touchmove",move,{passive:false});window.addEventListener("touchend",up);
-  },[min,max,onFloor,onCeil]);
-
-  const onWheelFloor=useCallback(e=>{
-    e.preventDefault();e.stopPropagation();
-    onFloor(clamp(floorRef.current+(e.deltaY<0?1:-1),min,ceilRef.current-1));
-  },[min,onFloor]);
-  const onWheelCeil=useCallback(e=>{
-    e.preventDefault();e.stopPropagation();
-    onCeil(clamp(ceilRef.current+(e.deltaY<0?1:-1),floorRef.current+1,max));
-  },[max,onCeil]);
-
-  const floorThumbRef=useRef(null);
-  const ceilThumbRef=useRef(null);
-  useEffect(()=>{
-    const f=floorThumbRef.current,c=ceilThumbRef.current;
-    f&&f.addEventListener("wheel",onWheelFloor,{passive:false});
-    c&&c.addEventListener("wheel",onWheelCeil, {passive:false});
-    return()=>{
-      f&&f.removeEventListener("wheel",onWheelFloor);
-      c&&c.removeEventListener("wheel",onWheelCeil);
-    };
-  },[onWheelFloor,onWheelCeil]);
-
-  const fPct=pct(floor),cPct=pct(ceil);
-  const thumbStyle={position:"absolute",top:"50%",transform:"translate(-50%,-50%)",
-    width:14,height:14,borderRadius:"50%",background:"#e2e8f0",
-    cursor:"grab",boxSizing:"border-box",zIndex:2,boxShadow:"0 0 0 2px #02061799",touchAction:"none"};
-  return(
-    <div style={{marginBottom:10}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:3}}>
-        <span style={{fontSize:12,color:"#9ca3af"}}>ARB Range<Hint text="Sets the minimum and maximum ARB click values the solver is allowed to use. Left thumb = floor (minimum clicks at high ride stiffness, preserves balance authority). Right thumb = ceiling (maximum clicks at soft ride stiffness, prevents bars from dominating). Both sides scale proportionally to preserve the front/rear balance ratio."/></span>
-        <span style={{fontSize:11,color:"#9ca3af",fontFamily:"Courier New"}}>{floor}–{ceil} clicks</span>
-      </div>
-      <div ref={trackRef} style={{position:"relative",height:22,display:"flex",alignItems:"center",
-                                  cursor:"default",userSelect:"none",touchAction:"none"}}>
-        <div style={{position:"absolute",left:0,right:0,height:3,borderRadius:1.5,background:"#1e293b"}}/>
-        <div style={{position:"absolute",left:`${fPct}%`,width:`${cPct-fPct}%`,height:3,
-                     borderRadius:1.5,background:"#e2e8f0"}}/>
-        <div ref={floorThumbRef} style={{...thumbStyle,left:`${fPct}%`}}
-          onMouseDown={e=>startDrag(e,"floor")}
-          onTouchStart={e=>startDrag(e,"floor")}/>
-        <div ref={ceilThumbRef} style={{...thumbStyle,left:`${cPct}%`}}
-          onMouseDown={e=>startDrag(e,"ceil")}
-          onTouchStart={e=>startDrag(e,"ceil")}/>
-      </div>
-      <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
-        <span style={{fontSize:10,color:"#94a3b8",letterSpacing:1}}>SOFT</span>
-        <span style={{fontSize:10,color:"#94a3b8",letterSpacing:1}}>STIFF</span>
-      </div>
-    </div>
-  );
-};
-
 
 const Toggle=({label,value,onChange,options})=>(
   <div style={{marginBottom:9}}>
@@ -1634,7 +1544,7 @@ const encodeTune=(ch,fe,dr,br)=>{
 
     fe.rideStiffness,fe.arbBias??0,fe.targetSpeed,GAME_MODE_ENC[fe.gameMode]??0,
     DAMPING_MODE_ENC[fe.dampingMode??'ratio']??0,fe.reboundZeta??70,fe.bumpRatio??56,fe.bumpZeta??39,
-    ARB_MODE_ENC[fe.arbMode??'auto']??0,fe.arbTargetRollMan??1.8,fe.arbShareMan??15,fe.arbFloor??6,fe.arbCeil??65,
+    ARB_MODE_ENC[fe.arbMode??'auto']??0,fe.arbTargetRollMan??1.8,fe.arbShareMan??15,6,65, // [19,20] reserved — were arbFloor/arbCeil
     LAYOUT_ENC[dr.layout]??1,BUILD_ENC[dr.buildType??'track']??1,dr.diffManual?1:0,
     dr.diffBiasExit??0,dr.diffAccel??35,dr.diffDecel??10,
     dr.diffFrontAccel??28,dr.diffFrontDecel??0,dr.diffRearAccel??48,dr.diffRearDecel??8,dr.diffCenter??65,
@@ -1671,7 +1581,7 @@ const decodeTune=(code)=>{
   const ch={weight:v[0],frontBias:v[1],wheelbase:v[2],cgHeight:v[3],trackF:v[4],trackR:v[5]}; // v[6],v[7] = legacy motionRatio slots, intentionally unread
   const fe={rideStiffness:v[8],arbBias:v[9],targetSpeed:v[10],gameMode:GAME_MODE_DEC[v[11]]??'horizon',
             dampingMode:DAMPING_MODE_DEC[v[12]]??'ratio',reboundZeta:v[13],bumpRatio:v[14],bumpZeta:v[15],
-            arbMode:ARB_MODE_DEC[v[16]]??'auto',arbTargetRollMan:v[17],arbShareMan:v[18],arbFloor:v[19],arbCeil:v[20],
+            arbMode:ARB_MODE_DEC[v[16]]??'auto',arbTargetRollMan:v[17],arbShareMan:v[18], // v[19],v[20] = reserved (were arbFloor/arbCeil)
             rearHzMode:v.length>=39?REAR_HZ_MODE_DEC[v[38]]??'flatRide':'flatRide',
             rearHzMan:v.length>=40?v[39]:DEF_FE.rearHzMan,
             rearHzMult:v.length>=41?v[40]:DEF_FE.rearHzMult,
@@ -1704,8 +1614,6 @@ const decodeTune=(code)=>{
 const sanitizeTune=({ch,fe,dr,br})=>{
   const n=(v,def)=>(typeof v==='number'&&isFinite(v))?v:def;
   const cl=(v,lo,hi,def)=>Math.max(lo,Math.min(hi,n(v,def)));
-  const sArbFloor=cl(fe?.arbFloor,1,64,DEF_FE.arbFloor);
-  const sArbCeil=Math.max(sArbFloor+1,cl(fe?.arbCeil,1,65,DEF_FE.arbCeil));
   return{
     ch:{
       weight:       cl(ch?.weight,        100,  18000, DEF_CH.weight),
@@ -1733,8 +1641,6 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       arbMode:          ARB_MODE_DEC.includes(fe?.arbMode)?fe.arbMode:DEF_FE.arbMode,
       arbTargetRollMan: cl(fe?.arbTargetRollMan,  0.3,  5.0, DEF_FE.arbTargetRollMan),
       arbShareMan:      cl(fe?.arbShareMan,        0,   80,  DEF_FE.arbShareMan),
-      arbFloor:         sArbFloor,
-      arbCeil:          sArbCeil,
       rearHzMode:       REAR_HZ_MODE_DEC.includes(fe?.rearHzMode)?fe.rearHzMode:DEF_FE.rearHzMode,
       rearHzMan:        cl(fe?.rearHzMan,          HZ_MIN, HZ_MAX, DEF_FE.rearHzMan),
       rearHzMult:       cl(fe?.rearHzMult,         0.5,  3.0, DEF_FE.rearHzMult),
@@ -1855,7 +1761,7 @@ const TUTORIALS={
      body:'The BUILD section shows Build Type (STREET/TRACK/DRIFT) — this sets your intended use and determines the recommended balance range, diff AUTO behaviour, and alignment presets.'},
     {title:'ARB Balance Modes',
      focus:['arb'],
-     body:'WEIGHT splits the front/rear ARB from the car\'s weight distribution — fine-tune the split using the ARB Bias slider. MAN lets you set front and rear ARB clicks directly, useful if you want to calibrate against a real in-game reading. The ARB Range slider (new in INT) sets the floor and ceiling clicks the solver can use, so you can keep the output within a range that feels right for the car.'},
+     body:'WEIGHT splits the front/rear ARB from the car\'s weight distribution — fine-tune the split using the ARB Bias slider. MAN lets you set front and rear ARB clicks directly, useful if you want to calibrate against a real in-game reading.'},
     {title:'Ride Ref & Rear Hz',
      focus:['feel'],
      body:'RIDE REF. sets which axle the stiffness slider anchors — FRONT, SHARED, or REAR. The secondary axle frequency is derived by the Hz mode: FLAT RIDE (the mathematically ideal pitch-cancelling ratio for a target speed), MULTIPLIER (a fixed ratio of the anchored axle), or INDEPENDENT (set manually, free of the other axle).'},
@@ -3217,9 +3123,7 @@ function App(){
               arbBalMode:DEF_FE.arbBalMode,
               springShare:DEF_FE.springShare,
               arbTargetRollMan:DEF_FE.arbTargetRollMan,
-              arbShareMan:DEF_FE.arbShareMan,
-              arbFloor:DEF_FE.arbFloor,
-              arbCeil:DEF_FE.arbCeil}))}>
+              arbShareMan:DEF_FE.arbShareMan}))}>
             <ArbDial arbF={tune.arbF} arbR={tune.arbR} arbLimit={lim.arb}
               rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}
               natBal={natMechBalance} target={fe.arbBalTarget??0.65} rideRef={physics.rideRef}/>
@@ -3230,10 +3134,7 @@ function App(){
                 hint="Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."
                 readout={`F ${Math.round((1-(physics.arbBalance/100))*100)}% / R ${Math.round(physics.arbBalance/100*100)}%`}/>
             }
-            {uiMode!=='beginner'&&<ArbRangeSlider
-              floor={fe.arbFloor??6} ceil={fe.arbCeil??lim.arb}
-              onFloor={pFe('arbFloor')} onCeil={pFe('arbCeil')}
-              max={lim.arb}/>}
+
             <div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
                          border:'1px solid #1e293b',marginBottom:6,marginTop:-6}}>
