@@ -4080,6 +4080,15 @@ function App(){
                   <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',
                                 color:'#475569',pointerEvents:'none',fontSize:10}}>▾</span>
                 </div>
+                {(()=>{
+                  const hints={
+                    share:'Generates a compact code for the current tune — chassis, springs, dampers, ARBs, and all feel settings. Share it with any SUSP.OS user. Does not include your garage saves or saved builds.',
+                    load:'Paste a code from another device or user to load their tune. This overwrites your current setup — save your current tune to MY BUILDS first if you want to keep it.',
+                    backup:'Downloads a JSON file of all your garage saves and saved builds. Use this to move your collection to another device or keep a local copy. Does not include the current unsaved tune.',
+                    restore:'Loads garage saves and builds from a backup file. You can choose to restore only garage, only builds, or both. Does not affect the current unsaved tune.',
+                  };
+                  return<div style={{fontSize:10,color:'#94a3b8',lineHeight:1.6,marginBottom:12,letterSpacing:0.3}}>{hints[dataMode]}</div>;
+                })()}
 
                 {/* SHARE */}
                 {dataMode==='share'&&(<>
