@@ -4269,7 +4269,7 @@ function App(){
                   {Math.abs(bTotFull)<3?'NEUTRAL':bTotFull>0?'OVERSTEER':'UNDERSTEER'}
                 </span>
                 <span style={{flex:1}}/>
-                {tune.mechBalance!=null&&<span style={{display:'flex',alignItems:'center',gap:4,fontSize:10,color:'#475569',letterSpacing:1,fontFamily:'Courier New'}}>
+                {uiMode==='pro'&&tune.mechBalance!=null&&<span style={{display:'flex',alignItems:'center',gap:4,fontSize:10,color:'#475569',letterSpacing:1,fontFamily:'Courier New'}}>
                   <span>MECH {tune.mechBalance.toFixed(2)}
                   {(()=>{const _d=tune.mechBalance-natMechBalance;const _a=Math.abs(_d);
                     if(_a<0.01)return null;
