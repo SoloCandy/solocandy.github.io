@@ -1849,19 +1849,19 @@ const TUTORIALS={
   intermediate:[
     {title:'Welcome — Intermediate Mode',
      focus:null,
-     body:'Intermediate mode unlocks the full input surface on top of what you learned in Beginner. Everything is the same — just more controls. Sections in the sidebar are collapsible. This guide only covers what\'s new.'},
+     body:'Intermediate mode unlocks more of the tuning surface on top of Beginner — tyre sizes, individual ride frequency and damping controls, ARB modes, and garage saves. Sections in the sidebar are collapsible. This guide only covers what\'s new.'},
     {title:'Tyre Sizes',
      focus:['chassis'],
      body:'The CHASSIS section now includes tyre sizes. Enter front and rear tyre sizes (e.g. 265/35R18). Tyre width sets grip capacity at the limit — wider = more grip on that axle. This feeds the CHASSIS BAL. readout (natural mechanical balance) and GRIP BIAS (at-limit handling tendency) below the inputs.'},
     {title:'Build Type & Balance Target',
      focus:['build'],
-     body:'The BUILD section contains three key controls. Build type (STREET/TRACK/DRIFT) sets your intended use — it determines the recommended balance range, diff AUTO behaviour, alignment presets, and brake AUTO recommendations. Mech Balance Target (0.40–0.90) is your primary tuning intent — the roll-stiffness rear fraction you want Forza to display. The right target depends on drivetrain: RWD track builds typically aim for 0.60–0.70 — rear roll bias helps rotation and rear-end feel under power. AWD targets 0.55–0.65 — mild rear bias for rotation while torque split prevents snap oversteer. FWD targets 0.45–0.55 — neutral to slight front bias keeps the nose planted under power. The BALANCE GUIDE bar shows your car\'s natural balance, the recommended range for your layout and build type, and where your target sits. The closer your natural balance is to your target, the less ARB correction is needed — a small gap means softer, more compliant ARBs.'},
+     body:'The BUILD section shows Build Type (STREET/TRACK/DRIFT) — this sets your intended use and determines the recommended balance range, diff AUTO behaviour, and alignment presets. The BALANCE GUIDE bar shows your car\'s natural mechanical balance (NAT) and the recommended range for your layout and build type, so you can see at a glance how much ARB correction is needed to reach the target range.'},
     {title:'ARB Balance Modes',
      focus:['arb'],
-     body:'Three modes control how the ARB split reaches your balance target. WEIGHT uses weight distribution as the baseline — good for setups where you want ARBs to follow the car\'s natural character with optional fine-tuning via ARB Bias. MECH solves the ARB split alone to hit your Mech Balance Target exactly, leaving rear Hz independent — best for most track builds. CO-SOLVE adjusts both rear spring Hz and ARB split together — use this when you want springs and ARBs to share the work, controlled by the Spring Share slider.'},
+     body:'WEIGHT splits the front/rear ARB from the car\'s weight distribution — fine-tune the split using the ARB Bias slider. MAN lets you set front and rear ARB clicks directly, useful if you want to calibrate against a real in-game reading. The ARB Range slider (new in INT) sets the floor and ceiling clicks the solver can use, so you can keep the output within a range that feels right for the car.'},
     {title:'Ride Ref & Rear Hz',
      focus:['feel'],
-     body:'RIDE REF. sets which axle anchors the stiffness slider — FRONT, SHARED, or REAR. The other axle is derived by the Rear Hz mode: FLAT RIDE (from wheelbase and target speed), MULTIPLIER (fixed ratio), MECH (solved from the balance target), or INDEPENDENT (set directly). In CO-SOLVE mode the rear Hz is solved automatically.'},
+     body:'RIDE REF. sets which axle the stiffness slider anchors — FRONT, SHARED, or REAR. The secondary axle frequency is derived by the Hz mode: FLAT RIDE (the mathematically ideal pitch-cancelling ratio for a target speed), MULTIPLIER (a fixed ratio of the anchored axle), or INDEPENDENT (set manually, free of the other axle). The DYNAMICS button in the DAMPERS section opens a visualiser showing how ride stiffness and damping shape the car\'s settling behaviour.'},
     {title:'Dampers',
      focus:['damping'],
      body:'Rebound ζ at 70% (Butterworth) is the sweet spot — the car settles cleanly without oscillating. Below 40% the suspension is underdamped and will bounce; above 100% it\'s overdamped and sluggish. Bump Ratio sets compression as a fraction of rebound — 40–65% is the typical range. Damping Bias splits front and rear rebound: FRONT bias keeps the front firmly damped while the rear softens (mild understeer, more planted entry). REAR bias softens the front (more entry compliance, easier direction changes). The DAMP row in the Handling Balance bar shows this contribution.'},
@@ -1875,7 +1875,7 @@ const TUTORIALS={
   pro:[
     {title:'Welcome — Pro Mode',
      focus:null,
-     body:'Pro mode adds the full physics surface on top of Intermediate: chassis geometry (wheelbase, track widths, CG height) and manual differential control. Alignment and brakes are always computed automatically. This guide only covers what\'s new.'},
+     body:'Pro mode adds the full physics surface on top of Intermediate: Mech Balance Target with MECH and CO-SOLVE ARB solving, Hz MECH mode, chassis geometry (wheelbase, track widths, CG height), and manual differential control. Alignment and brakes are always computed automatically. This guide only covers what\'s new.'},
     {title:'Chassis Geometry',
      focus:['chassis'],
      body:'Wheelbase, track widths, and CG height now drive the physics directly. Defaults suit most sports cars — enter exact values if you have them. The GEOMETRY GAP panel in BUILD & BALANCE TARGET shows whether track width changes could help close the gap between your chassis natural balance and your target.'},
@@ -1887,7 +1887,7 @@ const TUTORIALS={
      body:'The BUILD section is where you set your tuning intent. Build type (STREET/TRACK/DRIFT) determines the recommended balance range. Mech Balance Target (0.40–0.90) is the roll-stiffness rear fraction you want to achieve — it drives ARB split, spring stiffness, alignment recommendations, and differential bias if Match Chassis is on. The right target depends on drivetrain: RWD track builds target 0.60–0.70 for rotation and rear-end feel. AWD targets 0.55–0.65 — mild rear bias while torque split handles the rest. FWD targets 0.45–0.55 — neutral to slight front bias to keep the nose planted. The BALANCE GUIDE shows your natural balance, the recommended range for your layout and build, and how far your target is from natural. In PRO mode the GEOMETRY GAP panel shows whether track or tyre width changes could close that gap — a smaller gap means softer, more compliant ARBs are enough to reach the target. Set build type and target first, then choose your solving mode.'},
     {title:'ARB Solving Modes',
      focus:['arb'],
-     body:'Three modes solve springs and ARBs toward your Mech Balance Target. WEIGHT uses weight distribution as the baseline, optionally shifted by ARB Bias. MECH solves the ARB split exactly to hit the target, leaving rear Hz independent. CO-SOLVE adjusts both rear spring Hz and ARB split together — use this when you control ride stiffness and Hz mode explicitly and want springs and ARBs to work together. Spring Share (in CO-SOLVE) controls how much of the correction comes from each.'},
+     body:'MECH and CO-SOLVE are unlocked in PRO — both solve toward your Mech Balance Target. MECH adjusts the ARB front/rear split alone to hit the target exactly, leaving rear Hz independent. CO-SOLVE adjusts both rear spring Hz and ARB split together — Spring Share controls how much of the correction comes from springs vs ARBs. WEIGHT (available in all tiers) uses weight distribution as the baseline, shifted by ARB Bias. Hz MECH mode is also unlocked in PRO: it derives rear Hz from the mech balance target instead of a ratio or flat-ride calculation.'},
     {title:'Alignment & Brakes',
      focus:['alignment'],
      body:'Alignment (camber, toe, caster) and brake balance are both computed automatically from your build type, layout, weight bias, and chassis geometry. No manual override is needed — the outputs update live as you adjust other inputs. The BRAKES row in the Handling Balance bar reflects the computed brake balance contribution to entry-phase balance.'},
@@ -2197,16 +2197,28 @@ function App(){
       cgHeight:  r5(DEF_CH.cgHeight  * Math.pow(r,0.25)),
     }));
   },[ch.weight,uiMode]); // eslint-disable-line
-  // BEG mode: weight-only ARB balance, no geometry dependency
+  // BEG mode: lock to simple modes, no geometry dependency
   useEffect(()=>{
     if(uiMode!=='beginner')return;
     setFe(p=>({...p,
-      arbBalMode:'mech',
-      arbBalTarget:Math.max(0.30,Math.min(0.90,(100-ch.frontBias)/100)),
+      arbBalMode:'weight',
       springShare:50,
       rearHzMode:'multiplier',
       rearHzMult:p.rearHzMult??1.0,
     }));
+  },[uiMode]); // eslint-disable-line
+  // BEG/INT: fall back to simple modes if switching down from PRO
+  useEffect(()=>{
+    if(uiMode==='pro')return;
+    setFe(p=>{
+      const arbOk=p.arbBalMode!=='mech'&&p.arbBalMode!=='coSolve';
+      const hzOk=p.rearHzMode!=='mech';
+      if(arbOk&&hzOk)return p;
+      return{...p,
+        ...(arbOk?{}:{arbBalMode:'weight'}),
+        ...(hzOk?{}:{rearHzMode:'multiplier'}),
+      };
+    });
   },[uiMode]); // eslint-disable-line
 
   // sidebar grows with the display: 300px baseline, up to 440px at very wide screens.
@@ -2331,11 +2343,7 @@ function App(){
     let adjustedFe={...DEF_FE,...s.fe};
     // Hz is already weight-neutral (spring rate = Hz² × cornerMass), so no scaling needed.
     if(uiMode==='beginner'){
-      adjustedFe.arbBalMode='mech';
-      const _naturalBal=(100-ch.frontBias)/100;
-      const _buildType=s.dr?.buildType??'street';
-      const _balOffset=_buildType==='drift'?0.20:_buildType==='track'?0.10:0;
-      adjustedFe.arbBalTarget=Math.round(Math.min(0.90,Math.max(0.40,_naturalBal+_balOffset))*1000)/1000;
+      adjustedFe.arbBalMode='weight';
       adjustedFe.rearHzMode='multiplier';
       if(adjustedFe.rearHzMult==null) adjustedFe.rearHzMult=1.0;
     }
@@ -2458,14 +2466,14 @@ function App(){
               <div style={{display:'flex',alignItems:'center',marginBottom:3}}>
                 <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>Hz MODE</span>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:isShared?'1fr 1fr 1fr':'1fr 1fr',gap:3,marginBottom:10}}>
+              <div style={{display:'grid',gridTemplateColumns:uiMode==='pro'?(isShared?'1fr 1fr 1fr':'1fr 1fr'):(isShared?'1fr 1fr':'1fr 1fr 1fr'),gap:3,marginBottom:10}}>
                 <button className={`tog${rearHzMode==='flatRide'?' on':''}`}
                   onClick={()=>setFe(p=>({...p,rearHzMode:'flatRide'}))}>FLAT RIDE</button>
                 <button className={`tog${rearHzMode==='multiplier'?' on':''}`}
                   onClick={()=>setFe(p=>({...p,rearHzMode:'multiplier',
                     rearHzMult:Math.round(physics.rearHz/physics.frontHz*100)/100}))}>MULTIPLIER</button>
-                <button className={`tog${rearHzMode==='mech'?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,rearHzMode:'mech'}))}>MECH</button>
+                {uiMode==='pro'&&<button className={`tog${rearHzMode==='mech'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,rearHzMode:'mech'}))}>MECH</button>}
                 {!isShared&&<button className={`tog${rearHzMode==='independent'?' on':''}`}
                   onClick={()=>setFe(p=>({...p,rearHzMode:'independent',
                     rearHzMan:Math.round((rRef==='rear'?physics.frontHz:physics.rearHz)*100)/100}))}>INDEPENDENT</button>}
@@ -3045,9 +3053,9 @@ function App(){
             <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}
               hint="Determines your intended use. Shifts ARB and differential recommendations, brake balance AUTO, and the recommended Mech Balance Target range."/>
-            <Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
+            {uiMode==='pro'&&<Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
               min={0.40} max={0.90} step={0.01}
-              hint="Roll stiffness rear share — matches what Forza shows as Mech Balance. 0.50 = equal roll resistance front and rear. Higher = rear-biased (oversteer tendency). Lower = front-biased (understeer tendency). Target by drivetrain: RWD track builds target 0.60–0.70 — rear roll bias helps rotation and rear-end feel under power. AWD targets 0.55–0.65 — mild rear bias for rotation while torque split prevents snap oversteer. FWD targets 0.45–0.55 — neutral to slight front bias keeps the nose planted; too much rear bias causes understeer under power. The closer your chassis natural balance (NAT) is to the target, the less ARB correction is needed to reach it — a lower natural gap means softer, more compliant ARBs. MECH and CO-SOLVE modes solve springs and ARBs to hit this target exactly. FH6 surfaces this value in-game so you can verify it directly."/>
+              hint="Roll stiffness rear share — matches what Forza shows as Mech Balance. 0.50 = equal roll resistance front and rear. Higher = rear-biased (oversteer tendency). Lower = front-biased (understeer tendency). Target by drivetrain: RWD track builds target 0.60–0.70 — rear roll bias helps rotation and rear-end feel under power. AWD targets 0.55–0.65 — mild rear bias for rotation while torque split prevents snap oversteer. FWD targets 0.45–0.55 — neutral to slight front bias keeps the nose planted; too much rear bias causes understeer under power. The closer your chassis natural balance (NAT) is to the target, the less ARB correction is needed to reach it — a lower natural gap means softer, more compliant ARBs. MECH and CO-SOLVE modes solve springs and ARBs to hit this target exactly. FH6 surfaces this value in-game so you can verify it directly."/>}
             {(()=>{
               const _layout=dr.layout??'RWD';
               const _build=dr.buildType??'track';
@@ -3288,14 +3296,14 @@ function App(){
                 hint="Fraction of total roll stiffness supplied by ARBs. 0% = springs handle all roll resistance. 20–30% is typical sport. Higher = stiffer bars relative to springs, more abrupt load transfer."/>}
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10,marginTop:4}}>
               <span style={{fontSize:12,color:'#94a3b8'}}>Balance Mode</span>
-              <Hint text="WEIGHT splits front/rear ARB from the car's weight distribution, adjusted by the ARB Bias slider. MECH solves the ARB split to hit a target mech balance value. CO-SOLVE adjusts both rear spring stiffness and ARB split together — Spring Share controls how much each contributes. MAN lets you set front/rear ARB clicks directly for calibration testing."/>
+              <Hint text="WEIGHT splits front/rear ARB from the car's weight distribution, adjusted by the ARB Bias slider. MAN lets you set front/rear ARB clicks directly for calibration testing. PRO mode adds MECH (solves the ARB split to hit the Mech Balance Target exactly) and CO-SOLVE (co-solves rear spring Hz and ARB split together)."/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${(fe.arbBalMode??'weight')==='weight'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('weight')}>WEIGHT</button>
-                <button className={`tog${(fe.arbBalMode??'weight')==='mech'?' on':''}`}
-                  onClick={()=>pFe('arbBalMode')('mech')}>MECH</button>
-                <button className={`tog${(fe.arbBalMode??'weight')==='coSolve'?' on':''}`}
-                  onClick={()=>pFe('arbBalMode')('coSolve')}>CO-SOLVE</button>
+                {uiMode==='pro'&&<button className={`tog${(fe.arbBalMode??'weight')==='mech'?' on':''}`}
+                  onClick={()=>pFe('arbBalMode')('mech')}>MECH</button>}
+                {uiMode==='pro'&&<button className={`tog${(fe.arbBalMode??'weight')==='coSolve'?' on':''}`}
+                  onClick={()=>pFe('arbBalMode')('coSolve')}>CO-SOLVE</button>}
                 <button className={`tog${(fe.arbBalMode??'weight')==='man'?' on':''}`}
                   onClick={()=>{
                     // Capture current tune values BEFORE switching to MAN mode
@@ -3426,16 +3434,16 @@ function App(){
               const isShared=(physics.rideRef??'front')==='shared';
               return<>
                 <div style={{display:'flex',alignItems:'center',marginBottom:3,marginTop:-2}}>
-                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,flex:1}}>Hz MODE<Hint text="How the secondary axle frequency is derived. FLAT RIDE: rear Hz is set from the target speed's suspension timing — the mathematically ideal pitch-cancelling ratio. MULTIPLIER: rear Hz is a fixed ratio of front Hz. MECH: ratio derived from the car's weight distribution, track widths, and tyre widths. INDEPENDENT: rear Hz is set manually, completely free. Hidden in CO-SOLVE — rear Hz is solved automatically."/></span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,flex:1}}>Hz MODE<Hint text="How the secondary axle frequency is derived. FLAT RIDE: the mathematically ideal pitch-cancelling ratio for a target speed. MULTIPLIER: a fixed ratio of the anchored axle Hz. INDEPENDENT: set manually, free of the other axle. MECH: derived from the mech balance target — PRO only. Hidden in CO-SOLVE — rear Hz is solved automatically."/></span>
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:isShared?'1fr 1fr 1fr':'1fr 1fr',gap:3,marginBottom:10}}>
+                <div style={{display:'grid',gridTemplateColumns:uiMode==='pro'?(isShared?'1fr 1fr 1fr':'1fr 1fr'):(isShared?'1fr 1fr':'1fr 1fr 1fr'),gap:3,marginBottom:10}}>
                   <button className={`tog${(fe.rearHzMode??'flatRide')==='flatRide'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,rearHzMode:'flatRide'}))}>FLAT RIDE</button>
                   <button className={`tog${(fe.rearHzMode??'flatRide')==='multiplier'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,rearHzMode:'multiplier',
                       rearHzMult:Math.round(physics.rearHz/physics.frontHz*100)/100}))}>MULTIPLIER</button>
-                  <button className={`tog${(fe.rearHzMode??'flatRide')==='mech'?' on':''}`}
-                    onClick={()=>setFe(p=>({...p,rearHzMode:'mech'}))}>MECH</button>
+                  {uiMode==='pro'&&<button className={`tog${(fe.rearHzMode??'flatRide')==='mech'?' on':''}`}
+                    onClick={()=>setFe(p=>({...p,rearHzMode:'mech'}))}>MECH</button>}
                   {!isShared&&<button className={`tog${(fe.rearHzMode??'flatRide')==='independent'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,rearHzMode:'independent',
                       rearHzMan:Math.round((physics.rideRef==='rear'?physics.frontHz:physics.rearHz)*100)/100}))}>INDEPENDENT</button>}
