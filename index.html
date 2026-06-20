@@ -2952,7 +2952,7 @@ function App(){
             </> }
           </Sec></div>
 
-          <div id="zone-build" style={dim('build')}><Sec title={uiMode==='pro'?'BUILD & BALANCE TARGET':'BUILD'} open={open.build} onToggle={tog('build')}
+          <div id="zone-build" style={dim('build')}><Sec title={uiMode==='pro'?'BUILD & BALANCE':'BUILD'} open={open.build} onToggle={tog('build')}
             onReset={()=>setFe(p=>({...p,arbBalTarget:DEF_FE.arbBalTarget}))}>
             <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'}]}
@@ -3775,7 +3775,7 @@ function App(){
           </Card>
 
           {/* 2+3 — ANTI-ROLL BARS + SPRINGS side by side (stacked on phones) */}
-          <div style={{display:'grid',gridTemplateColumns:isPhone?'1fr':'1fr 1fr',gap:6,marginBottom:6}}>
+          <div style={{display:'grid',gridTemplateColumns:windowWidth<900?'1fr':'1fr 1fr',gap:6,marginBottom:6}}>
           <Card title="ANTI-ROLL BARS" accent
             hint="Click values to enter in the ARB tuning menu. Roll angle and ARB share are shown in the ANTI-ROLL BARS section of inputs. Amber warn when above 88% of the game limit.">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
@@ -4256,30 +4256,33 @@ function App(){
                    }
                  }}
                  style={{padding:isPhone?'10px 8px':'10px 14px',cursor:'pointer'}}>
-              <div style={{display:'flex',alignItems:'center',gap:isPhone?5:8,marginBottom:5,flexWrap:'wrap'}}>
-                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>HANDLING BALANCE</span>
-                <Hint text="Combined steady-state handling tendency from all tuning inputs. Positive (+) = oversteer tendency, negative (−) = understeer. Zero is weight-matched neutral — neither end saturates grip first. Tap to expand for contributor breakdown and actionable tip."/>
-                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>·</span>
-                <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,
-                              color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#ef4444':'#3b82f6'}}>
-                  {`${bTotFull>=0?'+':''}${bTotFull.toFixed(1)}`}
-                </span>
-                <span style={{fontSize:11,letterSpacing:2,
-                              color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#ef4444':'#3b82f6'}}>
-                  {Math.abs(bTotFull)<3?'NEUTRAL':bTotFull>0?'OVERSTEER':'UNDERSTEER'}
-                </span>
-                <span style={{flex:1}}/>
-                {uiMode==='pro'&&tune.mechBalance!=null&&<span style={{display:'flex',alignItems:'center',gap:4,fontSize:10,color:'#475569',letterSpacing:1,fontFamily:'Courier New'}}>
-                  <span>MECH {tune.mechBalance.toFixed(2)}
-                  {(()=>{const _d=tune.mechBalance-natMechBalance;const _a=Math.abs(_d);
-                    if(_a<0.01)return null;
-                    return <span style={{color:_d>0?'#60a5fa':'#f59e0b'}}>{(_d>=0?'+':'')+_d.toFixed(2)}</span>;
-                  })()}</span>
-                  <Hint text="Mech Balance is the rear fraction of total roll stiffness (0 = all front, 1 = all rear, 0.5 = even split). This matches Forza's in-game mech balance display. The delta shows how far your setup has shifted from the car's natural balance — blue means more rear-biased than natural, amber means more front-biased."/>
-                </span>}
-                <span style={{fontSize:10,color:'#94a3b8'}}>
-                  {(isPhone?footerOpen:open.balanceExpanded)?'▲':'▼'}
-                </span>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:5}}>
+                <div style={{display:'flex',alignItems:'center',gap:isPhone?5:8,flex:1,minWidth:0,overflow:'hidden'}}>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2,flexShrink:0}}>HANDLING BALANCE</span>
+                  <Hint text="Combined steady-state handling tendency from all tuning inputs. Positive (+) = oversteer tendency, negative (−) = understeer. Zero is weight-matched neutral — neither end saturates grip first. Tap to expand for contributor breakdown and actionable tip."/>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,flexShrink:0}}>·</span>
+                  <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,flexShrink:0,
+                                color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#ef4444':'#3b82f6'}}>
+                    {`${bTotFull>=0?'+':''}${bTotFull.toFixed(1)}`}
+                  </span>
+                  {!isMobile&&<span style={{fontSize:11,letterSpacing:2,flexShrink:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+                                color:Math.abs(bTotFull)<3?'#e2e8f0':bTotFull>0?'#ef4444':'#3b82f6'}}>
+                    {Math.abs(bTotFull)<3?'NEUTRAL':bTotFull>0?'OVERSTEER':'UNDERSTEER'}
+                  </span>}
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+                  {uiMode==='pro'&&tune.mechBalance!=null&&<span style={{display:'flex',alignItems:'center',gap:4,fontSize:10,color:'#475569',letterSpacing:1,fontFamily:'Courier New'}}>
+                    <span>MECH {tune.mechBalance.toFixed(2)}
+                    {(()=>{const _d=tune.mechBalance-natMechBalance;const _a=Math.abs(_d);
+                      if(_a<0.01)return null;
+                      return <span style={{color:_d>0?'#60a5fa':'#f59e0b'}}>{(_d>=0?'+':'')+_d.toFixed(2)}</span>;
+                    })()}</span>
+                    <Hint text="Mech Balance is the rear fraction of total roll stiffness (0 = all front, 1 = all rear, 0.5 = even split). This matches Forza's in-game mech balance display. The delta shows how far your setup has shifted from the car's natural balance — blue means more rear-biased than natural, amber means more front-biased."/>
+                  </span>}
+                  <span style={{fontSize:10,color:'#94a3b8'}}>
+                    {(isPhone?footerOpen:open.balanceExpanded)?'▲':'▼'}
+                  </span>
+                </div>
               </div>
               {/* Bar stack — always shown on desktop; on phones it collapses behind the summary line. */}
               {(!isPhone||footerOpen)&&<>
