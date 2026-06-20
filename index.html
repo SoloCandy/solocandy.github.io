@@ -2125,7 +2125,7 @@ function App(){
   },[uiMode]); // eslint-disable-line
 
   // sidebar grows with the display: 300px baseline, up to 440px at very wide screens.
-  const sidebarWidth=isMobile?300:Math.min(440,Math.max(300,Math.floor(windowWidth*0.25)));
+  const sidebarWidth=isMobile?300:Math.min(440,Math.max(340,Math.floor(windowWidth*0.25)));
 
   const pCh=k=>v=>setCh(p=>({...p,[k]:v}));
   const pFe=k=>v=>setFe(p=>({...p,[k]:v}));
