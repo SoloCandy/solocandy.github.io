@@ -385,6 +385,8 @@ const feelToPhysics=(ch,fe)=>{
   }
   const dampingMode=fe.dampingMode??'ratio';
   const settleMode=!!(fe.settleMode);
+  const dampCharMode=fe.dampCharMode??'zeta';
+  const settleTarget=Math.max(0.30,Math.min(2.00,fe.settleTarget??0.80));
   const reboundZeta=Math.max(10,Math.min(115,fe.reboundZeta??70));
   const bumpRatioVal=Math.max(10,Math.min(100,fe.bumpRatio??56));
   let zetaF,zetaR,bumpZetaF,bumpZetaR,bumpZeta;
@@ -392,7 +394,23 @@ const feelToPhysics=(ch,fe)=>{
   bumpZeta=dampingMode==='ratio'
     ? Math.max(10,Math.min(reboundZeta,reboundZeta*bumpRatioVal/100))
     : Math.max(10,Math.min(115,fe.bumpZeta??39));
-  if(settleMode){
+  if(dampCharMode==='settle'){
+    // Derive zetaRef from settle target at the reference axle's Hz, then use settleZetas
+    // to distribute F/R — same path as settleMode=true but anchored to an absolute target
+    const sB=Math.max(-50,Math.min(50,fe.settleBias??0));
+    const biasMult=Math.pow(2,sB/50);
+    const refHz=uiRideRef==='rear'?rearHz:uiRideRef==='shared'?(frontHz+rearHz)/2:frontHz;
+    const zetaRef=Math.max(10,Math.min(115,refHz>0?2.302/(settleTarget*refHz*2*Math.PI)*100:70));
+    const{zF,zR}=settleZetas(uiRideRef,frontHz,rearHz,zetaRef,biasMult);
+    zetaF=Math.max(10,Math.min(115,zF));
+    zetaR=Math.max(10,Math.min(115,zR));
+    bumpZetaF=dampingMode==='ratio'
+      ? Math.max(10,Math.min(zetaF,zetaF*bumpRatioVal/100))
+      : Math.max(10,Math.min(zetaF,bumpZeta));
+    bumpZetaR=dampingMode==='ratio'
+      ? Math.max(10,Math.min(zetaR,zetaR*bumpRatioVal/100))
+      : Math.max(10,Math.min(zetaR,bumpZeta));
+  }else if(settleMode){
     const sB=Math.max(-50,Math.min(50,fe.settleBias??0));
     const biasMult=Math.pow(2,sB/50);
     const{zF,zR}=settleZetas(uiRideRef,frontHz,rearHz,reboundZeta,biasMult);
@@ -425,7 +443,7 @@ const feelToPhysics=(ch,fe)=>{
   // coSolve overrides rearHz in computeTune via effectiveRHz; flat-ride fallthrough can
   // set rearHzClamped spuriously. mechBalClamped covers coSolve limits instead.
   if(arbBalModeEarly==='coSolve') rearHzClamped=false;
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,springShare,arbManF:fe.arbManF,arbManR:fe.arbManR};
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,dampCharMode,settleTarget,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,springShare,arbManF:fe.arbManF,arbManR:fe.arbManR};
 };
 
 const computeTune=(ch,phys,gameMode)=>{
@@ -746,7 +764,7 @@ const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
               tyreF:'265/35R18',tyreR:'265/35R18'};
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,settleMode:false,settleBias:0,targetSpeed:70,gameMode:'horizon',
-              dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,
+              dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,dampCharMode:'zeta',settleTarget:0.80,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,
               arbBalTarget:0.65,arbBalMode:'weight',springShare:50,
               rearHzMode:'flatRide',rearHzMan:1.5,rearHzMult:1.20,rideRef:'front'};
@@ -1567,6 +1585,8 @@ const encodeTune=(ch,fe,dr,br)=>{
     fe.arbManR??20,  // [55] MAN mode rear ARB clicks
     fe.settleBias??0, // [56] settle time F/R bias
     fe.settleMode?1:0, // [57] settle mode on/off
+    fe.settleTarget??0.80, // [58] settle time target (seconds)
+    fe.dampCharMode==='settle'?1:0, // [59] damping character mode (0=zeta, 1=settle)
   ];
   return btoa(arr.join('|'));
 };
@@ -1593,7 +1613,9 @@ const decodeTune=(code)=>{
             arbManF:v.length>=55?v[54]:20,
             arbManR:v.length>=56?v[55]:20,
             settleBias:v.length>=57?v[56]:0,
-            settleMode:v.length>=58?!!v[57]:false};
+            settleMode:v.length>=58?!!v[57]:false,
+            settleTarget:v.length>=59?Math.max(0.30,Math.min(2.00,v[58])):DEF_FE.settleTarget,
+            dampCharMode:v.length>=60?(v[59]===1?'settle':'zeta'):DEF_FE.dampCharMode};
   const _fW=v.length>=43?v[42]:265,_rW=v.length>=44?v[43]:265;
   const _fA=v.length>=45?v[44]:35, _fR=v.length>=46?v[45]:18;
   const _rA=v.length>=47?v[46]:35, _rR=v.length>=48?v[47]:18;
@@ -1649,6 +1671,8 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       arbManR:          cl(fe?.arbManR,             1,   65,   20),
       settleMode:       !!(fe?.settleMode),
       settleBias:       cl(fe?.settleBias,        -50,   50,    0),
+      settleTarget:     cl(fe?.settleTarget,      0.30,  2.00,  DEF_FE.settleTarget),
+      dampCharMode:     fe?.dampCharMode==='settle'?'settle':'zeta',
     },
     dr:{
       layout:         LAYOUT_DEC.includes(dr?.layout)?dr.layout:DEF_DR.layout,
@@ -2388,17 +2412,29 @@ function App(){
               min={HZ_MIN} max={HZ_MAX} step={0.01}
               leftLabel="SOFT" rightLabel="STIFF" markers={HZ_MARKERS}
               readout={<span style={{fontSize:10,fontFamily:'Courier New',color:'#94a3b8'}}>{physics.frontHz.toFixed(2)} Hz</span>}/>
-            <div style={{display:'flex',gap:3,margin:'10px 0'}}>
+            {uiMode!=='beginner'&&<div style={{display:'flex',gap:3,margin:'10px 0 6px'}}>
+              <button className={`tog${(fe.dampCharMode??'zeta')==='zeta'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampCharMode:'zeta'}))}>CHARACTER</button>
+              <button className={`tog${(fe.dampCharMode??'zeta')==='settle'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampCharMode:'settle'}))}>SETTLE TIME</button>
+            </div>}
+            <div style={{display:'flex',gap:3,margin:'6px 0'}}>
               <button className={`tog${(fe.dampingMode??'ratio')==='ratio'?' on':''}`}
                 onClick={()=>setFe(p=>({...p,dampingMode:'ratio'}))}>BUMP RATIO</button>
               <button className={`tog${(fe.dampingMode??'ratio')==='independent'?' on':''}`}
                 onClick={()=>setFe(p=>({...p,dampingMode:'independent',bumpZeta:Math.round(physics.bumpZeta)}))}>INDEPENDENT</button>
             </div>
-            <FeelSlider label="Rebound ζ" value={fe.reboundZeta??70}
-              onChange={pFe('reboundZeta')} min={10} max={115} step={1}
-              leftLabel="10%" rightLabel="115%"
-              markers={[{value:40,color:'#60a5fa',label:'UNDER',lessThan:true},{value:70,color:'#f59e0b',label:'BWORTH'},{value:100,color:'#ef4444',label:'OVER'}]}
-              readout={(()=>{const z=fe.reboundZeta??70;return z>100?`${z}% ⚠`:z>70?`${z}% · BWORTH`:`${z}%`;})()}/>
+            {(fe.dampCharMode??'zeta')==='settle'
+              ?<FeelSlider label="Settle Target" value={fe.settleTarget??0.80}
+                  onChange={pFe('settleTarget')} min={0.30} max={2.00} step={0.05}
+                  leftLabel="0.30s" rightLabel="2.0s"
+                  markers={[{value:0.40,color:'#ef4444',label:'RACE'},{value:0.70,color:'#f59e0b',label:'FIRM'},{value:1.00,color:'#9ca3af',label:'ROAD'},{value:1.50,color:'#60a5fa',label:'SOFT'}]}
+                  readout={(()=>{const t=fe.settleTarget??0.80;return`${t.toFixed(2)}s → F ${Math.round(physics.zetaF)}% R ${Math.round(physics.zetaR)}%`;})()}/>
+              :<FeelSlider label="Rebound ζ" value={fe.reboundZeta??70}
+                  onChange={pFe('reboundZeta')} min={10} max={115} step={1}
+                  leftLabel="10%" rightLabel="115%"
+                  markers={[{value:40,color:'#60a5fa',label:'UNDER',lessThan:true},{value:70,color:'#f59e0b',label:'BWORTH'},{value:100,color:'#ef4444',label:'OVER'}]}
+                  readout={(()=>{const z=fe.reboundZeta??70;return z>100?`${z}% ⚠`:z>70?`${z}% · BWORTH`:`${z}%`;})()}/>}
             {(fe.dampingMode??'ratio')==='ratio'
               ?<FeelSlider label="Bump Ratio" value={fe.bumpRatio??56}
                   onChange={pFe('bumpRatio')} min={10} max={100} step={1}
@@ -3444,14 +3480,23 @@ function App(){
               dampingBias:DEF_FE.dampingBias,
               reboundZeta:DEF_FE.reboundZeta,
               bumpRatio:DEF_FE.bumpRatio,
-              bumpZeta:DEF_FE.bumpZeta}))}>
+              bumpZeta:DEF_FE.bumpZeta,
+              dampCharMode:DEF_FE.dampCharMode,
+              settleTarget:DEF_FE.settleTarget}))}>
             <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
               <button className="tog" onClick={()=>setShowOscModal(true)}>DYNAMICS<Hint text="Visualise the damped spring step response — see how ride stiffness and damping shape the car's oscillation and settle time"/></button>
             </div>
             <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
-              <DampingDial rebound={fe.reboundZeta??70} bump={physics.bumpZeta}/>
+              <DampingDial rebound={(fe.dampCharMode??'zeta')==='settle'?Math.round(physics.zetaF):(fe.reboundZeta??70)} bump={(fe.dampCharMode??'zeta')==='settle'?Math.round(physics.bumpZetaF):physics.bumpZeta}/>
             </div>
-            {/* damping mode toggle */}
+            {/* damping character mode toggle — INT/PRO only */}
+            {uiMode!=='beginner'&&<div style={{display:'flex',gap:3,marginBottom:8}}>
+              <button className={`tog${(fe.dampCharMode??'zeta')==='zeta'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampCharMode:'zeta'}))}>CHARACTER</button>
+              <button className={`tog${(fe.dampCharMode??'zeta')==='settle'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampCharMode:'settle'}))}>SETTLE TIME<Hint text="Set a target settle time in seconds. The app back-calculates the rebound ζ needed to hit that time for each axle individually — front and rear derive their own ζ from their own spring frequency."/></button>
+            </div>}
+            {/* bump ratio / independent toggle */}
             <div style={{display:'flex',gap:3,marginBottom:10}}>
               <button className={`tog${(fe.dampingMode??'ratio')==='ratio'?' on':''}`}
                 onClick={()=>setFe(p=>({...p,dampingMode:'ratio'}))}>BUMP RATIO</button>
@@ -3459,21 +3504,36 @@ function App(){
                 onClick={()=>setFe(p=>({...p,dampingMode:'independent',
                   bumpZeta:Math.round(physics.bumpZeta)}))}>INDEPENDENT</button>
             </div>
-            <FeelSlider label="Rebound ζ" value={fe.reboundZeta??70}
-              onChange={pFe('reboundZeta')} min={10} max={115} step={1}
-              leftLabel="10%" rightLabel="115%"
-              hint="Damping ratio for the rebound (extension) stroke — how quickly the suspension returns after compression. 55–70% is typical. Above 70% (Butterworth) the car feels planted but stiff. Above 100% (overdamped) the suspension moves sluggishly."
-              markers={[
-                {value:40, color:'#60a5fa',label:'UNDER',lessThan:true},
-                {value:70, color:'#f59e0b',label:'BWORTH'},
-                {value:100,color:'#ef4444',label:'OVER'},
-              ]}
-              readout={(()=>{
-                const z=fe.reboundZeta??70;
-                if(z>100)return`${z}% ⚠ OVERDAMPED`;
-                if(z>70) return`${z}% · BUTTERWORTH`;
-                return`${z}%`;
-              })()}/>
+            {(fe.dampCharMode??'zeta')==='settle'
+              ? <FeelSlider label="Settle Target" value={fe.settleTarget??0.80}
+                  onChange={pFe('settleTarget')} min={0.30} max={2.00} step={0.05}
+                  leftLabel="0.30s" rightLabel="2.0s"
+                  hint="Target settle time — how quickly oscillations die out after a bump. The app back-calculates rebound ζ for each axle from its spring frequency. Lower = tighter, more controlled. Higher = softer, more comfortable. Settle Bias skews the F/R timing ratio."
+                  markers={[
+                    {value:0.40,color:'#ef4444',label:'RACE'},
+                    {value:0.70,color:'#f59e0b',label:'FIRM'},
+                    {value:1.00,color:'#9ca3af',label:'ROAD'},
+                    {value:1.50,color:'#60a5fa',label:'SOFT'},
+                  ]}
+                  readout={(()=>{
+                    const t=fe.settleTarget??0.80;
+                    return`${t.toFixed(2)}s → F ${Math.round(physics.zetaF)}% R ${Math.round(physics.zetaR)}%`;
+                  })()}/>
+              : <FeelSlider label="Rebound ζ" value={fe.reboundZeta??70}
+                  onChange={pFe('reboundZeta')} min={10} max={115} step={1}
+                  leftLabel="10%" rightLabel="115%"
+                  hint="Damping ratio for the rebound (extension) stroke — how quickly the suspension returns after compression. 55–70% is typical. Above 70% (Butterworth) the car feels planted but stiff. Above 100% (overdamped) the suspension moves sluggishly."
+                  markers={[
+                    {value:40, color:'#60a5fa',label:'UNDER',lessThan:true},
+                    {value:70, color:'#f59e0b',label:'BWORTH'},
+                    {value:100,color:'#ef4444',label:'OVER'},
+                  ]}
+                  readout={(()=>{
+                    const z=fe.reboundZeta??70;
+                    if(z>100)return`${z}% ⚠ OVERDAMPED`;
+                    if(z>70) return`${z}% · BUTTERWORTH`;
+                    return`${z}%`;
+                  })()}/> }
             {(fe.dampingMode??'ratio')==='ratio'
               ? <FeelSlider label="Bump Ratio" value={fe.bumpRatio??56}
                   onChange={pFe('bumpRatio')} min={10} max={100} step={1}
