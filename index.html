@@ -3510,10 +3510,10 @@ function App(){
                   leftLabel="0.30s" rightLabel="2.0s"
                   hint="Target settle time — how quickly oscillations die out after a bump. The app back-calculates rebound ζ for each axle from its spring frequency. Lower = tighter, more controlled. Higher = softer, more comfortable. Settle Bias skews the F/R timing ratio."
                   markers={[
-                    {value:0.40,color:'#ef4444',label:'RACE'},
-                    {value:0.70,color:'#f59e0b',label:'FIRM'},
-                    {value:1.00,color:'#9ca3af',label:'ROAD'},
-                    {value:1.50,color:'#60a5fa',label:'SOFT'},
+                    {value:0.35,color:'#ef4444',label:'PLANTED'},
+                    {value:0.60,color:'#f59e0b',label:'RACE'},
+                    {value:0.90,color:'#9ca3af',label:'SPORT'},
+                    {value:1.30,color:'#60a5fa',label:'ROAD'},
                   ]}
                   readout={(()=>{
                     const t=fe.settleTarget??0.80;
@@ -3593,8 +3593,8 @@ function App(){
             {(()=>{
               const biased=(fe.dampingBias??0)!==0||!!(fe.settleMode);
               const worst=Math.max(tune.settle,tune.settleR);
-              const[cat,col]=worst<0.25?['STIFF','#ef4444']:worst<0.50?['SPORT','#f59e0b']:
-                             worst<0.80?['ROAD','#9ca3af']:worst<1.20?['SOFT','#60a5fa']:['FLOAT','#818cf8'];
+              const[cat,col]=worst<0.35?['PLANTED','#ef4444']:worst<0.60?['RACE','#f59e0b']:
+                             worst<0.90?['SPORT','#9ca3af']:worst<1.30?['ROAD','#60a5fa']:['SOFT','#818cf8'];
               const lbl=t=><span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:44,flexShrink:0}}>{t}</span>;
               const val=v=><span style={{fontFamily:'Courier New',fontSize:11,color:'#9ca3af'}}>{v}</span>;
               return(
