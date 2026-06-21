@@ -34,8 +34,8 @@ A **BEG / INT / PRO** toggle in the header controls how much of the input surfac
 | Tier | Surface |
 |---|---|
 | **BEG** | Layout, build type, weight, and front bias plus three feel sliders (Ride Stiffness, Balance, Character). Factory presets provide build-appropriate starting points. ARB balance is set automatically for your layout and build type. |
-| **INT** | All BEG inputs plus ARB modes (WEIGHT / MAN) with ARB Bias, individual ride frequency and damping controls (including SETTLE TIME mode — set a target settle time and ζ is back-calculated per axle), and drivetrain intent sliders. |
-| **PRO** | All INT inputs plus tyre sizes, balance guide, chassis balance / grip bias / stability readouts, geometry gap, Mech Balance Target slider, ARB MECH and CO-SOLVE solving modes, Hz MECH mode, full chassis geometry (wheelbase, track widths, CG height), per-wheel load transfer readouts, and differential MANUAL mode with MATCH CHASSIS. |
+| **INT** | All BEG inputs plus ARB modes (AUTO / ROLL / SHARE) with ARB Bias, individual ride frequency and damping controls (including SETTLE TIME mode — set a target settle time and ζ is back-calculated per axle), and drivetrain intent sliders. ARB balance is fixed to WEIGHT distribution. |
+| **PRO** | All INT inputs plus tyre sizes, balance guide, chassis balance / grip bias / stability readouts, geometry gap, Mech Balance Target slider, ARB balance modes (WEIGHT / MECH / CO-SOLVE / MAN), Hz MECH mode, full chassis geometry (wheelbase, track widths, CG height), per-wheel load transfer readouts, and differential MANUAL mode with MATCH CHASSIS. |
 
 ---
 
