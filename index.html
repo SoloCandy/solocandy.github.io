@@ -468,7 +468,7 @@ const computeTune=(ch,phys,gameMode)=>{
   }
   // SETTLE mode: recompute zetas using final effectiveRHz so settle times match post-coSolve Hz.
   // Anchor reboundZeta to the user's ride-reference axle; derive the other(s) for equal settle.
-  if(phys.settleMode){
+  if(phys.settleMode&&phys.dampCharMode!=='settle'){
     const biasMult=Math.pow(2,(phys.settleBias??0)/50);
     const bumpRatioVal=phys.bumpRatioVal??56,bumpZ=phys.bumpZeta??39,ratio=phys.dampingMode==='ratio';
     const{zF,zR}=settleZetas(phys.rideRef,fHz,effectiveRHz,phys.reboundZeta,biasMult);
@@ -1378,7 +1378,7 @@ const BiasSeg=({label,val,hint,primary,total})=>{
   );
 };
 
-const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bDampBias,mechBalance,gripBalance,uiMode})=>{
+const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bDampBias,mechBalance,gripBalance,uiMode,settleDamping})=>{
   const abs=Math.abs(total);
   // positive = oversteer, negative = understeer
   const label=abs<3?'NEUTRAL':total>0?'OVERSTEER':'UNDERSTEER';
@@ -1404,7 +1404,9 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
     'diff front': total>0?'Reduce front accel lock in the AWD Differential section.':'Raise front accel lock.',
     'diff rear':  total>0?'Reduce rear accel lock in the AWD Differential section.':'Raise rear accel lock.',
     ...(uiMode==='pro'?{brakes:total>0?'Add more front brake bias to reduce entry rotation.':'Reduce front brake bias to add entry rotation.'}:{}),
-    damping:   total>0?'Increase front rebound (Damping Bias toward positive) to resist forward weight transfer.':'Reduce front rebound bias.',
+    damping:   settleDamping
+      ?(total>0?'Shift Settle Bias toward front to make the front settle faster, resisting forward weight transfer.':'Shift Settle Bias toward rear to reduce front damping dominance.')
+      :(total>0?'Increase front rebound (Damping Bias toward positive) to resist forward weight transfer.':'Reduce front rebound bias.'),
   };
   const tip=abs<3
     ? 'Setup is well balanced.'+(domBig?' Keep an eye on '+dom.name.toUpperCase()+' if the car feels inconsistent.':'')
@@ -2133,6 +2135,10 @@ function App(){
       springShare:50,
       rearHzMode:'multiplier',
       rearHzMult:p.rearHzMult??1.0,
+      dampCharMode:'zeta',
+      settleBias:0,
+      dampingBias:0,
+      arbMode:'auto',
     }));
   },[uiMode]); // eslint-disable-line
   // BEG/INT: fall back to simple modes if switching down from PRO
@@ -2204,7 +2210,8 @@ function App(){
   const brakePressure=br.brakeManual?(br.brakePressure??DEF_BR.brakePressure):100;
   // positive = oversteer, negative = understeer
   const bBrakeEntry=-(brakeBias-50)*BRAKE_BIAS_SCALE; // high front bias → understeer (−)
-  const bDampBias=-(physics.zetaF-physics.zetaR)*16/(fe.reboundZeta??70); // more front rebound → understeer (−)
+  const effectiveAvgZeta=(physics.zetaF+physics.zetaR)/2||70;
+  const bDampBias=-(physics.zetaF-physics.zetaR)*16/effectiveAvgZeta; // more front rebound → understeer (−)
   const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bDampBias;
   const lim=GAME_LIMITS[fe.gameMode];
   const responseFactors=(()=>{
@@ -2212,7 +2219,8 @@ function App(){
     // ARBs and weight bias are excluded — they govern roll moment distribution (Handling Balance bar),
     // not response speed. Research (Milliken, OptimumG) confirms ARBs are a balance tool, not agility.
     const hzNorm=Math.min(1,Math.max(0,(physics.frontHz-HZ_MIN)/(HZ_MAX-HZ_MIN)));
-    const dampNorm=Math.min(1,Math.max(0,(physics.reboundZeta-10)/105));
+    const effectiveReboundZeta=physics.dampCharMode==='settle'?physics.zetaF:physics.reboundZeta;
+    const dampNorm=Math.min(1,Math.max(0,(effectiveReboundZeta-10)/105));
     // Toe range is -0.20° (toe-out, reactive) to +0.20° (toe-in, planted).
     // Old formula used a much wider range and only ever hit 0.20–0.47 of 0–1.
     const TOE_MIN=-0.20,TOE_MAX=0.20;
@@ -2274,9 +2282,13 @@ function App(){
       adjustedFe.arbBalMode='weight';
       adjustedFe.rearHzMode='multiplier';
       if(adjustedFe.rearHzMult==null) adjustedFe.rearHzMult=1.0;
+      adjustedFe.dampCharMode='zeta';
+      adjustedFe.settleBias=0;
+      adjustedFe.dampingBias=0;
+      adjustedFe.arbMode='auto';
     }
     setFe(adjustedFe);
-    setDr({...DEF_DR,...s.dr});
+    setDr(p=>({...DEF_DR,...s.dr,layout:p.layout}));
   };
   const performGlobalReset=()=>{
     if(resetOpts.tune){
@@ -2441,7 +2453,7 @@ function App(){
                   onChange={pFe('bumpRatio')} min={10} max={100} step={1}
                   leftLabel="10%" rightLabel="100%"
                   markers={[{value:30,color:'#60a5fa',label:'SOFT'},{value:65,color:'#f59e0b',label:'FIRM'}]}
-                  readout={(()=>{const ratio=Math.min(100,fe.bumpRatio??56);const bz=Math.max(10,Math.min(fe.reboundZeta??70,(fe.reboundZeta??70)*ratio/100));return`${ratio}% / ${Math.round(bz)}%`;})()}/>
+                  readout={(()=>{const ratio=Math.min(100,fe.bumpRatio??56);const effReb=(fe.dampCharMode??'zeta')==='settle'?physics.zetaF:(fe.reboundZeta??70);const bz=Math.max(10,Math.min(effReb,effReb*ratio/100));return`${ratio}% / ${Math.round(bz)}%`;})()}/>
               :<FeelSlider label="Bump ζ" value={fe.bumpZeta??39}
                   onChange={pFe('bumpZeta')} min={10} max={115} step={1}
                   leftLabel="10%" rightLabel="115%"
@@ -2454,7 +2466,7 @@ function App(){
                 {fe.settleMode?'ON':'OFF'}
               </button>
             </div>
-            {fe.settleMode
+            {(fe.settleMode||(fe.dampCharMode??'zeta')==='settle')
               ?<FeelSlider label="Settle Bias" value={fe.settleBias??0}
                   onChange={pFe('settleBias')} min={-50} max={50} step={1}
                   leftLabel="FRONT" rightLabel="REAR"
@@ -3542,7 +3554,8 @@ function App(){
                   markers={[{value:30,color:'#60a5fa',label:'UNDER',lessThan:true},{value:65,color:'#f59e0b',label:'FIRM'}]}
                   readout={(()=>{
                     const ratio=Math.min(100,fe.bumpRatio??56);
-                    const bz=Math.max(10,Math.min((fe.reboundZeta??70),(fe.reboundZeta??70)*ratio/100));
+                    const effReb=(fe.dampCharMode??'zeta')==='settle'?physics.zetaF:(fe.reboundZeta??70);
+                    const bz=Math.max(10,Math.min(effReb,effReb*ratio/100));
                     const zLabel=bz>100?`${Math.round(bz)}% ⚠ OVERDAMPED`:
                                  bz>70 ?`${Math.round(bz)}% · BUTTERWORTH`:
                                          `${Math.round(bz)}%`;
@@ -3575,7 +3588,7 @@ function App(){
                 </button>
               </div>
             </div>
-            {fe.settleMode
+            {(fe.settleMode||(fe.dampCharMode??'zeta')==='settle')
               ? <FeelSlider label="Settle Bias" value={fe.settleBias??0}
                   onChange={pFe('settleBias')} min={-50} max={50} step={1}
                   leftLabel="FRONT" rightLabel="REAR"
@@ -3591,7 +3604,7 @@ function App(){
                   readout={(()=>{const tot=physics.zetaF+physics.zetaR;const fP=tot>0?Math.round(physics.zetaF/tot*100):50;return`F ${fP} | ${100-fP} R`;})()}
                   hint="Biases damping toward one axle by softening the opposite side. The biased axle stays at the base ζ; the other drops up to 25% at ±50. Front bias: rear gets softer — more rotation tendency, looser rear feel. Rear bias: front gets softer — more entry compliance, easier direction changes."/>}
             {(()=>{
-              const biased=(fe.dampingBias??0)!==0||!!(fe.settleMode);
+              const biased=(fe.dampingBias??0)!==0||!!(fe.settleMode)||(fe.dampCharMode??'zeta')==='settle';
               const worst=Math.max(tune.settle,tune.settleR);
               const[cat,col]=worst<0.35?['PLANTED','#ef4444']:worst<0.60?['RACE','#f59e0b']:
                              worst<0.90?['SPORT','#9ca3af']:worst<1.30?['ROAD','#60a5fa']:['SOFT','#818cf8'];
@@ -4485,7 +4498,8 @@ function App(){
                   bDiffFront={diff.bDiffFront} bDiffRear={diff.bDiffRear}
                   diffLayout={diff.layout}
                   bBrakeEntry={bBrakeEntry} bDampBias={bDampBias}
-                  gripBalance={tune.gripBalance} mechBalance={null} uiMode={uiMode}/>
+                  gripBalance={tune.gripBalance} mechBalance={null} uiMode={uiMode}
+                  settleDamping={(fe.dampCharMode??'zeta')==='settle'||!!(fe.settleMode)}/>
                 {/* RESPONSE factor breakdown */}
                 {(()=>{
                   const{score,hzNorm,dampNorm,toeNorm,casterNorm,rearHzNorm}=responseFactors;
