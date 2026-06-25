@@ -1346,13 +1346,13 @@ const Card=({title,accent=false,hint=null,children})=>(
   </div>
 );
 
-const BiasSeg=({label,val,hint,primary,total})=>{
+const BiasSeg=({label,val,hint,primary,totalAbs})=>{
   // positive = oversteer (red/right), negative = understeer (blue/left)
   const c=val>0.5?'#ef4444':val<-0.5?'#3b82f6':'#cbd5e1';
   const scale=15;
   const pct=Math.min(50,Math.abs(val)/scale*50);
   const barStyle=val>=0?{left:'50%',width:`${pct}%`}:{right:'50%',width:`${pct}%`};
-  const pctOfTotal=total&&Math.abs(total)>0.5?Math.round(Math.abs(val)/Math.abs(total)*100):null;
+  const pctOfTotal=totalAbs>0.5?Math.round(Math.abs(val)/totalAbs*100):null;
   return(
     <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3,
                  ...(primary?{background:'#0a0f1a',borderLeft:'2px solid '+(val>0?'#ef444466':'#3b82f666'),
@@ -1391,6 +1391,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
       :[{name:'diff exit',val:bDiffAccel??0},{name:'diff entry',val:bDiffDecel??0}]),
     {name:'brakes',val:bBrakeEntry??0},{name:'damping',val:bDampBias??0}
   ];
+  const totalAbs=contributors.reduce((s,c)=>s+Math.abs(c.val),0);
   // Sort by magnitude so dominant driver appears first
   const sorted=[...contributors].sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
   const dom=sorted[0];
@@ -1433,7 +1434,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
       {items.map(({name,val})=>{
         const isDom=name===dom.name&&domBig;
         return <BiasSeg key={name} label={labelMap[name]??(name.toUpperCase())} val={val}
-          hint={hints[name]??''} primary={isDom} total={total}/>;
+          hint={hints[name]??''} primary={isDom} totalAbs={totalAbs}/>;
       })}
     </div>
   );
@@ -1458,7 +1459,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
       <GroupSection title="MECHANICAL" items={mechGroup}/>
       <GroupSection title="DYNAMIC" items={dynGroup}/>
       {/* grip balance context — physical at-limit tendency from LLT model */}
-      {gripBalance!=null&&Math.abs(gripBalance-0.5)>0.03&&<div style={{
+      {uiMode==='pro'&&gripBalance!=null&&Math.abs(gripBalance-0.5)>0.03&&<div style={{
           fontSize:10,color:'#4b5563',lineHeight:1.5,marginBottom:6,
           padding:'4px 8px',borderLeft:'2px solid #1e293b'}}>
         GRIP BIAS {gripBalance.toFixed(2)} — physical handling at limit
@@ -4520,6 +4521,7 @@ function App(){
                   const domBig=Math.abs(dom.deviation)>0.05;
                   const agileP=Math.round((score-0.5)*100);
                   const aCol=Math.abs(agileP)<15?'#94a3b8':agileP>0?'#f59e0b':'#22c55e';
+                  const totalAbsDev=segs.reduce((s,x)=>s+Math.abs(x.deviation),0);
                   const tips={
                     SPRINGS: agileP>0?'Soften spring stiffness (lower Hz) for a more planted feel.':'Stiffen springs to improve transient response speed.',
                     DAMPING: agileP>0?'Increase rebound damping to settle weight transfer more firmly.':'Reduce rebound damping to free up initial roll response.',
@@ -4539,7 +4541,7 @@ function App(){
                         const barPct=Math.min(50,Math.abs(deviation)/0.25*50);
                         const barStyle=deviation>=0?{left:'50%',width:`${barPct}%`}:{right:'50%',width:`${barPct}%`};
                         const c=deviation>0.02?'#f59e0b':deviation<-0.02?'#22c55e':'#cbd5e1';
-                        const pctOfTotal=score>0.01?Math.round(contribution/score*100):null;
+                        const pctOfTotal=totalAbsDev>0.01?Math.round(Math.abs(deviation)/totalAbsDev*100):null;
                         const isDom=label===dom.label&&domBig;
                         return(
                           <div key={label} style={{display:'flex',alignItems:'center',gap:6,marginBottom:3,
