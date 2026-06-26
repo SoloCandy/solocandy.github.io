@@ -792,7 +792,8 @@ const usePersist=(key,initial)=>{
 
 const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
-              tyreF:'265/35R18',tyreR:'265/35R18'};
+              tyreF:'265/35R18',tyreR:'265/35R18',
+              measuredNatBal:null,measuredTwF:null,measuredTwR:null};
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,settleMode:false,settleBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,dampCharMode:'zeta',settleTarget:0.80,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,
@@ -1849,6 +1850,9 @@ const TUTORIALS={
     {title:'Weight Transfer Strips',
      focus:['chassis'],
      body:'XFER F/R shows lateral load transfer per axle per g of cornering. OUT/IN show outer and inner wheel loads at 1g. Wider track and lower CG both reduce transfer. These inform ARB aggressiveness and how much camber the outer tyre needs under load.'},
+    {title:'Calibrating Natural Balance',
+     focus:['build'],
+     body:'SUSP.OS predicts your car\'s natural mechanical balance from weight distribution and track widths, but car-specific geometry can shift the true value. To get an exact reading: set both ARBs to 1 and springs to the same Hz front and rear in Forza, then read the Mech Balance display. Click + MEASURE in the Balance Guide and dial in that value with the slider — the calculator uses it live everywhere in place of the prediction, including the ARB solver and geometry gap. Stow the slider to revert to the predicted value.'},
     {title:'Build Type & Balance Target',
      focus:['build'],
      body:'The BUILD section is where you set your tuning intent. Build type (STREET / TRACK / DRIFT / RALLY / OFFROAD / DRAG) determines the recommended balance range, alignment targets, brake bias, and diff type recommendation. Mech Balance Target (0.40–0.90) is the roll-stiffness rear fraction you want to achieve — it drives ARB split, spring stiffness, alignment recommendations, and differential bias if Match Chassis is on. The right target depends on drivetrain: RWD track builds target 0.60–0.70 for rotation and rear-end feel. AWD targets 0.55–0.65 — mild rear bias while torque split handles the rest. FWD targets 0.45–0.55 — neutral to slight front bias to keep the nose planted. The BALANCE GUIDE shows your natural balance, the recommended range for your layout and build, and how far your target is from natural. In PRO mode the GEOMETRY GAP panel shows whether track or tyre width changes could close that gap — a smaller gap means softer, more compliant ARBs are enough to reach the target. Set build type and target first, then choose your solving mode.'},
@@ -2127,6 +2131,8 @@ function App(){
   const[resetOpts,setResetOpts]=useState({tune:true,tutorials:false});
   const[hzDraft,setHzDraft]=useState(null);     // transient: direct front Hz entry
   const[rearHzDraft,setRearHzDraft]=useState(null); // transient: direct rear Hz entry (independent mode)
+  const[measEditOpen,setMeasEditOpen]=useState(false);
+  const[measPending,setMeasPending]=useState(0.50);
   const[sidebarOpen,setSidebarOpen]=useState(true);
   const[isMobile,setIsMobile]=useState(false);
   const[isPhone,setIsPhone]=useState(()=>window.innerWidth<480);
@@ -2317,7 +2323,11 @@ function App(){
            trackF_rec,trackR_rec,dTrackF,dTrackR,trackFfeas,trackRfeas,gap,
            dTyreF,dTyreR,tyreFfeas,tyreRfeas};
   })();
-  const natMechBalance=chassisAnalysis.natBal;
+  const _twF=parseTyre(ch.tyreF)?.width??265;
+  const _twR=parseTyre(ch.tyreR)?.width??265;
+  const natMechBalance=measEditOpen
+    ?Math.max(0.10,Math.min(0.90,measPending))
+    :chassisAnalysis.natBal;
 
   const loadPreset=i=>{
     const s=PRESET_SAVES[i];if(!s)return;
@@ -3056,7 +3066,23 @@ function App(){
                     <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
                       <span style={{display:'inline-block',width:2,height:8,background:'#334155',borderRadius:1,flexShrink:0}}/> NATURAL
                     </span>
-                    <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:'#cbd5e1'}}>{natMechBalance.toFixed(2)}</span>
+                    <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:'#cbd5e1',display:'flex',alignItems:'center',gap:4,justifyContent:'flex-end'}}>
+                      {natMechBalance.toFixed(2)}
+                    </span>
+                    {uiMode==='pro'&&<div style={{gridColumn:'1 / -1',display:'flex',alignItems:'center',gap:6,marginTop:2,marginBottom:2}}>
+                      {measEditOpen&&<>
+                        <span style={{fontFamily:'Courier New',fontSize:10,color:'#e2e8f0',flexShrink:0}}>{measPending.toFixed(2)}</span>
+                        <input type="range" className="sli" min={0.40} max={0.90} step={0.01}
+                          value={measPending}
+                          onChange={e=>setMeasPending(parseFloat(e.target.value))}
+                          style={{flex:1,minWidth:0}}/>
+                      </>}
+                      <button className="tbtn" style={{fontSize:9,color:measEditOpen?'#60a5fa':'#475569',marginLeft:'auto',flexShrink:0}}
+                        onClick={()=>{if(!measEditOpen)setMeasPending(chassisAnalysis.natBal);setMeasEditOpen(v=>!v);}}>
+                        {measEditOpen?'MEASURED':'CHASSIS'}
+                      </button>
+                      <Hint text="Set both ARBs to 1 and springs to the same Hz front and rear in Forza, then read the Mech Balance display. Click CHASSIS to switch to measure mode and dial in that value with the slider — the calculator uses it live everywhere in place of the geometry prediction. Click MEASURED to revert to the chassis geometry prediction."/>
+                    </div>}
                     <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
                       <span style={{display:'inline-block',width:10,height:3,background:'#14532d',borderRadius:1,flexShrink:0}}/> RANGE
                     </span>
