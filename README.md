@@ -33,8 +33,8 @@ A **BEG / INT / PRO** toggle in the header controls how much of the input surfac
 
 | Tier | Surface |
 |---|---|
-| **BEG** | Layout, build type, weight, and front bias plus three feel sliders (Ride Stiffness, Balance, Character). Factory presets provide build-appropriate starting points. ARB balance is set automatically for your layout and build type. |
-| **INT** | All BEG inputs plus ARB modes (AUTO / ROLL / SHARE) with ARB Bias, individual ride frequency and damping controls (including SETTLE TIME mode — set a target settle time and ζ is back-calculated per axle), and drivetrain intent sliders. ARB balance is fixed to WEIGHT distribution. |
+| **BEG** | Layout, build type (Street / Track / Drift / Rally / Offroad / Drag), weight, and front bias plus three feel sliders (Ride Stiffness, Balance, Character). Factory presets provide build-appropriate starting points. ARB balance is set automatically for your layout and build type. |
+| **INT** | All BEG inputs plus ARB modes (AUTO / ROLL / SHARE) with ARB Bias, individual ride frequency and damping controls (including SETTLE TIME mode — set a target settle time and ζ is back-calculated per axle), drivetrain intent sliders, and a **Diff Type** selector (Race / Sport / Rally / Offroad / Drift) with per-type output scaling and recommended type based on build. ARB balance is fixed to WEIGHT distribution. |
 | **PRO** | All INT inputs plus tyre sizes, balance guide, chassis balance / grip bias / stability readouts, geometry gap, Mech Balance Target slider, ARB balance modes (WEIGHT / MECH / CO-SOLVE / MAN), Hz MECH mode, full chassis geometry (wheelbase, track widths, CG height), per-wheel load transfer readouts, and differential MANUAL mode with MATCH CHASSIS. |
 
 ---
@@ -52,6 +52,7 @@ Key empirical constants calibrated from real Forza data:
 | `MECH_BAL_GAIN` | 1.8 | Axle grip-capacity delta → balance offset (calibrated to the 0.5-neutral scale) |
 | `WIDTH_GRIP_EXP` | 0.4 | Tyre width → grip capacity, sub-linear exponent |
 | `DIFF_BIAS_SCALE` | 0.14 | Diff lock % → handling bias contribution |
+| `DIFF_TYPE_SCALE` | race 1.00 / sport 0.88 / rally 0.76 / offroad 0.52 | AUTO solver multipliers per diff type. Community-estimated: same slider % produces less effective lock on Rally/Offroad than Race. Sport is accel-only (no decel slider in-game). |
 | `BRAKE_BIAS_SCALE` | 0.20 | Brake balance deviation → handling bias contribution |
 
 Constants validated through a structured test protocol across three cars — 2017 Mazda MX-5 Cup, 2015 Ultima Evolution Coupe 1020, and 2011 Volkswagen Scirocco R — covering balanced, understeer, and oversteer tyre configurations and ARB ±10 click sensitivity sweeps.
