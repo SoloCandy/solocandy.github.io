@@ -136,11 +136,14 @@ const cornerMasses=ch=>{
   return{front:(kg*(ch.frontBias/100))/2,rear:(kg*(1-ch.frontBias/100))/2};
 };
 const parseTyre=str=>{
-  const m=String(str??'').trim().match(/^(\d{2,3})\/(\d{2,3})[Rr](\d{1,2}(?:\.\d)?)$/);
-  if(!m)return null;
-  const width=+m[1],aspect=+m[2],rim=+m[3];
-  const diameter=rim*25.4+2*(width*aspect/100);
-  return{width,aspectRatio:aspect,rimDiameter:rim,diameter,radius:diameter/2};
+  const s=String(str??'').trim();
+  const full=s.match(/^(\d{2,3})\/(\d{2,3})[Rr](\d{1,2}(?:\.\d)?)$/);
+  if(full){const width=+full[1],aspect=+full[2],rim=+full[3];const diameter=rim*25.4+2*(width*aspect/100);return{width,aspectRatio:aspect,rimDiameter:rim,diameter,radius:diameter/2};}
+  const partial=s.match(/^(\d{2,3})\/(\d{2,3})$/);
+  if(partial){const width=+partial[1],aspect=+partial[2];return{width,aspectRatio:aspect,rimDiameter:null,diameter:null,radius:null};}
+  const w=s.match(/^(\d{2,3})$/);
+  if(w)return{width:+w[1],aspectRatio:null,rimDiameter:null,diameter:null,radius:null};
+  return null;
 };
 // rideStiffness now stores Hz directly (HZ_MIN–HZ_MAX).
 // Old saves/shares stored integers 0–100 — detect and auto-migrate.
@@ -2975,7 +2978,7 @@ function App(){
                               color:'#e2e8f0',fontFamily:'Courier New',fontSize:12,
                               padding:'4px 6px',outline:'none'}}/>
                     <div style={{fontSize:10,color:'#94a3b8',marginTop:3,fontFamily:'Courier New'}}>
-                      {parsed?`Ø ${parsed.diameter.toFixed(0)} mm · r ${parsed.radius.toFixed(1)} mm`:'invalid format'}
+                      {parsed?parsed.diameter!=null?`Ø ${parsed.diameter.toFixed(0)} mm · r ${parsed.radius.toFixed(1)} mm`:`${parsed.width} mm wide`:'invalid format'}
                     </div>
                   </div>
                 );
