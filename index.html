@@ -2259,10 +2259,6 @@ function App(){
     if(bTotFull>8&&base==='race') return 'sport';
     return base;
   })();
-  // Recommended AWD center split (rear %) by build type.
-  // Higher = more rear torque: drift/drag want rotation and traction bias rear.
-  // Rally/offroad want more neutral front traction on low-grip surfaces.
-  const recommendedCenter={street:65,track:70,drift:80,rally:60,offroad:55,drag:75}[dr.buildType??'track']??65;
   const lim=GAME_LIMITS[fe.gameMode];
   const responseFactors=(()=>{
     // Agility = transient response character: how quickly and freely the car responds to steering inputs.
@@ -2327,6 +2323,17 @@ function App(){
   const natMechBalance=measEditOpen
     ?Math.max(0.10,Math.min(0.90,measPending))
     :chassisAnalysis.natBal;
+  // Recommended AWD center split (rear %) — build type baseline trimmed by three chassis factors.
+  const _baseCenterLookup={street:65,track:70,drift:80,rally:60,offroad:55,drag:75};
+  const _baseCenter=_baseCenterLookup[dr.buildType??'track']??65;
+  const _rearBias=1-ch.frontBias/100;
+  const _parsedTyreF=parseTyre(ch.tyreF);
+  const _parsedTyreR=parseTyre(ch.tyreR);
+  const _diamRatio=(_parsedTyreR?.diameter??642)/(_parsedTyreF?.diameter??642);
+  const _weightAdj=Math.round((_rearBias-0.50)*30);          // +3% per 10% extra rear weight
+  const _diamAdj  =Math.round((_diamRatio-1)*50);             // +2.5% per 5% larger rear diam
+  const _natAdj   =Math.round(-(natMechBalance-0.50)*20);     // −2% per 0.1 above neutral natBal
+  const recommendedCenter=Math.max(45,Math.min(90,_baseCenter+_weightAdj+_diamAdj+_natAdj));
 
   const loadPreset=i=>{
     const s=PRESET_SAVES[i];if(!s)return;
@@ -4085,9 +4092,15 @@ function App(){
                   </div>}
                   {isAWD&&!centerMatch&&<div style={{fontSize:10,color:'#475569',lineHeight:1.5}}>
                     {buildLabel} build → {recommendedCenter}% rear: {centerReasons[dr.buildType??'track']}.
+                    {uiMode==='pro'&&(_weightAdj!==0||_diamAdj!==0||_natAdj!==0)&&<div style={{fontSize:9,color:'#334155',marginTop:2}}>
+                      base {_baseCenter}%{_weightAdj!==0?` · weight ${_weightAdj>0?'+':''}${_weightAdj}%`:''}{_diamAdj!==0?` · tyres ${_diamAdj>0?'+':''}${_diamAdj}%`:''}{_natAdj!==0?` · balance ${_natAdj>0?'+':''}${_natAdj}%`:''}
+                    </div>}
                   </div>}
                   {isAWD&&centerMatch&&<div style={{fontSize:10,color:'#334155',lineHeight:1.5}}>
                     {buildLabel} build → {recommendedCenter}% rear: {centerReasons[dr.buildType??'track']}.
+                    {uiMode==='pro'&&(_weightAdj!==0||_diamAdj!==0||_natAdj!==0)&&<div style={{fontSize:9,color:'#1e293b',marginTop:2}}>
+                      base {_baseCenter}%{_weightAdj!==0?` · weight ${_weightAdj>0?'+':''}${_weightAdj}%`:''}{_diamAdj!==0?` · tyres ${_diamAdj>0?'+':''}${_diamAdj}%`:''}{_natAdj!==0?` · balance ${_natAdj>0?'+':''}${_natAdj}%`:''}
+                    </div>}
                   </div>}
                 </div>}
               </>);
