@@ -653,7 +653,7 @@ const DIFF_TYPE_RANGES={
   drift:  {accel:[23,55],frontAccel:[16,29],rearAccel:[23,55],decel:[0,8]},
 };
 
-const computeDiff=(ch,fe,dr)=>{
+const computeDiff=(ch,fe,dr,natMechBalOverride=null)=>{
   const rB=1-ch.frontBias/100;
   const cl=(v,lo,hi)=>Math.max(lo,Math.min(hi,Math.round(v)));
   const biasExit=dr.diffBiasExit??0;       // rear exit intent (−50=grip, +50=rotate)
@@ -668,9 +668,10 @@ const computeDiff=(ch,fe,dr)=>{
   let effBiasExit=biasExit, effBiasEntry=biasEntry;
   if(dr.diffComplement&&!dr.diffManual){
     const cm=cornerMasses(ch);
-    // natural rsBalance — geometry + weight only, no springs/ARBs (matches Forza's scale)
-    const natMechBal=(cm.rear*ch.trackR*ch.trackR)
-                    /(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
+    // Use measured nat balance when provided (measured mode active), else compute from geometry
+    const natMechBal=natMechBalOverride!=null
+      ?natMechBalOverride
+      :(cm.rear*ch.trackR*ch.trackR)/(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
     const tgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
     const gap=tgt-natMechBal; // positive = user wants more rear/oversteer than natural
     // Cap correction so it can't dominate explicit user slider input
@@ -795,7 +796,8 @@ const usePersist=(key,initial)=>{
 
 const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
-              tyreF:'265/35R18',tyreR:'265/35R18'};
+              tyreF:'265/35R18',tyreR:'265/35R18',
+              useMeasuredNatBal:false,measuredNatBal:null};
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,settleMode:false,settleBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,dampCharMode:'zeta',settleTarget:0.80,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,
@@ -1506,7 +1508,9 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
   );
 };
 
-const CheckerModal=({onClose,lim,metricUnits})=>{
+const CheckerModal=({onClose,lim,metricUnits,ch,setCh})=>{
+  const[ckMode,setCkMode]=useState('decode');
+  const[probeHz,setProbeHz]=useState(1.5);
   const[ckSpr,setCkSpr]=useState({f:400,r:300});
   const[ckDmp,setCkDmp]=useState({rebF:5,rebR:5,bumpF:3,bumpR:3});
   const[ckW,setCkW]=useState(3200);
@@ -1516,6 +1520,9 @@ const CheckerModal=({onClose,lim,metricUnits})=>{
   const masses=useMemo(()=>{const kg=ckW/KG_TO_LB;
     return{front:(kg*(ckB/100))/2,rear:(kg*(1-ckB/100))/2};},[ckW,ckB]);
   const ck=useMemo(()=>computeCheck(ckSpr,ckDmp,masses),[ckSpr,ckDmp,masses]);
+  const probeMasses=useMemo(()=>cornerMasses(ch),[ch]);
+  const probeRateF=useMemo(()=>(2*Math.PI*probeHz)**2*probeMasses.front/LB_IN_TO_NM,[probeHz,probeMasses]);
+  const probeRateR=useMemo(()=>(2*Math.PI*probeHz)**2*probeMasses.rear /LB_IN_TO_NM,[probeHz,probeMasses]);
   return(
     <div style={{position:'fixed',inset:0,background:'#000c',zIndex:999,
                  display:'flex',alignItems:'center',justifyContent:'center'}}
@@ -1526,11 +1533,17 @@ const CheckerModal=({onClose,lim,metricUnits})=>{
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
                      padding:'8px 14px',borderBottom:'1px solid #1e293b'}}>
           <span style={{fontSize:12,color:'#9ca3af',letterSpacing:2}}>TUNE CHECK</span>
-          <button onClick={onClose} style={{background:'none',border:'none',color:'#94a3b8',
-                                           cursor:'pointer',fontSize:17,lineHeight:1}}>✕</button>
+          <div style={{display:'flex',gap:6,alignItems:'center'}}>
+            <button className="tbtn" style={{fontSize:9,color:ckMode==='decode'?'#e2e8f0':'#475569'}}
+              onClick={()=>setCkMode('decode')}>DECODE</button>
+            <button className="tbtn" style={{fontSize:9,color:ckMode==='probe'?'#60a5fa':'#475569'}}
+              onClick={()=>setCkMode('probe')}>PROBE</button>
+            <button onClick={onClose} style={{background:'none',border:'none',color:'#94a3b8',
+                                             cursor:'pointer',fontSize:17,lineHeight:1}}>✕</button>
+          </div>
         </div>
         <div style={{padding:14}}>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:10,marginBottom:10}}>
+          {ckMode==='decode'&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:10,marginBottom:10}}>
             <Card title="VEHICLE MASS">
               <Field label="Weight"
                 value={metricUnits?ckW/KG_TO_LB:ckW}
@@ -1569,7 +1582,40 @@ const CheckerModal=({onClose,lim,metricUnits})=>{
               <Stat label="Bump ratio front"    value={ck.zBmpF} unit="%" decimals={1}/>
               <Stat label="Bump ratio rear"     value={ck.zBmpR} unit="%" decimals={1}/>
             </Card>
-          </div>
+          </div>}
+          {ckMode==='probe'&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:10,marginBottom:10}}>
+            <Card title="PROBE SETUP" accent>
+              <Field label="Probe Hz" value={probeHz} onChange={setProbeHz} min={1.0} max={3.5} step={0.05} unit="Hz"/>
+              <Stat label="Corner mass front" value={probeMasses.front} unit="kg" decimals={1}/>
+              <Stat label="Corner mass rear"  value={probeMasses.rear}  unit="kg" decimals={1}/>
+              <Stat label="Spring front" value={metricUnits?probeRateF*NMM_PER_LBIN:probeRateF} unit={metricUnits?'N/mm':'lb/in'} decimals={1}/>
+              <Stat label="Spring rear"  value={metricUnits?probeRateR*NMM_PER_LBIN:probeRateR} unit={metricUnits?'N/mm':'lb/in'} decimals={1}/>
+              <Stat label="ARB front" value={1} unit=""/>
+              <Stat label="ARB rear"  value={1} unit=""/>
+              <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid #1e293b'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>MEAS. NAT BAL</span>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:ch.useMeasuredNatBal?'#60a5fa':'#475569'}}>
+                    {ch.useMeasuredNatBal?(ch.measuredNatBal??0.50).toFixed(2):'—'}
+                  </span>
+                </div>
+                <input type="range" className="sli" min={0.40} max={0.90} step={0.01}
+                  value={ch.measuredNatBal??0.50}
+                  onChange={e=>setCh(p=>({...p,useMeasuredNatBal:true,measuredNatBal:parseFloat(e.target.value)}))}
+                  style={{width:'100%'}}/>
+              </div>
+            </Card>
+            <Card title="HOW TO USE">
+              <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.6}}>
+                <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>SETUP</div>
+                <div style={{marginBottom:8}}>Apply the spring and ARB values on the left to your car in Forza.</div>
+                <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>MEASURE</div>
+                <div style={{marginBottom:8}}>Open the tune menu and note the <span style={{color:'#e2e8f0'}}>Mech Balance</span> value.</div>
+                <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>RECORD</div>
+                <div>Dial the <span style={{color:'#e2e8f0'}}>MEAS. NAT BAL</span> slider to match, then close this window. No wheelbase or track widths needed — the calculator uses your reading everywhere.</div>
+              </div>
+            </Card>
+          </div>}
         </div>
       </div>
     </div>
@@ -1823,6 +1869,9 @@ const TUTORIALS={
     {title:'Build Type',
      focus:['build'],
      body:'The BUILD section shows Build Type (STREET / TRACK / DRIFT / RALLY / OFFROAD / DRAG) — this sets your intended use and determines the recommended balance range, diff AUTO behaviour, diff type recommendation, and alignment targets.'},
+    {title:'Drivetrain Sliders',
+     focus:['drivetrain'],
+     body:'DIFF TYPE selects the differential installed on the car — Race, Sport, Rally, Offroad, or Drift. Each type has a different lock curve, so the same slider % produces different effective lock. Sport is accel-only (no decel control). Corner Exit controls on-throttle aggression. Corner Entry controls trail-braking rotation. AWD adds a Power Split (center diff) slider — the recommended split is calculated from your build type, weight distribution, natural mechanical balance, and front/rear tyre diameter ratio. A Front Exit Push slider is also unlocked for AWD. All DIFF rows in the Handling Balance bar update live.'},
     {title:'ARB Balance',
      focus:['arb'],
      body:'The ARB solver splits front/rear roll stiffness from the car\'s weight distribution by default. Fine-tune the F/R split using the ARB Bias slider — push toward front for more understeer resistance, toward rear for more rotation. PRO mode unlocks MECH, CO-SOLVE, and MAN balance targeting.'},
@@ -1835,9 +1884,6 @@ const TUTORIALS={
     {title:'Dampers',
      focus:['damping'],
      body:'Rebound ζ at 70% (Butterworth) is the sweet spot — the car settles cleanly without oscillating. Below 40% the suspension is underdamped and will bounce; above 100% it\'s overdamped and sluggish. Bump Ratio sets compression as a fraction of rebound — 40–65% is the typical range. Damping Bias splits front and rear rebound: FRONT bias keeps the front firmly damped while the rear softens (mild understeer, more planted entry). REAR bias softens the front (more entry compliance, easier direction changes). The DAMP row in the Handling Balance bar shows this contribution.'},
-    {title:'Drivetrain Sliders',
-     focus:['drivetrain'],
-     body:'DIFF TYPE selects the differential installed on the car — Race, Sport, Rally, Offroad, or Drift. Each type has a different lock curve, so the same slider % produces different effective lock. Sport is accel-only (no decel control). Corner Exit controls on-throttle aggression. Corner Entry controls trail-braking rotation. AWD adds a Power Split slider and a Front Exit Push. All DIFF rows in the Handling Balance bar update live.'},
     {title:'Garage & Builds',
      focus:['presets'],
      body:'GARAGE (in the CHASSIS section) saves your car\'s physical setup — weight and front bias — so you can quickly switch between cars. MY BUILDS (in the BUILDS drawer) saves your tune — feel settings and drivetrain. Loading a build always applies both. The SHARE button in the toolbar handles sharing codes between devices (COPY CODE / LOAD CODE), backing up your saved data as a JSON file (BACKUP), and restoring from a backup file (RESTORE).'},
@@ -1854,19 +1900,19 @@ const TUTORIALS={
      body:'XFER F/R shows lateral load transfer per axle per g of cornering. OUT/IN show outer and inner wheel loads at 1g. Wider track and lower CG both reduce transfer. These inform ARB aggressiveness and how much camber the outer tyre needs under load.'},
     {title:'Calibrating Natural Balance',
      focus:['build'],
-     body:'SUSP.OS predicts your car\'s natural mechanical balance from weight distribution and track widths, but car-specific geometry can shift the true value. To get an exact reading: set both ARBs to 1 and springs to the same Hz front and rear in Forza, then read the Mech Balance display. Click + MEASURE in the Balance Guide and dial in that value with the slider — the calculator uses it live everywhere in place of the prediction, including the ARB solver and geometry gap. Stow the slider to revert to the predicted value.'},
+     body:'MEASURED mode is a full alternative to entering wheelbase and track widths — the game\'s Mech Balance readout already accounts for your car\'s real geometry and any track width upgrades installed. Open Tune Check (CHECK button) and switch to PROBE mode for the exact spring and ARB values to apply. In Forza, open the tune menu and note the Mech Balance value. Back in SUSP.OS, click CHASSIS in the Balance Guide to enable MEASURED mode and dial the slider to match — the button changes to MEASURED, the wheelbase and track width fields hide, and the calculator uses your reading everywhere in place of the geometry prediction. Click MEASURED to revert.'},
     {title:'Build Type & Balance Target',
      focus:['build'],
      body:'The BUILD section is where you set your tuning intent. Build type (STREET / TRACK / DRIFT / RALLY / OFFROAD / DRAG) determines the recommended balance range, alignment targets, brake bias, and diff type recommendation. Mech Balance Target (0.40–0.90) is the roll-stiffness rear fraction you want to achieve — it drives ARB split, spring stiffness, alignment recommendations, and differential bias if Match Chassis is on. The right target depends on drivetrain: RWD track builds target 0.60–0.70 for rotation and rear-end feel. AWD targets 0.55–0.65 — mild rear bias while torque split handles the rest. FWD targets 0.45–0.55 — neutral to slight front bias to keep the nose planted. The BALANCE GUIDE shows your natural balance, the recommended range for your layout and build, and how far your target is from natural. In PRO mode the GEOMETRY GAP panel shows whether track or tyre width changes could close that gap — a smaller gap means softer, more compliant ARBs are enough to reach the target. Set build type and target first, then choose your solving mode.'},
+    {title:'Manual Differential',
+     focus:['drivetrain'],
+     body:'MANUAL diff exposes individual accel and decel lock percentages per axle. AWD adds separate front/rear locks plus center power split. Range hints below each field show typical values for your selected diff type — Rally and Offroad diffs need higher % than Race to achieve equivalent lock because their curves are less aggressive. Match Chassis (AUTO mode only) biases the diff solver toward your Mech Balance Target so the differential reinforces the balance set by your springs and ARBs. The AWD center split recommendation factors in build type, weight distribution, natural mechanical balance, and front/rear tyre diameter — PRO mode shows a factor breakdown below the recommended value.'},
     {title:'ARB Solving Modes',
      focus:['arb'],
      body:'MECH and CO-SOLVE are unlocked in PRO — both solve toward your Mech Balance Target. MECH adjusts the ARB front/rear split alone to hit the target exactly, leaving rear Hz independent. CO-SOLVE adjusts both rear spring Hz and ARB split together — Spring Share controls how much of the correction comes from springs vs ARBs. WEIGHT (available in all tiers) uses weight distribution as the baseline, shifted by ARB Bias. Hz MECH mode is also unlocked in PRO: it derives rear Hz from the mech balance target instead of a ratio or flat-ride calculation.'},
     {title:'Alignment & Brakes',
      focus:['alignment'],
      body:'Alignment (camber, toe, caster) and brake balance are both computed automatically from your build type, layout, weight bias, and chassis geometry. No manual override is needed — the outputs update live as you adjust other inputs. The BRAKES row in the Handling Balance bar reflects the computed brake balance contribution to entry-phase balance.'},
-    {title:'Manual Differential',
-     focus:['drivetrain'],
-     body:'MANUAL diff exposes individual accel and decel lock percentages per axle. AWD adds separate front/rear locks plus center power split. Range hints below each field show typical values for your selected diff type — Rally and Offroad diffs need higher % than Race to achieve equivalent lock because their curves are less aggressive. Match Chassis (AUTO mode only) biases the diff toward your Mech Balance Target so the differential reinforces the balance set elsewhere.'},
     {title:'Tune Check',
      focus:null,
      body:'The CHECK button in the output panel opens a reverse calculator. Enter existing in-game spring and damper values to read back their natural frequency and damping ratios — useful for analysing a shared tune or verifying a manual setup.'},
@@ -2133,8 +2179,7 @@ function App(){
   const[resetOpts,setResetOpts]=useState({tune:true,tutorials:false});
   const[hzDraft,setHzDraft]=useState(null);     // transient: direct front Hz entry
   const[rearHzDraft,setRearHzDraft]=useState(null); // transient: direct rear Hz entry (independent mode)
-  const[measEditOpen,setMeasEditOpen]=useState(false);
-  const[measPending,setMeasPending]=useState(0.50);
+
   const[sidebarOpen,setSidebarOpen]=useState(true);
   const[isMobile,setIsMobile]=useState(false);
   const[isPhone,setIsPhone]=useState(()=>window.innerWidth<480);
@@ -2245,7 +2290,8 @@ function App(){
     ?{recCamberF:al.camberF,recCamberR:al.camberR,
       recToeF:al.toeF,recToeR:al.toeR,recCaster:al.caster}
     :autoAlign;
-  const diff=useMemo(()=>computeDiff(ch,fe,dr),[ch,fe,dr]);
+  const _measuredNatForDiff=ch.useMeasuredNatBal&&ch.measuredNatBal!=null?Math.max(0.10,Math.min(0.90,ch.measuredNatBal)):null;
+  const diff=useMemo(()=>computeDiff(ch,fe,dr,_measuredNatForDiff),[ch,fe,dr,_measuredNatForDiff]);
   const _brakeMod={street:0,track:-3,drift:-8,rally:-2,offroad:-5,drag:-6}[dr.buildType??'track']??-3;
   const recBrakeBias=Math.round(Math.max(45,Math.min(65,ch.frontBias+_brakeMod)));
   const brakeBias=br.brakeManual?(br.brakeBias??DEF_BR.brakeBias):recBrakeBias;
@@ -2309,23 +2355,23 @@ function App(){
     // Feasibility: track ± 65mm
     const trackFfeas=Math.abs(dTrackF)<=65;
     const trackRfeas=Math.abs(dTrackR)<=65;
-    const gap=Math.abs(natBal-targetBal);
-    const signedGap=targetBal-natBal;
-    const r10=v=>Math.round(v/10)*10;
-    const twR_rec=r10(Math.max(100,Math.min(500,twF*Math.exp(signedGap/TIRE_MECH_SCALE))));
-    const twF_rec=r10(Math.max(100,Math.min(500,twR*Math.exp(-signedGap/TIRE_MECH_SCALE))));
-    const dTyreR=twR_rec-twR,dTyreF=twF_rec-twF;
-    const tyreRfeas=Math.abs(dTyreR)>=10&&Math.abs(dTyreR)<=80;
-    const tyreFfeas=Math.abs(dTyreF)>=10&&Math.abs(dTyreF)<=80;
     return{natBal,stabIdx,targetBal,hasMechTarget,
-           trackF_rec,trackR_rec,dTrackF,dTrackR,trackFfeas,trackRfeas,gap,
-           dTyreF,dTyreR,tyreFfeas,tyreRfeas};
+           trackF_rec,trackR_rec,dTrackF,dTrackR,trackFfeas,trackRfeas};
   })();
   const _twF=parseTyre(ch.tyreF)?.width??265;
   const _twR=parseTyre(ch.tyreR)?.width??265;
-  const natMechBalance=measEditOpen
-    ?Math.max(0.10,Math.min(0.90,measPending))
+  const natMechBalance=ch.useMeasuredNatBal&&ch.measuredNatBal!=null
+    ?Math.max(0.10,Math.min(0.90,ch.measuredNatBal))
     :chassisAnalysis.natBal;
+  // Gap-dependent chassis recommendations — use natMechBalance so measured mode takes effect here too
+  const _r10=v=>Math.round(v/10)*10;
+  const _sgap=chassisAnalysis.targetBal-natMechBalance;
+  const gap=Math.abs(_sgap);
+  const twR_rec=_r10(Math.max(100,Math.min(500,_twF*Math.exp(_sgap/TIRE_MECH_SCALE))));
+  const twF_rec=_r10(Math.max(100,Math.min(500,_twR*Math.exp(-_sgap/TIRE_MECH_SCALE))));
+  const dTyreR=twR_rec-_twR,dTyreF=twF_rec-_twF;
+  const tyreRfeas=Math.abs(dTyreR)>=10&&Math.abs(dTyreR)<=80;
+  const tyreFfeas=Math.abs(dTyreF)>=10&&Math.abs(dTyreF)<=80;
   // Recommended AWD center split (rear %) — build type baseline trimmed by three chassis factors.
   const _baseCenterLookup={street:65,track:70,drift:80,rally:60,offroad:55,drag:75};
   const _baseCenter=_baseCenterLookup[dr.buildType??'track']??65;
@@ -2371,7 +2417,7 @@ function App(){
   const effZoom=isPhone?1:uiZoom;
   return(
     <div style={{display:'flex',flexDirection:'column',height:`calc(100dvh / ${effZoom})`,minHeight:'-webkit-fill-available',overflow:'hidden',zoom:effZoom}}>
-      {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits}/>}
+      {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits} ch={ch} setCh={setCh}/>}
       {showResetModal&&(
         <div style={{position:'fixed',inset:0,background:'#000000cc',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
              onClick={()=>{setShowResetModal(false);setResetOpts({tune:true,tutorials:false});}}>
@@ -3010,12 +3056,14 @@ function App(){
               </>);
             })()}
             {uiMode==='pro'&&<>
+            {!ch.useMeasuredNatBal&&<>
             <Field label="Wheelbase" value={Math.round(ch.wheelbase*1000)} onChange={v=>pCh('wheelbase')(v/1000)} min={400} max={4000} step={5} unit="mm"
               hint="Distance between front and rear axles in millimetres. Used by the flat-ride formula to match rear spring frequency to your target speed. Typical cars: 2400–2900 mm."/>
             <Field label="Track Width Front" value={Math.round(ch.trackF*1000)} onChange={v=>pCh('trackF')(v/1000)} min={1000} max={2600} step={5} unit="mm"
               hint="Distance between left and right wheels at the front. Typical: 1400–1800 mm. Wider = more roll resistance."/>
             <Field label="Track Width Rear" value={Math.round(ch.trackR*1000)} onChange={v=>pCh('trackR')(v/1000)} min={1000} max={2600} step={5} unit="mm"
               hint="Distance between left and right wheels at the rear. Typical: 1400–1800 mm. Often slightly wider than front."/>
+            </>}
             <Field label="CG Height" value={Math.round(ch.cgHeight*1000)} onChange={v=>pCh('cgHeight')(v/1000)} min={200} max={900} step={5} unit="mm"
               hint="Estimated height of the centre of gravity above ground. The game doesn't expose this — use 400–460 mm for sports cars, 480–550 mm for sedans, 580–700 mm for SUVs. Affects roll moment and ARB stiffness."/>
             </> }
@@ -3079,18 +3127,18 @@ function App(){
                       {natMechBalance.toFixed(2)}
                     </span>
                     {uiMode==='pro'&&<div style={{gridColumn:'1 / -1',display:'flex',alignItems:'center',gap:6,marginTop:2,marginBottom:2}}>
-                      {measEditOpen&&<>
-                        <span style={{fontFamily:'Courier New',fontSize:10,color:'#e2e8f0',flexShrink:0}}>{measPending.toFixed(2)}</span>
+                      {ch.useMeasuredNatBal&&<>
+                        <span style={{fontFamily:'Courier New',fontSize:10,color:'#e2e8f0',flexShrink:0}}>{(ch.measuredNatBal??chassisAnalysis.natBal).toFixed(2)}</span>
                         <input type="range" className="sli" min={0.40} max={0.90} step={0.01}
-                          value={measPending}
-                          onChange={e=>setMeasPending(parseFloat(e.target.value))}
+                          value={ch.measuredNatBal??chassisAnalysis.natBal}
+                          onChange={e=>setCh(p=>({...p,measuredNatBal:parseFloat(e.target.value)}))}
                           style={{flex:1,minWidth:0}}/>
                       </>}
-                      <button className="tbtn" style={{fontSize:9,color:measEditOpen?'#60a5fa':'#475569',marginLeft:'auto',flexShrink:0}}
-                        onClick={()=>{if(!measEditOpen)setMeasPending(chassisAnalysis.natBal);setMeasEditOpen(v=>!v);}}>
-                        {measEditOpen?'MEASURED':'CHASSIS'}
+                      <button className="tbtn" style={{fontSize:9,color:ch.useMeasuredNatBal?'#60a5fa':'#475569',marginLeft:'auto',flexShrink:0}}
+                        onClick={()=>setCh(p=>({...p,useMeasuredNatBal:!p.useMeasuredNatBal,measuredNatBal:p.measuredNatBal??chassisAnalysis.natBal}))}>
+                        {ch.useMeasuredNatBal?'MEASURED':'CHASSIS'}
                       </button>
-                      <Hint text="Set both ARBs to 1 and springs to the same Hz front and rear in Forza, then read the Mech Balance display. Click CHASSIS to switch to measure mode and dial in that value with the slider — the calculator uses it live everywhere in place of the geometry prediction. Click MEASURED to revert to the chassis geometry prediction."/>
+                      <Hint text="An alternative to entering wheelbase and track widths — the game's Mech Balance already accounts for your car's real geometry, including track width upgrades. Open Tune Check (CHECK) and switch to PROBE for step-by-step setup. CHASSIS = geometry prediction (track widths required). MEASURED = your in-game reading (track widths hidden)."/>
                     </div>}
                     <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
                       <span style={{display:'inline-block',width:10,height:3,background:'#14532d',borderRadius:1,flexShrink:0}}/> RANGE
@@ -3125,9 +3173,9 @@ function App(){
             })()}
             {(()=>{
               if(uiMode!=='pro')return null;
-              const{natBal:nm,stabIdx,targetBal,hasMechTarget,
-                    dTrackF,dTrackR,trackFfeas,trackRfeas,gap,
-                    dTyreF,dTyreR,tyreFfeas,tyreRfeas}=chassisAnalysis;
+              const{stabIdx,targetBal,hasMechTarget,
+                    dTrackF,dTrackR,trackFfeas,trackRfeas}=chassisAnalysis;
+              const nm=natMechBalance;
               const nmDelta=nm-0.5;
               const nmCol=Math.abs(nmDelta)<0.03?'#9ca3af':nmDelta>0?'#ef4444':'#3b82f6';
               const nmLabel=Math.abs(nmDelta)<0.03?'NEUTRAL':nmDelta>0?'OS':'US';
@@ -3170,7 +3218,7 @@ function App(){
                     <span style={{fontFamily:'Courier New',fontSize:11,fontWeight:700,color:stabCol}}>{stabLabel}</span>
                   </div>
                 </div>
-                {showRec&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 7px'}}>
+                {showRec&&!ch.useMeasuredNatBal&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 7px'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:anyFeasible?4:3}}>
                     <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>GEOMETRY GAP</span>
                     <span style={{fontFamily:'Courier New',fontSize:10,color:'#475569'}}>{dSign}{gap.toFixed(2)}</span>
