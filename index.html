@@ -1537,7 +1537,7 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh})=>{
             <button className="tbtn" style={{fontSize:9,color:ckMode==='decode'?'#e2e8f0':'#475569'}}
               onClick={()=>setCkMode('decode')}>DECODE</button>
             <button className="tbtn" style={{fontSize:9,color:ckMode==='probe'?'#60a5fa':'#475569'}}
-              onClick={()=>setCkMode('probe')}>PROBE</button>
+              onClick={()=>setCkMode('probe')}>MEASURE</button>
             <button onClick={onClose} style={{background:'none',border:'none',color:'#94a3b8',
                                              cursor:'pointer',fontSize:17,lineHeight:1}}>✕</button>
           </div>
@@ -1584,7 +1584,7 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh})=>{
             </Card>
           </div>}
           {ckMode==='probe'&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:10,marginBottom:10}}>
-            <Card title="PROBE SETUP" accent>
+            <Card title="NAT BAL SETUP" accent>
               <Field label="Probe Hz" value={probeHz} onChange={setProbeHz} min={1.0} max={3.5} step={0.05} unit="Hz"/>
               <Stat label="Corner mass front" value={probeMasses.front} unit="kg" decimals={1}/>
               <Stat label="Corner mass rear"  value={probeMasses.rear}  unit="kg" decimals={1}/>
@@ -1900,7 +1900,7 @@ const TUTORIALS={
      body:'XFER F/R shows lateral load transfer per axle per g of cornering. OUT/IN show outer and inner wheel loads at 1g. Wider track and lower CG both reduce transfer. These inform ARB aggressiveness and how much camber the outer tyre needs under load.'},
     {title:'Calibrating Natural Balance',
      focus:['build'],
-     body:'MEASURED mode is a full alternative to entering wheelbase and track widths — the game\'s Mech Balance readout already accounts for your car\'s real geometry and any track width upgrades installed. Open Tune Check (CHECK button) and switch to PROBE mode for the exact spring and ARB values to apply. In Forza, open the tune menu and note the Mech Balance value. Back in SUSP.OS, click CHASSIS in the Balance Guide to enable MEASURED mode and dial the slider to match — the button changes to MEASURED, the wheelbase and track width fields hide, and the calculator uses your reading everywhere in place of the geometry prediction. Click MEASURED to revert.'},
+     body:'MEASURED mode is a full alternative to entering wheelbase and track widths — the game\'s Mech Balance readout already accounts for your car\'s real geometry and any track width upgrades installed. Open Tune Check (CHECK button) and switch to MEASURE mode for the exact spring and ARB values to apply. In Forza, open the tune menu and note the Mech Balance value. Back in SUSP.OS, click CHASSIS in the Balance Guide to enable MEASURED mode and dial the slider to match — the button changes to MEASURED, the wheelbase and track width fields hide, and the calculator uses your reading everywhere in place of the geometry prediction. Click MEASURED to revert.'},
     {title:'Build Type & Balance Target',
      focus:['build'],
      body:'The BUILD section is where you set your tuning intent. Build type (STREET / TRACK / DRIFT / RALLY / OFFROAD / DRAG) determines the recommended balance range, alignment targets, brake bias, and diff type recommendation. Mech Balance Target (0.40–0.90) is the roll-stiffness rear fraction you want to achieve — it drives ARB split, spring stiffness, alignment recommendations, and differential bias if Match Chassis is on. The right target depends on drivetrain: RWD track builds target 0.60–0.70 for rotation and rear-end feel. AWD targets 0.55–0.65 — mild rear bias while torque split handles the rest. FWD targets 0.45–0.55 — neutral to slight front bias to keep the nose planted. The BALANCE GUIDE shows your natural balance, the recommended range for your layout and build, and how far your target is from natural. In PRO mode the GEOMETRY GAP panel shows whether track or tyre width changes could close that gap — a smaller gap means softer, more compliant ARBs are enough to reach the target. Set build type and target first, then choose your solving mode.'},
@@ -3138,7 +3138,7 @@ function App(){
                         onClick={()=>setCh(p=>({...p,useMeasuredNatBal:!p.useMeasuredNatBal,measuredNatBal:p.measuredNatBal??chassisAnalysis.natBal}))}>
                         {ch.useMeasuredNatBal?'MEASURED':'CHASSIS'}
                       </button>
-                      <Hint text="An alternative to entering wheelbase and track widths — the game's Mech Balance already accounts for your car's real geometry, including track width upgrades. Open Tune Check (CHECK) and switch to PROBE for step-by-step setup. CHASSIS = geometry prediction (track widths required). MEASURED = your in-game reading (track widths hidden)."/>
+                      <Hint text="An alternative to entering wheelbase and track widths — the game's Mech Balance already accounts for your car's real geometry, including track width upgrades. Open Tune Check (CHECK) and switch to MEASURE for step-by-step setup. CHASSIS = geometry prediction (track widths required). MEASURED = your in-game reading (track widths hidden)."/>
                     </div>}
                     <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
                       <span style={{display:'inline-block',width:10,height:3,background:'#14532d',borderRadius:1,flexShrink:0}}/> RANGE
@@ -3334,7 +3334,7 @@ function App(){
                   markers={[{value:0,color:'#475569'}]}
                   hint="Front diff accel lock for AWD. Toward PUSH increases front accel lock — more front-axle pull and understeer tendency on exit. Useful for AWD cars with strong rear rotation."
                   readout={`F.Accel ${diff.frontAccel}%`}/>}
-              {dr.layout==='AWD'&&uiMode!=='beginner'&&
+              {dr.layout==='AWD'&&uiMode!=='beginner'&&(dr.diffType??'race')!=='sport'&&
                 <FeelSlider
                   label="POWER SPLIT"
                   value={(dr.diffCenter??65)-50}
@@ -4130,7 +4130,7 @@ function App(){
                   {recMatch&&<div style={{fontSize:10,color:'#334155',lineHeight:1.5}}>
                     {buildLabel} build → {recLabel}: {recReason}.
                   </div>}
-                  {isAWD&&<div style={{display:'flex',alignItems:'center',gap:6,marginTop:6,paddingTop:6,borderTop:'1px solid #1e293b',marginBottom:centerMatch?0:4}}>
+                  {isAWD&&(dr.diffType??'race')!=='sport'&&<div style={{display:'flex',alignItems:'center',gap:6,marginTop:6,paddingTop:6,borderTop:'1px solid #1e293b',marginBottom:centerMatch?0:4}}>
                     <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>CENTER SPLIT</span>
                     <span style={{fontFamily:'Courier New',fontSize:11,fontWeight:700,
                       color:centerMatch?'#22c55e':'#f59e0b',marginLeft:'auto'}}>
