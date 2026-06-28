@@ -303,12 +303,32 @@ const feelToPhysics=(ch,fe)=>{
         }
         // roll mode: ARB budget is absolute (roll-moment-based), not a share fraction — _p_m stays 0
       }
-      const _effRsBal_m=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
-      const R_m=_effRsBal_m/(1-_effRsBal_m);
-      const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF/(m_m.rear*ch.trackR*ch.trackR));
-      frontHz=Math.max(HZ_MIN,2*avgHz/(1+mult_m));
-      rearHz=Math.max(HZ_MIN,Math.min(HZ_MAX,2*avgHz*mult_m/(1+mult_m)));
-      rearHzClamped=frontHz<=HZ_MIN||rearHz>=HZ_MAX;
+      let _manSolved_sh=false;
+      if(arbBalModeEarly==='man'){
+        const rsAbF_m=(fe.arbManF??20)*ARB_RS_SCALE*ch.trackF*ch.trackF;
+        const rsAbR_m=(fe.arbManR??20)*ARB_RS_SCALE*ch.trackR*ch.trackR;
+        const T=rsBalTgt,C0=2*Math.pow(2*Math.PI*avgHz,2);
+        const P=(1-T)*rsAbR_m-T*rsAbF_m;
+        const alpha=C0*_W_m*(1-T)+P,beta=2*P,gamma=P-T*_V_m*C0;
+        const disc=beta*beta-4*alpha*gamma;
+        if(disc>=0&&Math.abs(alpha)>1e-10){
+          const mult_man=(-beta+Math.sqrt(disc))/(2*alpha);
+          if(mult_man>0){
+            frontHz=Math.max(HZ_MIN,2*avgHz/(1+mult_man));
+            rearHz=Math.max(HZ_MIN,Math.min(HZ_MAX,2*avgHz*mult_man/(1+mult_man)));
+            rearHzClamped=frontHz<=HZ_MIN||rearHz>=HZ_MAX;
+            _manSolved_sh=true;
+          }
+        }
+      }
+      if(!_manSolved_sh){
+        const _effRsBal_m=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
+        const R_m=_effRsBal_m/(1-_effRsBal_m);
+        const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF/(m_m.rear*ch.trackR*ch.trackR));
+        frontHz=Math.max(HZ_MIN,2*avgHz/(1+mult_m));
+        rearHz=Math.max(HZ_MIN,Math.min(HZ_MAX,2*avgHz*mult_m/(1+mult_m)));
+        rearHzClamped=frontHz<=HZ_MIN||rearHz>=HZ_MAX;
+      }
     } else { // flatRide (independent collapses to equal in shared mode)
       const res=flatRideSharedHz(avgHz,ch.wheelbase,fe.targetSpeed);
       frontHz=res.fHz;rearHz=res.rHz;rearHzClamped=res.clamped;
@@ -356,12 +376,38 @@ const feelToPhysics=(ch,fe)=>{
         }
         // roll mode: ARB budget is absolute (roll-moment-based), not a share fraction — _p_m stays 0
       }
-      const _effRsBal_m=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
-      const R_m=_effRsBal_m/(1-_effRsBal_m);
-      const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF/(m_m.rear*ch.trackR*ch.trackR));
-      const raw_m=rideRef==='front'?primaryHz*mult_m:primaryHz/mult_m;
-      secondaryHz=Math.max(HZ_MIN,Math.min(HZ_MAX,raw_m));
-      secondaryHzClamped=raw_m<HZ_MIN||raw_m>HZ_MAX;
+      let _manSolved_fr=false;
+      if(arbBalModeEarly==='man'){
+        const rsAbF_m=(fe.arbManF??20)*ARB_RS_SCALE*ch.trackF*ch.trackF;
+        const rsAbR_m=(fe.arbManR??20)*ARB_RS_SCALE*ch.trackR*ch.trackR;
+        const T=rsBalTgt;
+        let mult_man=null;
+        if(rideRef==='front'){
+          const Sf=Math.pow(primaryHz*2*Math.PI,2)*m_m.front*ch.trackF*ch.trackF/2;
+          const numer=T*(Sf+rsAbF_m)-(1-T)*rsAbR_m;
+          const denom=Sf*(1-T)*(_W_m/_V_m);
+          if(numer>0&&denom>0) mult_man=Math.sqrt(numer/denom);
+        } else {
+          const Sr=Math.pow(primaryHz*2*Math.PI,2)*m_m.rear*ch.trackR*ch.trackR/2;
+          const numer=Sr*(_V_m/_W_m)*T;
+          const denom=Sr*(1-T)-(T*rsAbF_m-(1-T)*rsAbR_m);
+          if(numer>0&&denom>0) mult_man=Math.sqrt(numer/denom);
+        }
+        if(mult_man!=null){
+          const raw_man=rideRef==='front'?primaryHz*mult_man:primaryHz/mult_man;
+          secondaryHz=Math.max(HZ_MIN,Math.min(HZ_MAX,raw_man));
+          secondaryHzClamped=raw_man<HZ_MIN||raw_man>HZ_MAX;
+          _manSolved_fr=true;
+        }
+      }
+      if(!_manSolved_fr){
+        const _effRsBal_m=_p_m>0?Math.max(0.05,Math.min(0.95,(rsBalTgt-_p_m*_rsBalNat_m)/(1-_p_m))):rsBalTgt;
+        const R_m=_effRsBal_m/(1-_effRsBal_m);
+        const mult_m=Math.sqrt(R_m*m_m.front*ch.trackF*ch.trackF/(m_m.rear*ch.trackR*ch.trackR));
+        const raw_m=rideRef==='front'?primaryHz*mult_m:primaryHz/mult_m;
+        secondaryHz=Math.max(HZ_MIN,Math.min(HZ_MAX,raw_m));
+        secondaryHzClamped=raw_m<HZ_MIN||raw_m>HZ_MAX;
+      }
     } else { // flatRide
       if(rideRef==='front'){
         const res=flatRideRearHz(primaryHz,ch.wheelbase,fe.targetSpeed);
@@ -4604,7 +4650,7 @@ function App(){
                 const nat=natMechBalance;
                 const tgt=fe.arbBalTarget??MECH_BALANCE_TARGET;
                 const pct=v=>`${Math.max(0,Math.min(100,v*100)).toFixed(1)}%`;
-                const showTgt=(physics.arbBalMode==='mech'||physics.arbBalMode==='coSolve');
+                const showTgt=(physics.arbBalMode==='mech'||physics.arbBalMode==='coSolve'||(physics.arbBalMode==='man'&&physics.rearHzMode==='mech'));
                 const _d=cur-nat;
                 return(
                   <div style={{marginTop:8}}>
