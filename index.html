@@ -1556,7 +1556,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
 
 const CheckerModal=({onClose,lim,metricUnits,ch,setCh})=>{
   const[ckMode,setCkMode]=useState('decode');
-  const[probeHz,setProbeHz]=useState(1.5);
+  const[probeHz,setProbeHz]=useState(2.0);
   const[ckSpr,setCkSpr]=useState({f:400,r:300});
   const[ckDmp,setCkDmp]=useState({rebF:5,rebR:5,bumpF:3,bumpR:3});
   const[ckW,setCkW]=useState(3200);
@@ -1631,7 +1631,7 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh})=>{
           </div>}
           {ckMode==='probe'&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:10,marginBottom:10}}>
             <Card title="NAT BAL SETUP" accent>
-              <Field label="Probe Hz" value={probeHz} onChange={setProbeHz} min={1.0} max={3.5} step={0.05} unit="Hz"/>
+              <Field label="Measure Hz" value={probeHz} onChange={setProbeHz} min={1.0} max={3.5} step={0.05} unit="Hz"/>
               <Stat label="Corner mass front" value={probeMasses.front} unit="kg" decimals={1}/>
               <Stat label="Corner mass rear"  value={probeMasses.rear}  unit="kg" decimals={1}/>
               <Stat label="Spring front" value={metricUnits?probeRateF*NMM_PER_LBIN:probeRateF} unit={metricUnits?'N/mm':'lb/in'} decimals={1}/>
