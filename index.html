@@ -848,6 +848,7 @@ const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,settleMode:false,settle
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,dampCharMode:'zeta',settleTarget:0.80,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,
               arbBalTarget:0.65,arbBalMode:'weight',springShare:50,
+              arbBalTargetMode:'manual',arbBalDelta:0,
               rearHzMode:'flatRide',rearHzMan:1.5,rearHzMult:1.20,rideRef:'front'};
 const DEF_DR={layout:'RWD',buildType:'track',diffType:'race',
               diffManual:false,diffComplement:false,
@@ -1717,6 +1718,8 @@ const encodeTune=(ch,fe,dr,br)=>{
     fe.settleTarget??0.80, // [58] settle time target (seconds)
     fe.dampCharMode==='settle'?1:0, // [59] damping character mode (0=zeta, 1=settle)
     DIFF_TYPE_ENC[dr.diffType??'race']??0, // [60] diff type
+    (fe.arbBalTargetMode??'manual')==='grip'?1:0, // [61] arbBalTargetMode (0=manual,1=grip)
+    fe.arbBalDelta??0,                            // [62] arbBalDelta
   ];
   return btoa(arr.join('|'));
 };
@@ -1745,7 +1748,9 @@ const decodeTune=(code)=>{
             settleBias:v.length>=57?v[56]:0,
             settleMode:v.length>=58?!!v[57]:false,
             settleTarget:v.length>=59?Math.max(0.10,Math.min(2.00,v[58])):DEF_FE.settleTarget,
-            dampCharMode:v.length>=60?(v[59]===1?'settle':'zeta'):DEF_FE.dampCharMode};
+            dampCharMode:v.length>=60?(v[59]===1?'settle':'zeta'):DEF_FE.dampCharMode,
+            arbBalTargetMode:v.length>=62?(v[61]===1?'grip':'manual'):'manual',
+            arbBalDelta:v.length>=63?v[62]:0};
   const _fW=v.length>=43?v[42]:265,_rW=v.length>=44?v[43]:265;
   const _fA=v.length>=45?v[44]:35, _fR=v.length>=46?v[45]:18;
   const _rA=v.length>=47?v[46]:35, _rR=v.length>=48?v[47]:18;
@@ -2329,7 +2334,15 @@ function App(){
 
   const cm=useMemo(()=>cornerMasses(ch),[ch]);
   const dispMass=kg=>metricUnits?`${Math.round(kg)} kg`:`${Math.round(kg/KG_TO_LB)} lb`;
-  const physics=useMemo(()=>feelToPhysics(ch,fe),[ch,fe]);
+  const natGripBalance=(()=>{
+    const nb=ch.useMeasuredNatBal&&ch.measuredNatBal!=null
+      ?Math.max(0.10,Math.min(0.90,ch.measuredNatBal))
+      :cm.rear*ch.trackR*ch.trackR/(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
+    return balanceFromRsBal(ch,nb);
+  })();
+  const gripBalTarget=Math.max(0.40,Math.min(0.90,1-natGripBalance+(fe.arbBalDelta??0)));
+  const feEffective=(fe.arbBalTargetMode??'manual')==='grip'?{...fe,arbBalTarget:gripBalTarget}:fe;
+  const physics=useMemo(()=>feelToPhysics(ch,feEffective),[ch,feEffective]);
   const tune=useMemo(()=>computeTune(ch,physics,fe.gameMode),[ch,physics,fe.gameMode]);
   const autoAlign=useMemo(()=>computeAlignment(ch,tune,dr.layout,dr.buildType),[ch,tune,dr.layout,dr.buildType]);
   const align=al.alignManual
@@ -2384,8 +2397,8 @@ function App(){
     const avgTire=(twF+twR)/2;                 // mm
     const stabIdx=Math.sqrt((avgTrack/1.6)*(avgTire/265));
     // Recommendation target: co-solve/mech target when active, else neutral 0.50
-    const hasMechTarget=fe.arbBalMode==='coSolve'||fe.arbBalMode==='mech';
-    const targetBal=hasMechTarget?Math.max(0.40,Math.min(0.90,fe.arbBalTarget??0.55)):0.50;
+    const hasMechTarget=feEffective.arbBalMode==='coSolve'||feEffective.arbBalMode==='mech';
+    const targetBal=hasMechTarget?Math.max(0.40,Math.min(0.90,feEffective.arbBalTarget??0.55)):0.50;
     // REACH: find track-width changes that bring natural rsBalance toward target.
     // Tyre width affects grip capacity (shown via CHASSIS BAL physical display) but NOT
     // roll-stiffness fraction, so REACH shows track-only recommendations.
@@ -3116,13 +3129,35 @@ function App(){
           </Sec></div>
 
           <div id="zone-build" style={dim('build')}><Sec title={uiMode==='pro'?'BUILD & BALANCE':'BUILD'} open={open.build} onToggle={tog('build')}
-            onReset={()=>setFe(p=>({...p,arbBalTarget:DEF_FE.arbBalTarget}))}>
+            onReset={()=>setFe(p=>({...p,arbBalTarget:DEF_FE.arbBalTarget,arbBalTargetMode:DEF_FE.arbBalTargetMode,arbBalDelta:DEF_FE.arbBalDelta}))}>
             <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'},{value:'rally',label:'RALLY'},{value:'offroad',label:'OFFROAD'},{value:'drag',label:'DRAG'}]}
               hint="Determines your intended use. Shifts alignment targets, diff AUTO behaviour, diff type recommendation, brake balance, and the recommended Mech Balance Target range."/>
-            {uiMode==='pro'&&<Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
-              min={0.40} max={0.90} step={0.01}
-              hint="Roll stiffness rear share — matches what Forza shows as Mech Balance. 0.50 = equal roll resistance front and rear. Higher = rear-biased (oversteer tendency). Lower = front-biased (understeer tendency). Target by drivetrain: RWD track builds target 0.60–0.70 — rear roll bias helps rotation and rear-end feel under power. AWD targets 0.55–0.65 — mild rear bias for rotation while torque split prevents snap oversteer. FWD targets 0.45–0.55 — neutral to slight front bias keeps the nose planted; too much rear bias causes understeer under power. The closer your chassis natural balance (NAT) is to the target, the less ARB correction is needed to reach it — a lower natural gap means softer, more compliant ARBs. MECH and CO-SOLVE modes solve springs and ARBs to hit this target exactly. FH6 surfaces this value in-game so you can verify it directly."/>}
+            {uiMode==='pro'&&<>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,marginTop:2}}>
+                <span style={{fontSize:12,color:'#94a3b8'}}>Balance Target</span>
+                <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
+                  <button className={`tog${(fe.arbBalTargetMode??'manual')==='manual'?' on':''}`}
+                    onClick={()=>setFe(p=>({...p,arbBalTargetMode:'manual'}))}>TARGET</button>
+                  <button className={`tog${(fe.arbBalTargetMode??'manual')==='grip'?' on':''}`}
+                    onClick={()=>setFe(p=>({...p,arbBalTargetMode:'grip'}))}>GRIP</button>
+                </div>
+              </div>
+              {(fe.arbBalTargetMode??'manual')==='manual'
+                ?<Field label="Mech Balance Target" value={fe.arbBalTarget??0.65} onChange={pFe('arbBalTarget')}
+                    min={0.40} max={0.90} step={0.01}
+                    hint="Roll stiffness rear share — matches what Forza shows as Mech Balance. 0.50 = equal roll resistance front and rear. Higher = rear-biased (oversteer tendency). Lower = front-biased (understeer tendency). Target by drivetrain: RWD track builds target 0.60–0.70 — rear roll bias helps rotation and rear-end feel under power. AWD targets 0.55–0.65 — mild rear bias for rotation while torque split prevents snap oversteer. FWD targets 0.45–0.55 — neutral to slight front bias keeps the nose planted; too much rear bias causes understeer under power. The closer your chassis natural balance (NAT) is to the target, the less ARB correction is needed to reach it — a lower natural gap means softer, more compliant ARBs. MECH and CO-SOLVE modes solve springs and ARBs to hit this target exactly. FH6 surfaces this value in-game so you can verify it directly."/>
+                :<>
+                  <Field label="Balance Offset" value={fe.arbBalDelta??0} onChange={pFe('arbBalDelta')}
+                    min={-0.20} max={0.20} step={0.01}
+                    hint="Offset from the grip-neutralising target. 0 = mech balance exactly opposes the car's natural grip tendency for neutral at-limit handling. Positive = more rear bias (oversteer tendency). Negative = more front bias (understeer tendency). The derived target is shown below."/>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',fontSize:10,color:'#475569',letterSpacing:1,marginTop:2,marginBottom:4}}>
+                    <span>→ TARGET</span>
+                    <span style={{fontFamily:'Courier New',color:'#94a3b8'}}>{gripBalTarget.toFixed(2)}</span>
+                  </div>
+                </>
+              }
+            </>}
             {(()=>{
               if(uiMode!=='pro')return null;
               const _layout=dr.layout??'RWD';
@@ -3137,7 +3172,7 @@ function App(){
               const _hi=Math.max(_lo+0.03,Math.min(0.90,natMechBalance+_dhi));
               const _MIN=0.40,_RNG=0.50;
               const _pct=v=>Math.max(0,Math.min(100,(v-_MIN)/_RNG*100));
-              const _cur=fe.arbBalTarget??0.65;
+              const _cur=feEffective.arbBalTarget??0.65;
               const _inRange=_cur>=_lo&&_cur<=_hi;
               const _tc=_inRange?'#4ade80':_cur>_hi?'#f97316':'#60a5fa';
               return(
@@ -4648,7 +4683,7 @@ function App(){
               {uiMode==='pro'&&tune.mechBalance!=null&&(()=>{
                 const cur=tune.mechBalance;
                 const nat=natMechBalance;
-                const tgt=fe.arbBalTarget??MECH_BALANCE_TARGET;
+                const tgt=feEffective.arbBalTarget??MECH_BALANCE_TARGET;
                 const pct=v=>`${Math.max(0,Math.min(100,v*100)).toFixed(1)}%`;
                 const showTgt=(physics.arbBalMode==='mech'||physics.arbBalMode==='coSolve'||(physics.arbBalMode==='man'&&physics.rearHzMode==='mech'));
                 const _d=cur-nat;
