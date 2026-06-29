@@ -4862,18 +4862,19 @@ function App(){
                     // absolute contribution to total score
                     contribution:s.norm*s.weight,
                   }));
-                  const sorted=[...segs].sort((a,b)=>Math.abs(b.deviation)-Math.abs(a.deviation));
-                  const dom=sorted[0];
+                  const domSorted=[...segs].sort((a,b)=>Math.abs(b.deviation)-Math.abs(a.deviation));
+                  const dom=domSorted[0];
                   const domBig=Math.abs(dom.deviation)>0.05;
                   const agileP=Math.round((score-0.5)*100);
                   const aCol=Math.abs(agileP)<15?'#94a3b8':agileP>0?'#f59e0b':'#22c55e';
                   const totalAbsDev=segs.reduce((s,x)=>s+Math.abs(x.deviation),0);
                   const tips={
-                    SPRINGS: agileP>0?'Soften spring stiffness (lower Hz) for a more planted feel.':'Stiffen springs to improve transient response speed.',
-                    DAMPING: agileP>0?'Increase rebound damping to settle weight transfer more firmly.':'Reduce rebound damping to free up initial roll response.',
+                    'Hz F':   agileP>0?'Soften front springs (lower Hz) for a more planted entry feel.':'Stiffen front springs to sharpen initial turn-in response.',
+                    'DAMP F': agileP>0?'Increase front rebound damping to settle entry more firmly.':'Reduce front rebound damping to free up initial roll response.',
+                    'Hz R':   agileP>0?'Soften rear springs (lower Hz) to reduce rotation tendency.':'Stiffen rear springs to improve rear body control and rotation speed.',
+                    'DAMP R': agileP>0?'Increase rear rebound damping to plant the rear more firmly.':'Reduce rear rebound damping for more rotation freedom.',
                     'TOE F':  agileP>0?'Add front toe-in to improve straight-line stability.':'Reduce front toe-in to sharpen turn-in response.',
-                    CASTER:  agileP>0?'Increase caster for stronger self-centering and stability.':'Reduce caster for lighter, quicker steering response.',
-                    'R/F Hz': agileP>0?'Soften the rear relative to front to reduce rotation tendency.':'Stiffen the rear relative to front to promote rotation.',
+                    CASTER:   agileP>0?'Increase caster for stronger self-centering and stability.':'Reduce caster for lighter, quicker steering response.',
                   };
                   const tip=Math.abs(agileP)<15
                     ?'Transient response is balanced.'+(domBig?' '+dom.label+' is the primary character driver.':'')
@@ -4882,7 +4883,7 @@ function App(){
                     <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid #0f172a'}}>
                       <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.6,padding:'6px 8px',marginBottom:8,
                                    background:'#020617',borderRadius:2,border:'1px solid #0f172a'}}>{tip}</div>
-                      {sorted.map(({label,deviation,contribution,hint,weight})=>{
+                      {segs.map(({label,deviation,contribution,hint,weight})=>{
                         // bar: deviation scaled so ±0.25 (max spring deviation) = ±50%
                         const barPct=Math.min(50,Math.abs(deviation)/0.25*50);
                         const barStyle=deviation>=0?{left:'50%',width:`${barPct}%`}:{right:'50%',width:`${barPct}%`};
