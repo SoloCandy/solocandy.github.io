@@ -1344,9 +1344,9 @@ const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,frontBias,natBal,target,rideRef})
 };
 
 
-const Toggle=({label,value,onChange,options})=>(
+const Toggle=({label,value,onChange,options,hint})=>(
   <div style={{marginBottom:9}}>
-    {label&&<span style={{fontSize:12,color:'#9ca3af',display:'block',marginBottom:3}}>{label}</span>}
+    {label&&<span style={{fontSize:12,color:'#9ca3af',display:'flex',alignItems:'center',gap:4,marginBottom:3}}>{label}{hint&&<Hint text={hint}/>}</span>}
     <div style={{display:'flex',gap:3}}>
       {options.map(o=><button key={o.value} className={`tog${value===o.value?' on':''}`}
         onClick={()=>onChange(o.value)}>{o.label}</button>)}
