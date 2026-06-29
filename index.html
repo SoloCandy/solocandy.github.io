@@ -1210,7 +1210,7 @@ const _BalStrip=({rearFrac,wtRearFrac,BY=108})=>{
   return(<>
     <rect x={BX} y={BY} width={BW} height={3} rx={1.5} fill="#0f172a"/>
     <rect x={BX} y={BY} width={(1-rearFrac)*BW} height={3} rx={1.5} fill="#818cf8" opacity={0.45}/>
-    <rect x={BX+(1-rearFrac)*BW} y={BY} width={rearFrac*BW} height={3} rx={1.5} fill="#38bdf8" opacity={0.45}/>
+    <rect x={BX+(1-rearFrac)*BW} y={BY} width={rearFrac*BW} height={3} rx={1.5} fill="#f97316" opacity={0.45}/>
     <line x1={wtX} y1={BY-2} x2={wtX} y2={BY+5} stroke="#334155" strokeWidth={1}/>
     <rect x={splitX-1} y={BY-3} width={2} height={9} rx={1} fill="#94a3b8"/>
     <text x={BX-2} y={BY+13} textAnchor="end" fill="#334155" fontSize={8}>F</text>
@@ -1264,7 +1264,7 @@ const SpringDial=({fHz,rHz,rsSpF,rsSpR,frontBias,clamped,natBal,target,rideRef})
           <circle cx={fxS} cy={fyS} r={5} fill="#818cf8" stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
             onMouseEnter={()=>setHover('front')} onMouseLeave={()=>setHover(null)}
             onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='front'?null:'front');}}/>
-          <circle cx={rxS} cy={ryS} r={5} fill="#38bdf8" stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
+          <circle cx={rxS} cy={ryS} r={5} fill="#f97316" stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
             onMouseEnter={()=>setHover('rear')} onMouseLeave={()=>setHover(null)}
             onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='rear'?null:'rear');}}/>
           <text x={CX} y={CY-4} textAnchor="middle" fill={centerCol}
@@ -1274,7 +1274,7 @@ const SpringDial=({fHz,rHz,rsSpF,rsSpR,frontBias,clamped,natBal,target,rideRef})
           <_BalStrip rearFrac={rearSpFrac} wtRearFrac={wtRearFrac}/>
         </svg>
         <span style={{position:'absolute',top:2,right:2,lineHeight:1}}>
-          <Hint text="Indigo dot = front spring Hz, sky dot = rear Hz, plotted on a SOFT→RACE arc. Hover a dot to read its value. Hollow rings mark where the derived axle would need to sit for natural balance (grey) and your target (green) — close the gap to green to hit your balance target."/>
+          <Hint text="Purple dot = front spring Hz, orange dot = rear Hz, plotted on a SOFT→RACE arc. Hover a dot to read its value. Hollow rings mark where the derived axle would need to sit for natural balance (grey) and your target (green) — close the gap to green to hit your balance target."/>
         </span>
       </div>
     </div>
@@ -1326,7 +1326,7 @@ const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,frontBias,natBal,target,rideRef})
           <circle cx={fxS} cy={fyS} r={5} fill={warnF?'#f59e0b':'#818cf8'} stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
             onMouseEnter={()=>setHover('front')} onMouseLeave={()=>setHover(null)}
             onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='front'?null:'front');}}/>
-          <circle cx={rxS} cy={ryS} r={5} fill={warnR?'#f59e0b':'#38bdf8'} stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
+          <circle cx={rxS} cy={ryS} r={5} fill={warnR?'#f59e0b':'#f97316'} stroke="#0f172a" strokeWidth={1.5} style={{cursor:'default'}}
             onMouseEnter={()=>setHover('rear')} onMouseLeave={()=>setHover(null)}
             onTouchStart={e=>{e.stopPropagation();setHover(h=>h==='rear'?null:'rear');}}/>
           <text x={CX} y={CY-4} textAnchor="middle" fill={centerCol}
@@ -1336,7 +1336,7 @@ const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,frontBias,natBal,target,rideRef})
           <_BalStrip rearFrac={rearAbFrac} wtRearFrac={wtRearFrac}/>
         </svg>
         <span style={{position:'absolute',top:2,right:2,lineHeight:1}}>
-          <Hint text="Indigo dot = front ARB clicks, sky dot = rear ARB clicks, plotted from 0 to your ceiling. Hover a dot to read its value. Hollow rings mark where the derived axle would need to sit for natural balance (grey) and your target (green)."/>
+          <Hint text="Purple dot = front ARB clicks, orange dot = rear ARB clicks, plotted from 0 to your ceiling. Hover a dot to read its value. Hollow rings mark where the derived axle would need to sit for natural balance (grey) and your target (green)."/>
         </span>
       </div>
     </div>
