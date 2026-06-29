@@ -1557,7 +1557,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
 
 const CheckerModal=({onClose,lim,metricUnits,ch,setCh,initialMode})=>{
   const[ckMode,setCkMode]=useState(initialMode??'decode');
-  const[probeHz,setProbeHz]=useState(2.0);
+  const[probeHz,setProbeHz]=useState(2.5);
   const[ckSpr,setCkSpr]=useState({f:400,r:300});
   const[ckDmp,setCkDmp]=useState({rebF:5,rebR:5,bumpF:3,bumpR:3});
   const[ckW,setCkW]=useState(3200);
