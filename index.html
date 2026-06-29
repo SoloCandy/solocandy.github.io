@@ -3137,6 +3137,7 @@ function App(){
             {uiMode==='pro'&&<>
               <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,marginTop:2}}>
                 <span style={{fontSize:12,color:'#94a3b8'}}>Balance Target</span>
+                <Hint text="Sets how the mech balance target is determined. TARGET: set the value manually — use the Balance Guide range as a reference. GRIP: auto-derives the target as the mirror of the car's natural grip bias (1 − natGripBalance), so the suspension directly counteracts the chassis's understeer or oversteer tendency. Use the Balance Offset slider to shift intentionally away from neutral."/>
                 <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                   <button className={`tog${(fe.arbBalTargetMode??'manual')==='manual'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,arbBalTargetMode:'manual'}))}>TARGET</button>
