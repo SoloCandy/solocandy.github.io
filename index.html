@@ -3270,6 +3270,35 @@ function App(){
                 :['PLANTED','#3b82f6'];
               const showRec=gap>0.015;
               const anyFeasible=trackFfeas||trackRfeas||tyreFfeas||tyreRfeas;
+              // GRIP GAP — how much tyre width change brings GRIP neutral into range
+              const _ggBalMap={
+                FWD:{street:[0.06,0.17],track:[0.11,0.24],drift:[0.18,0.32],rally:[0.05,0.15],offroad:[0.02,0.12],drag:[0.10,0.22]},
+                RWD:{street:[0.05,0.16],track:[0.10,0.21],drift:[0.18,0.32],rally:[0.05,0.14],offroad:[0.01,0.10],drag:[0.15,0.28]},
+                AWD:{street:[0.03,0.12],track:[0.07,0.18],drift:[0.14,0.26],rally:[0.03,0.10],offroad:[0.01,0.08],drag:[0.08,0.20]},
+              };
+              const[_ggDlo,_ggDhi]=((_ggBalMap[dr.layout??'RWD']??_ggBalMap.RWD)[dr.buildType??'track'])??[0.10,0.21];
+              const _ggLo=Math.max(0.40,Math.min(0.87,nm+_ggDlo));
+              const _ggHi=Math.max(_ggLo+0.03,Math.min(0.90,nm+_ggDhi));
+              const _ggNeutral=1-natGripBalance;
+              const _ggGap=_ggNeutral>_ggHi?_ggNeutral-_ggHi:_ggNeutral<_ggLo?_ggLo-_ggNeutral:0;
+              const _showGripGap=(fe.arbBalTargetMode??'manual')==='grip'&&_ggGap>0.005;
+              let _ggTyreF=null,_ggTyreR=null;
+              if(_showGripGap){
+                const _nb2=ch.useMeasuredNatBal&&ch.measuredNatBal!=null?Math.max(0.10,Math.min(0.90,ch.measuredNatBal)):cm.rear*ch.trackR*ch.trackR/(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
+                const _nr2=Math.max(1e-4,Math.min(1-1e-4,_nb2));
+                const _gnAt=(twF,twR)=>1-mechBalanceLLT({...ch,tyreF:`${Math.round(twF)}/35R18`,tyreR:`${Math.round(twR)}/35R18`},1,_nr2/(1-_nr2));
+                if(_ggNeutral>_ggHi){
+                  let lo2=_twF,hi2=_twF+200,best2=null;
+                  for(let i=0;i<25;i++){const mid=(lo2+hi2)/2;if(_gnAt(mid,_twR)<=_ggHi+0.001){best2=mid;hi2=mid;}else lo2=mid;}
+                  const d=best2!=null?Math.ceil((best2-_twF)/5)*5:null;
+                  if(d!=null&&d>=5&&d<=80)_ggTyreF=d;
+                }else{
+                  let lo2=_twR,hi2=_twR+200,best2=null;
+                  for(let i=0;i<25;i++){const mid=(lo2+hi2)/2;if(_gnAt(_twF,mid)>=_ggLo-0.001){best2=mid;hi2=mid;}else lo2=mid;}
+                  const d=best2!=null?Math.ceil((best2-_twR)/5)*5:null;
+                  if(d!=null&&d>=5&&d<=80)_ggTyreR=d;
+                }
+              }
               const box={background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,
                          padding:'4px 7px',display:'flex',justifyContent:'space-between',alignItems:'center'};
               const fmtD=d=>(d>=0?'+':'')+Math.round(d);
@@ -3303,7 +3332,7 @@ function App(){
                     <span style={{fontFamily:'Courier New',fontSize:11,fontWeight:700,color:stabCol}}>{stabLabel}</span>
                   </div>
                 </div>
-                {showRec&&!ch.useMeasuredNatBal&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 7px'}}>
+                {showRec&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 7px'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:anyFeasible?4:3}}>
                     <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>GEOMETRY GAP</span>
                     <span style={{fontFamily:'Courier New',fontSize:10,color:'#475569'}}>{dSign}{gap.toFixed(2)}</span>
@@ -3328,6 +3357,26 @@ function App(){
                       :(targetBal>nm
                         ?'Wider rear track/tyre or narrower front increases rear roll stiffness toward target.'
                         :'Wider front track/tyre or narrower rear increases front roll stiffness toward target.')}
+                  </div>
+                </div>}
+                {_showGripGap&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 7px',marginTop:3}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:(_ggTyreF||_ggTyreR)?4:3}}>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>GRIP GAP</span>
+                    <span style={{fontFamily:'Courier New',fontSize:10,color:'#475569'}}>+{_ggGap.toFixed(2)}</span>
+                  </div>
+                  {(_ggTyreF||_ggTyreR)&&<div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:38,flexShrink:0}}>TYRE</span>
+                    <span style={{flex:1,display:'flex',gap:8,fontFamily:'Courier New',fontSize:10}}>
+                      {_ggTyreF&&<span style={{color:'#e2e8f0'}}>F +{_ggTyreF}mm</span>}
+                      {_ggTyreR&&<span style={{color:'#e2e8f0'}}>R +{_ggTyreR}mm</span>}
+                    </span>
+                  </div>}
+                  <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.4}}>
+                    {(_ggTyreF||_ggTyreR)
+                      ?(_ggNeutral>_ggHi
+                        ?'Wider front tyre shifts grip-neutral target into recommended range.'
+                        :'Wider rear tyre shifts grip-neutral target into recommended range.')
+                      :'Grip-neutral gap exceeds tyre range — use Balance Offset to adjust.'}
                   </div>
                 </div>}
               </>);
