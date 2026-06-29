@@ -3170,7 +3170,7 @@ function App(){
               const[_dlo,_dhi]=((_deltaMap[_layout]??_deltaMap.RWD)[_build])??[0.10,0.21];
               const _lo=Math.max(0.40,Math.min(0.87,natMechBalance+_dlo));
               const _hi=Math.max(_lo+0.03,Math.min(0.90,natMechBalance+_dhi));
-              const _MIN=0.40,_RNG=0.50;
+              const _MIN=0.20,_RNG=0.70;
               const _pct=v=>Math.max(0,Math.min(100,(v-_MIN)/_RNG*100));
               const _cur=feEffective.arbBalTarget??0.65;
               const _inRange=_cur>=_lo&&_cur<=_hi;
@@ -3191,12 +3191,14 @@ function App(){
                       <div style={{position:'absolute',top:6,left:0,right:0,height:4,background:'#0f172a',borderRadius:2}}/>
                       <div style={{position:'absolute',top:6,left:`${_pct(_lo)}%`,width:`${_pct(_hi)-_pct(_lo)}%`,height:4,background:'#14532d',borderRadius:1}}/>
                       <div style={{position:'absolute',top:3,left:`${_pct(natMechBalance)}%`,transform:'translateX(-50%)',width:2,height:10,background:'#334155',borderRadius:1}}/>
+                      {tune.gripBalance!=null&&<div style={{position:'absolute',bottom:1,left:`${_pct(tune.gripBalance)}%`,transform:'translateX(-50%)',
+                                   width:0,height:0,borderLeft:'4px solid transparent',borderRight:'4px solid transparent',borderBottom:'6px solid #3b82f6'}}/>}
                       <div style={{position:'absolute',top:1,left:`${_pct(_cur)}%`,transform:'translateX(-50%)',
                                    width:0,height:0,borderLeft:'5px solid transparent',borderRight:'5px solid transparent',borderTop:`7px solid ${_tc}`}}/>
                     </div>);
                   })()}
                   <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#94a3b8',marginBottom:6}}>
-                    <span>0.40</span>
+                    <span>0.20</span>
                     <span style={{color:'#475569',letterSpacing:0.5}}>NAT {natMechBalance.toFixed(2)}</span>
                     <span>0.90</span>
                   </div>
@@ -3207,6 +3209,12 @@ function App(){
                     <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:'#cbd5e1',display:'flex',alignItems:'center',gap:4,justifyContent:'flex-end'}}>
                       {natMechBalance.toFixed(2)}
                     </span>
+                    {tune.gripBalance!=null&&<>
+                      <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
+                        <span style={{display:'inline-block',width:0,height:0,borderLeft:'4px solid transparent',borderRight:'4px solid transparent',borderBottom:'6px solid #3b82f6',flexShrink:0}}/> GRIP BIAS
+                      </span>
+                      <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:'#3b82f6'}}>{tune.gripBalance.toFixed(2)}</span>
+                    </>}
                     {uiMode==='pro'&&<div style={{gridColumn:'1 / -1',display:'flex',alignItems:'center',gap:6,marginTop:2,marginBottom:2}}>
                       {ch.useMeasuredNatBal&&<>
                         <span style={{fontFamily:'Courier New',fontSize:10,color:'#e2e8f0',flexShrink:0}}>{(ch.measuredNatBal??chassisAnalysis.natBal).toFixed(2)}</span>
