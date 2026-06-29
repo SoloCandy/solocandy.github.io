@@ -1961,7 +1961,7 @@ const TUTORIALS={
      body:'MECH and CO-SOLVE are unlocked in PRO — both solve toward your Mech Balance Target. MECH adjusts the ARB front/rear split alone to hit the target exactly, leaving rear Hz independent. CO-SOLVE adjusts both rear spring Hz and ARB split together — Spring Share controls how much of the correction comes from springs vs ARBs. WEIGHT (available in all tiers) uses weight distribution as the baseline, shifted by ARB Bias. Hz MECH mode is also unlocked in PRO: it derives rear Hz from the mech balance target instead of a ratio or flat-ride calculation. The Balance Target mode (TARGET or GRIP) applies to all three solving modes — GRIP mode auto-sets the target from the chassis grip bias and can be combined with any of MECH, CO-SOLVE, or WEIGHT.'},
     {title:'Alignment & Brakes',
      focus:['alignment'],
-     body:'Alignment (camber, toe, caster) and brake balance are both computed automatically from your build type, layout, weight bias, and chassis geometry. No manual override is needed — the outputs update live as you adjust other inputs. The BRAKES row in the Handling Balance bar reflects the computed brake balance contribution to entry-phase balance.'},
+     body:'Alignment (camber, toe, caster) and brake balance are both computed automatically from your build type, layout, weight bias, and chassis geometry. Brake balance accounts for forward weight transfer under braking — the recommendation is always front-biased relative to your weight distribution. No manual override is needed — the outputs update live as you adjust other inputs. The BRAKES row in the Handling Balance bar reflects the computed brake balance contribution to entry-phase balance.'},
     {title:'Tune Check',
      focus:null,
      body:'The CHECK button in the output panel opens a reverse calculator. Enter existing in-game spring and damper values to read back their natural frequency and damping ratios — useful for analysing a shared tune or verifying a manual setup.'},
@@ -2350,8 +2350,10 @@ function App(){
     :autoAlign;
   const _measuredNatForDiff=ch.useMeasuredNatBal&&ch.measuredNatBal!=null?Math.max(0.10,Math.min(0.90,ch.measuredNatBal)):null;
   const diff=useMemo(()=>computeDiff(ch,fe,dr,_measuredNatForDiff),[ch,fe,dr,_measuredNatForDiff]);
-  const _brakeMod={street:0,track:-3,drift:-8,rally:-2,offroad:-5,drag:-6}[dr.buildType??'track']??-3;
-  const recBrakeBias=Math.round(Math.max(45,Math.min(65,ch.frontBias+_brakeMod)));
+  const _brakeWtMod=ch.wheelbase>0?Math.round((ch.cgHeight/ch.wheelbase)*50):8;
+  const _brakeBuildMod={street:0,track:3,drift:-5,rally:0,offroad:-3,drag:-8}[dr.buildType??'track']??3;
+  const _brakeGripAdj=uiMode==='pro'?Math.round((natGripBalance-0.5)*15):0;
+  const recBrakeBias=Math.round(Math.max(50,Math.min(68,ch.frontBias+_brakeWtMod+_brakeBuildMod+_brakeGripAdj)));
   const brakeBias=br.brakeManual?(br.brakeBias??DEF_BR.brakeBias):recBrakeBias;
   const brakePressure=br.brakeManual?(br.brakePressure??DEF_BR.brakePressure):100;
   // positive = oversteer, negative = understeer
@@ -4154,7 +4156,7 @@ function App(){
 
           {/* 5 — BRAKES */}
           <Card title="BRAKES"
-            hint="Brake balance and pressure starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. Fine-tune in 1% steps by feel.">
+            hint="Brake balance and pressure starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. The recommendation accounts for forward weight transfer under braking (CG height and wheelbase) and is always front-biased relative to your weight distribution. Fine-tune in 1% steps by feel.">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               <Readout label="BALANCE" value={brakeBias} unit="% F"                ctx={brakeBias>55?['FRONT','#3b82f6']:brakeBias<50?['REAR','#ef4444']:['NEUTRAL','#cbd5e1']}/>
               <Readout label="PRESSURE" value={brakePressure} unit="%" decimals={0}/>
