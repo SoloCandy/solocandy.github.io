@@ -1505,10 +1505,8 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
     damping:'Damping bias contribution. More front rebound damping resists weight transfer off the front, producing understeer tendency (−). More rear damping does the opposite (+).',
   };
   const labelMap={'diff front':'DIFF F','diff rear':'DIFF R','diff exit':'DIFF EXIT','diff entry':'DIFF ENTRY','brakes':'BRAKES','damping':'DAMP'};
-  const mechGroup=contributors.filter(c=>c.name==='springs'||c.name==='ARB')
-    .sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
-  const dynGroup=contributors.filter(c=>c.name!=='springs'&&c.name!=='ARB')
-    .sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
+  const mechGroup=contributors.filter(c=>c.name==='springs'||c.name==='ARB');
+  const dynGroup=contributors.filter(c=>c.name!=='springs'&&c.name!=='ARB');
   const GroupSection=({title,items})=>items.length===0?null:(
     <div style={{marginBottom:6}}>
       <div style={{fontSize:9,color:'#475569',letterSpacing:2,marginBottom:3,paddingBottom:2,
