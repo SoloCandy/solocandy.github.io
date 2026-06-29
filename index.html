@@ -3333,7 +3333,7 @@ function App(){
                   </div>
                 </div>
                 {showRec&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 7px'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:anyFeasible?4:3}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:(trackFfeas||trackRfeas)?4:3}}>
                     <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>GEOMETRY GAP</span>
                     <span style={{fontFamily:'Courier New',fontSize:10,color:'#475569'}}>{dSign}{gap.toFixed(2)}</span>
                   </div>
@@ -3344,18 +3344,11 @@ function App(){
                       {trackRfeas&&<span style={{color:'#e2e8f0'}}>R {fmtD(dTrackR)}mm</span>}
                     </span>
                   </div>}
-                  {(tyreFfeas||tyreRfeas)&&<div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
-                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:38,flexShrink:0}}>TYRE</span>
-                    <span style={{flex:1,display:'flex',gap:8,fontFamily:'Courier New',fontSize:10}}>
-                      {tyreFfeas&&<span style={{color:'#e2e8f0'}}>F {fmtD(dTyreF)}mm</span>}
-                      {tyreRfeas&&<span style={{color:'#e2e8f0'}}>R {fmtD(dTyreR)}mm</span>}
-                    </span>
-                  </div>}
                   <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.4}}>
                     {targetBal>nm
-                      ?'Wider rear track/tyre or narrower front increases rear roll stiffness toward target.'
-                      :'Wider front track/tyre or narrower rear increases front roll stiffness toward target.'}
-                    {!anyFeasible&&' Gap exceeds geometry range — use ARBs to reach the target.'}
+                      ?'Wider rear track or narrower front increases rear roll stiffness toward target.'
+                      :'Wider front track or narrower rear increases front roll stiffness toward target.'}
+                    {!(trackFfeas||trackRfeas)&&' Gap exceeds track range — use ARBs or tyre widths to reach the target.'}
                   </div>
                 </div>}
                 {_showGripGap&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 7px',marginTop:3}}>
