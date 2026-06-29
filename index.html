@@ -3183,7 +3183,7 @@ function App(){
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                     <span style={{display:'flex',alignItems:'center',gap:4}}>
                       <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>BALANCE GUIDE</span>
-                      <Hint text="NATURAL is your Δ=0 baseline — where the chassis sits from geometry and weight alone, with no spring or ARB correction. The RANGE adapts to your specific car: it shows how much oversteer bias (Δ from natural) is appropriate for this layout and build. A staggered or rear-heavy car may have a different natural balance, so its range band sits at a different absolute position — the Δ values below it stay the same. TARGET shows how far you're deliberately pushing away from natural."/>
+                      <Hint text="NATURAL is your Δ=0 baseline — where the chassis sits from geometry and weight alone, with no spring or ARB correction. GRIP BIAS (▲) is the car's at-limit lateral grip balance at that natural point, computed from the LLT model: below 0.5 means the front reaches its grip limit first (understeer-prone), above 0.5 means the rear does (oversteer-prone). GRIP target mode mirrors this value — targeting 1 − grip bias — so the suspension directly counteracts the chassis's natural tendency. RANGE shows how much oversteer bias (Δ from natural) is appropriate for this layout and build. TARGET (▼) shows how far you're deliberately pushing away from natural."/>
                     </span>
                     <span style={{fontSize:10,color:'#94a3b8'}}>{_layout} · {_build.toUpperCase()}</span>
                   </div>
