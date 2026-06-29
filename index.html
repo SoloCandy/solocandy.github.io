@@ -3246,19 +3246,14 @@ function App(){
               );
             })()}
             {uiMode==='pro'&&<div style={{background:'#060c17',border:'1px solid #1e293b',borderRadius:2,padding:'5px 10px',marginTop:6,display:'flex',alignItems:'center',gap:6}}>
-              {ch.useMeasuredNatBal
-                ?<>
-                  <span style={{fontSize:10,color:'#475569',letterSpacing:1,flexShrink:0}}>MEASURED NAT BAL</span>
-                  <span style={{fontFamily:'Courier New',fontSize:10,color:'#60a5fa',marginLeft:'auto',flexShrink:0}}>{(ch.measuredNatBal??chassisAnalysis.natBal).toFixed(2)}</span>
-                  <button className="tbtn" style={{fontSize:10,color:'#6b7280',flexShrink:0,padding:'1px 5px'}}
-                    onClick={()=>setCh(p=>({...p,useMeasuredNatBal:false,measuredNatBal:null}))}>✕</button>
-                </>
-                :<>
-                  <button className="tbtn" style={{fontSize:10,color:'#475569'}}
-                    onClick={()=>{setCheckerInitMode('probe');setShowChecker(true);}}>MEASURE NAT BAL</button>
-                  <Hint text="An alternative to entering wheelbase and track widths — the game's Mech Balance already accounts for your car's real geometry, including track width upgrades. Open Tune Check and switch to MEASURE for step-by-step setup. CHASSIS = geometry prediction (track widths required). MEASURED = your in-game reading."/>
-                </>
-              }
+              <button className="tbtn" style={{fontSize:10,color:ch.useMeasuredNatBal?'#60a5fa':'#475569',flexShrink:0}}
+                onClick={()=>{setCheckerInitMode('probe');setShowChecker(true);}}>MEASURE NAT BAL</button>
+              <Hint text="An alternative to entering wheelbase and track widths — the game's Mech Balance already accounts for your car's real geometry, including track width upgrades. Open Tune Check and switch to MEASURE for step-by-step setup. CHASSIS = geometry prediction (track widths required). MEASURED = your in-game reading."/>
+              {ch.useMeasuredNatBal&&<>
+                <span style={{fontFamily:'Courier New',fontSize:10,color:'#60a5fa',marginLeft:'auto',flexShrink:0}}>{(ch.measuredNatBal??chassisAnalysis.natBal).toFixed(2)}</span>
+                <button className="tbtn" style={{fontSize:10,color:'#6b7280',flexShrink:0,padding:'1px 5px'}}
+                  onClick={()=>setCh(p=>({...p,useMeasuredNatBal:false,measuredNatBal:null}))}>✕</button>
+              </>}
             </div>}
             {(()=>{
               if(uiMode!=='pro')return null;
