@@ -3352,11 +3352,10 @@ function App(){
                     </span>
                   </div>}
                   <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.4}}>
-                    {!anyFeasible
-                      ?'Gap exceeds geometry range — use ARBs to reach the target.'
-                      :(targetBal>nm
-                        ?'Wider rear track/tyre or narrower front increases rear roll stiffness toward target.'
-                        :'Wider front track/tyre or narrower rear increases front roll stiffness toward target.')}
+                    {targetBal>nm
+                      ?'Wider rear track/tyre or narrower front increases rear roll stiffness toward target.'
+                      :'Wider front track/tyre or narrower rear increases front roll stiffness toward target.'}
+                    {!anyFeasible&&' Gap exceeds geometry range — use ARBs to reach the target.'}
                   </div>
                 </div>}
                 {_showGripGap&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 7px',marginTop:3}}>
