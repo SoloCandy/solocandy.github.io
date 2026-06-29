@@ -1983,7 +1983,7 @@ const TUTORIALS={
      body:'The tip appears at the top of the expanded panel — above the contributor rows — and names the dominant contributor with a concrete adjustment suggestion. If your balance is further from your intended target than you want, the tip tells you which input to reach for first. For large shifts, your primary balance control has the most leverage — the Balance slider in BEG, or ARB Bias and balance settings in INT and PRO. For small residual adjustments, ARB Bias or Damping Bias give finer control.'},
     {title:'Response Bar',
      focus:null,
-     body:'The RESPONSE bar rates transient character — how quickly and freely the car reacts to steering inputs. PLANTED (left) means settled and damped: predictable but slow to change direction. REACTIVE (right) means quick to respond: sharp turn-in but can feel nervous. Driven by spring frequency (55%, weighted average of front and rear Hz), damping ratio (20%), front toe (15%), and caster (10%). Independent of the US/OS balance — a car can be neutral and still feel very planted or very reactive.'},
+     body:'The RESPONSE bar rates transient character — how quickly and freely the car reacts to steering inputs. PLANTED (left) means settled and damped: predictable but slow to change direction. REACTIVE (right) means quick to respond: sharp turn-in but can feel nervous. Driven by front Hz (35%), damping ratio (20%), rear Hz (20%), front toe (15%), and caster (10%). Independent of the US/OS balance — a car can be neutral and still feel very planted or very reactive.'},
   ],
 };
 
@@ -2373,8 +2373,8 @@ function App(){
     // Agility = transient response character: how quickly and freely the car responds to steering inputs.
     // ARBs and weight bias are excluded — they govern roll moment distribution (Handling Balance bar),
     // not response speed. Research (Milliken, OptimumG) confirms ARBs are a balance tool, not agility.
-    const avgHz=physics.frontHz*0.6+physics.rearHz*0.4;
-    const hzNorm=Math.min(1,Math.max(0,(avgHz-HZ_MIN)/(HZ_MAX-HZ_MIN)));
+    const fHzNorm=Math.min(1,Math.max(0,(physics.frontHz-HZ_MIN)/(HZ_MAX-HZ_MIN)));
+    const rHzNorm=Math.min(1,Math.max(0,(physics.rearHz-HZ_MIN)/(HZ_MAX-HZ_MIN)));
     const effectiveReboundZeta=physics.dampCharMode==='settle'?physics.zetaF:physics.reboundZeta;
     const dampNorm=Math.min(1,Math.max(0,(effectiveReboundZeta-10)/105));
     // Toe range is -0.20° (toe-out, reactive) to +0.20° (toe-in, planted).
@@ -2382,8 +2382,8 @@ function App(){
     const TOE_MIN=-0.20,TOE_MAX=0.20;
     const toeNorm=Math.min(1,Math.max(0,(TOE_MAX-(align.recToeF??-0.1))/(TOE_MAX-TOE_MIN)));
     const casterNorm=Math.min(1,Math.max(0,(7.5-(align.recCaster??5.5))/3.5));
-    const score=hzNorm*0.55+(1-dampNorm)*0.20+toeNorm*0.15+casterNorm*0.10;
-    return{score,hzNorm,dampNorm,toeNorm,casterNorm};
+    const score=fHzNorm*0.35+rHzNorm*0.20+(1-dampNorm)*0.20+toeNorm*0.15+casterNorm*0.10;
+    return{score,fHzNorm,rHzNorm,dampNorm,toeNorm,casterNorm};
   })();
 
   // Full chassis geometry analysis — equal Hz, no ARBs
@@ -4790,7 +4790,7 @@ function App(){
                 return(<>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginTop:8,marginBottom:3}}>
                     <span style={{fontSize:10,color:'#475569',letterSpacing:2}}>RESPONSE</span>
-                    <Hint text="Transient response character — how quickly and freely the car reacts to steering inputs. PLANTED (left) means settled and damped: the car resists sudden direction changes but feels stable and predictable. REACTIVE (right) means quick to respond: the car turns in immediately but can feel nervous. Driven by spring frequency (55%, weighted average of front and rear Hz), damping ratio (20%), toe (15%), and caster (10%). Independent of handling balance — a car can be neutral and still feel very planted or very reactive."/>
+                    <Hint text="Transient response character — how quickly and freely the car reacts to steering inputs. PLANTED (left) means settled and damped: the car resists sudden direction changes but feels stable and predictable. REACTIVE (right) means quick to respond: the car turns in immediately but can feel nervous. Driven by front Hz (35%), damping ratio (20%), rear Hz (20%), toe (15%), and caster (10%). Independent of handling balance — a car can be neutral and still feel very planted or very reactive."/>
                     <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>·</span>
                     <span style={{fontFamily:'Courier New',fontSize:11,fontWeight:700,color:aCol}}>
                       {`${p>=0?'+':''}${Math.round(p)}`}
@@ -4848,13 +4848,13 @@ function App(){
                   settleDamping={(fe.dampCharMode??'zeta')==='settle'||!!(fe.settleMode)}/>
                 {/* RESPONSE factor breakdown */}
                 {(()=>{
-                  const{score,hzNorm,dampNorm,toeNorm,casterNorm,rearHzNorm}=responseFactors;
+                  const{score,fHzNorm,rHzNorm,dampNorm,toeNorm,casterNorm}=responseFactors;
                   const segs=[
-                    {label:'SPRINGS',norm:hzNorm,        weight:0.50,hint:'Higher ride frequency = faster natural response. Primary driver of transient response character.'},
+                    {label:'Hz F',   norm:fHzNorm,       weight:0.35,hint:'Front ride frequency — higher Hz = faster initial turn-in response. Primary driver of transient character.'},
                     {label:'DAMPING',norm:1-dampNorm,    weight:0.20,hint:'Lower rebound damping = less resistance to roll initiation = more agile. Higher damping = more planted.'},
+                    {label:'Hz R',   norm:rHzNorm,       weight:0.20,hint:'Rear ride frequency — higher Hz = quicker rear body control and rotation feel.'},
                     {label:'TOE F',  norm:toeNorm,       weight:0.15,hint:'Front toe-out sharpens turn-in response (agile). Toe-in adds straight-line stability.'},
                     {label:'CASTER', norm:casterNorm,    weight:0.10,hint:'Lower caster reduces self-centering force, allowing quicker steering response.'},
-                    {label:'R/F Hz', norm:rearHzNorm,    weight:0.05,hint:'Stiffer rear relative to front promotes rotation tendency (agile).'},
                   ].map(s=>({...s,
                     // weighted deviation from neutral: positive = pushing agile, negative = pushing stable
                     deviation:(s.norm-0.5)*s.weight,
