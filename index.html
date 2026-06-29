@@ -1555,8 +1555,8 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
   );
 };
 
-const CheckerModal=({onClose,lim,metricUnits,ch,setCh})=>{
-  const[ckMode,setCkMode]=useState('decode');
+const CheckerModal=({onClose,lim,metricUnits,ch,setCh,initialMode})=>{
+  const[ckMode,setCkMode]=useState(initialMode??'decode');
   const[probeHz,setProbeHz]=useState(2.0);
   const[ckSpr,setCkSpr]=useState({f:400,r:300});
   const[ckDmp,setCkDmp]=useState({rebF:5,rebR:5,bumpF:3,bumpR:3});
@@ -2212,6 +2212,7 @@ function App(){
   },[tutMode,tutStep]); // eslint-disable-line
   const[open,setOpen]=useState({chassis:true,build:true,ride:true,dampers:true,arb:true,drivetrain:true,balanceExpanded:false,presetsOpen:false,startFromOpen:true});
   const[showChecker,setShowChecker]=useState(false);
+  const[checkerInitMode,setCheckerInitMode]=useState('decode');
   const[showResetModal,setShowResetModal]=useState(false);
   const[showOscModal,setShowOscModal]=useState(false);
   const[begResetArmed,setBegResetArmed]=useState(false);
@@ -2476,7 +2477,7 @@ function App(){
   const effZoom=isPhone?1:uiZoom;
   return(
     <div style={{display:'flex',flexDirection:'column',height:`calc(100dvh / ${effZoom})`,minHeight:'-webkit-fill-available',overflow:'hidden',zoom:effZoom}}>
-      {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits} ch={ch} setCh={setCh}/>}
+      {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits} ch={ch} setCh={setCh} initialMode={checkerInitMode}/>}
       {showResetModal&&(
         <div style={{position:'fixed',inset:0,background:'#000000cc',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
              onClick={()=>{setShowResetModal(false);setResetOpts({tune:true,tutorials:false});}}>
@@ -3213,20 +3214,6 @@ function App(){
                       <span style={{display:'inline-block',width:0,height:0,borderLeft:'4px solid transparent',borderRight:'4px solid transparent',borderBottom:'6px solid #3b82f6',flexShrink:0}}/> GRIP BIAS
                     </span>
                     <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:'#3b82f6'}}>{natGripBalance.toFixed(2)}</span>
-                    {uiMode==='pro'&&<div style={{gridColumn:'1 / -1',display:'flex',alignItems:'center',gap:6,marginTop:2,marginBottom:2}}>
-                      {ch.useMeasuredNatBal&&<>
-                        <span style={{fontFamily:'Courier New',fontSize:10,color:'#e2e8f0',flexShrink:0}}>{(ch.measuredNatBal??chassisAnalysis.natBal).toFixed(2)}</span>
-                        <input type="range" className="sli" min={0.40} max={0.90} step={0.01}
-                          value={ch.measuredNatBal??chassisAnalysis.natBal}
-                          onChange={e=>setCh(p=>({...p,measuredNatBal:parseFloat(e.target.value)}))}
-                          style={{flex:1,minWidth:0}}/>
-                      </>}
-                      <button className="tbtn" style={{fontSize:9,color:ch.useMeasuredNatBal?'#60a5fa':'#475569',marginLeft:'auto',flexShrink:0}}
-                        onClick={()=>setCh(p=>({...p,useMeasuredNatBal:!p.useMeasuredNatBal,measuredNatBal:p.measuredNatBal??chassisAnalysis.natBal}))}>
-                        {ch.useMeasuredNatBal?'MEASURED':'CHASSIS'}
-                      </button>
-                      <Hint text="An alternative to entering wheelbase and track widths — the game's Mech Balance already accounts for your car's real geometry, including track width upgrades. Open Tune Check (CHECK) and switch to MEASURE for step-by-step setup. CHASSIS = geometry prediction (track widths required). MEASURED = your in-game reading (track widths hidden)."/>
-                    </div>}
                     <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
                       <span style={{display:'inline-block',width:10,height:3,background:'#14532d',borderRadius:1,flexShrink:0}}/> RANGE
                     </span>
@@ -3258,6 +3245,21 @@ function App(){
                 </div>
               );
             })()}
+            {uiMode==='pro'&&<div style={{background:'#060c17',border:'1px solid #1e293b',borderRadius:2,padding:'5px 10px',marginTop:6,display:'flex',alignItems:'center',gap:6}}>
+              {ch.useMeasuredNatBal
+                ?<>
+                  <span style={{fontSize:10,color:'#475569',letterSpacing:1,flexShrink:0}}>MEASURED NAT BAL</span>
+                  <span style={{fontFamily:'Courier New',fontSize:10,color:'#60a5fa',marginLeft:'auto',flexShrink:0}}>{(ch.measuredNatBal??chassisAnalysis.natBal).toFixed(2)}</span>
+                  <button className="tbtn" style={{fontSize:10,color:'#6b7280',flexShrink:0,padding:'1px 5px'}}
+                    onClick={()=>setCh(p=>({...p,useMeasuredNatBal:false,measuredNatBal:null}))}>✕</button>
+                </>
+                :<>
+                  <button className="tbtn" style={{fontSize:10,color:'#475569'}}
+                    onClick={()=>{setCheckerInitMode('probe');setShowChecker(true);}}>MEASURE NAT BAL</button>
+                  <Hint text="An alternative to entering wheelbase and track widths — the game's Mech Balance already accounts for your car's real geometry, including track width upgrades. Open Tune Check and switch to MEASURE for step-by-step setup. CHASSIS = geometry prediction (track widths required). MEASURED = your in-game reading."/>
+                </>
+              }
+            </div>}
             {(()=>{
               if(uiMode!=='pro')return null;
               const{stabIdx,targetBal,hasMechTarget,
