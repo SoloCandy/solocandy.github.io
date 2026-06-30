@@ -22,7 +22,7 @@ body{background:#020617;color:#cbd5e1;font-family:'Courier New',monospace;overfl
 @media(max-width:768px){
   body{overflow:auto}
   .tog{padding:7px 0;min-height:32px}
-  .tbtn{padding:6px 10px}
+  .tbtn{padding:9px 12px;min-height:34px}
 }
 @media(max-width:480px){
   /* Fluid number inputs so a label + two fields don't overflow a ~375px row.
@@ -3038,9 +3038,9 @@ function App(){
           {uiMode!=='beginner'&&<div style={{display:'flex',justifyContent:'flex-end',gap:3,
                        padding:'5px 12px 4px',borderBottom:'1px solid #0f172a'}}>
             <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,alignSelf:'center',marginRight:4}}>SECTIONS</span>
-            <button className="tbtn" style={{fontSize:10,padding:'2px 7px'}}
+            <button className="tbtn" style={{fontSize:10}}
               onClick={()=>setOpen(p=>Object.fromEntries(Object.keys(p).map(k=>[k,false])))}>−</button>
-            <button className="tbtn" style={{fontSize:10,padding:'2px 7px'}}
+            <button className="tbtn" style={{fontSize:10}}
               onClick={()=>setOpen(p=>Object.fromEntries(Object.keys(p).map(k=>[k,true])))}>+</button>
           </div>}
 
@@ -4162,6 +4162,7 @@ function App(){
 
           {/* cards — scrollable */}
           <div id="zone-output" style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',overscrollBehavior:'contain',padding:'8px 10px 6px',minHeight:0,...dim('output')}}>
+          <div style={{maxWidth:1400,margin:'0 auto'}}>
 
           {/* 1 — ALIGNMENT */}
           <Card title="ALIGNMENT"
@@ -4395,6 +4396,7 @@ function App(){
             })()}
           </Card>
 
+          </div>{/* end maxWidth wrapper */}
           </div>{/* end cards */}
 
           {/* DISCLAIMER */}
