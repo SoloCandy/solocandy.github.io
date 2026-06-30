@@ -3195,7 +3195,7 @@ function App(){
               hint="Determines your intended use. Shifts alignment targets, diff AUTO behaviour, diff type recommendation, brake balance, and the recommended Mech Balance Target range."/>
             {uiMode==='pro'&&<>
               <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,marginTop:2}}>
-                <span style={{fontSize:12,color:'#94a3b8'}}>Balance Target</span>
+                <span style={{fontSize:13,color:'#94a3b8'}}>Balance Target</span>
                 <Hint text="Sets how the mech balance target is determined. TARGET: set the value manually — use the Balance Guide range as a reference. GRIP: auto-derives the target as the mirror of the car's natural grip bias (1 − natGripBalance), so the suspension directly counteracts the chassis's understeer or oversteer tendency. Use the Balance Offset slider to shift intentionally away from neutral."/>
                 <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                   <button className={`tog${(fe.arbBalTargetMode??'manual')==='manual'?' on':''}`}
@@ -3236,60 +3236,60 @@ function App(){
                              padding:'8px 10px',marginBottom:0,marginTop:8}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                     <span style={{display:'flex',alignItems:'center',gap:4}}>
-                      <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>BALANCE GUIDE</span>
+                      <span style={{fontSize:11,color:'#94a3b8',letterSpacing:1}}>BALANCE GUIDE</span>
                       <Hint text="NATURAL is your Δ=0 baseline — where the chassis sits from geometry and weight alone, with no spring or ARB correction. GRIP BIAS (▲) is the car's at-limit lateral grip balance at that natural point, computed from the LLT model: below 0.5 means the front reaches its grip limit first (understeer-prone), above 0.5 means the rear does (oversteer-prone). GRIP target mode mirrors this value — targeting 1 − grip bias — so the suspension directly counteracts the chassis's natural tendency. RANGE shows how much oversteer bias (Δ from natural) is appropriate for this layout and build. TARGET (▼) shows how far you're deliberately pushing away from natural."/>
                     </span>
-                    <span style={{fontSize:10,color:'#94a3b8'}}>{_layout} · {_build.toUpperCase()}</span>
+                    <span style={{fontSize:11,color:'#94a3b8'}}>{_layout} · {_build.toUpperCase()}</span>
                   </div>
                   {(()=>{
                     return(
-                    <div style={{position:'relative',height:16,marginBottom:2}}>
-                      <div style={{position:'absolute',top:6,left:0,right:0,height:4,background:'#0f172a',borderRadius:2}}/>
-                      <div style={{position:'absolute',top:6,left:`${_pct(_lo)}%`,width:`${_pct(_hi)-_pct(_lo)}%`,height:4,background:'#14532d',borderRadius:1}}/>
+                    <div style={{position:'relative',height:22,marginBottom:3}}>
+                      <div style={{position:'absolute',top:9,left:0,right:0,height:6,background:'#0f172a',borderRadius:3}}/>
+                      <div style={{position:'absolute',top:9,left:`${_pct(_lo)}%`,width:`${_pct(_hi)-_pct(_lo)}%`,height:6,background:'#14532d',borderRadius:2}}/>
                       {[0.25,0.35,0.45,0.55,0.65,0.75,0.85].map(v=>(
-                        <div key={v} style={{position:'absolute',top:6,left:`${_pct(v)}%`,transform:'translateX(-50%)',width:1,height:4,background:'#2d5a72'}}/>
+                        <div key={v} style={{position:'absolute',top:9,left:`${_pct(v)}%`,transform:'translateX(-50%)',width:1,height:6,background:'#2d5a72'}}/>
                       ))}
                       {[0.30,0.40,0.50,0.60,0.70,0.80].map(v=>(
-                        <div key={v} style={{position:'absolute',top:4,left:`${_pct(v)}%`,transform:'translateX(-50%)',width:1,height:8,background:'#3a6b84'}}/>
+                        <div key={v} style={{position:'absolute',top:6,left:`${_pct(v)}%`,transform:'translateX(-50%)',width:1,height:12,background:'#3a6b84'}}/>
                       ))}
-                      <div style={{position:'absolute',top:3,left:`${_pct(natMechBalance)}%`,transform:'translateX(-50%)',width:2,height:10,background:'#94a3b8',borderRadius:1}}/>
+                      <div style={{position:'absolute',top:4,left:`${_pct(natMechBalance)}%`,transform:'translateX(-50%)',width:3,height:14,background:'#94a3b8',borderRadius:1}}/>
                       <div style={{position:'absolute',bottom:1,left:`${_pct(natGripBalance)}%`,transform:'translateX(-50%)',
-                                   width:0,height:0,borderLeft:'4px solid transparent',borderRight:'4px solid transparent',borderBottom:'6px solid #3b82f6'}}/>
-                      <div style={{position:'absolute',top:4,left:`${_pct(1-natGripBalance)}%`,transform:'translateX(-50%)',
-                                   width:7,height:7,borderRadius:'50%',background:'#2dd4bf',border:'1.5px solid #0f172a'}}/>
+                                   width:0,height:0,borderLeft:'6px solid transparent',borderRight:'6px solid transparent',borderBottom:'9px solid #3b82f6'}}/>
+                      <div style={{position:'absolute',top:6,left:`${_pct(1-natGripBalance)}%`,transform:'translateX(-50%)',
+                                   width:10,height:10,borderRadius:'50%',background:'#2dd4bf',border:'2px solid #0f172a'}}/>
                       <div style={{position:'absolute',top:1,left:`${_pct(_cur)}%`,transform:'translateX(-50%)',
-                                   width:0,height:0,borderLeft:'5px solid transparent',borderRight:'5px solid transparent',borderTop:`7px solid ${_tc}`}}/>
+                                   width:0,height:0,borderLeft:'7px solid transparent',borderRight:'7px solid transparent',borderTop:`10px solid ${_tc}`}}/>
                     </div>);
                   })()}
-                  <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#94a3b8',marginBottom:6}}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#94a3b8',marginBottom:7}}>
                     <span>0.20</span>
-                    <span style={{color:'#475569',letterSpacing:0.5}}>NAT {natMechBalance.toFixed(2)}</span>
+                    <span style={{color:'#64748b',letterSpacing:0.5}}>NAT {natMechBalance.toFixed(2)}</span>
                     <span>0.90</span>
                   </div>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:'3px 0'}}>
-                    <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
-                      <span style={{display:'inline-block',width:2,height:8,background:'#94a3b8',borderRadius:1,flexShrink:0}}/> NATURAL
+                  <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:'5px 0'}}>
+                    <span style={{fontSize:11,color:'#94a3b8',display:'flex',alignItems:'center',gap:5}}>
+                      <span style={{display:'inline-block',width:3,height:11,background:'#94a3b8',borderRadius:1,flexShrink:0}}/> NATURAL
                     </span>
-                    <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:'#cbd5e1',display:'flex',alignItems:'center',gap:4,justifyContent:'flex-end'}}>
+                    <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:11,color:'#cbd5e1',display:'flex',alignItems:'center',gap:5,justifyContent:'flex-end'}}>
                       {natMechBalance.toFixed(2)}
                     </span>
-                    <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
-                      <span style={{display:'inline-block',width:0,height:0,borderLeft:'4px solid transparent',borderRight:'4px solid transparent',borderBottom:'6px solid #3b82f6',flexShrink:0}}/> GRIP BIAS
+                    <span style={{fontSize:11,color:'#94a3b8',display:'flex',alignItems:'center',gap:5}}>
+                      <span style={{display:'inline-block',width:0,height:0,borderLeft:'5px solid transparent',borderRight:'5px solid transparent',borderBottom:'8px solid #3b82f6',flexShrink:0}}/> GRIP BIAS
                     </span>
-                    <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:'#3b82f6'}}>{natGripBalance.toFixed(2)}</span>
-                    <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
-                      <span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'#2dd4bf',flexShrink:0}}/> GRIP TARGET
+                    <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:11,color:'#3b82f6'}}>{natGripBalance.toFixed(2)}</span>
+                    <span style={{fontSize:11,color:'#94a3b8',display:'flex',alignItems:'center',gap:5}}>
+                      <span style={{display:'inline-block',width:10,height:10,borderRadius:'50%',background:'#2dd4bf',flexShrink:0}}/> GRIP TARGET
                     </span>
-                    <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:10,color:'#2dd4bf'}}>{(1-natGripBalance).toFixed(2)}</span>
-                    <span style={{fontSize:10,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
-                      <span style={{display:'inline-block',width:10,height:3,background:'#14532d',borderRadius:1,flexShrink:0}}/> RANGE
+                    <span style={{textAlign:'right',fontFamily:'Courier New',fontSize:11,color:'#2dd4bf'}}>{(1-natGripBalance).toFixed(2)}</span>
+                    <span style={{fontSize:11,color:'#94a3b8',display:'flex',alignItems:'center',gap:5}}>
+                      <span style={{display:'inline-block',width:12,height:4,background:'#14532d',borderRadius:1,flexShrink:0}}/> RANGE
                     </span>
                     <span style={{textAlign:'right',display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1}}>
-                      <span style={{fontFamily:'Courier New',fontSize:10,color:'#16a34a'}}>{_lo.toFixed(2)} – {_hi.toFixed(2)}</span>
-                      <span style={{fontFamily:'Courier New',fontSize:9,color:'#374151',letterSpacing:0.3}}>Δ+{_dlo.toFixed(2)} → +{_dhi.toFixed(2)}</span>
+                      <span style={{fontFamily:'Courier New',fontSize:11,color:'#16a34a'}}>{_lo.toFixed(2)} – {_hi.toFixed(2)}</span>
+                      <span style={{fontFamily:'Courier New',fontSize:10,color:'#475569',letterSpacing:0.3}}>Δ+{_dlo.toFixed(2)} → +{_dhi.toFixed(2)}</span>
                     </span>
-                    <span style={{fontSize:11,color:'#cbd5e1',display:'flex',alignItems:'center',gap:4,fontWeight:600}}>
-                      <span style={{display:'inline-block',width:0,height:0,borderLeft:'5px solid transparent',borderRight:'5px solid transparent',borderTop:`7px solid ${_tc}`,flexShrink:0}}/> TARGET
+                    <span style={{fontSize:13,color:'#cbd5e1',display:'flex',alignItems:'center',gap:5,fontWeight:600}}>
+                      <span style={{display:'inline-block',width:0,height:0,borderLeft:'6px solid transparent',borderRight:'6px solid transparent',borderTop:`9px solid ${_tc}`,flexShrink:0}}/> TARGET
                     </span>
                     {(()=>{
                       const _d=_cur-natMechBalance;
@@ -3299,10 +3299,10 @@ function App(){
                       const _dcol=_dabs<0.015?'#94a3b8':_d>0?'#60a5fa':'#f59e0b';
                       return(
                         <span style={{textAlign:'right',display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1}}>
-                          <span style={{fontFamily:'Courier New',fontSize:13,color:_tc,fontWeight:600}}>
+                          <span style={{fontFamily:'Courier New',fontSize:15,color:_tc,fontWeight:600}}>
                             {_cur.toFixed(2)}{_inRange?' ✓':_cur>_hi?' ↑':' ↓'}
                           </span>
-                          <span style={{fontFamily:'Courier New',fontSize:10,color:_dcol,letterSpacing:0.3}}>
+                          <span style={{fontFamily:'Courier New',fontSize:11,color:_dcol,letterSpacing:0.3}}>
                             Δ{_dstr} {_ddir}
                           </span>
                         </span>
@@ -3313,12 +3313,12 @@ function App(){
               );
             })()}
             {uiMode==='pro'&&<div style={{background:'#060c17',border:'1px solid #1e293b',borderRadius:2,padding:'5px 10px',marginTop:6,display:'flex',alignItems:'center',gap:6}}>
-              <button className="tbtn" style={{fontSize:10,color:ch.useMeasuredNatBal?'#60a5fa':'#475569',flexShrink:0}}
+              <button className="tbtn" style={{fontSize:11,color:ch.useMeasuredNatBal?'#60a5fa':'#475569',flexShrink:0}}
                 onClick={()=>{setCheckerInitMode('probe');setShowChecker(true);}}>MEASURE NAT BAL</button>
               <Hint text="An alternative to entering wheelbase and track widths — the game's Mech Balance already accounts for your car's real geometry, including track width upgrades. Open Tune Check and switch to MEASURE for step-by-step setup. CHASSIS = geometry prediction (track widths required). MEASURED = your in-game reading."/>
               {ch.useMeasuredNatBal&&<>
-                <span style={{fontFamily:'Courier New',fontSize:10,color:'#60a5fa',marginLeft:'auto',flexShrink:0}}>{(ch.measuredNatBal??chassisAnalysis.natBal).toFixed(2)}</span>
-                <button className="tbtn" style={{fontSize:10,color:'#6b7280',flexShrink:0,padding:'1px 5px'}}
+                <span style={{fontFamily:'Courier New',fontSize:11,color:'#60a5fa',marginLeft:'auto',flexShrink:0}}>{(ch.measuredNatBal??chassisAnalysis.natBal).toFixed(2)}</span>
+                <button className="tbtn" style={{fontSize:11,color:'#6b7280',flexShrink:0,padding:'2px 6px'}}
                   onClick={()=>setCh(p=>({...p,useMeasuredNatBal:false,measuredNatBal:null}))}>✕</button>
               </>}
             </div>}
@@ -3373,10 +3373,10 @@ function App(){
                 <div style={{display:'flex',gap:3,marginTop:8,marginBottom:showRec?3:0}}>
                   <div style={{flex:1,...box,flexDirection:'column',alignItems:'stretch',gap:2}}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
-                      <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>CHASSIS BAL.</span>
-                      <span style={{display:'flex',alignItems:'baseline',gap:3}}>
-                        <span style={{fontFamily:'Courier New',fontWeight:700,color:nmCol,fontSize:11}}>{nm.toFixed(2)}</span>
-                        <span style={{fontSize:10,color:nmCol,letterSpacing:1}}>{nmLabel}</span>
+                      <span style={{fontSize:11,color:'#94a3b8',letterSpacing:1}}>CHASSIS BAL.</span>
+                      <span style={{display:'flex',alignItems:'baseline',gap:4}}>
+                        <span style={{fontFamily:'Courier New',fontWeight:700,color:nmCol,fontSize:13}}>{nm.toFixed(2)}</span>
+                        <span style={{fontSize:11,color:nmCol,letterSpacing:1}}>{nmLabel}</span>
                       </span>
                     </div>
                     {(()=>{
@@ -3384,52 +3384,52 @@ function App(){
                       const gpd=Math.abs(gp-0.5);
                       const gpc=gpd<0.04?'#4b5563':gp<0.5?'#3b82f6':'#ef4444';
                       const gpl=gpd<0.04?'NEUTRAL':gp<0.5?'US':'OS';
-                      return<div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',borderTop:'1px solid #0f172a',paddingTop:2,marginTop:1}}>
-                        <span style={{fontSize:9,color:'#4b5563',letterSpacing:0.5}}>GRIP BIAS</span>
-                        <span style={{display:'flex',alignItems:'baseline',gap:2}}>
-                          <span style={{fontFamily:'Courier New',fontSize:10,color:gpc}}>{gp.toFixed(2)}</span>
-                          <span style={{fontSize:9,color:gpc}}>{gpl}</span>
+                      return<div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',borderTop:'1px solid #0f172a',paddingTop:3,marginTop:2}}>
+                        <span style={{fontSize:10,color:'#64748b',letterSpacing:0.5}}>GRIP BIAS</span>
+                        <span style={{display:'flex',alignItems:'baseline',gap:3}}>
+                          <span style={{fontFamily:'Courier New',fontSize:11,color:gpc}}>{gp.toFixed(2)}</span>
+                          <span style={{fontSize:10,color:gpc}}>{gpl}</span>
                         </span>
                       </div>;
                     })()}
                   </div>
                   <div style={{flex:1,...box}}>
-                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>STABILITY</span>
-                    <span style={{fontFamily:'Courier New',fontSize:11,fontWeight:700,color:stabCol}}>{stabLabel}</span>
+                    <span style={{fontSize:11,color:'#94a3b8',letterSpacing:1}}>STABILITY</span>
+                    <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:stabCol}}>{stabLabel}</span>
                   </div>
                 </div>
-                {showRec&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 7px'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:(trackFfeas||trackRfeas)?4:3}}>
-                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>GEOMETRY GAP</span>
-                    <span style={{fontFamily:'Courier New',fontSize:10,color:'#475569'}}>{dSign}{gap.toFixed(2)}</span>
+                {showRec&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'7px 8px'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:(trackFfeas||trackRfeas)?5:4}}>
+                    <span style={{fontSize:11,color:'#94a3b8',letterSpacing:2}}>GEOMETRY GAP</span>
+                    <span style={{fontFamily:'Courier New',fontSize:11,color:'#64748b'}}>{dSign}{gap.toFixed(2)}</span>
                   </div>
-                  {(trackFfeas||trackRfeas)&&<div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
-                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:38,flexShrink:0}}>TRACK</span>
-                    <span style={{flex:1,display:'flex',gap:8,fontFamily:'Courier New',fontSize:10}}>
+                  {(trackFfeas||trackRfeas)&&<div style={{display:'flex',alignItems:'baseline',gap:5,marginBottom:4}}>
+                    <span style={{fontSize:11,color:'#94a3b8',letterSpacing:1,width:42,flexShrink:0}}>TRACK</span>
+                    <span style={{flex:1,display:'flex',gap:9,fontFamily:'Courier New',fontSize:11}}>
                       {trackFfeas&&<span style={{color:'#e2e8f0'}}>F {fmtD(dTrackF)}mm</span>}
                       {trackRfeas&&<span style={{color:'#e2e8f0'}}>R {fmtD(dTrackR)}mm</span>}
                     </span>
                   </div>}
-                  <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.4}}>
+                  <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.4}}>
                     {targetBal>nm
                       ?'Wider rear track or narrower front increases rear roll stiffness toward target.'
                       :'Wider front track or narrower rear increases front roll stiffness toward target.'}
                     {!(trackFfeas||trackRfeas)&&' Gap exceeds track range — use ARBs or tyre widths to reach the target.'}
                   </div>
                 </div>}
-                {_showGripGap&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 7px',marginTop:3}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:(_ggTyreF||_ggTyreR)?4:3}}>
-                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>GRIP GAP</span>
-                    <span style={{fontFamily:'Courier New',fontSize:10,color:'#475569'}}>+{_ggGap.toFixed(2)}</span>
+                {_showGripGap&&<div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'7px 8px',marginTop:4}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:(_ggTyreF||_ggTyreR)?5:4}}>
+                    <span style={{fontSize:11,color:'#94a3b8',letterSpacing:2}}>GRIP GAP</span>
+                    <span style={{fontFamily:'Courier New',fontSize:11,color:'#64748b'}}>+{_ggGap.toFixed(2)}</span>
                   </div>
-                  {(_ggTyreF||_ggTyreR)&&<div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:3}}>
-                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:38,flexShrink:0}}>TYRE</span>
-                    <span style={{flex:1,display:'flex',gap:8,fontFamily:'Courier New',fontSize:10}}>
+                  {(_ggTyreF||_ggTyreR)&&<div style={{display:'flex',alignItems:'baseline',gap:5,marginBottom:4}}>
+                    <span style={{fontSize:11,color:'#94a3b8',letterSpacing:1,width:42,flexShrink:0}}>TYRE</span>
+                    <span style={{flex:1,display:'flex',gap:9,fontFamily:'Courier New',fontSize:11}}>
                       {_ggTyreF&&<span style={{color:'#e2e8f0'}}>F +{_ggTyreF}mm</span>}
                       {_ggTyreR&&<span style={{color:'#e2e8f0'}}>R +{_ggTyreR}mm</span>}
                     </span>
                   </div>}
-                  <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.4}}>
+                  <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.4}}>
                     {(_ggTyreF||_ggTyreR)
                       ?(_ggNeutral>_ggHi
                         ?'Wider front tyre shifts grip-neutral target into recommended range.'
