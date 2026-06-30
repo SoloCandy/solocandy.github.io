@@ -1609,9 +1609,11 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
   const[probeHz,setProbeHz]=useState(2.5);
   const[ckSpr,setCkSpr]=useState({f:400,r:300});
   const[ckDmp,setCkDmp]=useState({rebF:5,rebR:5,bumpF:3,bumpR:3});
+  const[ckArb,setCkArb]=useState({f:20,r:20});
   const[imported,setImported]=useState(false);
   const pS=k=>v=>setCkSpr(p=>({...p,[k]:v}));
   const pD=k=>v=>setCkDmp(p=>({...p,[k]:v}));
+  const pA=k=>v=>setCkArb(p=>({...p,[k]:v}));
   const masses=useMemo(()=>cornerMasses(ch),[ch]);
   const ck=useMemo(()=>computeCheck(ckSpr,ckDmp,masses),[ckSpr,ckDmp,masses]);
   const importDecoded=()=>{
@@ -1629,7 +1631,8 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
       rideStiffness:Math.round(hzF*100)/100,
       rearHzMode:'multiplier',rearHzMult:mult,
       dampingMode:'ratio',dampCharMode:'zeta',settleMode:false,
-      reboundZeta,bumpRatio,dampingBias}));
+      reboundZeta,bumpRatio,dampingBias,
+      arbBalMode:'man',arbManF:Math.max(1,Math.min(lim.arb,ckArb.f)),arbManR:Math.max(1,Math.min(lim.arb,ckArb.r))}));
     setImported(true);
     setTimeout(()=>setImported(false),2000);
   };
@@ -1685,8 +1688,12 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
               <Field label="Bump Front" value={ckDmp.bumpF} onChange={pD('bumpF')} min={1} max={lim.damping} step={0.1} unit={`/ ${lim.damping}`}/>
               <Field label="Bump Rear" value={ckDmp.bumpR} onChange={pD('bumpR')} min={1} max={lim.damping} step={0.1} unit={`/ ${lim.damping}`}/>
             </Card>
+            <Card title="ARB INPUTS" hint="ARB clicks are entered directly — no conversion needed, same units as the in-game tune.">
+              <Field label="ARB Front" value={ckArb.f} onChange={pA('f')} min={1} max={lim.arb} step={0.1} unit={`/ ${lim.arb}`}/>
+              <Field label="ARB Rear" value={ckArb.r} onChange={pA('r')} min={1} max={lim.arb} step={0.1} unit={`/ ${lim.arb}`}/>
+            </Card>
             <Card title="DECODED TUNE" accent
-              hint="Best-effort import — the app's feel model uses a front Hz + rear multiplier and a rebound ζ + bias, so an exact front/rear damping split may not be reproduced precisely. Check the RIDE and DAMPERS sections after importing.">
+              hint="Best-effort import — the app's feel model uses a front Hz + rear multiplier and a rebound ζ + bias, so an exact front/rear damping split may not be reproduced precisely. ARB clicks are set directly (switches ANTI-ROLL BARS to MAN mode). Check the RIDE, DAMPERS, and ANTI-ROLL BARS sections after importing.">
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
                 <Readout label="Hz FRONT" value={ck.hF} unit="Hz"/>
                 <Readout label="Hz REAR" value={ck.hR} unit="Hz"/>
@@ -1695,6 +1702,8 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
               <Stat label="Rebound ratio rear"  value={ck.zRebR} unit="%" decimals={1}/>
               <Stat label="Bump ratio front"    value={ck.zBmpF} unit="%" decimals={1}/>
               <Stat label="Bump ratio rear"     value={ck.zBmpR} unit="%" decimals={1}/>
+              <Stat label="ARB front" value={ckArb.f} unit={`/ ${lim.arb}`} decimals={1}/>
+              <Stat label="ARB rear"  value={ckArb.r} unit={`/ ${lim.arb}`} decimals={1}/>
               <button className={`tbtn${imported?' saved':''}`} style={{width:'100%',marginTop:8,fontSize:10}}
                 onClick={importDecoded}>{imported?'IMPORTED ✓':'IMPORT?'}</button>
             </Card>
