@@ -1680,6 +1680,16 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,initialMode})=>{
             </Card>
           </div>}
           {ckMode==='probe'&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:10,marginBottom:10}}>
+            <Card title="HOW TO USE">
+              <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.6}}>
+                <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>SETUP</div>
+                <div style={{marginBottom:8}}>Apply the spring and ARB values below to your car in Forza.</div>
+                <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>MEASURE</div>
+                <div style={{marginBottom:8}}>Open the tune menu and note the <span style={{color:'#e2e8f0'}}>Mech Balance</span> value.</div>
+                <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>RECORD</div>
+                <div>Dial the <span style={{color:'#e2e8f0'}}>MEAS. NAT BAL</span> slider to match, then close this window. No wheelbase or track widths needed — the calculator uses your reading everywhere.</div>
+              </div>
+            </Card>
             <Card title="NAT BAL SETUP" accent>
               <Field label="Measure Hz" value={probeHz} onChange={setProbeHz} min={1.0} max={3.5} step={0.05} unit="Hz"/>
               <Stat label="Corner mass front" value={probeMasses.front} unit="kg" decimals={1}/>
@@ -1699,16 +1709,6 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,initialMode})=>{
                   value={ch.measuredNatBal??0.50}
                   onChange={e=>setCh(p=>({...p,useMeasuredNatBal:true,measuredNatBal:parseFloat(e.target.value)}))}
                   style={{width:'100%'}}/>
-              </div>
-            </Card>
-            <Card title="HOW TO USE">
-              <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.6}}>
-                <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>SETUP</div>
-                <div style={{marginBottom:8}}>Apply the spring and ARB values on the left to your car in Forza.</div>
-                <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>MEASURE</div>
-                <div style={{marginBottom:8}}>Open the tune menu and note the <span style={{color:'#e2e8f0'}}>Mech Balance</span> value.</div>
-                <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>RECORD</div>
-                <div>Dial the <span style={{color:'#e2e8f0'}}>MEAS. NAT BAL</span> slider to match, then close this window. No wheelbase or track widths needed — the calculator uses your reading everywhere.</div>
               </div>
             </Card>
           </div>}
