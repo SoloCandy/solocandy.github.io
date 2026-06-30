@@ -1945,9 +1945,12 @@ const TUTORIALS={
      body:'Select your drive layout (FWD / RWD / AWD) and build style. Layout affects how differential lock contributes to handling balance. Build type (Street / Track / Drift / Rally / Offroad / Drag) shifts alignment targets, differential recommendations, and brake balance toward your intended use.'},
     {title:'Weight & Front Bias',
      focus:['weight'],
+     cta:'Enter your car\'s actual values now — don\'t skip this. The defaults (3200 lb / 52%) will give wrong spring and damper outputs for your car.',
+     ctaColor:'#f59e0b',
      body:'Enter your car\'s total weight and front weight bias from the car stat screen — use the selection screen, not the tuning menu. These two numbers drive almost every calculation in the app, including the factory presets.'},
     {title:'Start From a Build',
      focus:['presets'],
+     cta:'Load the preset that matches your build type, then click Next.',
      body:'Open the FACTORY drawer. The six presets — STREET, TRACK, RALLY, DRIFT, MOTORSPT, X COUNTRY — each set a stiffness level, rear spring ratio, and damping character tuned for that build style. Load the closest one after entering your car\'s weight and bias, then adjust from there.'},
     {title:'Ride Stiffness',
      focus:['ride-stiffness'],
@@ -2157,9 +2160,13 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone,zoom=1})=>{
             background:i<step?'#334155':i===step?'#6366f1':'#1e293b'}}/>
         ))}
       </div>
-      <p style={{fontSize:11,color:'#94a3b8',lineHeight:1.65,margin:'0 0 12px',
+      <p style={{fontSize:11,color:'#94a3b8',lineHeight:1.65,margin:'0 0 10px',
                  overflowY:'auto',flex:1,minHeight:0,
                  WebkitOverflowScrolling:'touch',overscrollBehavior:'contain'}}>{t.body}</p>
+      {t.cta&&<div style={{fontSize:10,color:t.ctaColor??'#4ade80',letterSpacing:0.5,
+        padding:'6px 8px',background:t.ctaColor?'#1a0f0a':'#0f2a1a',
+        border:`1px solid ${t.ctaColor?'#7c2d12':'#166534'}`,
+        borderRadius:2,marginBottom:10,lineHeight:1.6}}>→ {t.cta}</div>}
       <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
         {step>0&&<button style={btnStyle} onClick={onPrev}>← PREV</button>}
         {step<total-1
@@ -2929,6 +2936,19 @@ function App(){
                   min={30} max={70} step={1} unit="%"
                   hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance."/>
                 </div>
+                {(()=>{
+                  const weightOk=ch.weight>=1600&&ch.weight<=6500;
+                  const [bLo,bHi]={FWD:[55,70],RWD:[38,55],AWD:[45,58]}[dr.layout??'RWD']??[38,70];
+                  const biasOk=ch.frontBias>=bLo&&ch.frontBias<=bHi;
+                  if(weightOk&&biasOk) return null;
+                  return <div style={{fontSize:9,color:'#f59e0b',letterSpacing:0.3,
+                    padding:'4px 8px',background:'#0a0f1a',
+                    border:'1px solid #f5a62333',borderRadius:2,margin:'4px 0 6px',lineHeight:1.7}}>
+                    {!weightOk&&<span>{metricUnits?Math.round(ch.weight/KG_TO_LB)+'kg':ch.weight+'lb'} is outside the typical Forza range ({metricUnits?'725–2950 kg':'1600–6500 lb'}). Double-check the car stat screen.</span>}
+                    {!weightOk&&!biasOk&&' '}
+                    {!biasOk&&<span>{ch.frontBias}% front bias is unusual for {dr.layout??'RWD'} — typical is {bLo}–{bHi}%.</span>}
+                  </div>;
+                })()}
 
                 {/* START FROM presets — after weight inputs so they apply correctly */}
                 <div id="zone-presets" style={dim('presets')}>
@@ -2941,6 +2961,8 @@ function App(){
                     5:{tag:'Max grip',sub:'Very stiff · track-tuned'},
                     6:{tag:'Max travel',sub:'Very soft · float feel'},
                   };
+                  const BUILD_PRESET_MAP={street:[1],track:[2,5],drift:[4],rally:[3],offroad:[6],drag:[2]};
+                  const recommended=BUILD_PRESET_MAP[dr.buildType??'track']??[];
                   return(
                     <div style={{marginBottom:14}}>
                       <div onClick={()=>setOpen(p=>({...p,startFromOpen:!p.startFromOpen}))}
@@ -2956,18 +2978,22 @@ function App(){
                           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:4}}>
                             {[1,2,3,4,5,6].map(i=>{
                               const d=PRESET_DESC[i];
+                              const isRec=recommended.includes(i);
                               return(
-                                <div key={i} style={{background:'#0f172a',border:'1px solid #1e293b',
+                                <div key={i} style={{background:'#0f172a',
+                                                     border:`1px solid ${isRec?'#4f46e5':'#1e293b'}`,
                                                      borderRadius:2,padding:'6px 7px',
                                                      display:'flex',flexDirection:'column',gap:3}}>
                                   <span style={{fontSize:11,color:'#cbd5e1',fontWeight:600,
                                                 letterSpacing:.5}}>{PRESET_SAVES[i].name}</span>
                                   <span style={{fontSize:9,color:'#475569',lineHeight:1.4}}>{d.tag}</span>
                                   <span style={{fontSize:8,color:'#334155',lineHeight:1.4}}>{d.sub}</span>
+                                  {isRec&&<span style={{fontSize:8,color:'#818cf8',letterSpacing:.5}}>★ FOR YOUR BUILD</span>}
                                   <button onClick={()=>loadPreset(i)}
                                     style={{marginTop:2,padding:'2px 0',fontSize:9,letterSpacing:1,
-                                            background:'#1e293b',border:'1px solid #334155',borderRadius:1,
-                                            color:'#64748b',cursor:'pointer',width:'100%'}}>LOAD</button>
+                                            background:isRec?'#1e1b4b':'#1e293b',
+                                            border:`1px solid ${isRec?'#4338ca':'#334155'}`,borderRadius:1,
+                                            color:isRec?'#a5b4fc':'#64748b',cursor:'pointer',width:'100%'}}>LOAD</button>
                                 </div>
                               );
                             })}
@@ -4164,6 +4190,7 @@ function App(){
                 ?`${_prefix} Camber targets ${_camberStr} dynamic at ${tune.rollDeg.toFixed(1)}° roll. Front toe-out for turn-in, rear toe-in for stability.`
                 :`${_prefix} Camber targets ${_camberStr} dynamic at ${tune.rollDeg.toFixed(1)}° roll. Front toe-out for turn-in, rear toe-in scaled to center bias.`;
             })()}>
+            {uiMode==='beginner'&&<div style={{fontSize:9,color:'#334155',letterSpacing:1,marginBottom:6}}>FORZA: Tuning → Alignment</div>}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:4}}>
               <Readout label="CAMBER F" value={align.recCamberF} unit="°" decimals={1} primary/>
               <Readout label="CAMBER R" value={align.recCamberR} unit="°" decimals={1} primary/>
@@ -4177,6 +4204,7 @@ function App(){
           <div style={{display:'grid',gridTemplateColumns:windowWidth<900?'1fr':'1fr 1fr',gap:6,marginBottom:6}}>
           <Card title="ANTI-ROLL BARS" accent
             hint="Click values to enter in the ARB tuning menu. Roll angle and ARB share are shown in the ANTI-ROLL BARS section of inputs. Amber warn when above 88% of the game limit.">
+            {uiMode==='beginner'&&<div style={{fontSize:9,color:'#334155',letterSpacing:1,marginBottom:6}}>FORZA: Tuning → Anti-Roll Bars</div>}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               <Readout label="FRONT" value={tune.arbF} warn={tune.arbF>lim.arb*0.88}
                 unit={`/ ${lim.arb}`} ctx={arbCtx(tune.arbF,lim.arb)} primary/>
@@ -4207,6 +4235,7 @@ function App(){
 
           <Card title="SPRINGS" accent
             hint="Spring rates in lb/in to enter in the tuning menu. The badge shows the frequency category — SOFT/ROAD/FIRM/RACE. Hz values are shown in the FEEL section of inputs.">
+            {uiMode==='beginner'&&<div style={{fontSize:9,color:'#334155',letterSpacing:1,marginBottom:6}}>FORZA: Tuning → Suspension</div>}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               <Readout label="FRONT"
                 value={metricUnits?tune.springF*NMM_PER_LBIN:tune.springF}
@@ -4236,6 +4265,7 @@ function App(){
           {/* 4 — DAMPERS */}
           <Card title="DAMPERS" accent
             hint="Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in the damping tuning menu. Amber warn when above 88% of the game limit. F/R balance is preserved — if either end exceeds the limit, both are scaled proportionally so the ratio is maintained.">
+            {uiMode==='beginner'&&<div style={{fontSize:9,color:'#334155',letterSpacing:1,marginBottom:6}}>FORZA: Tuning → Suspension</div>}
             <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'1fr 1fr 1fr 1fr',gap:4}}>
               <Readout label="REB F"  value={tune.rebF}  warn={tune.rebF>lim.damping*0.88}  unit={`/ ${lim.damping}`} primary/>
               <Readout label="REB R"  value={tune.rebR}  warn={tune.rebR>lim.damping*0.88}  unit={`/ ${lim.damping}`} primary/>
@@ -4253,6 +4283,7 @@ function App(){
           {/* 5 — BRAKES */}
           <Card title="BRAKES"
             hint="Brake balance and pressure starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. The recommendation accounts for forward weight transfer under braking (CG height and wheelbase) and is always front-biased relative to your weight distribution. Fine-tune in 1% steps by feel.">
+            {uiMode==='beginner'&&<div style={{fontSize:9,color:'#334155',letterSpacing:1,marginBottom:6}}>FORZA: Tuning → Braking</div>}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               <Readout label="BALANCE" value={brakeBias} unit="% F"                ctx={brakeBias>55?['FRONT','#3b82f6']:brakeBias<50?['REAR','#ef4444']:['NEUTRAL','#cbd5e1']}/>
               <Readout label="PRESSURE" value={brakePressure} unit="%" decimals={0}/>
@@ -4266,6 +4297,7 @@ function App(){
               :diff.layout==='RWD'
               ?'Starting point — fine-tune by feel in 1% steps. Accel lock aids exit rotation. Decel low for better corner entry; raise for stability under lift-off.'
               :`Starting point — fine-tune by feel in 1% steps. Front decel at 0 minimises entry understeer. Rear decel low for rotation. Center ${diff.center}% rear.`}>
+            {uiMode==='beginner'&&<div style={{fontSize:9,color:'#334155',letterSpacing:1,marginBottom:6}}>FORZA: Tuning → Differential</div>}
             {uiMode!=='beginner'&&<div style={{fontSize:10,color:'#334155',letterSpacing:1,marginBottom:6,textAlign:'right'}}>{({race:'RACE',sport:'SPORT',rally:'RALLY',offroad:'OFFROAD',drift:'DRIFT'})[dr.diffType??'race']??'RACE'} DIFF</div>}
             {diff.layout==='AWD'?(
               <>
