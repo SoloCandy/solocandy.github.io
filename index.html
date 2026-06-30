@@ -492,7 +492,7 @@ const feelToPhysics=(ch,fe)=>{
   // coSolve overrides rearHz in computeTune via effectiveRHz; flat-ride fallthrough can
   // set rearHzClamped spuriously. mechBalClamped covers coSolve limits instead.
   if(arbBalModeEarly==='coSolve') rearHzClamped=false;
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,dampCharMode,settleTarget,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,springShare,arbManF:fe.arbManF,arbManR:fe.arbManR};
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,dampCharMode,settleTarget,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,springShare,springShareAuto:fe.springShareAuto!==false,arbManF:fe.arbManF,arbManR:fe.arbManR};
 };
 
 const computeTune=(ch,phys,gameMode)=>{
@@ -505,12 +505,56 @@ const computeTune=(ch,phys,gameMode)=>{
   const tireCorr=TIRE_MECH_SCALE*Math.log(twR/twF);
   // CO-SOLVE: solve rear Hz from spring share + mech balance target before anything else
   let effectiveRHz=rHz;
+  let coSolveR_baseline=null; // spring-only balance at equal Hz (S=0 baseline), captured for contribution readout
+  let coSolveAutoS=null;      // resolved Spring Share (0-100) when AUTO mode is active
   if(arbBalMode==='coSolve'){
     const rsSpF_cs=Math.pow(fHz*2*Math.PI,2)*m.front*ch.trackF*ch.trackF/2;
     const targetRsBalance=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr)); // pre-compensate for tyre-width offset
     const rsSpR_base=Math.pow(fHz*2*Math.PI,2)*m.rear*ch.trackR*ch.trackR/2;
-    const R_baseline=rsSpR_base/(rsSpF_cs+rsSpR_base);   // spring-only roll-stiffness rear fraction (no width)
-    const S=(phys.springShare??50)/100;
+    const R_baseline=rsSpR_base/(rsSpF_cs+rsSpR_base);   // spring-only roll-stiffness rear fraction at equal Hz
+    coSolveR_baseline=R_baseline;
+    let S;
+    if(phys.springShareAuto){
+      // Auto Spring Share: binary-search for S (0–1) that equalises spring utilisation vs ARB utilisation.
+      // Spring util = how far effectiveRHz moves from fHz (S=0) toward HZ_MAX.
+      // ARB util = how far the heavier ARB bar is toward lim.arb.
+      // Pre-compute roll moment (chassis only, Hz-independent) for roll-mode ARB budget estimate.
+      const _rm=(ch.weight/KG_TO_LB)*9.81*(ch.cgHeight-rollCenterHeight(ch));
+      const _rsTotTgt=_rm/(arbTargetRoll*(Math.PI/180));
+      const simUtil=(sVal)=>{
+        const R_sp_s=Math.max(0.001,Math.min(0.999,R_baseline+sVal*(targetRsBalance-R_baseline)));
+        const rsSpR_s=R_sp_s*rsSpF_cs/(1-R_sp_s);
+        const eRHz=Math.max(HZ_MIN,Math.min(HZ_MAX,Math.sqrt(2*rsSpR_s/(m.rear*ch.trackR*ch.trackR))/(2*Math.PI)));
+        const spUtil=Math.max(0,(eRHz-fHz)/Math.max(0.001,HZ_MAX-fHz));
+        // Simulate ARB budget and split at this Hz state
+        const wrFN_s=Math.pow(fHz*2*Math.PI,2)*m.front, wrRN_s=Math.pow(eRHz*2*Math.PI,2)*m.rear;
+        const rsSpF_s=(wrFN_s*ch.trackF*ch.trackF)/2, rsSpRs=(wrRN_s*ch.trackR*ch.trackR)/2;
+        const rsSp_s=rsSpF_s+rsSpRs;
+        const nRoll=rsSp_s>0?(_rm/rsSp_s)*(180/Math.PI):5;
+        const autoSh=Math.max(5,Math.min(50,nRoll*7))/100;
+        const sh=arbMode==='share'?arbShareMan/100:autoSh;
+        const budget_s=arbMode==='roll'?Math.max(0,_rsTotTgt-rsSp_s):rsSp_s*(sh/(1-sh));
+        if(budget_s<=0) return{spUtil,abUtil:0};
+        const _mTgt=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr));
+        const _K=_mTgt/(1-_mTgt);
+        const rF_s=Math.max(0,Math.min(1,(_K*(rsSpF_s+budget_s)-rsSpRs)/(budget_s*(1+_K))));
+        const abF_s=budget_s*(1-rF_s)/(ARB_RS_SCALE*ch.trackF*ch.trackF);
+        const abR_s=budget_s*rF_s/(ARB_RS_SCALE*ch.trackR*ch.trackR);
+        const abUtil=Math.max(abF_s,abR_s)/lim.arb;
+        return{spUtil,abUtil};
+      };
+      // spUtil increases with S, abUtil decreases — binary search for the crossing point
+      let lo=0,hi=1;
+      for(let i=0;i<12;i++){
+        const mid=(lo+hi)/2;
+        const{spUtil,abUtil}=simUtil(mid);
+        if(spUtil<abUtil) lo=mid; else hi=mid;
+      }
+      S=(lo+hi)/2;
+    } else {
+      S=(phys.springShare??50)/100;
+    }
+    coSolveAutoS=Math.round(S*100);
     const R_sp=Math.max(0.001,Math.min(0.999,R_baseline+S*(targetRsBalance-R_baseline)));
     const rsSpR_tgt=R_sp*rsSpF_cs/(1-R_sp);
     effectiveRHz=Math.max(HZ_MIN,Math.min(HZ_MAX,Math.sqrt(2*rsSpR_tgt/(m.rear*ch.trackR*ch.trackR))/(2*Math.PI)));
@@ -613,6 +657,11 @@ const computeTune=(ch,phys,gameMode)=>{
   const mechBalClamped=(arbBalMode==='mech'||arbBalMode==='coSolve')&&Math.abs(mechBalance-arbBalTarget)>0.01;
   const settleF=zetaF>0?2.302/((zetaF/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn)
   const settleR=zetaR>0?2.302/((zetaR/100)*effectiveRHz*2*Math.PI):99;
+  // CO-SOLVE contribution breakdown: how much of balance correction came from springs vs ARBs
+  const rsBalSp=rsSpF+rsSpR>0?rsSpR/(rsSpF+rsSpR):0; // spring-only roll balance (after CO-SOLVE Hz adjustment)
+  const coSolveSpCorr=arbBalMode==='coSolve'&&coSolveR_baseline!=null?rsBalSp-coSolveR_baseline:null;
+  const coSolveAbCorr=arbBalMode==='coSolve'&&coSolveR_baseline!=null?rsBalance-rsBalSp:null;
+  const coSolveLiftRisk=arbBalMode==='coSolve'&&effectiveRHz>fHz*1.20;
   return{springF,springR,
          rebF:Math.round(rebF*10)/10,rebR:Math.round(rebR*10)/10,
          bumpF:Math.round(bumpF*10)/10,bumpR:Math.round(bumpR*10)/10,
@@ -621,7 +670,8 @@ const computeTune=(ch,phys,gameMode)=>{
          arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
          bSp,bAb,bTot,mechBalance,gripBalance,
          rsSpF,rsSpR,rsAbF,rsAbR,
-         balArbSplit:(arbBalMode==='mech'||arbBalMode==='coSolve')?Math.round(rF*100):null};
+         balArbSplit:(arbBalMode==='mech'||arbBalMode==='coSolve')?Math.round(rF*100):null,
+         coSolveAutoS,coSolveSpCorr,coSolveAbCorr,coSolveLiftRisk};
 };
 
 const computeAlignment=(ch,tune,layout,buildType)=>{
@@ -847,7 +897,7 @@ const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,settleMode:false,settleBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,dampCharMode:'zeta',settleTarget:0.80,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,
-              arbBalTarget:0.65,arbBalMode:'weight',springShare:50,
+              arbBalTarget:0.65,arbBalMode:'weight',springShare:50,springShareAuto:true,
               arbBalTargetMode:'manual',arbBalDelta:0,
               rearHzMode:'flatRide',rearHzMan:1.5,rearHzMult:1.20,rideRef:'front'};
 const DEF_DR={layout:'RWD',buildType:'track',diffType:'race',
@@ -1718,6 +1768,7 @@ const encodeTune=(ch,fe,dr,br)=>{
     DIFF_TYPE_ENC[dr.diffType??'race']??0, // [60] diff type
     (fe.arbBalTargetMode??'manual')==='grip'?1:0, // [61] arbBalTargetMode (0=manual,1=grip)
     fe.arbBalDelta??0,                            // [62] arbBalDelta
+    fe.springShareAuto!==false?1:0,              // [63] springShareAuto
   ];
   return btoa(arr.join('|'));
 };
@@ -1748,7 +1799,8 @@ const decodeTune=(code)=>{
             settleTarget:v.length>=59?Math.max(0.10,Math.min(2.00,v[58])):DEF_FE.settleTarget,
             dampCharMode:v.length>=60?(v[59]===1?'settle':'zeta'):DEF_FE.dampCharMode,
             arbBalTargetMode:v.length>=62?(v[61]===1?'grip':'manual'):'manual',
-            arbBalDelta:v.length>=63?v[62]:0};
+            arbBalDelta:v.length>=63?v[62]:0,
+            springShareAuto:v.length>=64?(v[63]!==0):true};
   const _fW=v.length>=43?v[42]:265,_rW=v.length>=44?v[43]:265;
   const _fA=v.length>=45?v[44]:35, _fR=v.length>=46?v[45]:18;
   const _rA=v.length>=47?v[46]:35, _rR=v.length>=48?v[47]:18;
@@ -1787,6 +1839,7 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       arbBalTarget:     cl(fe?.arbBalTarget,     0.40, 0.90, DEF_FE.arbBalTarget),
       arbBalMode:       ARB_BAL_MODE_DEC.includes(fe?.arbBalMode)?fe.arbBalMode:DEF_FE.arbBalMode,
       springShare:      cl(fe?.springShare,         0,  100, DEF_FE.springShare),
+      springShareAuto:  fe?.springShareAuto!==false,
       dampingBias:      cl(fe?.dampingBias,      -50,   50,  DEF_FE.dampingBias),
       targetSpeed:      cl(fe?.targetSpeed,       60,  200,  DEF_FE.targetSpeed),
       gameMode:         GAME_MODE_DEC.includes(fe?.gameMode)?fe.gameMode:DEF_FE.gameMode,
@@ -3647,7 +3700,7 @@ function App(){
               </div>
             </>}
             {(fe.arbBalMode??'weight')==='coSolve'&&<>
-              <div style={{display:'flex',gap:8,marginBottom:10}}>
+              <div style={{display:'flex',gap:8,marginBottom:6}}>
                 <div style={{flex:1,display:'flex',alignItems:'center',gap:8,
                              padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
                              border:'1px solid #1e293b'}}>
@@ -3665,11 +3718,38 @@ function App(){
                   </span>
                 </div>
               </div>
-              <FeelSlider label="SPRING SHARE" value={fe.springShare??50} onChange={pFe('springShare')}
-                min={0} max={100} leftLabel="ARB ONLY" rightLabel="SPRING ONLY"
-                markers={[{value:50,color:'#94a3b8',label:'50/50'}]}
-                readout={`SPR ${fe.springShare??50}% / ARB ${100-(fe.springShare??50)}%`}
-                hint="How much of the mechanical balance correction comes from rear spring stiffness vs ARB split. 0% = ARB handles all correction (rear Hz equals front Hz). 100% = springs handle all correction (ARB split near neutral). 50% = equal contribution from both."/>
+              {tune.coSolveSpCorr!=null&&<div style={{display:'flex',gap:8,marginBottom:6}}>
+                <div style={{flex:1,display:'flex',alignItems:'center',gap:8,
+                             padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
+                             border:'1px solid #1e293b'}}>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>SPR CORR</span>
+                  <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
+                    {(tune.coSolveSpCorr>=0?'+':'')+tune.coSolveSpCorr.toFixed(3)}
+                  </span>
+                </div>
+                <div style={{flex:1,display:'flex',alignItems:'center',gap:8,
+                             padding:'6px 10px',background:'#0a0f1a',borderRadius:2,
+                             border:'1px solid #1e293b'}}>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ARB CORR</span>
+                  <span style={{fontFamily:'Courier New',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>
+                    {(tune.coSolveAbCorr>=0?'+':'')+tune.coSolveAbCorr.toFixed(3)}
+                  </span>
+                </div>
+              </div>}
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>SPRING SHARE</span>
+                <button className={`tog${(fe.springShareAuto!==false)?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,springShareAuto:!(p.springShareAuto!==false)}))}>AUTO</button>
+              </div>
+              <div style={(fe.springShareAuto!==false)?{opacity:0.45,pointerEvents:'none'}:{}}>
+                <FeelSlider label=""
+                  value={(fe.springShareAuto!==false)?(tune.coSolveAutoS??50):(fe.springShare??50)}
+                  onChange={pFe('springShare')}
+                  min={0} max={100} leftLabel="ARB ONLY" rightLabel="SPRING ONLY"
+                  markers={[{value:50,color:'#94a3b8',label:'50/50'}]}
+                  readout={`SPR ${(fe.springShareAuto!==false)?(tune.coSolveAutoS??50):(fe.springShare??50)}% / ARB ${100-((fe.springShareAuto!==false)?(tune.coSolveAutoS??50):(fe.springShare??50))}%`}
+                  hint="How much of the mechanical balance correction comes from rear spring stiffness vs ARB split. AUTO finds the split that equalises spring and ARB utilisation — recommended for most builds. Disable AUTO to set manually."/>
+              </div>
             </>}
             {(fe.arbBalMode??'weight')==='man'&&<>
               <div style={{display:'flex',gap:6,marginBottom:10}}>
@@ -4112,7 +4192,11 @@ function App(){
                  border:'1px solid #f9731633'}}>
               Mech balance target ({(fe.arbBalTarget??0.65).toFixed(2)}) couldn't be reached —
               achieved {tune.mechBalance.toFixed(2)}.{(fe.arbMode??'auto')==='share'
-                ?' ARB Share % limits the total ARB budget — increase Spring Share so CO-SOLVE contributes more spring correction, or raise ARB Share % to give the bars more range.'
+                ?((fe.arbBalMode??'weight')==='coSolve'&&fe.springShareAuto!==false
+                  ?' ARB Share % limits the total ARB budget — disable AUTO and increase Spring Share to let CO-SOLVE contribute more correction from springs.'
+                  :(fe.arbBalMode??'weight')==='coSolve'
+                  ?' ARB Share % limits the total ARB budget — increase Spring Share so CO-SOLVE contributes more spring correction, or raise ARB Share % to give the bars more range.'
+                  :' ARB Share % limits the total ARB budget — raise ARB Share % to give the bars more range.')
                 :' ARB floor/ceiling limits prevented the required front/rear split. Widen the ARB range or reduce the balance target.'}
             </div>}
           </Card>
@@ -4133,6 +4217,14 @@ function App(){
                  marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
                  border:'1px solid #f5a62333'}}>
               Rear Hz capped at 1.6× front ({tune.rHz.toFixed(2)} Hz). Raise Target Speed or increase Ride Stiffness to bring the natural ratio within range.
+            </div>}
+            {tune.coSolveLiftRisk&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
+                 marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
+                 border:'1px solid #f5a62333'}}>
+              Rear springs are significantly stiffer than front ({tune.rHz.toFixed(2)} vs {tune.fHz.toFixed(2)} Hz).
+              Stiff rear springs reduce droop travel and can cause inside rear wheel lift under hard cornering.
+              {(fe.springShareAuto!==false)?' Lower the mech balance target or switch to MECH mode to decouple spring Hz from balance.'
+                :' Lower Spring Share or enable AUTO to let ARBs carry more of the balance correction.'}
             </div>}
           </Card>
           </div>

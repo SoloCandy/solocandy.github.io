@@ -35,7 +35,7 @@ A **BEG / INT / PRO** toggle in the header controls how much of the input surfac
 |---|---|
 | **BEG** | Layout, build type (Street / Track / Drift / Rally / Offroad / Drag), weight, and front bias plus three feel sliders (Ride Stiffness, Balance, Character). Factory presets provide build-appropriate starting points. ARB balance is set automatically for your layout and build type. |
 | **INT** | All BEG inputs plus ARB modes (AUTO / ROLL / SHARE) with ARB Bias, individual ride frequency and damping controls (including SETTLE TIME mode — set a target settle time and ζ is back-calculated per axle), drivetrain intent sliders, and a **Diff Type** selector (Race / Sport / Rally / Offroad / Drift) with per-type output scaling and recommended type based on build. ARB balance is fixed to WEIGHT distribution. |
-| **PRO** | All INT inputs plus tyre sizes, balance guide, chassis balance / grip bias / stability readouts, geometry gap, Mech Balance Target slider, ARB balance modes (WEIGHT / MECH / CO-SOLVE / MAN), Hz MECH mode, full chassis geometry (wheelbase, track widths, CG height), per-wheel load transfer readouts, differential MANUAL mode with MATCH CHASSIS, and **measured natural balance** calibration (enter an in-game reading to replace the geometry prediction as the solver baseline). |
+| **PRO** | All INT inputs plus tyre sizes, balance guide, chassis balance / grip bias / stability readouts, geometry gap, Mech Balance Target slider, ARB balance modes (WEIGHT / MECH / CO-SOLVE / MAN), Hz MECH mode, full chassis geometry (wheelbase, track widths, CG height), per-wheel load transfer readouts, differential MANUAL mode with MATCH CHASSIS, and **measured natural balance** calibration (enter an in-game reading to replace the geometry prediction as the solver baseline). CO-SOLVE mode includes **Auto Spring Share** — automatically finds the spring/ARB split that equalises utilisation of both, with SPR CORR / ARB CORR readouts showing each source's contribution to the balance correction. A wheel lift warning appears when rear springs are ≥20% stiffer than front. |
 
 ---
 
@@ -77,7 +77,7 @@ The entire app is a single HTML file containing:
 - **Physics engine** — `flatRideRearHz`, `feelToPhysics`, `computeTune`, `computeAlignment`, `computeDiff`, `mechBalanceLLT` — pure JS, no React dependency
 - **React UI** — in-browser JSX transpilation via `@babel/standalone`
 - **Persistence** — `localStorage` via a custom `usePersist` hook; degrades gracefully in private browsing
-- **Share codec** — pipe-delimited numeric array, Base64-encoded (~210 chars, 58 values, fully backward-compatible — short legacy codes decode with new fields defaulted)
+- **Share codec** — pipe-delimited numeric array, Base64-encoded (~210 chars, 64 values, fully backward-compatible — short legacy codes decode with new fields defaulted)
 
 The physics functions are at the top of the `<script>` block and can be read, tested, or extracted independently. A standalone test suite is included in `tests.js` — run with `node tests.js`.
 
