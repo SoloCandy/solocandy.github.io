@@ -3222,27 +3222,36 @@ function App(){
             <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'},{value:'rally',label:'RALLY'},{value:'offroad',label:'OFFROAD'},{value:'drag',label:'DRAG'}]}
               hint="Determines your intended use. Shifts alignment targets, diff AUTO behaviour, diff type recommendation, brake balance, and the recommended Mech Balance Target range."/>
-            {uiMode==='pro'&&<>
-              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,marginTop:2}}>
-                <span style={{fontSize:13,color:'#94a3b8'}}>Balance Target</span>
-                <Hint text="Sets how the mech balance target is determined. TARGET: set the value manually — use the Balance Guide range as a reference. GRIP: auto-derives the target as the mirror of the car's natural grip bias (1 − natGripBalance), so the suspension directly counteracts the chassis's understeer or oversteer tendency. Use the Balance Offset slider to shift intentionally away from neutral."/>
-                <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
-                  <button className={`tog${(fe.arbBalTargetMode??'manual')==='manual'?' on':''}`}
-                    onClick={()=>setFe(p=>({...p,arbBalTargetMode:'manual'}))}>TARGET</button>
-                  <button className={`tog${(fe.arbBalTargetMode??'manual')==='grip'?' on':''}`}
-                    onClick={()=>setFe(p=>({...p,arbBalTargetMode:'grip'}))}>GRIP</button>
+            {uiMode==='pro'&&(()=>{
+              const _hasMechTarget=(fe.arbBalMode??'weight')==='mech'||(fe.arbBalMode??'weight')==='coSolve';
+              if(!_hasMechTarget)return(
+                <div style={{fontSize:11,color:'#64748b',lineHeight:1.5,background:'#0a0f1a',
+                             border:'1px solid #1e293b',borderRadius:2,padding:'8px 10px',marginBottom:2}}>
+                  Balance Target only applies in MECH or CO-SOLVE ARB mode (set below in ANTI-ROLL BARS) — those are the modes that solve toward a target. WEIGHT and MAN don't target a balance, so the BALANCE GUIDE below shows your car's current achieved balance instead.
                 </div>
-              </div>
-              {(fe.arbBalTargetMode??'manual')==='manual'
-                ?<Field label="Mech Balance Target" value={Math.round(((fe.arbBalTarget??natMechBalance)-natMechBalance)*100)/100}
-                    onChange={v=>pFe('arbBalTarget')(Math.round((natMechBalance+v)*100)/100)}
-                    min={Math.round((0.40-natMechBalance)*100)/100} max={Math.round((0.90-natMechBalance)*100)/100} step={0.01} unit="from NAT"
-                    hint="Deviation from the chassis natural roll balance. 0 = target the natural balance exactly — no ARB correction needed. Positive = rear-biased from natural (oversteer tendency). Negative = front-biased from natural (understeer tendency). The BALANCE GUIDE shows the recommended range for your drivetrain and build type as deltas from NAT — use those as your reference. MECH and CO-SOLVE modes solve springs and ARBs to hit this target exactly. FH6 surfaces Mech Balance in-game so you can verify the result directly."/>
-                :<Field label="Balance Offset" value={fe.arbBalDelta??0} onChange={pFe('arbBalDelta')}
-                    min={-0.20} max={0.20} step={0.01}
-                    hint="Offset from the grip-neutralising target. 0 = mech balance exactly opposes the car's natural grip tendency for neutral at-limit handling. Positive = more rear bias (oversteer tendency). Negative = more front bias (understeer tendency). The derived target is shown in the balance guide below."/>
-              }
-            </>}
+              );
+              return(<>
+                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,marginTop:2}}>
+                  <span style={{fontSize:13,color:'#94a3b8'}}>Balance Target</span>
+                  <Hint text="Sets how the mech balance target is determined. TARGET: set the value manually — use the Balance Guide range as a reference. GRIP: auto-derives the target as the mirror of the car's natural grip bias (1 − natGripBalance), so the suspension directly counteracts the chassis's understeer or oversteer tendency. Use the Balance Offset slider to shift intentionally away from neutral."/>
+                  <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
+                    <button className={`tog${(fe.arbBalTargetMode??'manual')==='manual'?' on':''}`}
+                      onClick={()=>setFe(p=>({...p,arbBalTargetMode:'manual'}))}>TARGET</button>
+                    <button className={`tog${(fe.arbBalTargetMode??'manual')==='grip'?' on':''}`}
+                      onClick={()=>setFe(p=>({...p,arbBalTargetMode:'grip'}))}>GRIP</button>
+                  </div>
+                </div>
+                {(fe.arbBalTargetMode??'manual')==='manual'
+                  ?<Field label="Mech Balance Target" value={Math.round(((fe.arbBalTarget??natMechBalance)-natMechBalance)*100)/100}
+                      onChange={v=>pFe('arbBalTarget')(Math.round((natMechBalance+v)*100)/100)}
+                      min={Math.round((0.40-natMechBalance)*100)/100} max={Math.round((0.90-natMechBalance)*100)/100} step={0.01} unit="from NAT"
+                      hint="Deviation from the chassis natural roll balance. 0 = target the natural balance exactly — no ARB correction needed. Positive = rear-biased from natural (oversteer tendency). Negative = front-biased from natural (understeer tendency). The BALANCE GUIDE shows the recommended range for your drivetrain and build type as deltas from NAT — use those as your reference. MECH and CO-SOLVE modes solve springs and ARBs to hit this target exactly. FH6 surfaces Mech Balance in-game so you can verify the result directly."/>
+                  :<Field label="Balance Offset" value={fe.arbBalDelta??0} onChange={pFe('arbBalDelta')}
+                      min={-0.20} max={0.20} step={0.01}
+                      hint="Offset from the grip-neutralising target. 0 = mech balance exactly opposes the car's natural grip tendency for neutral at-limit handling. Positive = more rear bias (oversteer tendency). Negative = more front bias (understeer tendency). The derived target is shown in the balance guide below."/>
+                }
+              </>);
+            })()}
             {(()=>{
               if(uiMode!=='pro')return null;
               const _layout=dr.layout??'RWD';
@@ -3257,7 +3266,9 @@ function App(){
               const _hi=Math.max(_lo+0.03,Math.min(0.90,natMechBalance+_dhi));
               const _MIN=0.20,_RNG=0.70;
               const _pct=v=>Math.max(0,Math.min(100,(v-_MIN)/_RNG*100));
-              const _cur=feEffective.arbBalTarget??natMechBalance;
+              const _hasMechTarget=(fe.arbBalMode??'weight')==='mech'||(fe.arbBalMode??'weight')==='coSolve';
+              const _cur=_hasMechTarget?(feEffective.arbBalTarget??natMechBalance):tune.mechBalance;
+              const _curLabel=_hasMechTarget?'TARGET':'CURRENT';
               const _inRange=_cur>=_lo&&_cur<=_hi;
               const _tc=_inRange?'#4ade80':_cur>_hi?'#f97316':'#60a5fa';
               return(
@@ -3266,7 +3277,7 @@ function App(){
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                     <span style={{display:'flex',alignItems:'center',gap:4}}>
                       <span style={{fontSize:11,color:'#94a3b8',letterSpacing:1}}>BALANCE GUIDE</span>
-                      <Hint text="NATURAL is your Δ=0 baseline — where the chassis sits from geometry and weight alone, with no spring or ARB correction. GRIP BIAS (▲) is the car's at-limit lateral grip balance at that natural point, computed from the LLT model: below 0.5 means the front reaches its grip limit first (understeer-prone), above 0.5 means the rear does (oversteer-prone). GRIP target mode mirrors this value — targeting 1 − grip bias — so the suspension directly counteracts the chassis's natural tendency. RANGE shows how much oversteer bias (Δ from natural) is appropriate for this layout and build. TARGET (▼) shows how far you're deliberately pushing away from natural."/>
+                      <Hint text="NATURAL is your Δ=0 baseline — where the chassis sits from geometry and weight alone, with no spring or ARB correction. GRIP BIAS (▲) is the car's at-limit lateral grip balance at that natural point, computed from the LLT model: below 0.5 means the front reaches its grip limit first (understeer-prone), above 0.5 means the rear does (oversteer-prone). GRIP target mode mirrors this value — targeting 1 − grip bias — so the suspension directly counteracts the chassis's natural tendency. RANGE shows how much oversteer bias (Δ from natural) is appropriate for this layout and build. In MECH or CO-SOLVE ARB mode, TARGET (▼) shows how far you're deliberately pushing away from natural. In WEIGHT or MAN mode there's no target to solve toward, so this shows CURRENT — your car's actual achieved balance."/>
                     </span>
                     <span style={{fontSize:11,color:'#94a3b8'}}>{_layout} · {_build.toUpperCase()}</span>
                   </div>
@@ -3318,7 +3329,7 @@ function App(){
                       <span style={{fontFamily:'Courier New',fontSize:10,color:'#475569',letterSpacing:0.3}}>Δ+{_dlo.toFixed(2)} → +{_dhi.toFixed(2)}</span>
                     </span>
                     <span style={{fontSize:13,color:'#cbd5e1',display:'flex',alignItems:'center',gap:5,fontWeight:600}}>
-                      <span style={{display:'inline-block',width:0,height:0,borderLeft:'6px solid transparent',borderRight:'6px solid transparent',borderTop:`9px solid ${_tc}`,flexShrink:0}}/> TARGET
+                      <span style={{display:'inline-block',width:0,height:0,borderLeft:'6px solid transparent',borderRight:'6px solid transparent',borderTop:`9px solid ${_tc}`,flexShrink:0}}/> {_curLabel}
                     </span>
                     {(()=>{
                       const _d=_cur-natMechBalance;
