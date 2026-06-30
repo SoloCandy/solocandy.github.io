@@ -3205,17 +3205,27 @@ function App(){
                 </div>
               </div>
               {(fe.arbBalTargetMode??'manual')==='manual'
-                ?<Field label="Mech Balance Target" value={Math.round(((fe.arbBalTarget??natMechBalance)-natMechBalance)*100)/100}
+                ?<>
+                  <Field label="Mech Balance Target" value={Math.round(((fe.arbBalTarget??natMechBalance)-natMechBalance)*100)/100}
                     onChange={v=>pFe('arbBalTarget')(Math.round((natMechBalance+v)*100)/100)}
                     min={Math.round((0.40-natMechBalance)*100)/100} max={Math.round((0.90-natMechBalance)*100)/100} step={0.01} unit="from NAT"
                     hint="Deviation from the chassis natural roll balance. 0 = target the natural balance exactly — no ARB correction needed. Positive = rear-biased from natural (oversteer tendency). Negative = front-biased from natural (understeer tendency). The BALANCE GUIDE shows the recommended range for your drivetrain and build type as deltas from NAT — use those as your reference. MECH and CO-SOLVE modes solve springs and ARBs to hit this target exactly. FH6 surfaces Mech Balance in-game so you can verify the result directly."/>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:4,marginBottom:6}}>
+                    <span style={{fontSize:11,color:'#64748b',letterSpacing:1}}>MECH BALANCE</span>
+                    <span style={{fontFamily:'Courier New',fontSize:13,color:'#cbd5e1',fontWeight:600}}>{(fe.arbBalTarget??natMechBalance).toFixed(2)}</span>
+                  </div>
+                </>
                 :<>
                   <Field label="Balance Offset" value={fe.arbBalDelta??0} onChange={pFe('arbBalDelta')}
                     min={-0.20} max={0.20} step={0.01}
                     hint="Offset from the grip-neutralising target. 0 = mech balance exactly opposes the car's natural grip tendency for neutral at-limit handling. Positive = more rear bias (oversteer tendency). Negative = more front bias (understeer tendency). The derived target is shown below."/>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:4,marginBottom:6}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:4,marginBottom:2}}>
                     <span style={{fontSize:11,color:'#64748b',letterSpacing:1}}>TARGET OFFSET</span>
                     <span style={{fontFamily:'Courier New',fontSize:13,color:'#cbd5e1',fontWeight:600}}>{(gripBalTarget-natMechBalance>=0?'+':'')+(gripBalTarget-natMechBalance).toFixed(2)} <span style={{fontSize:10,color:'#64748b',fontWeight:400}}>from NAT</span></span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:2,marginBottom:6}}>
+                    <span style={{fontSize:11,color:'#64748b',letterSpacing:1}}>MECH BALANCE</span>
+                    <span style={{fontFamily:'Courier New',fontSize:13,color:'#cbd5e1',fontWeight:600}}>{gripBalTarget.toFixed(2)}</span>
                   </div>
                 </>
               }
