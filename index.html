@@ -1604,18 +1604,35 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
   );
 };
 
-const CheckerModal=({onClose,lim,metricUnits,ch,setCh,initialMode})=>{
+const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
   const[ckMode,setCkMode]=useState(initialMode??'decode');
   const[probeHz,setProbeHz]=useState(2.5);
   const[ckSpr,setCkSpr]=useState({f:400,r:300});
   const[ckDmp,setCkDmp]=useState({rebF:5,rebR:5,bumpF:3,bumpR:3});
-  const[ckW,setCkW]=useState(3200);
-  const[ckB,setCkB]=useState(52);
+  const[imported,setImported]=useState(false);
   const pS=k=>v=>setCkSpr(p=>({...p,[k]:v}));
   const pD=k=>v=>setCkDmp(p=>({...p,[k]:v}));
-  const masses=useMemo(()=>{const kg=ckW/KG_TO_LB;
-    return{front:(kg*(ckB/100))/2,rear:(kg*(1-ckB/100))/2};},[ckW,ckB]);
+  const masses=useMemo(()=>cornerMasses(ch),[ch]);
   const ck=useMemo(()=>computeCheck(ckSpr,ckDmp,masses),[ckSpr,ckDmp,masses]);
+  const importDecoded=()=>{
+    const hzF=Math.max(HZ_MIN,Math.min(HZ_MAX,ck.hF));
+    const hzR=Math.max(HZ_MIN,Math.min(HZ_MAX,ck.hR));
+    const mult=Math.max(0.5,Math.min(3.0,Math.round((hzR/hzF)*100)/100));
+    const domF=ck.zRebF>=ck.zRebR;
+    const domZ=domF?ck.zRebF:ck.zRebR,otherZ=domF?ck.zRebR:ck.zRebF;
+    const reboundZeta=Math.max(10,Math.min(115,Math.round(domZ)));
+    const ratio=domZ>0?otherZ/domZ:1;
+    const dampingBias=Math.max(-50,Math.min(50,Math.round(domF?200*(1-ratio):-200*(1-ratio))));
+    const domBumpZ=domF?ck.zBmpF:ck.zBmpR;
+    const bumpRatio=Math.max(10,Math.min(100,Math.round(reboundZeta>0?domBumpZ/reboundZeta*100:56)));
+    setFe(p=>({...p,
+      rideStiffness:Math.round(hzF*100)/100,
+      rearHzMode:'multiplier',rearHzMult:mult,
+      dampingMode:'ratio',dampCharMode:'zeta',settleMode:false,
+      reboundZeta,bumpRatio,dampingBias}));
+    setImported(true);
+    setTimeout(()=>setImported(false),2000);
+  };
   const probeMasses=useMemo(()=>cornerMasses(ch),[ch]);
   const probeRateF=useMemo(()=>(2*Math.PI*probeHz)**2*probeMasses.front/LB_IN_TO_NM,[probeHz,probeMasses]);
   const probeRateR=useMemo(()=>(2*Math.PI*probeHz)**2*probeMasses.rear /LB_IN_TO_NM,[probeHz,probeMasses]);
@@ -1640,13 +1657,13 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,initialMode})=>{
         </div>
         <div style={{padding:14}}>
           {ckMode==='decode'&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:10,marginBottom:10}}>
-            <Card title="VEHICLE MASS">
+            <Card title="VEHICLE MASS" hint="Synced with the CHASSIS Weight and Front Weight Bias fields in the sidebar — editing either place updates both.">
               <Field label="Weight"
-                value={metricUnits?ckW/KG_TO_LB:ckW}
-                onChange={metricUnits?v=>setCkW(v*KG_TO_LB):setCkW}
+                value={metricUnits?ch.weight/KG_TO_LB:ch.weight}
+                onChange={metricUnits?v=>setCh(p=>({...p,weight:v*KG_TO_LB})):v=>setCh(p=>({...p,weight:v}))}
                 min={metricUnits?45:100} max={metricUnits?8165:18000} step={1}
                 unit={metricUnits?'kg':'lb'} logScale={true} logMid={metricUnits?2722:6000}/>
-              <Field label="Front Bias" value={ckB} onChange={setCkB} min={30} max={70} step={1} unit="%"/>
+              <Field label="Front Bias" value={ch.frontBias} onChange={v=>setCh(p=>({...p,frontBias:v}))} min={30} max={70} step={1} unit="%"/>
               <Stat label="Corner mass front" value={masses.front} unit="kg"/>
               <Stat label="Corner mass rear" value={masses.rear} unit="kg"/>
             </Card>
@@ -1668,7 +1685,8 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,initialMode})=>{
               <Field label="Bump Front" value={ckDmp.bumpF} onChange={pD('bumpF')} min={1} max={lim.damping} step={0.1} unit={`/ ${lim.damping}`}/>
               <Field label="Bump Rear" value={ckDmp.bumpR} onChange={pD('bumpR')} min={1} max={lim.damping} step={0.1} unit={`/ ${lim.damping}`}/>
             </Card>
-            <Card title="DECODED TUNE" accent>
+            <Card title="DECODED TUNE" accent
+              hint="Best-effort import — the app's feel model uses a front Hz + rear multiplier and a rebound ζ + bias, so an exact front/rear damping split may not be reproduced precisely. Check the RIDE and DAMPERS sections after importing.">
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
                 <Readout label="Hz FRONT" value={ck.hF} unit="Hz"/>
                 <Readout label="Hz REAR" value={ck.hR} unit="Hz"/>
@@ -1677,13 +1695,15 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,initialMode})=>{
               <Stat label="Rebound ratio rear"  value={ck.zRebR} unit="%" decimals={1}/>
               <Stat label="Bump ratio front"    value={ck.zBmpF} unit="%" decimals={1}/>
               <Stat label="Bump ratio rear"     value={ck.zBmpR} unit="%" decimals={1}/>
+              <button className={`tbtn${imported?' saved':''}`} style={{width:'100%',marginTop:8,fontSize:10}}
+                onClick={importDecoded}>{imported?'IMPORTED ✓':'IMPORT?'}</button>
             </Card>
           </div>}
           {ckMode==='probe'&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:10,marginBottom:10}}>
             <Card title="HOW TO USE">
               <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.6}}>
                 <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>SETUP</div>
-                <div style={{marginBottom:8}}>Apply the spring and ARB values below to your car in Forza.</div>
+                <div style={{marginBottom:8}}>Apply the spring and ARB values shown in the setup to your car in Forza.</div>
                 <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>MEASURE</div>
                 <div style={{marginBottom:8}}>Open the tune menu and note the <span style={{color:'#e2e8f0'}}>Mech Balance</span> value.</div>
                 <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>RECORD</div>
@@ -2546,7 +2566,7 @@ function App(){
   const effZoom=isPhone?1:uiZoom;
   return(
     <div style={{display:'flex',flexDirection:'column',height:`calc(100dvh / ${effZoom})`,minHeight:'-webkit-fill-available',overflow:'hidden',zoom:effZoom}}>
-      {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits} ch={ch} setCh={setCh} initialMode={checkerInitMode}/>}
+      {showChecker&&<CheckerModal onClose={()=>setShowChecker(false)} lim={lim} metricUnits={metricUnits} ch={ch} setCh={setCh} setFe={setFe} initialMode={checkerInitMode}/>}
       {showResetModal&&(
         <div style={{position:'fixed',inset:0,background:'#000000cc',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
              onClick={()=>{setShowResetModal(false);setResetOpts({tune:true,tutorials:false});}}>
