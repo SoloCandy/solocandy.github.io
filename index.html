@@ -671,6 +671,7 @@ const computeTune=(ch,phys,gameMode)=>{
          bSp,bAb,bTot,mechBalance,gripBalance,
          rsSpF,rsSpR,rsAbF,rsAbR,
          balArbSplit:(arbBalMode==='mech'||arbBalMode==='coSolve')?Math.round(rF*100):null,
+         zetaF,zetaR,bumpZetaF,bumpZetaR,
          coSolveAutoS,coSolveSpCorr,coSolveAbCorr,coSolveLiftRisk};
 };
 
@@ -2411,8 +2412,8 @@ function App(){
   const brakePressure=br.brakeManual?(br.brakePressure??DEF_BR.brakePressure):100;
   // positive = oversteer, negative = understeer
   const bBrakeEntry=-(brakeBias-50)*BRAKE_BIAS_SCALE; // high front bias → understeer (−)
-  const effectiveAvgZeta=(physics.zetaF+physics.zetaR)/2||70;
-  const bDampBias=-(physics.zetaF-physics.zetaR)*16/effectiveAvgZeta; // more front rebound → understeer (−)
+  const effectiveAvgZeta=(tune.zetaF+tune.zetaR)/2||70;
+  const bDampBias=-(tune.zetaF-tune.zetaR)*16/effectiveAvgZeta; // more front rebound → understeer (−)
   const bTotFull=tune.bTot+diff.bDiffAccel+diff.bDiffDecel+bBrakeEntry+bDampBias;
   const recommendedDiffType=(()=>{
     const build=dr.buildType??'track';
@@ -2426,10 +2427,10 @@ function App(){
     // Agility = transient response character: how quickly and freely the car responds to steering inputs.
     // ARBs and weight bias are excluded — they govern roll moment distribution (Handling Balance bar),
     // not response speed. Research (Milliken, OptimumG) confirms ARBs are a balance tool, not agility.
-    const fHzNorm=Math.min(1,Math.max(0,(physics.frontHz-HZ_MIN)/(HZ_MAX-HZ_MIN)));
-    const rHzNorm=Math.min(1,Math.max(0,(physics.rearHz-HZ_MIN)/(HZ_MAX-HZ_MIN)));
-    const dampFNorm=Math.min(1,Math.max(0,(physics.zetaF-10)/105));
-    const dampRNorm=Math.min(1,Math.max(0,(physics.zetaR-10)/105));
+    const fHzNorm=Math.min(1,Math.max(0,(tune.fHz-HZ_MIN)/(HZ_MAX-HZ_MIN)));
+    const rHzNorm=Math.min(1,Math.max(0,(tune.rHz-HZ_MIN)/(HZ_MAX-HZ_MIN)));
+    const dampFNorm=Math.min(1,Math.max(0,(tune.zetaF-10)/105));
+    const dampRNorm=Math.min(1,Math.max(0,(tune.zetaR-10)/105));
     // Toe range is -0.20° (toe-out, reactive) to +0.20° (toe-in, planted).
     // Old formula used a much wider range and only ever hit 0.20–0.47 of 0–1.
     const TOE_MIN=-0.20,TOE_MAX=0.20;
@@ -2564,10 +2565,10 @@ function App(){
       {showOscModal&&(()=>{
         const close=()=>setShowOscModal(false);
         const durSec=Math.min(4,Math.max(1.5,Math.max(tune.settle??2,tune.settleR??2)*1.8));
-        const fReb=physics.zetaF??physics.reboundZeta??70;
-        const fBmp=physics.bumpZetaF??physics.bumpZeta??39;
-        const rReb=physics.zetaR??physics.reboundZeta??70;
-        const rBmp=physics.bumpZetaR??physics.bumpZeta??39;
+        const fReb=tune.zetaF??physics.reboundZeta??70;
+        const fBmp=tune.bumpZetaF??physics.bumpZeta??39;
+        const rReb=tune.zetaR??physics.reboundZeta??70;
+        const rBmp=tune.bumpZetaR??physics.bumpZeta??39;
         const frontPts=computeOscillation(tune.fHz,fReb,fBmp,durSec);
         const rearPts =computeOscillation(tune.rHz,rReb,rBmp,durSec);
         const W=340,H=130,midY=65,yScale=52,xScale=W/durSec;
