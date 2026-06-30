@@ -3223,11 +3223,12 @@ function App(){
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'},{value:'rally',label:'RALLY'},{value:'offroad',label:'OFFROAD'},{value:'drag',label:'DRAG'}]}
               hint="Determines your intended use. Shifts alignment targets, diff AUTO behaviour, diff type recommendation, brake balance, and the recommended Mech Balance Target range."/>
             {uiMode==='pro'&&(()=>{
-              const _hasMechTarget=(fe.arbBalMode??'weight')==='mech'||(fe.arbBalMode??'weight')==='coSolve';
+              const _hasMechTarget=(fe.arbBalMode??'weight')==='mech'||(fe.arbBalMode??'weight')==='coSolve'
+                ||((fe.arbBalMode??'weight')==='man'&&(fe.rearHzMode??'flatRide')==='mech');
               if(!_hasMechTarget)return(
                 <div style={{fontSize:11,color:'#64748b',lineHeight:1.5,background:'#0a0f1a',
                              border:'1px solid #1e293b',borderRadius:2,padding:'8px 10px',marginBottom:2}}>
-                  Balance Target only applies in MECH or CO-SOLVE ARB mode (set below in ANTI-ROLL BARS) — those are the modes that solve toward a target. WEIGHT and MAN don't target a balance, so the BALANCE GUIDE below shows your car's current achieved balance instead.
+                  Balance Target only applies in MECH or CO-SOLVE ARB mode, or MAN ARB with MECH Hz mode (set below in ANTI-ROLL BARS / RIDE) — those are the combinations that solve toward a target. Otherwise nothing targets a balance, so the BALANCE GUIDE below shows your car's current achieved balance instead.
                 </div>
               );
               return(<>
@@ -3266,7 +3267,8 @@ function App(){
               const _hi=Math.max(_lo+0.03,Math.min(0.90,natMechBalance+_dhi));
               const _MIN=0.20,_RNG=0.70;
               const _pct=v=>Math.max(0,Math.min(100,(v-_MIN)/_RNG*100));
-              const _hasMechTarget=(fe.arbBalMode??'weight')==='mech'||(fe.arbBalMode??'weight')==='coSolve';
+              const _hasMechTarget=(fe.arbBalMode??'weight')==='mech'||(fe.arbBalMode??'weight')==='coSolve'
+                ||((fe.arbBalMode??'weight')==='man'&&(fe.rearHzMode??'flatRide')==='mech');
               const _cur=_hasMechTarget?(feEffective.arbBalTarget??natMechBalance):tune.mechBalance;
               const _curLabel=_hasMechTarget?'TARGET':'CURRENT';
               const _inRange=_cur>=_lo&&_cur<=_hi;
