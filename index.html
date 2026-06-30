@@ -2721,36 +2721,7 @@ function App(){
         </div>
         );
       })()}
-      {tutMode&&(()=>{
-        const stepMeta=TUTORIALS[tutMode]?.[tutStep];
-        if(stepMeta?.spotlight==='hamburger'){
-          // find ☰ button position for spotlight ring
-          const ham=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='☰');
-          const r=ham?ham.getBoundingClientRect():null;
-          const cx=r?Math.round(r.left+r.width/2):28;
-          const cy=r?Math.round(r.top+r.height/2):21;
-          const PAD=14;
-          return ReactDOM.createPortal(
-            <div style={{position:'fixed',inset:0,zIndex:690,pointerEvents:'none'}}>
-              {/* dark overlay — SVG with cutout circle via mask */}
-              <svg width="100%" height="100%" style={{position:'absolute',inset:0}}>
-                <defs>
-                  <mask id="spotlight-mask">
-                    <rect width="100%" height="100%" fill="white"/>
-                    <circle cx={cx} cy={cy} r={Math.max(r?r.width:24,24)/2+PAD} fill="black"/>
-                  </mask>
-                </defs>
-                <rect width="100%" height="100%" fill="#000" opacity="0.62" mask="url(#spotlight-mask)"/>
-                {/* highlight ring */}
-                <circle cx={cx} cy={cy} r={Math.max(r?r.width:24,24)/2+PAD}
-                  fill="none" stroke="#6366f1" strokeWidth="2" opacity="0.9"/>
-              </svg>
-            </div>,
-            document.body
-          );
-        }
-        return null;
-      })()}
+
       {tutMode&&<TutorialPanel mode={tutMode} step={tutStep}
         onNext={()=>setTutStep(s=>Math.min(s+1,(TUTORIALS[tutMode]?.length??1)-1))}
         onPrev={()=>setTutStep(s=>Math.max(s-1,0))}
@@ -4196,7 +4167,7 @@ function App(){
                 ?`${_prefix} Camber targets ${_camberStr} dynamic at ${tune.rollDeg.toFixed(1)}° roll. Front toe-out for turn-in, rear toe-in for stability.`
                 :`${_prefix} Camber targets ${_camberStr} dynamic at ${tune.rollDeg.toFixed(1)}° roll. Front toe-out for turn-in, rear toe-in scaled to center bias.`;
             })()}>
-            {uiMode==='beginner'&&<div style={{fontSize:9,color:'#334155',letterSpacing:1,marginBottom:6}}>FORZA: Tuning → Alignment</div>}
+
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:4}}>
               <Readout label="CAMBER F" value={align.recCamberF} unit="°" decimals={1} primary/>
               <Readout label="CAMBER R" value={align.recCamberR} unit="°" decimals={1} primary/>
@@ -4210,7 +4181,7 @@ function App(){
           <div style={{display:'grid',gridTemplateColumns:windowWidth<900?'1fr':'1fr 1fr',gap:6,marginBottom:6}}>
           <Card title="ANTI-ROLL BARS" accent
             hint="Click values to enter in the ARB tuning menu. Roll angle and ARB share are shown in the ANTI-ROLL BARS section of inputs. Amber warn when above 88% of the game limit.">
-            {uiMode==='beginner'&&<div style={{fontSize:9,color:'#334155',letterSpacing:1,marginBottom:6}}>FORZA: Tuning → Anti-Roll Bars</div>}
+
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               <Readout label="FRONT" value={tune.arbF} warn={tune.arbF>lim.arb*0.88}
                 unit={`/ ${lim.arb}`} ctx={arbCtx(tune.arbF,lim.arb)} primary/>
@@ -4241,7 +4212,7 @@ function App(){
 
           <Card title="SPRINGS" accent
             hint="Spring rates in lb/in to enter in the tuning menu. The badge shows the frequency category — SOFT/ROAD/FIRM/RACE. Hz values are shown in the FEEL section of inputs.">
-            {uiMode==='beginner'&&<div style={{fontSize:9,color:'#334155',letterSpacing:1,marginBottom:6}}>FORZA: Tuning → Suspension</div>}
+
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               <Readout label="FRONT"
                 value={metricUnits?tune.springF*NMM_PER_LBIN:tune.springF}
@@ -4271,7 +4242,7 @@ function App(){
           {/* 4 — DAMPERS */}
           <Card title="DAMPERS" accent
             hint="Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in the damping tuning menu. Amber warn when above 88% of the game limit. F/R balance is preserved — if either end exceeds the limit, both are scaled proportionally so the ratio is maintained.">
-            {uiMode==='beginner'&&<div style={{fontSize:9,color:'#334155',letterSpacing:1,marginBottom:6}}>FORZA: Tuning → Suspension</div>}
+
             <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'1fr 1fr 1fr 1fr',gap:4}}>
               <Readout label="REB F"  value={tune.rebF}  warn={tune.rebF>lim.damping*0.88}  unit={`/ ${lim.damping}`} primary/>
               <Readout label="REB R"  value={tune.rebR}  warn={tune.rebR>lim.damping*0.88}  unit={`/ ${lim.damping}`} primary/>
@@ -4289,7 +4260,7 @@ function App(){
           {/* 5 — BRAKES */}
           <Card title="BRAKES"
             hint="Brake balance and pressure starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. The recommendation accounts for forward weight transfer under braking (CG height and wheelbase) and is always front-biased relative to your weight distribution. Fine-tune in 1% steps by feel.">
-            {uiMode==='beginner'&&<div style={{fontSize:9,color:'#334155',letterSpacing:1,marginBottom:6}}>FORZA: Tuning → Braking</div>}
+
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               <Readout label="BALANCE" value={brakeBias} unit="% F"                ctx={brakeBias>55?['FRONT','#3b82f6']:brakeBias<50?['REAR','#ef4444']:['NEUTRAL','#cbd5e1']}/>
               <Readout label="PRESSURE" value={brakePressure} unit="%" decimals={0}/>
@@ -4303,7 +4274,7 @@ function App(){
               :diff.layout==='RWD'
               ?'Starting point — fine-tune by feel in 1% steps. Accel lock aids exit rotation. Decel low for better corner entry; raise for stability under lift-off.'
               :`Starting point — fine-tune by feel in 1% steps. Front decel at 0 minimises entry understeer. Rear decel low for rotation. Center ${diff.center}% rear.`}>
-            {uiMode==='beginner'&&<div style={{fontSize:9,color:'#334155',letterSpacing:1,marginBottom:6}}>FORZA: Tuning → Differential</div>}
+
             {uiMode!=='beginner'&&<div style={{fontSize:10,color:'#334155',letterSpacing:1,marginBottom:6,textAlign:'right'}}>{({race:'RACE',sport:'SPORT',rally:'RALLY',offroad:'OFFROAD',drift:'DRIFT'})[dr.diffType??'race']??'RACE'} DIFF</div>}
             {diff.layout==='AWD'?(
               <>
