@@ -909,7 +909,6 @@ const DEF_DR={layout:'RWD',buildType:'track',diffType:'race',
               diffRearAccel:48,diffRearDecel:8,diffCenter:65};
 const DEF_AL={alignManual:false,
               camberF:-2.3,camberR:-1.8,toeF:-0.1,toeR:0.1,caster:5.5};
-const DEF_BR={brakeManual:false,brakeBias:50,brakePressure:100};
 const BRAKE_BIAS_SCALE=0.20;
 
 const PRESET_SAVES=(()=>{
@@ -1764,92 +1763,122 @@ const LAYOUT_DEC=['FWD','RWD','AWD'];
 const BUILD_ENC={'street':0,'track':1,'drift':2,'rally':3,'offroad':4,'drag':5};
 const BUILD_DEC=['street','track','drift','rally','offroad','drag'];
 
-const encodeTune=(ch,fe,dr,br)=>{
-  const arr=[
-    ch.weight,ch.frontBias,ch.wheelbase,ch.cgHeight,ch.trackF,ch.trackR,1,1, // [6,7] legacy motionRatioF/R — reserved placeholders, no longer used
+// ── Share codec ──────────────────────────────────────────────────────────
+// Single source of truth: each live field is one entry below (stable id,
+// never reassigned once shipped — retire dead ids by deleting the entry,
+// never reuse the number). encodeTune/decodeTune are generic loops over
+// this table, so adding a field later never touches existing codes or
+// requires a length guard — codes are sparse "id:value" pairs, defaults
+// are omitted, and unknown ids are ignored on decode (forward-compatible).
+const CODEC_VERSION=1;
+const DEF_GROUPS={ch:DEF_CH,fe:DEF_FE,dr:DEF_DR};
+const CODEC_FIELDS=[
+  {id:1, group:'ch',key:'weight'},
+  {id:2, group:'ch',key:'frontBias'},
+  {id:3, group:'ch',key:'wheelbase'},
+  {id:4, group:'ch',key:'cgHeight'},
+  {id:5, group:'ch',key:'trackF'},
+  {id:6, group:'ch',key:'trackR'},
+  {id:7, group:'fe',key:'rideStiffness'},
+  {id:8, group:'fe',key:'arbBias'},
+  {id:9, group:'fe',key:'targetSpeed'},
+  {id:10,group:'fe',key:'gameMode',enc:GAME_MODE_ENC,dec:GAME_MODE_DEC},
+  {id:11,group:'fe',key:'dampingMode',enc:DAMPING_MODE_ENC,dec:DAMPING_MODE_DEC},
+  {id:12,group:'fe',key:'reboundZeta'},
+  {id:13,group:'fe',key:'bumpRatio'},
+  {id:14,group:'fe',key:'bumpZeta'},
+  {id:15,group:'fe',key:'arbMode',enc:ARB_MODE_ENC,dec:ARB_MODE_DEC},
+  {id:16,group:'fe',key:'arbTargetRollMan'},
+  {id:17,group:'fe',key:'arbShareMan'},
+  {id:18,group:'dr',key:'layout',enc:LAYOUT_ENC,dec:LAYOUT_DEC},
+  {id:19,group:'dr',key:'buildType',enc:BUILD_ENC,dec:BUILD_DEC},
+  {id:20,group:'dr',key:'diffManual',bool:true},
+  {id:21,group:'dr',key:'diffBiasExit'},
+  {id:22,group:'dr',key:'diffAccel'},
+  {id:23,group:'dr',key:'diffDecel'},
+  {id:24,group:'dr',key:'diffFrontAccel'},
+  {id:25,group:'dr',key:'diffFrontDecel'},
+  {id:26,group:'dr',key:'diffRearAccel'},
+  {id:27,group:'dr',key:'diffRearDecel'},
+  {id:28,group:'dr',key:'diffCenter'},
+  {id:29,group:'dr',key:'diffBiasEntry'},
+  {id:30,group:'fe',key:'rearHzMode',enc:REAR_HZ_MODE_ENC,dec:REAR_HZ_MODE_DEC},
+  {id:31,group:'fe',key:'rearHzMan'},
+  {id:32,group:'fe',key:'rearHzMult'},
+  {id:33,group:'fe',key:'dampingBias'},
+  {id:34,tyre:'F',part:'width',def:265},
+  {id:35,tyre:'R',part:'width',def:265},
+  {id:36,tyre:'F',part:'aspectRatio',def:35},
+  {id:37,tyre:'F',part:'rimDiameter',def:18},
+  {id:38,tyre:'R',part:'aspectRatio',def:35},
+  {id:39,tyre:'R',part:'rimDiameter',def:18},
+  {id:40,group:'fe',key:'arbBalTarget'},
+  {id:41,group:'fe',key:'arbBalMode',enc:ARB_BAL_MODE_ENC,dec:ARB_BAL_MODE_DEC},
+  {id:42,group:'dr',key:'diffFrontExitBias'},
+  {id:43,group:'fe',key:'springShare'},
+  {id:44,group:'fe',key:'rideRef',enc:RIDE_REF_ENC,dec:RIDE_REF_DEC},
+  {id:45,group:'dr',key:'diffComplement',bool:true},
+  {id:46,group:'fe',key:'arbManF'},
+  {id:47,group:'fe',key:'arbManR'},
+  {id:48,group:'fe',key:'settleBias'},
+  {id:49,group:'fe',key:'settleMode',bool:true},
+  {id:50,group:'fe',key:'settleTarget'},
+  {id:51,group:'fe',key:'dampCharMode',enc:{zeta:0,settle:1},dec:['zeta','settle']},
+  {id:52,group:'dr',key:'diffType',enc:DIFF_TYPE_ENC,dec:DIFF_TYPE_DEC},
+  {id:53,group:'fe',key:'arbBalTargetMode',enc:{manual:0,grip:1},dec:['manual','grip']},
+  {id:54,group:'fe',key:'arbBalDelta'},
+  {id:55,group:'fe',key:'springShareAuto',bool:true},
+  // Retired ids — never reuse: none yet (dead fields removed pre-v1 never had an id).
+];
+const codecFieldDefault=f=>f.tyre?f.def:DEF_GROUPS[f.group][f.key];
+const codecReadField=(src,f)=>{
+  if(f.tyre){
+    const t=parseTyre(f.tyre==='F'?src.ch.tyreF:src.ch.tyreR);
+    return t?.[f.part]??f.def;
+  }
+  return src[f.group][f.key];
+};
 
-    fe.rideStiffness,fe.arbBias??0,fe.targetSpeed,GAME_MODE_ENC[fe.gameMode]??0,
-    DAMPING_MODE_ENC[fe.dampingMode??'ratio']??0,fe.reboundZeta??70,fe.bumpRatio??56,fe.bumpZeta??39,
-    ARB_MODE_ENC[fe.arbMode??'auto']??0,fe.arbTargetRollMan??1.8,fe.arbShareMan??15,6,65, // [19,20] reserved — were arbFloor/arbCeil
-    LAYOUT_ENC[dr.layout]??1,BUILD_ENC[dr.buildType??'track']??1,dr.diffManual?1:0,
-    dr.diffBiasExit??0,dr.diffAccel??35,dr.diffDecel??10,
-    dr.diffFrontAccel??28,dr.diffFrontDecel??0,dr.diffRearAccel??48,dr.diffRearDecel??8,dr.diffCenter??65,
-    dr.diffBiasEntry??0,
-    (br?.brakeManual?1:0),br?.brakeBias??DEF_BR.brakeBias,br?.brakePressure??DEF_BR.brakePressure,
-    0,0, // [36,37] reserved — were aeroBalance / aeroEfficiency; kept as placeholders so downstream positions don't shift
-    REAR_HZ_MODE_ENC[fe.rearHzMode??'flatRide']??0,
-    fe.rearHzMan??1.5,
-    fe.rearHzMult??1.20,
-    fe.dampingBias??0,
-    ...(()=>{const f=parseTyre(ch.tyreF),r=parseTyre(ch.tyreR);
-      return[f?.width??265,r?.width??265,f?.aspectRatio??35,f?.rimDiameter??18,r?.aspectRatio??35,r?.rimDiameter??18];})(),
-    fe.arbBalTarget??DEF_FE.arbBalTarget,
-    ARB_BAL_MODE_ENC[fe.arbBalMode??'weight']??0,
-    dr.diffFrontExitBias??0,
-    fe.springShare??DEF_FE.springShare,
-    RIDE_REF_ENC[fe.rideRef??'front']??0,
-    (dr.diffComplement?1:0),
-    fe.arbManF??20,  // [54] MAN mode front ARB clicks
-    fe.arbManR??20,  // [55] MAN mode rear ARB clicks
-    fe.settleBias??0, // [56] settle time F/R bias
-    fe.settleMode?1:0, // [57] settle mode on/off
-    fe.settleTarget??0.80, // [58] settle time target (seconds)
-    fe.dampCharMode==='settle'?1:0, // [59] damping character mode (0=zeta, 1=settle)
-    DIFF_TYPE_ENC[dr.diffType??'race']??0, // [60] diff type
-    (fe.arbBalTargetMode??'manual')==='grip'?1:0, // [61] arbBalTargetMode (0=manual,1=grip)
-    fe.arbBalDelta??0,                            // [62] arbBalDelta
-    fe.springShareAuto!==false?1:0,              // [63] springShareAuto
-  ];
-  return btoa(arr.join('|'));
+const encodeTune=(ch,fe,dr)=>{
+  const src={ch,fe,dr};
+  const same=(a,b)=>typeof a==='number'&&typeof b==='number'?Math.abs(a-b)<1e-9:a===b;
+  const parts=[CODEC_VERSION];
+  for(const f of CODEC_FIELDS){
+    const enc=x=>f.enc?f.enc[x]:(f.bool?(x?1:0):x);
+    const raw=enc(codecReadField(src,f)), defRaw=enc(codecFieldDefault(f));
+    if(same(raw,defRaw))continue;
+    parts.push(`${f.id}:${raw}`);
+  }
+  return btoa(parts.join('|'));
 };
 
 const decodeTune=(code)=>{
-  const raw=atob(code.trim());
-  if(raw.startsWith('{')){
-    const{ch:ic,fe:ife,dr:idr,br:ibr}=JSON.parse(raw);
-    return{ch:ic,fe:ife,dr:idr,br:ibr};
+  const parts=atob(code.trim()).split('|');
+  const version=parseInt(parts[0],10);
+  if(version!==CODEC_VERSION)throw new Error('Outdated or invalid tune code — ask for a new one.');
+  const ch={},fe={},dr={};
+  const tyreParts={F:{},R:{}};
+  const dest=f=>f.group==='ch'?ch:f.group==='fe'?fe:dr;
+  for(const f of CODEC_FIELDS){
+    if(f.tyre)tyreParts[f.tyre][f.part]=f.def;
+    else dest(f)[f.key]=codecFieldDefault(f);
   }
-  const v=raw.split('|').map(Number);
-  const ch={weight:v[0],frontBias:v[1],wheelbase:v[2],cgHeight:v[3],trackF:v[4],trackR:v[5]}; // v[6],v[7] = legacy motionRatio slots, intentionally unread
-  const fe={rideStiffness:v[8],arbBias:v[9],targetSpeed:v[10],gameMode:GAME_MODE_DEC[v[11]]??'horizon',
-            dampingMode:DAMPING_MODE_DEC[v[12]]??'ratio',reboundZeta:v[13],bumpRatio:v[14],bumpZeta:v[15],
-            arbMode:ARB_MODE_DEC[v[16]]??'auto',arbTargetRollMan:v[17],arbShareMan:v[18], // v[19],v[20] = reserved (were arbFloor/arbCeil)
-            rearHzMode:v.length>=39?REAR_HZ_MODE_DEC[v[38]]??'flatRide':'flatRide',
-            rearHzMan:v.length>=40?v[39]:DEF_FE.rearHzMan,
-            rearHzMult:v.length>=41?v[40]:DEF_FE.rearHzMult,
-            dampingBias:v.length>=42?v[41]:0,
-            arbBalTarget:v.length>=49?v[48]:DEF_FE.arbBalTarget,
-            arbBalMode:v.length>=50?ARB_BAL_MODE_DEC[v[49]]??'weight':'weight',
-            springShare:v.length>=52?v[51]:DEF_FE.springShare,
-            rideRef:v.length>=53?RIDE_REF_DEC[v[52]]??'front':'front',
-            arbManF:v.length>=55?v[54]:20,
-            arbManR:v.length>=56?v[55]:20,
-            settleBias:v.length>=57?v[56]:0,
-            settleMode:v.length>=58?!!v[57]:false,
-            settleTarget:v.length>=59?Math.max(0.10,Math.min(2.00,v[58])):DEF_FE.settleTarget,
-            dampCharMode:v.length>=60?(v[59]===1?'settle':'zeta'):DEF_FE.dampCharMode,
-            arbBalTargetMode:v.length>=62?(v[61]===1?'grip':'manual'):'manual',
-            arbBalDelta:v.length>=63?v[62]:0,
-            springShareAuto:v.length>=64?(v[63]!==0):true};
-  const _fW=v.length>=43?v[42]:265,_rW=v.length>=44?v[43]:265;
-  const _fA=v.length>=45?v[44]:35, _fR=v.length>=46?v[45]:18;
-  const _rA=v.length>=47?v[46]:35, _rR=v.length>=48?v[47]:18;
-  ch.tyreF=`${_fW}/${_fA}R${_fR}`;
-  ch.tyreR=`${_rW}/${_rA}R${_rR}`;
-  const dr={layout:LAYOUT_DEC[v[21]]??'RWD',buildType:BUILD_DEC[v[22]]??'track',diffManual:v[23]===1,
-            diffBiasExit:v[24]??0,diffAccel:v[25],diffDecel:v[26],
-            diffFrontAccel:v[27],diffFrontDecel:v[28],diffRearAccel:v[29],diffRearDecel:v[30],diffCenter:v[31],
-            diffBiasEntry:v[32]??0,
-            diffFrontExitBias:v.length>=51?v[50]:DEF_DR.diffFrontExitBias,
-            diffComplement:v.length>=54?v[53]===1:false,
-            diffType:v.length>=61?(DIFF_TYPE_DEC[v[60]]??'race'):DEF_DR.diffType};
-  const br=v.length>=36
-    ?{brakeManual:v[33]===1,brakeBias:v[34],brakePressure:v[35]}
-    :{...DEF_BR};
-  return{ch,fe,dr,br};
+  for(let i=1;i<parts.length;i++){
+    const ci=parts[i].indexOf(':');
+    if(ci<0)continue;
+    const id=Number(parts[i].slice(0,ci)),raw=parts[i].slice(ci+1);
+    const f=CODEC_FIELDS.find(x=>x.id===id);
+    if(!f)continue; // unknown id (e.g. from a newer app version) — safely ignored
+    const val=f.enc?(f.dec[Number(raw)]??codecFieldDefault(f)):(f.bool?raw==='1':Number(raw));
+    if(f.tyre)tyreParts[f.tyre][f.part]=val;
+    else dest(f)[f.key]=val;
+  }
+  ch.tyreF=`${tyreParts.F.width}/${tyreParts.F.aspectRatio}R${tyreParts.F.rimDiameter}`;
+  ch.tyreR=`${tyreParts.R.width}/${tyreParts.R.aspectRatio}R${tyreParts.R.rimDiameter}`;
+  return{ch,fe,dr};
 };
 
-const sanitizeTune=({ch,fe,dr,br})=>{
+const sanitizeTune=({ch,fe,dr})=>{
   const n=(v,def)=>(typeof v==='number'&&isFinite(v))?v:def;
   const cl=(v,lo,hi,def)=>Math.max(lo,Math.min(hi,n(v,def)));
   return{
@@ -1890,6 +1919,8 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       settleBias:       cl(fe?.settleBias,        -50,   50,    0),
       settleTarget:     cl(fe?.settleTarget,      0.10,  2.00,  DEF_FE.settleTarget),
       dampCharMode:     fe?.dampCharMode==='settle'?'settle':'zeta',
+      arbBalTargetMode: ['manual','grip'].includes(fe?.arbBalTargetMode)?fe.arbBalTargetMode:DEF_FE.arbBalTargetMode,
+      arbBalDelta:      cl(fe?.arbBalDelta,       -0.20, 0.20, DEF_FE.arbBalDelta),
     },
     dr:{
       layout:         LAYOUT_DEC.includes(dr?.layout)?dr.layout:DEF_DR.layout,
@@ -1907,11 +1938,6 @@ const sanitizeTune=({ch,fe,dr,br})=>{
       diffRearAccel:  cl(dr?.diffRearAccel,   0,  100,  DEF_DR.diffRearAccel),
       diffRearDecel:  cl(dr?.diffRearDecel,   0,  100,  DEF_DR.diffRearDecel),
       diffCenter:     cl(dr?.diffCenter,      0,  100,  DEF_DR.diffCenter),
-    },
-    br:{
-      brakeManual:    typeof br?.brakeManual==='boolean'?br.brakeManual:br?.brakeManual===1,
-      brakeBias:      cl(br?.brakeBias,       45,  70,  DEF_BR.brakeBias),
-      brakePressure:  cl(br?.brakePressure,   50, 200,  DEF_BR.brakePressure),
     },
   };
 };
@@ -2218,7 +2244,6 @@ function App(){
   const[fe,setFe]=usePersist('suspos_fe_v8',DEF_FE);
   const[dr,setDr]=usePersist('suspos_dr_v8',DEF_DR);
   const[al,setAl]=usePersist('suspos_al_v2',DEF_AL);
-  const[br,setBr]=usePersist('suspos_br_v1',DEF_BR);
   const[metricUnits,setMetricUnits]=usePersist('suspos_units_v1',false);
   const[saves]=usePersist('suspos_saves_v9',PRESET_SAVES); // read-only: legacy slots, source for one-time MY BUILDS migration
   const[uiMode,setUiMode]=usePersist('suspos_uimode_v1','beginner');
@@ -2398,7 +2423,6 @@ function App(){
   const pFe=k=>v=>setFe(p=>({...p,[k]:v}));
   const pDr=k=>v=>setDr(p=>({...p,[k]:v}));
   const pAl=k=>v=>setAl(p=>({...p,[k]:v}));
-  const pBr=k=>v=>setBr(p=>({...p,[k]:v}));
   const tog=k=>()=>setOpen(p=>({...p,[k]:!p[k]}));
 
   // ─── Undo history ───────────────────────────────────────────────────────────
@@ -2410,7 +2434,7 @@ function App(){
     if(undoingRef.current){undoingRef.current=false;return;}
     clearTimeout(snapTimerRef.current);
     snapTimerRef.current=setTimeout(()=>{
-      const snap={ch,fe,dr,al,br};
+      const snap={ch,fe,dr,al};
       const hist=historyRef.current;
       if(hist.length>0&&JSON.stringify(hist[hist.length-1])===JSON.stringify(snap))return;
       hist.push(snap);
@@ -2418,7 +2442,7 @@ function App(){
       setHistLen(hist.length);
     },600);
     return()=>clearTimeout(snapTimerRef.current);
-  },[ch,fe,dr,al,br]); // eslint-disable-line
+  },[ch,fe,dr,al]); // eslint-disable-line
   const undo=()=>{
     const hist=historyRef.current;
     if(hist.length<2)return;
@@ -2426,7 +2450,7 @@ function App(){
     const prev=hist[hist.length-1];
     undoingRef.current=true;
     setHistLen(hist.length);
-    setCh(prev.ch);setFe(prev.fe);setDr(prev.dr);setAl(prev.al);setBr(prev.br);
+    setCh(prev.ch);setFe(prev.fe);setDr(prev.dr);setAl(prev.al);
   };
   const canUndo=histLen>=2;
 
@@ -2453,8 +2477,8 @@ function App(){
   const _brakeBuildMod={street:0,track:3,drift:-5,rally:0,offroad:-3,drag:-8}[dr.buildType??'track']??3;
   const _brakeGripAdj=uiMode==='pro'?Math.round((natGripBalance-0.5)*15):0;
   const recBrakeBias=Math.round(Math.max(50,Math.min(68,ch.frontBias+_brakeWtMod+_brakeBuildMod+_brakeGripAdj)));
-  const brakeBias=br.brakeManual?(br.brakeBias??DEF_BR.brakeBias):recBrakeBias;
-  const brakePressure=br.brakeManual?(br.brakePressure??DEF_BR.brakePressure):100;
+  const brakeBias=recBrakeBias;
+  const brakePressure=100;
   // positive = oversteer, negative = understeer
   const bBrakeEntry=-(brakeBias-50)*BRAKE_BIAS_SCALE; // high front bias → understeer (−)
   const effectiveAvgZeta=(tune.zetaF+tune.zetaR)/2||70;
@@ -2564,7 +2588,6 @@ function App(){
       setFe({...DEF_FE});
       setDr({...DEF_DR});
       setAl({...DEF_AL});
-      setBr({...DEF_BR});
     }
     if(resetOpts.tutorials)setTutSeen({beginner:false,intermediate:false,pro:false});
     setShowResetModal(false);
@@ -4618,8 +4641,7 @@ function App(){
             const sharePayload=encodeTune(
               shareSel.ch?ch:DEF_CH,
               shareSel.fe?fe:DEF_FE,
-              shareSel.dr?dr:DEF_DR,
-              DEF_BR
+              shareSel.dr?dr:DEF_DR
             );
             const doCopy=()=>{
               if(navigator.clipboard&&navigator.clipboard.writeText){
