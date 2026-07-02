@@ -492,12 +492,12 @@ const feelToPhysics=(ch,fe)=>{
   // coSolve overrides rearHz in computeTune via effectiveRHz; flat-ride fallthrough can
   // set rearHzClamped spuriously. mechBalClamped covers coSolve limits instead.
   if(arbBalModeEarly==='coSolve') rearHzClamped=false;
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,dampCharMode,settleTarget,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,springShare,springShareAuto:fe.springShareAuto!==false,arbManF:fe.arbManF,arbManR:fe.arbManR};
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,dampCharMode,settleTarget,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbBias:fe.arbBias??0,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,springShare,springShareAuto:fe.springShareAuto!==false,arbManF:fe.arbManF,arbManR:fe.arbManR};
 };
 
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
-  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF:zetaF0,zetaR:zetaR0,bumpZetaF:bumpZetaF0,bumpZetaR:bumpZetaR0,arbBalance,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,arbManF,arbManR}=phys;
+  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF:zetaF0,zetaR:zetaR0,bumpZetaF:bumpZetaF0,bumpZetaR:bumpZetaR0,arbBalance,arbBias,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,arbManF,arbManR}=phys;
   let zetaF=zetaF0,zetaR=zetaR0,bumpZetaF=bumpZetaF0,bumpZetaR=bumpZetaR0;
   // Tyre-width correction: Forza's mech balance display includes a small tyre-width contribution.
   // Pre-compensate the solve target so Forza reads the desired value after tuning.
@@ -612,6 +612,14 @@ const computeTune=(ch,phys,gameMode)=>{
     const _mechTgt=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr)); // pre-compensate for tyre-width offset
     _rsBalK=_mechTgt/(1-_mechTgt); // convert rsBalance to Kr/Kf ratio
     rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)-rsSpR)/(rsAbBudget*(1+_rsBalK))));
+  } else if(arbBalMode==='neutral'&&rsAbBudget>0){
+    // Solve the ARB F/R split so the ARBs' contribution to the balance bar exactly
+    // cancels the springs' contribution (bAb = -bSp). Both bSp and bAb share the same
+    // rsTotal denominator, so this collapses to one linear equation — see bSp/bAb below.
+    const nf0=ch.frontBias/100;
+    const rsAbF_target=nf0*(rsSp+rsAbBudget)-rsSpF;
+    const rF0=Math.max(0,Math.min(1,1-(rsAbF_target/rsAbBudget)));
+    rF=Math.max(0,Math.min(1,rF0+arbBias*0.004)); // ARB Bias nudges away from the solved centre
   }
   //
   const lightShare=Math.max(0.001,Math.min(rF,1-rF));          // smaller fraction (guard against div/0 at extremes)
@@ -655,6 +663,7 @@ const computeTune=(ch,phys,gameMode)=>{
   const mechBalance=Math.max(0,Math.min(1,rsBalance+tireCorr));    // tyre-width corrected: matches Forza's displayed mech balance
   const gripBalance=balanceFromRsBal(ch,rsBalance);                // physical at-limit balance from LLT model (informational)
   const mechBalClamped=(arbBalMode==='mech'||arbBalMode==='coSolve')&&Math.abs(mechBalance-arbBalTarget)>0.01;
+  const neutralClamped=arbBalMode==='neutral'&&(arbF<=1||arbF>=lim.arb||arbR<=1||arbR>=lim.arb);
   const settleF=zetaF>0?2.302/((zetaF/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn)
   const settleR=zetaR>0?2.302/((zetaR/100)*effectiveRHz*2*Math.PI):99;
   // CO-SOLVE contribution breakdown: how much of balance correction came from springs vs ARBs
@@ -666,11 +675,11 @@ const computeTune=(ch,phys,gameMode)=>{
          rebF:Math.round(rebF*10)/10,rebR:Math.round(rebR*10)/10,
          bumpF:Math.round(bumpF*10)/10,bumpR:Math.round(bumpR*10)/10,
          arbF,arbR,
-         fHz,rHz:effectiveRHz,settle:settleF,settleR,rollDeg,rollTarget:arbTargetRoll,rollClamped,mechBalClamped,dampingClamped,
+         fHz,rHz:effectiveRHz,settle:settleF,settleR,rollDeg,rollTarget:arbTargetRoll,rollClamped,mechBalClamped,neutralClamped,dampingClamped,
          arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
          bSp,bAb,bTot,mechBalance,gripBalance,
          rsSpF,rsSpR,rsAbF,rsAbR,
-         balArbSplit:(arbBalMode==='mech'||arbBalMode==='coSolve')?Math.round(rF*100):null,
+         balArbSplit:(arbBalMode==='mech'||arbBalMode==='coSolve'||arbBalMode==='neutral')?Math.round(rF*100):null,
          zetaF,zetaR,bumpZetaF,bumpZetaR,
          coSolveAutoS,coSolveSpCorr,coSolveAbCorr,coSolveLiftRisk};
 };
@@ -1754,8 +1763,8 @@ const REAR_HZ_MODE_ENC={'flatRide':0,'independent':1,'multiplier':2,'mech':3};
 const REAR_HZ_MODE_DEC=['flatRide','independent','multiplier','mech'];
 const ARB_MODE_ENC={'auto':0,'roll':1,'share':2};
 const ARB_MODE_DEC=['auto','roll','share','auto']; // index 3 was legacy 'balance' → auto
-const ARB_BAL_MODE_ENC={'weight':0,'mech':1,'coSolve':2,'man':3};
-const ARB_BAL_MODE_DEC=['weight','mech','coSolve','man'];
+const ARB_BAL_MODE_ENC={'weight':0,'mech':1,'coSolve':2,'man':3,'neutral':4};
+const ARB_BAL_MODE_DEC=['weight','mech','coSolve','man','neutral'];
 const RIDE_REF_ENC={'front':0,'rear':1,'shared':2};
 const RIDE_REF_DEC=['front','rear','shared'];
 const LAYOUT_ENC={'FWD':0,'RWD':1,'AWD':2};
@@ -3827,13 +3836,32 @@ function App(){
             <ArbDial arbF={tune.arbF} arbR={tune.arbR} arbLimit={lim.arb}
               rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}
               natBal={natMechBalance} target={fe.arbBalTarget??natMechBalance} rideRef={physics.rideRef}/>
-            {(fe.arbBalMode??'weight')==='weight'&&
-              <FeelSlider label="ARB Bias" value={fe.arbBias}
-                onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
-                markers={[{value:0,color:'#94a3b8',label:'NEUTRAL'}]}
-                hint="Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."
-                readout={`F ${Math.round((1-(physics.arbBalance/100))*100)}% / R ${Math.round(physics.arbBalance/100*100)}%`}/>
-            }
+            {((fe.arbBalMode??'weight')==='weight'||(fe.arbBalMode??'weight')==='neutral')&&(()=>{
+              const isNeutral=(fe.arbBalMode??'weight')==='neutral';
+              const splitPct=isNeutral?tune.balArbSplit:Math.round(physics.arbBalance/100*100);
+              return(<>
+                <FeelSlider label="ARB Bias" value={fe.arbBias}
+                  onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
+                  markers={[{value:0,color:'#94a3b8',label:'NEUTRAL'}]}
+                  hint={isNeutral
+                    ?"Nudges the ARB split away from the point that exactly cancels the springs' contribution to the balance bar. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) cancels the springs' bias."
+                    :"Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."}
+                  readout={`F ${100-splitPct}% / R ${splitPct}%`}/>
+                {isNeutral&&<div style={{display:'flex',alignItems:'center',gap:6,
+                             padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
+                             border:`1px solid ${tune.neutralClamped?'#f59e0b':'#1e293b'}`,marginBottom:6,marginTop:-6}}>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>SPRINGS</span>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#60a5fa'}}>{tune.bSp>=0?'+':''}{tune.bSp.toFixed(1)}</span>
+                  <span style={{fontSize:10,color:'#475569'}}>→</span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ARB</span>
+                  <span style={{fontFamily:'Courier New',fontSize:11,color:'#818cf8'}}>{tune.bAb>=0?'+':''}{tune.bAb.toFixed(1)}</span>
+                  <span style={{flex:1}}/>
+                  {tune.neutralClamped
+                    ?<span style={{fontSize:10,color:'#f59e0b',letterSpacing:0.5}}>⚠ ARB MAXED — CAN'T FULLY CANCEL</span>
+                    :<span style={{fontSize:10,color:'#4ade80',letterSpacing:0.5}}>NET {tune.bTot>=0?'+':''}{tune.bTot.toFixed(1)}</span>}
+                </div>}
+              </>);
+            })()}
 
             <div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
@@ -3895,12 +3923,15 @@ function App(){
               <Field label="ARB Share" value={fe.arbShareMan??15} onChange={pFe('arbShareMan')}
                 min={0} max={80} step={1} unit="%"
                 hint="Fraction of total roll stiffness supplied by ARBs. 0% = springs handle all roll resistance. 20–30% is typical sport. Higher = stiffer bars relative to springs, more abrupt load transfer."/>}
-            {uiMode==='pro'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10,marginTop:4}}>
+            {uiMode!=='beginner'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10,marginTop:4}}>
               <span style={{fontSize:12,color:'#94a3b8'}}>Balance Mode</span>
-              <Hint text="WEIGHT splits front/rear ARB from the car's weight distribution, adjusted by the ARB Bias slider. MAN lets you set front/rear ARB clicks directly for calibration testing. MECH solves the ARB split to hit the Mech Balance Target exactly. CO-SOLVE co-solves rear spring Hz and ARB split together."/>
+              <Hint text={`WEIGHT splits front/rear ARB from the car's weight distribution, adjusted by the ARB Bias slider. NEUTRAL solves the ARB split so it exactly cancels the springs' contribution to the balance bar, bringing the car back to neutral regardless of how the springs are set — ARB Bias nudges away from that neutral point.${uiMode==='pro'?' MAN lets you set front/rear ARB clicks directly for calibration testing. MECH solves the ARB split to hit the Mech Balance Target exactly. CO-SOLVE co-solves rear spring Hz and ARB split together.':''}`}/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${(fe.arbBalMode??'weight')==='weight'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('weight')}>WEIGHT</button>
+                <button className={`tog${(fe.arbBalMode??'weight')==='neutral'?' on':''}`}
+                  onClick={()=>pFe('arbBalMode')('neutral')}>NEUTRAL</button>
+                {uiMode==='pro'&&<>
                 <button className={`tog${(fe.arbBalMode??'weight')==='mech'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('mech')}>MECH</button>
                 <button className={`tog${(fe.arbBalMode??'weight')==='coSolve'?' on':''}`}
@@ -3911,6 +3942,7 @@ function App(){
                     const arbR=Math.round(tune.arbR*10)/10;
                     setFe(p=>({...p,arbBalMode:'man',arbManF:arbF,arbManR:arbR}));
                   }}>MAN</button>
+                </>}
               </div>
             </div>}
             {(fe.arbBalMode??'weight')==='mech'&&<>
