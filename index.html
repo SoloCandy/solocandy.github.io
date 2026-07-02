@@ -3923,10 +3923,12 @@ function App(){
               <Field label="ARB Share" value={fe.arbShareMan??15} onChange={pFe('arbShareMan')}
                 min={0} max={80} step={1} unit="%"
                 hint="Fraction of total roll stiffness supplied by ARBs. 0% = springs handle all roll resistance. 20–30% is typical sport. Higher = stiffer bars relative to springs, more abrupt load transfer."/>}
-            {uiMode!=='beginner'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10,marginTop:4}}>
-              <span style={{fontSize:12,color:'#94a3b8'}}>Balance Mode</span>
-              <Hint text={`WEIGHT splits front/rear ARB from the car's weight distribution, adjusted by the ARB Bias slider. NEUTRAL solves the ARB split so it exactly cancels the springs' contribution to the balance bar, bringing the car back to neutral regardless of how the springs are set — ARB Bias nudges away from that neutral point.${uiMode==='pro'?' MAN lets you set front/rear ARB clicks directly for calibration testing. MECH solves the ARB split to hit the Mech Balance Target exactly. CO-SOLVE co-solves rear spring Hz and ARB split together.':''}`}/>
-              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
+            {uiMode!=='beginner'&&<div style={{marginBottom:10,marginTop:4}}>
+              <span style={{fontSize:12,color:'#94a3b8',display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
+                Balance Mode
+                <Hint text={`WEIGHT splits front/rear ARB from the car's weight distribution, adjusted by the ARB Bias slider. NEUTRAL solves the ARB split so it exactly cancels the springs' contribution to the balance bar, bringing the car back to neutral regardless of how the springs are set — ARB Bias nudges away from that neutral point.${uiMode==='pro'?' MAN lets you set front/rear ARB clicks directly for calibration testing. MECH solves the ARB split to hit the Mech Balance Target exactly. CO-SOLVE co-solves rear spring Hz and ARB split together.':''}`}/>
+              </span>
+              <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
                 <button className={`tog${(fe.arbBalMode??'weight')==='weight'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('weight')}>WEIGHT</button>
                 <button className={`tog${(fe.arbBalMode??'weight')==='neutral'?' on':''}`}
