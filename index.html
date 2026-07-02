@@ -1669,6 +1669,10 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
               <Stat label="Corner mass front" value={masses.front} unit="kg"/>
               <Stat label="Corner mass rear" value={masses.rear} unit="kg"/>
             </Card>
+            <Card title="ARB INPUTS" hint="ARB clicks are entered directly — no conversion needed, same units as the in-game tune.">
+              <Field label="ARB Front" value={ckArb.f} onChange={pA('f')} min={1} max={lim.arb} step={0.1} unit={`/ ${lim.arb}`}/>
+              <Field label="ARB Rear" value={ckArb.r} onChange={pA('r')} min={1} max={lim.arb} step={0.1} unit={`/ ${lim.arb}`}/>
+            </Card>
             <Card title="SPRING INPUTS">
               <Field label="Spring Rate Front"
                 value={metricUnits?ckSpr.f*NMM_PER_LBIN:ckSpr.f}
@@ -1686,10 +1690,6 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
               <Field label="Rebound Rear" value={ckDmp.rebR} onChange={pD('rebR')} min={1} max={lim.damping} step={0.1} unit={`/ ${lim.damping}`}/>
               <Field label="Bump Front" value={ckDmp.bumpF} onChange={pD('bumpF')} min={1} max={lim.damping} step={0.1} unit={`/ ${lim.damping}`}/>
               <Field label="Bump Rear" value={ckDmp.bumpR} onChange={pD('bumpR')} min={1} max={lim.damping} step={0.1} unit={`/ ${lim.damping}`}/>
-            </Card>
-            <Card title="ARB INPUTS" hint="ARB clicks are entered directly — no conversion needed, same units as the in-game tune.">
-              <Field label="ARB Front" value={ckArb.f} onChange={pA('f')} min={1} max={lim.arb} step={0.1} unit={`/ ${lim.arb}`}/>
-              <Field label="ARB Rear" value={ckArb.r} onChange={pA('r')} min={1} max={lim.arb} step={0.1} unit={`/ ${lim.arb}`}/>
             </Card>
             <Card title="DECODED TUNE" accent
               hint="Best-effort import — the app's feel model uses a front Hz + rear multiplier and a rebound ζ + bias, so an exact front/rear damping split may not be reproduced precisely. ARB clicks are set directly (switches ANTI-ROLL BARS to MAN mode). Check the RIDE, DAMPERS, and ANTI-ROLL BARS sections after importing.">
