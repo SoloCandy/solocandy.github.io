@@ -473,10 +473,10 @@ const feelToPhysics=(ch,fe)=>{
       : Math.max(10,Math.min(zetaR,bumpZeta));
   }else{
     const dampingBias=fe.dampingBias??0;
-    zetaF=Math.max(10,Math.min(115,dampingBias>0?reboundZeta:reboundZeta*(1+dampingBias/200)));
-    zetaR=Math.max(10,Math.min(115,dampingBias<0?reboundZeta:reboundZeta*(1-dampingBias/200)));
-    bumpZetaF=Math.max(10,Math.min(115,dampingBias>0?bumpZeta:bumpZeta*(1+dampingBias/200)));
-    bumpZetaR=Math.max(10,Math.min(115,dampingBias<0?bumpZeta:bumpZeta*(1-dampingBias/200)));
+    zetaF=Math.max(10,Math.min(115,dampingBias>0?reboundZeta:reboundZeta*(1+dampingBias/100)));
+    zetaR=Math.max(10,Math.min(115,dampingBias<0?reboundZeta:reboundZeta*(1-dampingBias/100)));
+    bumpZetaF=Math.max(10,Math.min(115,dampingBias>0?bumpZeta:bumpZeta*(1+dampingBias/100)));
+    bumpZetaR=Math.max(10,Math.min(115,dampingBias<0?bumpZeta:bumpZeta*(1-dampingBias/100)));
   }
   const arbBalance=Math.max(20,Math.min(80,(100-ch.frontBias)+fe.arbBias*0.4));
   const arbMode=fe.arbMode??'auto';
@@ -632,7 +632,7 @@ const computeTune=(ch,phys,gameMode)=>{
     if(rsAbBudget>0){
       const rsAbF_target=nf0*(rsSp+rsAbBudget)-rsSpF;
       const rF0=Math.max(0,Math.min(1,1-(rsAbF_target/rsAbBudget)));
-      rF=Math.max(0,Math.min(1,rF0+arbBias*0.004)); // ARB Bias nudges away from the solved centre
+      rF=Math.max(0,Math.min(1,rF0+arbBias*0.01)); // ARB Bias shifts away from the solved centre — full range at the extremes
     }
   }
   //
@@ -3872,7 +3872,7 @@ function App(){
                   onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
                   markers={[{value:0,color:'#94a3b8',label:'NEUTRAL'}]}
                   hint={isNeutral
-                    ?"Nudges the ARB split away from the point that exactly cancels the springs' contribution to the balance bar. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) cancels the springs' bias."
+                    ?"Shifts the ARB split away from the point that exactly cancels the springs' contribution to the balance bar — at the extremes this can swing the split all the way to front-only or rear-only. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) cancels the springs' bias."
                     :"Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."}
                   readout={`F ${100-splitPct}% / R ${splitPct}%`}/>
                 {isNeutral&&<div style={{display:'flex',alignItems:'center',gap:6,
@@ -4400,7 +4400,7 @@ function App(){
                   leftLabel="FRONT" rightLabel="REAR"
                   markers={[{value:0,color:'#94a3b8',label:'EQUAL'}]}
                   readout={(()=>{const tot=physics.zetaF+physics.zetaR;const fP=tot>0?Math.round(physics.zetaF/tot*100):50;return`F ${fP} | ${100-fP} R`;})()}
-                  hint="Biases damping toward one axle by softening the opposite side. The biased axle stays at the base ζ; the other drops up to 25% at ±50. Front bias: rear gets softer — more rotation tendency, looser rear feel. Rear bias: front gets softer — more entry compliance, easier direction changes."/>}
+                  hint="Biases damping toward one axle by softening the opposite side. The biased axle stays at the base ζ; the other drops up to 50% at ±50. Front bias: rear gets softer — more rotation tendency, looser rear feel. Rear bias: front gets softer — more entry compliance, easier direction changes."/>}
             {(()=>{
               const biased=(fe.dampingBias??0)!==0||!!(fe.settleMode)||(fe.dampCharMode??'zeta')==='settle';
               const worst=Math.max(tune.settle,tune.settleR);
