@@ -250,7 +250,7 @@ const feelToPhysics=(ch,fe)=>{
   // Invert it so slider controls the user's chosen reference axle.
   if(arbBalModeEarly==='coSolve'&&uiRideRef!=='front'){
     const mc=cornerMasses(ch);
-    const abt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
+    const abt=Math.max(0.20,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
     // Match computeTune: subtract the same tyre-width correction so Kcs is consistent.
     const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
     const tireCorr=TIRE_MECH_SCALE*Math.log(twR/twF);
@@ -274,7 +274,7 @@ const feelToPhysics=(ch,fe)=>{
       rearHzClamped=false;
     } else if(rearHzMode==='mech'&&arbBalModeEarly!=='coSolve'){
       const m_m=cornerMasses(ch);
-      const arbBalTgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
+      const arbBalTgt=Math.max(0.20,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
       const rsBalTgt=Math.max(0.05,Math.min(0.95,arbBalTgt));         // arbBalTarget is the rsBalance target
       // Weight ARBs sit at the natural balance ratio and dilute the spring correction.
       // Solve springs to a higher ratio so combined (springs + weight ARBs) still hits rsBalTgt:
@@ -346,7 +346,7 @@ const feelToPhysics=(ch,fe)=>{
       secondaryHzClamped=false;
     } else if(rearHzMode==='mech'&&arbBalModeEarly!=='coSolve'){
       const m_m=cornerMasses(ch);
-      const arbBalTgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
+      const arbBalTgt=Math.max(0.20,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
       const rsBalTgt=Math.max(0.05,Math.min(0.95,arbBalTgt));         // arbBalTarget is the rsBalance target
       // Weight ARBs sit at the natural balance ratio and dilute the spring correction.
       // Solve springs to a higher ratio so combined (springs + weight ARBs) still hits rsBalTgt:
@@ -486,7 +486,7 @@ const feelToPhysics=(ch,fe)=>{
     ? Math.max(0.3,Math.min(5.0,fe.arbTargetRollMan))
     : 0;
   const arbShareMan=Math.max(0,Math.min(80,fe.arbShareMan??15));
-  const arbBalTarget=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
+  const arbBalTarget=Math.max(0.20,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
   const arbBalMode=ARB_BAL_MODE_DEC.includes(fe.arbBalMode)?fe.arbBalMode:'weight';
   const springShare=Math.max(0,Math.min(100,fe.springShare??50));
   // coSolve overrides rearHz in computeTune via effectiveRHz; flat-ride fallthrough can
@@ -612,14 +612,28 @@ const computeTune=(ch,phys,gameMode)=>{
     const _mechTgt=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr)); // pre-compensate for tyre-width offset
     _rsBalK=_mechTgt/(1-_mechTgt); // convert rsBalance to Kr/Kf ratio
     rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)-rsSpR)/(rsAbBudget*(1+_rsBalK))));
-  } else if(arbBalMode==='neutral'&&rsAbBudget>0){
+  } else if(arbBalMode==='neutral'){
     // Solve the ARB F/R split so the ARBs' contribution to the balance bar exactly
     // cancels the springs' contribution (bAb = -bSp). Both bSp and bAb share the same
     // rsTotal denominator, so this collapses to one linear equation — see bSp/bAb below.
     const nf0=ch.frontBias/100;
-    const rsAbF_target=nf0*(rsSp+rsAbBudget)-rsSpF;
-    const rF0=Math.max(0,Math.min(1,1-(rsAbF_target/rsAbBudget)));
-    rF=Math.max(0,Math.min(1,rF0+arbBias*0.004)); // ARB Bias nudges away from the solved centre
+    if(arbMode==='auto'){
+      // AUTO's natural-roll ARB budget can be too small (or force too extreme a split) to
+      // fully cancel the springs' bias. Expand the budget just past the point where the
+      // exact cancelling split becomes achievable. ROLL/SHARE budgets are explicit user
+      // choices and are left untouched — neutral only solves the best split within them.
+      const target=B=>nf0*(rsSp+B)-rsSpF;
+      const cur=target(rsAbBudget);
+      let bReq=null;
+      if(cur<0&&nf0>0) bReq=rsSpF/nf0-rsSp;
+      else if(cur>rsAbBudget&&nf0<1) bReq=(nf0*rsSp-rsSpF)/(1-nf0);
+      if(bReq!=null&&bReq>rsAbBudget) rsAbBudget=bReq*1.01; // small margin past the exact boundary
+    }
+    if(rsAbBudget>0){
+      const rsAbF_target=nf0*(rsSp+rsAbBudget)-rsSpF;
+      const rF0=Math.max(0,Math.min(1,1-(rsAbF_target/rsAbBudget)));
+      rF=Math.max(0,Math.min(1,rF0+arbBias*0.004)); // ARB Bias nudges away from the solved centre
+    }
   }
   //
   const lightShare=Math.max(0.001,Math.min(rF,1-rF));          // smaller fraction (guard against div/0 at extremes)
@@ -778,7 +792,7 @@ const computeDiff=(ch,fe,dr,natMechBalOverride=null)=>{
     const natMechBal=natMechBalOverride!=null
       ?natMechBalOverride
       :(cm.rear*ch.trackR*ch.trackR)/(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
-    const tgt=Math.max(0.40,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
+    const tgt=Math.max(0.20,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
     const gap=tgt-natMechBal; // positive = user wants more rear/oversteer than natural
     // Cap correction so it can't dominate explicit user slider input
     const correction=Math.max(-25,Math.min(25,gap*150));
@@ -1904,7 +1918,7 @@ const sanitizeTune=({ch,fe,dr})=>{
     fe:{
       rideStiffness:    (()=>{const rs=n(fe?.rideStiffness,DEF_FE.rideStiffness);const hz=rs>6?0.8+(rs/100)*2.7:rs;return Math.max(HZ_MIN,Math.min(HZ_MAX,Math.round(hz*100)/100));})(),
       arbBias:          cl(fe?.arbBias,          -50,   50,  DEF_FE.arbBias),
-      arbBalTarget:     cl(fe?.arbBalTarget,     0.40, 0.90, DEF_FE.arbBalTarget),
+      arbBalTarget:     cl(fe?.arbBalTarget,     0.20, 0.90, DEF_FE.arbBalTarget),
       arbBalMode:       ARB_BAL_MODE_DEC.includes(fe?.arbBalMode)?fe.arbBalMode:DEF_FE.arbBalMode,
       springShare:      cl(fe?.springShare,         0,  100, DEF_FE.springShare),
       springShareAuto:  fe?.springShareAuto!==false,
@@ -2079,7 +2093,7 @@ const TUTORIALS={
      body:'MEASURE NAT BAL appears as a card below the Balance Guide in the BUILD section. Click it to open the Tune Check modal on the MEASURE tab — it walks you through the exact spring and ARB values to apply in Forza, then shows a slider to dial in the Mech Balance value the game reports. Once set, the card shows the measured value alongside a ✕ to clear it. The MEASURE NAT BAL button stays accessible at all times for re-measurement. When a measured value is active the calculator uses it everywhere — including the Balance Guide, GRIP BIAS, and natural balance readouts — in place of the geometry prediction. Wheelbase and track width fields are hidden while a reading is active since the app no longer needs them.'},
     {title:'Mech Balance Target',
      focus:['build'],
-     body:'Mech Balance Target (0.40–0.90) is the rear fraction of total roll stiffness you want to achieve — the main dial for mechanical handling balance. Higher = more rear roll resistance = more rotation tendency. Lower = more front resistance = more stable, understeery feel.\n\nRWD track: 0.60–0.70. AWD: 0.55–0.65. FWD: 0.45–0.55. The BALANCE GUIDE shows your natural balance and the recommended range — use it as a reference, not a hard rule.\n\nSet this before choosing an ARB solving mode — all three modes solve toward this target.'},
+     body:'Mech Balance Target (0.20–0.90) is the rear fraction of total roll stiffness you want to achieve — the main dial for mechanical handling balance. Higher = more rear roll resistance = more rotation tendency. Lower = more front resistance = more stable, understeery feel.\n\nRWD track: 0.60–0.70. AWD: 0.55–0.65. FWD: 0.45–0.55. The BALANCE GUIDE shows your natural balance and the recommended range — use it as a reference, not a hard rule.\n\nSet this before choosing an ARB solving mode — all three modes solve toward this target.'},
     {title:'Balance Target Mode',
      focus:['build'],
      body:'Balance Target mode controls how the Mech Balance Target is derived.\n\nTARGET: set it manually with the slider. Use the Balance Guide range as a starting point.\n\nGRIP: auto-derives the target as 1 − natGripBalance — directly counteracting the car\'s natural grip tendency for neutral at-limit handling. The Balance Offset slider shifts this intentionally toward oversteer (+) or understeer (−). The derived target is shown below the slider and updates live.\n\nThe GEOMETRY GAP panel shows whether track or tyre width changes could close the gap between natural and target balance with softer ARBs.'},
@@ -2471,7 +2485,7 @@ function App(){
       :cm.rear*ch.trackR*ch.trackR/(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
     return balanceFromRsBal(ch,nb);
   })();
-  const gripBalTarget=Math.max(0.40,Math.min(0.90,1-natGripBalance+(fe.arbBalDelta??0)));
+  const gripBalTarget=Math.max(0.20,Math.min(0.90,1-natGripBalance+(fe.arbBalDelta??0)));
   const feEffective=(fe.arbBalTargetMode??'manual')==='grip'?{...fe,arbBalTarget:gripBalTarget}:fe;
   const physics=useMemo(()=>feelToPhysics(ch,feEffective),[ch,feEffective]);
   const tune=useMemo(()=>computeTune(ch,physics,fe.gameMode),[ch,physics,fe.gameMode]);
@@ -2530,7 +2544,7 @@ function App(){
     const stabIdx=Math.sqrt((avgTrack/1.6)*(avgTire/265));
     // Recommendation target: co-solve/mech target when active, else neutral 0.50
     const hasMechTarget=feEffective.arbBalMode==='coSolve'||feEffective.arbBalMode==='mech';
-    const targetBal=hasMechTarget?Math.max(0.40,Math.min(0.90,feEffective.arbBalTarget??0.55)):0.50;
+    const targetBal=hasMechTarget?Math.max(0.20,Math.min(0.90,feEffective.arbBalTarget??0.55)):0.50;
     // REACH: find track-width changes that bring natural rsBalance toward target.
     // Tyre width affects grip capacity (shown via CHASSIS BAL physical display) but NOT
     // roll-stiffness fraction, so REACH shows track-only recommendations.
@@ -3401,7 +3415,7 @@ function App(){
               hint="Determines your intended use. Shifts alignment targets, diff AUTO behaviour, diff type recommendation, brake balance, and the recommended Mech Balance Target range."/>
             {uiMode==='pro'&&(()=>{
               const _hasMechTarget=(fe.arbBalMode??'weight')==='mech'||(fe.arbBalMode??'weight')==='coSolve'
-                ||((fe.arbBalMode??'weight')==='man'&&(fe.rearHzMode??'flatRide')==='mech');
+                ||(fe.rearHzMode??'flatRide')==='mech';
               if(!_hasMechTarget)return(
                 <div style={{fontSize:11,color:'#64748b',lineHeight:1.5,background:'#0a0f1a',
                              border:'1px solid #1e293b',borderRadius:2,padding:'8px 10px',marginBottom:2}}>
@@ -3422,7 +3436,7 @@ function App(){
                 {(fe.arbBalTargetMode??'manual')==='manual'
                   ?<Field label="Mech Balance Target" value={Math.round(((fe.arbBalTarget??natMechBalance)-natMechBalance)*100)/100}
                       onChange={v=>pFe('arbBalTarget')(Math.round((natMechBalance+v)*100)/100)}
-                      min={Math.round((0.40-natMechBalance)*100)/100} max={Math.round((0.90-natMechBalance)*100)/100} step={0.01} unit="from NAT"
+                      min={Math.round((0.20-natMechBalance)*100)/100} max={Math.round((0.90-natMechBalance)*100)/100} step={0.01} unit="from NAT"
                       hint="Deviation from the chassis natural roll balance. 0 = target the natural balance exactly — no ARB correction needed. Positive = rear-biased from natural (oversteer tendency). Negative = front-biased from natural (understeer tendency). The BALANCE GUIDE shows the recommended range for your drivetrain and build type as deltas from NAT — use those as your reference. MECH and CO-SOLVE modes solve springs and ARBs to hit this target exactly. FH6 surfaces Mech Balance in-game so you can verify the result directly."/>
                   :<Field label="Balance Offset" value={fe.arbBalDelta??0} onChange={pFe('arbBalDelta')}
                       min={-0.20} max={0.20} step={0.01}
@@ -3440,12 +3454,12 @@ function App(){
                 AWD:{street:[0.03,0.12],track:[0.07,0.18],drift:[0.14,0.26],rally:[0.03,0.10],offroad:[0.01,0.08],drag:[0.08,0.20]},
               };
               const[_dlo,_dhi]=((_deltaMap[_layout]??_deltaMap.RWD)[_build])??[0.10,0.21];
-              const _lo=Math.max(0.40,Math.min(0.87,natMechBalance+_dlo));
+              const _lo=Math.max(0.20,Math.min(0.87,natMechBalance+_dlo));
               const _hi=Math.max(_lo+0.03,Math.min(0.90,natMechBalance+_dhi));
               const _MIN=0.20,_RNG=0.70;
               const _pct=v=>Math.max(0,Math.min(100,(v-_MIN)/_RNG*100));
               const _hasMechTarget=(fe.arbBalMode??'weight')==='mech'||(fe.arbBalMode??'weight')==='coSolve'
-                ||((fe.arbBalMode??'weight')==='man'&&(fe.rearHzMode??'flatRide')==='mech');
+                ||(fe.rearHzMode??'flatRide')==='mech';
               const _cur=_hasMechTarget?(feEffective.arbBalTarget??natMechBalance):tune.mechBalance;
               const _curLabel=_hasMechTarget?'TARGET':'CURRENT';
               const _inRange=_cur>=_lo&&_cur<=_hi;
@@ -3562,7 +3576,7 @@ function App(){
                 AWD:{street:[0.03,0.12],track:[0.07,0.18],drift:[0.14,0.26],rally:[0.03,0.10],offroad:[0.01,0.08],drag:[0.08,0.20]},
               };
               const[_ggDlo,_ggDhi]=((_ggBalMap[dr.layout??'RWD']??_ggBalMap.RWD)[dr.buildType??'track'])??[0.10,0.21];
-              const _ggLo=Math.max(0.40,Math.min(0.87,nm+_ggDlo));
+              const _ggLo=Math.max(0.20,Math.min(0.87,nm+_ggDlo));
               const _ggHi=Math.max(_ggLo+0.03,Math.min(0.90,nm+_ggDhi));
               const _ggNeutral=1-natGripBalance;
               const _ggGap=_ggNeutral>_ggHi?_ggNeutral-_ggHi:_ggNeutral<_ggLo?_ggLo-_ggNeutral:0;
