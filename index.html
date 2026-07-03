@@ -2739,18 +2739,20 @@ function App(){
               min={HZ_MIN} max={HZ_MAX} step={0.01}
               leftLabel="SOFT" rightLabel="STIFF" markers={HZ_MARKERS}
               readout={<span style={{fontSize:10,fontFamily:'Courier New',color:'#94a3b8'}}>{physics.frontHz.toFixed(2)} Hz</span>}/>
-            {uiMode!=='beginner'&&<div style={{display:'flex',gap:3,margin:'10px 0 6px'}}>
-              <button className={`tog${(fe.dampCharMode??'zeta')==='zeta'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,dampCharMode:'zeta'}))}>CHARACTER</button>
-              <button className={`tog${(fe.dampCharMode??'zeta')==='settle'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,dampCharMode:'settle'}))}>SETTLE TIME</button>
-            </div>}
-            <div style={{display:'flex',gap:3,margin:'6px 0'}}>
-              <button className={`tog${(fe.dampingMode??'ratio')==='ratio'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,dampingMode:'ratio'}))}>BUMP RATIO</button>
-              <button className={`tog${(fe.dampingMode??'ratio')==='independent'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,dampingMode:'independent',bumpZeta:Math.round(physics.bumpZeta)}))}>INDEPENDENT</button>
-            </div>
+            {uiMode!=='beginner'&&<>
+              <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3,marginTop:8}}>
+                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>REBOUND MODE</span>
+                <Hint text={(fe.dampCharMode??'zeta')==='settle'
+                  ?"SETTLE TIME: set a target settle time in seconds. The app back-calculates the rebound ζ needed to hit that time for each axle individually — front and rear derive their own ζ from their own spring frequency."
+                  :"CHARACTER: set rebound damping directly as a ζ (damping ratio) percentage. Full manual control — you pick the value, the app doesn't back-solve anything."}/>
+              </div>
+              <div style={{display:'flex',gap:3,margin:'0 0 6px'}}>
+                <button className={`tog${(fe.dampCharMode??'zeta')==='zeta'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,dampCharMode:'zeta'}))}>CHARACTER</button>
+                <button className={`tog${(fe.dampCharMode??'zeta')==='settle'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,dampCharMode:'settle'}))}>SETTLE TIME</button>
+              </div>
+            </>}
             {(fe.dampCharMode??'zeta')==='settle'
               ?<FeelSlider label="Settle Target" value={fe.settleTarget??0.80}
                   onChange={pFe('settleTarget')} min={0.10} max={2.00} step={0.01}
@@ -2762,6 +2764,18 @@ function App(){
                   leftLabel="10%" rightLabel="115%"
                   markers={[{value:40,color:'#60a5fa',label:'UNDER',lessThan:true},{value:70,color:'#f59e0b',label:'BWORTH'},{value:100,color:'#ef4444',label:'OVER'}]}
                   readout={(()=>{const z=fe.reboundZeta??70;return z>100?`${z}% ⚠`:z>70?`${z}% · BWORTH`:`${z}%`;})()}/>}
+            <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3,marginTop:8}}>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>BUMP MODE</span>
+              <Hint text={(fe.dampingMode??'ratio')==='independent'
+                ?"INDEPENDENT: set bump ζ directly, decoupled from rebound. Use this when you want a specific bump/rebound combination the ratio can't express — e.g. soft bump with firm rebound."
+                :"BUMP RATIO: set bump damping as a percentage of rebound ζ — the app derives the bump ζ from that ratio, so the two strokes stay linked as rebound changes."}/>
+            </div>
+            <div style={{display:'flex',gap:3,margin:'0 0 6px'}}>
+              <button className={`tog${(fe.dampingMode??'ratio')==='ratio'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampingMode:'ratio'}))}>BUMP RATIO</button>
+              <button className={`tog${(fe.dampingMode??'ratio')==='independent'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampingMode:'independent',bumpZeta:Math.round(physics.bumpZeta)}))}>INDEPENDENT</button>
+            </div>
             {(fe.dampingMode??'ratio')==='ratio'
               ?<FeelSlider label="Bump Ratio" value={fe.bumpRatio??56}
                   onChange={pFe('bumpRatio')} min={10} max={100} step={1}
@@ -4272,20 +4286,20 @@ function App(){
               <DampingDial rebound={(fe.dampCharMode??'zeta')==='settle'?Math.round(physics.zetaF):(fe.reboundZeta??70)} bump={(fe.dampCharMode??'zeta')==='settle'?Math.round(physics.bumpZetaF):physics.bumpZeta}/>
             </div>
             {/* damping character mode toggle — INT/PRO only */}
-            {uiMode!=='beginner'&&<div style={{display:'flex',gap:3,marginBottom:8}}>
-              <button className={`tog${(fe.dampCharMode??'zeta')==='zeta'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,dampCharMode:'zeta'}))}>CHARACTER</button>
-              <button className={`tog${(fe.dampCharMode??'zeta')==='settle'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,dampCharMode:'settle'}))}>SETTLE TIME<Hint text="Set a target settle time in seconds. The app back-calculates the rebound ζ needed to hit that time for each axle individually — front and rear derive their own ζ from their own spring frequency."/></button>
-            </div>}
-            {/* bump ratio / independent toggle */}
-            <div style={{display:'flex',gap:3,marginBottom:10}}>
-              <button className={`tog${(fe.dampingMode??'ratio')==='ratio'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,dampingMode:'ratio'}))}>BUMP RATIO</button>
-              <button className={`tog${(fe.dampingMode??'ratio')==='independent'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,dampingMode:'independent',
-                  bumpZeta:Math.round(physics.bumpZeta)}))}>INDEPENDENT</button>
-            </div>
+            {uiMode!=='beginner'&&<>
+              <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}>
+                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>REBOUND MODE</span>
+                <Hint text={(fe.dampCharMode??'zeta')==='settle'
+                  ?"SETTLE TIME: set a target settle time in seconds. The app back-calculates the rebound ζ needed to hit that time for each axle individually — front and rear derive their own ζ from their own spring frequency."
+                  :"CHARACTER: set rebound damping directly as a ζ (damping ratio) percentage. Full manual control — you pick the value, the app doesn't back-solve anything."}/>
+              </div>
+              <div style={{display:'flex',gap:3,marginBottom:8}}>
+                <button className={`tog${(fe.dampCharMode??'zeta')==='zeta'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,dampCharMode:'zeta'}))}>CHARACTER</button>
+                <button className={`tog${(fe.dampCharMode??'zeta')==='settle'?' on':''}`}
+                  onClick={()=>setFe(p=>({...p,dampCharMode:'settle'}))}>SETTLE TIME</button>
+              </div>
+            </>}
             {(fe.dampCharMode??'zeta')==='settle'
               ? <FeelSlider label="Settle Target" value={fe.settleTarget??0.80}
                   onChange={pFe('settleTarget')} min={0.10} max={2.00} step={0.01}
@@ -4316,6 +4330,20 @@ function App(){
                     if(z>70) return`${z}% · BUTTERWORTH`;
                     return`${z}%`;
                   })()}/> }
+            {/* bump ratio / independent toggle */}
+            <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3,marginTop:8}}>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>BUMP MODE</span>
+              <Hint text={(fe.dampingMode??'ratio')==='independent'
+                ?"INDEPENDENT: set bump ζ directly, decoupled from rebound. Use this when you want a specific bump/rebound combination the ratio can't express — e.g. soft bump with firm rebound."
+                :"BUMP RATIO: set bump damping as a percentage of rebound ζ — the app derives the bump ζ from that ratio, so the two strokes stay linked as rebound changes."}/>
+            </div>
+            <div style={{display:'flex',gap:3,marginBottom:10}}>
+              <button className={`tog${(fe.dampingMode??'ratio')==='ratio'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampingMode:'ratio'}))}>BUMP RATIO</button>
+              <button className={`tog${(fe.dampingMode??'ratio')==='independent'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampingMode:'independent',
+                  bumpZeta:Math.round(physics.bumpZeta)}))}>INDEPENDENT</button>
+            </div>
             {(fe.dampingMode??'ratio')==='ratio'
               ? <FeelSlider label="Bump Ratio" value={fe.bumpRatio??56}
                   onChange={pFe('bumpRatio')} min={10} max={100} step={1}
