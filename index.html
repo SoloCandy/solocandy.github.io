@@ -2994,15 +2994,10 @@ function App(){
           {uiMode==='beginner'&&(()=>{
             const stAgVal=Math.max(-50,Math.min(50,Math.round((70-(fe.reboundZeta??70))*2)));
             const[hzCat,hzCol]=hzCtx(physics.frontHz);
-            // Beginner can't reach MECH/CO-SOLVE/MAN (PRO-only) — only whatever INT uses
-            // (WEIGHT/NEUTRAL ARB balance, driven by ARB Bias). begBalCenter — the
-            // weight-distribution baseline — is exactly WEIGHT mode's own natural split
-            // before ARB Bias is applied, so it's the only "neutral" reference that's
-            // actually correct for this mechanism (no track-width-based target involved).
-            const begBalCenter=(100-ch.frontBias)/100;
-            // Read back the actual (possibly clamped) WEIGHT-mode split rather than raw
-            // arbBias, so the slider reflects reality once arbBalance hits its 20-80 floor/ceiling.
-            const balVal=Math.max(-50,Math.min(50,Math.round((begBalCenter*100-physics.arbBalance)/0.4)));
+            // Beginner can't reach MECH/CO-SOLVE/MAN (PRO-only) — only whatever INT uses.
+            // Blends NEUTRAL ARB mode (springs' bias cancelled) with a slight ride-Hz-ratio
+            // nudge, both pushed toward the chosen direction. arbBias is the dominant term.
+            const balVal=Math.max(-50,Math.min(50,fe.arbBias??0));
             return(
               <div style={{padding:'14px 12px 20px'}}>
                 <div id="zone-layout-build" style={dim('layout-build')}>
@@ -3163,12 +3158,16 @@ function App(){
                 </div>
                 <div id="zone-balance" style={dim('balance')}>
                 <FeelSlider label="Balance" value={balVal}
-                  onChange={v=>pFe('arbBias')(Math.max(-50,Math.min(50,-v)))}
+                  onChange={v=>{const c=Math.max(-50,Math.min(50,v));setFe(p=>({...p,
+                    arbBalMode:'neutral',
+                    rearHzMode:'multiplier',
+                    arbBias:c,
+                    rearHzMult:Math.round((1.0+c*0.004)*100)/100}));}}
                   min={-50} max={50} step={1}
-                  leftLabel="OVERSTEER" rightLabel="UNDERSTEER"
+                  leftLabel="UNDERSTEER" rightLabel="OVERSTEER"
                   markers={[{value:0,color:'#94a3b8',label:'NEUTRAL'}]}
-                  readout={balVal<-10?'OVERSTEER':balVal>10?'UNDERSTEER':'NEUTRAL'}
-                  hint="Shifts the handling balance. Left (OVERSTEER) increases rear roll stiffness — more rotation, freer rear end. Right (UNDERSTEER) increases front roll stiffness — more stability. Start at centre for most builds."/>
+                  readout={balVal<-10?'UNDERSTEER':balVal>10?'OVERSTEER':'NEUTRAL'}
+                  hint="Blends two mechanisms: ARB Bias in NEUTRAL mode (nudges the ARB split away from the point that exactly cancels the springs' balance-bar bias) with a slight rear/front spring frequency ratio nudge — both pushed toward your chosen direction. Right (OVERSTEER) = more rotation, freer rear end. Left (UNDERSTEER) = more stability. Start at centre for most builds."/>
                 </div>
                 <div id="zone-character" style={dim('character')}>
                 <FeelSlider label="Character" value={stAgVal}
@@ -3410,11 +3409,11 @@ function App(){
             {!dr.diffManual&&<>
               <FeelSlider
                 label="EXIT"
-                value={dr.diffBiasExit??0}
-                onChange={pDr('diffBiasExit')}
+                value={ch.layout==='FWD'?-(dr.diffBiasExit??0):(dr.diffBiasExit??0)}
+                onChange={v=>pDr('diffBiasExit')(ch.layout==='FWD'?-v:v)}
                 min={-50} max={50}
-                leftLabel={ch.layout==='FWD'?'ROTATION':'GRIP'}
-                rightLabel={ch.layout==='FWD'?'PUSH':'ROTATE'}
+                leftLabel={ch.layout==='FWD'?'PUSH':'GRIP'}
+                rightLabel={ch.layout==='FWD'?'ROTATION':'ROTATE'}
                 markers={[{value:0,color:'#475569'}]}
                 hint={(ch.layout==='FWD'
                   ?'Front diff accel lock. Toward PUSH increases lock — more traction but more understeer on corner exit. Toward ROTATION reduces lock for cleaner pivot and less push.'
@@ -3428,11 +3427,11 @@ function App(){
               {ch.layout==='AWD'&&uiMode!=='beginner'&&
                 <FeelSlider
                   label="FRONT EXIT"
-                  value={dr.diffFrontExitBias??0}
-                  onChange={pDr('diffFrontExitBias')}
+                  value={-(dr.diffFrontExitBias??0)}
+                  onChange={v=>pDr('diffFrontExitBias')(-v)}
                   min={-50} max={50}
-                  leftLabel="NEUTRAL"
-                  rightLabel="PUSH"
+                  leftLabel="PUSH"
+                  rightLabel="NEUTRAL"
                   markers={[{value:0,color:'#475569'}]}
                   hint="Front diff accel lock for AWD. Toward PUSH increases front accel lock — more front-axle pull and understeer tendency on exit. Useful for AWD cars with strong rear rotation."
                   readout={`F.Accel ${diff.frontAccel}%`}/>}
@@ -3449,11 +3448,11 @@ function App(){
                   readout={`${diff.center??65}% rear`}/>}
               {(dr.diffType??'race')!=='sport'&&<FeelSlider
                 label="ENTRY"
-                value={dr.diffBiasEntry??0}
-                onChange={pDr('diffBiasEntry')}
+                value={-(dr.diffBiasEntry??0)}
+                onChange={v=>pDr('diffBiasEntry')(-v)}
                 min={-50} max={50}
-                leftLabel="LOOSE"
-                rightLabel="STABLE"
+                leftLabel="STABLE"
+                rightLabel="LOOSE"
                 markers={[{value:0,color:'#475569'}]}
                 hint={(ch.layout==='FWD'
                   ?'Front diff decel lock. Toward STABLE increases lock — more resistance to rotation on entry (understeer). Toward LOOSE reduces lock for freer corner entry.'
@@ -4403,7 +4402,7 @@ function App(){
                   leftLabel="FRONT" rightLabel="REAR"
                   markers={[{value:0,color:'#94a3b8',label:'EQUAL'}]}
                   readout={(()=>{const tot=physics.zetaF+physics.zetaR;const fP=tot>0?Math.round(physics.zetaF/tot*100):50;return`F ${fP} | ${100-fP} R`;})()}
-                  hint="Biases damping toward one axle by softening the opposite side. The biased axle stays at the base ζ; the other drops up to 50% at ±50. Front bias: rear gets softer — more rotation tendency, looser rear feel. Rear bias: front gets softer — more entry compliance, easier direction changes."/>}
+                  hint="Biases damping toward one axle by softening the opposite side. The biased axle stays at the base ζ; the other drops up to 50% at ±50. Front bias: front stays firm, rear softens — understeer tendency, more stable overall. Rear bias: rear stays firm, front softens — oversteer tendency, looser rotation."/>}
             {(()=>{
               const biased=(fe.dampingBias??0)!==0||!!(fe.settleMode)||(fe.dampCharMode??'zeta')==='settle';
               const worst=Math.max(tune.settle,tune.settleR);
