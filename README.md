@@ -88,7 +88,7 @@ The entire app is a single HTML file containing:
 - **Persistence** — `localStorage` via a custom `usePersist` hook; degrades gracefully in private browsing
 - **Share codec** — pipe-delimited numeric array, Base64-encoded (~210 chars, 64 values, fully backward-compatible — short legacy codes decode with new fields defaulted)
 
-The physics functions are at the top of the `<script>` block and can be read, tested, or extracted independently. A standalone test suite is included in `tests.js` — run with `node tests.js` (covers spring/damper solving and `computeDiff`; `computeAlignment` is still untested — see [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md)).
+The physics functions are at the top of the `<script>` block and can be read, tested, or extracted independently. A standalone test suite is included in `tests.js` — run with `node tests.js` (covers spring/damper solving, `computeDiff`, and `computeAlignment` — see [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) for history).
 
 **Data flow:** `ch`/`fe`/`dr` (chassis/feel/drivetrain state) → `feelToPhysics(ch, fe)` resolves feel settings into concrete physics parameters (Hz, ARB balance mode, damping mode) → `computeTune(ch, physics, gameMode)` solves springs/dampers/ARBs → `computeDiff(ch, fe, dr)` solves differential locks independently → `computeAlignment(ch, tune, layout, buildType)` derives camber/toe/caster from the tune result. All four are pure functions with no shared mutable state — see [FORMULAS.md](docs/FORMULAS.md) for the handling-balance math each one feeds into.
 

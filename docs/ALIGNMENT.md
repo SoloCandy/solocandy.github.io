@@ -62,8 +62,9 @@ recToeF = clamp(-0.20, 0.15, toeFByBuild + (frontBias-50)×-0.003 + (fHz-1.8)×0
 | *(unmatched build)* | −0.05 (fallback) |
 
 The `(frontBias-50)×-0.003` term nudges toe-in slightly with front-heavier
-cars; `(fHz-1.8)×0.010` nudges toe-out slightly with stiffer front springs
-(faster transient response wants less toe drag).
+cars; `(fHz-1.8)×0.010` nudges toward more toe-in with stiffer front springs
+(verified against the actual formula — a prior version of this doc had the
+direction backwards).
 
 ## Toe rear (`recToeR`)
 

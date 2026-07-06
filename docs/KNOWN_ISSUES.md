@@ -38,11 +38,18 @@ regression guard for the MATCH CHASSIS FWD-polarity bug above (asserts
 baseline, not higher"). This is exactly the test that would have caught
 that bug immediately instead of it surviving until manual testing.
 
-## Open — Test coverage gap: `computeAlignment` untested
+## Fixed — Test coverage gap: `computeAlignment` now covered (resolved)
 
-`computeAlignment` (camber/toe/caster target derivation by layout/build) still
-has zero automated coverage. Not fixed here since writing it is a separate,
-sizeable task — flagged so it's a known gap rather than an assumed one.
+`tests.js` now includes a `computeAlignment` suite: roll/CG-height
+compensation, layout-dependent camber gain ordering (FWD least reactive,
+RWD most), the front camber clamp floor, toe front/rear lookup-table
+sanity, caster's FWD flat reduction and front-bias scaling, and a
+regression guard for the Drift/Drag frozen-camber bug above (asserts both
+now vary with roll angle instead of staying frozen). Writing these tests
+also caught a real error in this file's own toe-front documentation (see
+[ALIGNMENT.md](ALIGNMENT.md) — the `(fHz-1.8)×0.010` term's direction was
+written backwards; verifying against the formula while writing the test
+caught it).
 
 ## Open — `bDiffAccel`/`bDiffDecel` don't distinguish accel-lock from decel-lock direction
 

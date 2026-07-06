@@ -3,12 +3,11 @@
 // No dependencies required.
 //
 // Covers spring/damper solving, settle-mode ride-reference anchoring, the
-// mechBalanceLLT grip model, and computeDiff (layout-dependent lock/balance signs,
+// mechBalanceLLT grip model, computeDiff (layout-dependent lock/balance signs,
 // diff type scaling, SPORT decel lockout, and the MATCH CHASSIS FWD-polarity
-// regression — see docs/KNOWN_ISSUES.md for the bug this guards against).
-//
-// Coverage gap: computeAlignment (camber/toe/caster target derivation) is still
-// untested — see docs/KNOWN_ISSUES.md.
+// regression — see docs/KNOWN_ISSUES.md for the bug this guards against), and
+// computeAlignment (camber/toe/caster target derivation, roll/CG compensation,
+// per-build/layout baselines, and the Drift/Drag frozen-camber regression).
 
 const KG_TO_LB = 2.204622622;
 const LB_IN_TO_NM = 175.126790921;
@@ -143,6 +142,56 @@ const computeDiff = (ch, fe, dr, natMechBalOverride = null) => {
   }
 
   return { ...vals, bDiffAccel, bDiffDecel, bDiffFront, bDiffRear };
+};
+
+// ── computeAlignment model (must mirror app: camber/toe/caster targets) ────────
+const computeAlignment = (ch, tune, layout, buildType) => {
+  const { fHz, rHz, rollDeg } = tune;
+  const build = buildType ?? 'track';
+  const isDrift = build === 'drift';
+  const isStreet = build === 'street';
+  const isRally = build === 'rally';
+  const isOffroad = build === 'offroad';
+  const isDrag = build === 'drag';
+
+  const camberGain = Math.max(0.55, Math.min(0.85, 1.05 - (ch.cgHeight ?? 0.45) * 0.8));
+  const rearGainMult = layout === 'FWD' ? 0.50 : layout === 'AWD' ? 0.70 : 0.75;
+  const fwdReduction = layout === 'FWD' ? 0.3 : 0.0;
+
+  const optimalCamber = isDrift ? -2.5 : isDrag ? -0.2 : isOffroad ? -0.3 : isRally ? -0.8 : isStreet ? -1.0 : -1.5;
+  const recCamberF = Math.round(Math.max(-4.0, Math.min(0.0,
+    optimalCamber - rollDeg * camberGain + fwdReduction)) * 10) / 10;
+  const recCamberR = Math.round(Math.max(-3.5, Math.min(0.0,
+    optimalCamber - rollDeg * camberGain * rearGainMult)) * 10) / 10;
+
+  const toeFByBuild = {
+    street: layout === 'FWD' ? 0.05 : 0.0,
+    track: layout === 'FWD' ? 0.05 : -0.05,
+    drift: layout === 'FWD' ? 0.0 : -0.10,
+    rally: 0.0,
+    offroad: 0.05,
+    drag: 0.0,
+  }[build] ?? -0.05;
+  const recToeF = Math.round(Math.max(-0.20, Math.min(0.15,
+    toeFByBuild + (ch.frontBias - 50) * -0.003 + (fHz - 1.8) * 0.010)) * 10) / 10;
+
+  const toeRByBuild = {
+    street: { RWD: 0.15, AWD: 0.08, FWD: 0.05 },
+    track: { RWD: 0.10, AWD: 0.08, FWD: 0.05 },
+    drift: { RWD: 0.05, AWD: 0.05, FWD: 0.05 },
+    rally: { RWD: 0.10, AWD: 0.08, FWD: 0.05 },
+    offroad: { RWD: 0.15, AWD: 0.15, FWD: 0.10 },
+    drag: { RWD: 0.0, AWD: 0.0, FWD: 0.0 },
+  }[build] ?? { RWD: 0.10, AWD: 0.08, FWD: 0.05 };
+  const toeRBase = toeRByBuild[layout] ?? toeRByBuild.RWD;
+  const recToeR = Math.round(Math.max(0.0, Math.min(0.25,
+    toeRBase + ((1 - ch.frontBias / 100) - 0.5) * 0.20 + Math.max(0, rHz - fHz) * -0.03)) * 10) / 10;
+
+  const casterBase = isDrift ? 4.8 : isDrag ? 4.0 : isOffroad ? 4.5 : isStreet ? 5.2 : 5.8;
+  const recCaster = parseFloat(Math.max(4.0, Math.min(7.5,
+    casterBase + (fHz - 1.8) * 0.4 + (ch.frontBias - 50) * 0.04 + (layout === 'FWD' ? -0.5 : 0))).toFixed(1));
+
+  return { recCamberF, recCamberR, recToeF, recToeR, recCaster };
 };
 
 // Spring-frequency operating band — must mirror app's HZ_MIN/HZ_MAX.
@@ -483,6 +532,98 @@ console.log('\ncomputeDiff — MATCH CHASSIS correction');
   const manualDr = { ...dr, diffManual: true, diffAccel: 40 };
   const manualOn = computeDiff(chRWD, {}, manualDr);
   assertEq('MANUAL mode ignores MATCH CHASSIS (accel unchanged)', manualOn.accel, 40);
+}
+
+// ── computeAlignment — camber roll/CG compensation ─────────────────────────────
+
+console.log('\ncomputeAlignment — camber');
+{
+  const chLowCG = { frontBias: 50, cgHeight: 0.40 };
+  const chHighCG = { frontBias: 50, cgHeight: 0.80 };
+  const lowRoll = { fHz: 1.8, rHz: 1.8, rollDeg: 1.0 };
+  const highRoll = { fHz: 1.8, rHz: 1.8, rollDeg: 4.0 };
+
+  // More roll → more negative camber (both axles), for a build that isn't frozen
+  const trackLowRoll = computeAlignment(chLowCG, lowRoll, 'RWD', 'track');
+  const trackHighRoll = computeAlignment(chLowCG, highRoll, 'RWD', 'track');
+  assertEq('more roll → more negative front camber', trackHighRoll.recCamberF < trackLowRoll.recCamberF, true);
+  assertEq('more roll → more negative rear camber', trackHighRoll.recCamberR < trackLowRoll.recCamberR, true);
+
+  // Higher CG → lower camberGain → less roll-compensation for the same roll angle
+  const lowCGAlign = computeAlignment(chLowCG, highRoll, 'RWD', 'track');
+  const highCGAlign = computeAlignment(chHighCG, highRoll, 'RWD', 'track');
+  assertEq('higher CG → less negative front camber at equal roll (less compensation)', highCGAlign.recCamberF > lowCGAlign.recCamberF, true);
+
+  // FWD gets a front camber reduction (fwdReduction) — less negative than RWD at equal roll.
+  // Uses lowRoll, not highRoll: at highRoll both clamp to the same -4.0° floor, masking the
+  // difference entirely — this needs a roll angle where neither side is clamped.
+  const rwdFrontCmp = computeAlignment(chLowCG, lowRoll, 'RWD', 'track');
+  const fwdFrontCmp = computeAlignment(chLowCG, lowRoll, 'FWD', 'track');
+  assertEq('FWD front camber less negative than RWD at equal roll', fwdFrontCmp.recCamberF > rwdFrontCmp.recCamberF, true);
+
+  const rwdAlign = computeAlignment(chLowCG, highRoll, 'RWD', 'track');
+  const fwdAlign = computeAlignment(chLowCG, highRoll, 'FWD', 'track');
+
+  // rearGainMult ordering: FWD reacts least to roll, AWD middle, RWD most — so at high roll,
+  // RWD rear camber should be more negative than FWD's (same optimalCamber baseline)
+  assertEq('RWD rear camber more negative than FWD rear camber at high roll', rwdAlign.recCamberR < fwdAlign.recCamberR, true);
+
+  // Camber clamps hold even at extreme roll angle
+  const extremeRoll = { fHz: 1.8, rHz: 1.8, rollDeg: 50 };
+  const clamped = computeAlignment(chLowCG, extremeRoll, 'RWD', 'track');
+  assertEq('front camber clamps at -4.0°', clamped.recCamberF, -4.0);
+  assertEq('rear camber clamps at -3.5°', clamped.recCamberR, -3.5);
+
+  // Regression guard: Drift and Drag used to be frozen constants ignoring roll/CG entirely —
+  // confirm they now scale like every other build.
+  const driftLowRoll = computeAlignment(chLowCG, lowRoll, 'RWD', 'drift');
+  const driftHighRoll = computeAlignment(chLowCG, highRoll, 'RWD', 'drift');
+  assertEq('Drift camber now varies with roll angle (not frozen)', driftHighRoll.recCamberF < driftLowRoll.recCamberF, true);
+  const dragLowRoll = computeAlignment(chLowCG, lowRoll, 'RWD', 'drag');
+  const dragHighRoll = computeAlignment(chLowCG, highRoll, 'RWD', 'drag');
+  assertEq('Drag camber now varies with roll angle (not frozen)', dragHighRoll.recCamberF < dragLowRoll.recCamberF, true);
+
+  // Drift's optimalCamber (-2.5) is more aggressive than Track's (-1.5) at equal roll/CG
+  const trackAtLowRoll = computeAlignment(chLowCG, lowRoll, 'RWD', 'track');
+  assertEq('Drift front camber more negative than Track at equal roll/CG', driftLowRoll.recCamberF < trackAtLowRoll.recCamberF, true);
+}
+
+// ── computeAlignment — toe and caster ──────────────────────────────────────────
+
+console.log('\ncomputeAlignment — toe and caster');
+{
+  const ch = { frontBias: 50, cgHeight: 0.45 };
+  const tune = { fHz: 1.8, rHz: 1.8, rollDeg: 2.0 };
+
+  // Toe rear lookup table: Offroad FWD gets less toe-in than Offroad RWD/AWD
+  const offroadFWD = computeAlignment(ch, tune, 'FWD', 'offroad');
+  const offroadRWD = computeAlignment(ch, tune, 'RWD', 'offroad');
+  const offroadAWD = computeAlignment(ch, tune, 'AWD', 'offroad');
+  assertEq('Offroad FWD toe-R less than Offroad RWD toe-R', offroadFWD.recToeR < offroadRWD.recToeR, true);
+  assertEq('Offroad RWD toe-R equals Offroad AWD toe-R (both 0.15 base)', offroadRWD.recToeR, offroadAWD.recToeR);
+
+  // Toe front: stiffer front springs (higher fHz) nudge toward more toe-in (recToeF increases)
+  const softFront = computeAlignment(ch, { fHz: 1.4, rHz: 1.8, rollDeg: 2.0 }, 'RWD', 'track');
+  const stiffFront = computeAlignment(ch, { fHz: 2.4, rHz: 1.8, rollDeg: 2.0 }, 'RWD', 'track');
+  assertEq('stiffer front Hz → more toe-in front', stiffFront.recToeF > softFront.recToeF, true);
+
+  // Toe rear clamps to 0 minimum (never toe-out at the rear)
+  const extremeRearHz = computeAlignment(ch, { fHz: 1.8, rHz: 5.5, rollDeg: 0 }, 'AWD', 'drag');
+  assertEq('rear toe never goes below 0.0°', extremeRearHz.recToeR >= 0, true);
+
+  // Caster: FWD gets a flat -0.5° reduction vs RWD at equal fHz/frontBias
+  const rwdCaster = computeAlignment(ch, tune, 'RWD', 'track');
+  const fwdCaster = computeAlignment(ch, tune, 'FWD', 'track');
+  assert('FWD caster is 0.5° less than RWD at equal inputs', rwdCaster.recCaster - fwdCaster.recCaster, 0.5, 0.05);
+
+  // Caster increases with front weight bias
+  const lowBiasCaster = computeAlignment({ ...ch, frontBias: 40 }, tune, 'RWD', 'track');
+  const highBiasCaster = computeAlignment({ ...ch, frontBias: 60 }, tune, 'RWD', 'track');
+  assertEq('more front weight bias → more caster', highBiasCaster.recCaster > lowBiasCaster.recCaster, true);
+
+  // Caster clamps hold at extreme inputs
+  const extremeCaster = computeAlignment({ ...ch, frontBias: 70 }, { fHz: 5.5, rHz: 5.5, rollDeg: 0 }, 'RWD', 'track');
+  assertEq('caster clamps at 7.5° max', extremeCaster.recCaster <= 7.5, true);
 }
 
 // ── summary ───────────────────────────────────────────────────────────────────
