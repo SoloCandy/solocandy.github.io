@@ -39,6 +39,7 @@ A **BEG / INT / PRO** toggle in the header controls how much of the input surfac
 
 Reference docs for maintainers:
 - [SLIDERS.md](docs/SLIDERS.md) — every slider's range, tier, physical effect, and oversteer/understeer direction
+- [PHYSICS.md](docs/PHYSICS.md) — Hz/spring/damping solve math (Ride Stiffness → spring rate/clicks, Hz modes, settle time, the LLT grip model)
 - [FORMULAS.md](docs/FORMULAS.md) — the ground-truth handling-balance contributor formulas
 - [ALIGNMENT.md](docs/ALIGNMENT.md) — camber/toe/caster target formulas and per-build/layout baselines
 - [CODEC.md](docs/CODEC.md) — the share-code field ID table (never reuse an id)

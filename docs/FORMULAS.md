@@ -10,6 +10,10 @@ negative = understeer** for every value below.
 > which direction a control pushes handling, check the formula here, not
 > the UI copy.
 
+Scope note: this file is *balance-direction* math only. For the actual
+Hz/spring-rate/damper-click solve math feeding these formulas' inputs
+(`zetaF`/`zetaR`, `rsSpF`/`rsSpR`, etc.), see [PHYSICS.md](PHYSICS.md).
+
 ---
 
 ## Springs & ARBs (`computeTune`, ~index.html:680-690)
