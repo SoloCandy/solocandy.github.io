@@ -63,8 +63,14 @@ every balance-relevant slider.
 | Spring Share (CO-SOLVE) | 0–100% | Splits correction between spring Hz and ARB split | None directly — redistributes *how*, not the target |
 | Accel/Decel Lock (MANUAL diff) | 0–100% each | Direct per-axle lock % | Rear lock → OVERSTEER; front lock → UNDERSTEER |
 | Center Split (MANUAL AWD) | 0–100% rear | Direct torque split | Higher % rear → OVERSTEER |
+| Nudge Strength (Alignment MECH/GRIP) | 0–100% | Scales how far camber/toe are nudged from the BUILD baseline toward the MECH/GRIP gap (see [ALIGNMENT.md](ALIGNMENT.md)) | 0% = no nudge (identical to BUILD); direction comes from the gap's sign, not this slider |
+| Camber F/R, Toe F/R, Caster (Alignment MANUAL) | Camber −4.0/−3.5..0.0°, Toe −0.20..0.15° / 0.0..0.25°, Caster 4.0–7.5° | Direct entry, bypasses `computeAlignment` entirely | None directly — whatever you type |
 
-## Auto-computed, no manual slider
+## Auto-computed by default, or PRO's Alignment Mode
 
-BRAKES (balance %, pressure %) and ALIGNMENT (camber, toe, caster) are
-fully derived from build type/layout/weight bias/chassis geometry.
+BRAKES (balance %, pressure %) is always fully computed from build type/
+layout/weight bias/chassis geometry, with no manual override. ALIGNMENT
+(camber, toe, caster) is computed the same way by default (BUILD mode), but
+PRO mode adds an Alignment Mode toggle (BUILD/MECH/GRIP/MANUAL) — see the
+Nudge Strength/Camber/Toe/Caster rows above and
+[ALIGNMENT.md](ALIGNMENT.md) for the full reference.

@@ -61,3 +61,33 @@ locally; it's only the crude "more lock = more of the same total" framing
 of the aggregate `bDiffDecel` term that doesn't capture the nuance. Not
 fixed here since it would require reworking the aggregate model, which is
 out of scope for a documentation pass.
+
+## Fixed — `computeAlignment` was blind to the car's actual balance tuning (resolved)
+
+`computeAlignment` only reacted to build type, drivetrain layout, front
+weight bias, front/rear spring Hz, and roll angle — never `natMechBalance`,
+`gripBalance`, or the resolved Mech Balance Target. Two cars with identical
+build+layout but very different balance tuning got identical camber/toe/
+caster recommendations.
+
+Fixed by adding a PRO-only **Alignment Mode** selector (BUILD/MECH/GRIP/
+MANUAL) with a Nudge Strength slider — see
+[ALIGNMENT.md](ALIGNMENT.md)'s "Alignment Mode (PRO)" section for the full
+formula. `computeAlignment` itself (BUILD mode) is unchanged; the nudge is
+layered on top, opt-in per mode rather than an always-on background
+adjustment, so the design question ("which signal, how strong") became a
+user choice instead of something we had to bake in.
+
+## Fixed — Drift/Drag camber ignored CG height and roll angle (resolved)
+
+Every other build's camber target scaled with `rollDeg×camberGain` (itself
+derived from `cgHeight`) — see [ALIGNMENT.md](ALIGNMENT.md)'s Camber table.
+Drift and Drag instead returned fixed constants regardless of those inputs,
+so two drift cars with very different CG heights got the same camber
+recommendation.
+
+Fixed by folding Drift (`optimalCamber:-2.5`) and Drag (`optimalCamber:-0.2`)
+into the same roll-compensated formula every other build uses, instead of a
+separate branch with hardcoded values. Verified manually: Drift camber now
+moves from −1.2° to −4.0° (clamp) as CG height goes from 450mm to 800mm on
+the same car, where it used to stay frozen at −3.0° regardless.

@@ -724,20 +724,14 @@ const computeAlignment=(ch,tune,layout,buildType)=>{
   const rearGainMult=layout==='FWD'?0.50:layout==='AWD'?0.70:0.75;
   const fwdReduction=layout==='FWD'?0.3:0.0;
 
-  let recCamberF, recCamberR;
-  if(isDrift){
-    recCamberF=layout==='FWD'?-2.0:-3.0;
-    recCamberR=layout==='FWD'?-1.0:-1.5;
-  } else if(isDrag){
-    recCamberF=0.0;
-    recCamberR=0.0;
-  } else {
-    const optimalCamber=isOffroad?-0.3:isRally?-0.8:isStreet?-1.0:-1.5;
-    recCamberF=Math.round(Math.max(-4.0,Math.min(0.0,
-      optimalCamber - rollDeg*camberGain + fwdReduction))*10)/10;
-    recCamberR=Math.round(Math.max(-3.5,Math.min(0.0,
-      optimalCamber - rollDeg*camberGain*rearGainMult))*10)/10;
-  }
+  // Drift wants more static camber than Track for sustained high-slip-angle grip; Drag wants
+  // near-zero for a flat straight-line contact patch. Both now scale with actual roll/CG like
+  // every other build instead of being frozen constants (see docs/KNOWN_ISSUES.md history).
+  const optimalCamber=isDrift?-2.5:isDrag?-0.2:isOffroad?-0.3:isRally?-0.8:isStreet?-1.0:-1.5;
+  const recCamberF=Math.round(Math.max(-4.0,Math.min(0.0,
+    optimalCamber - rollDeg*camberGain + fwdReduction))*10)/10;
+  const recCamberR=Math.round(Math.max(-3.5,Math.min(0.0,
+    optimalCamber - rollDeg*camberGain*rearGainMult))*10)/10;
 
   const toeFByBuild={
     street:  layout==='FWD'?0.05:0.0,
@@ -750,17 +744,15 @@ const computeAlignment=(ch,tune,layout,buildType)=>{
   const recToeF=Math.round(Math.max(-0.20,Math.min(0.15,
     toeFByBuild+(ch.frontBias-50)*-0.003+(fHz-1.8)*0.010))*10)/10;
 
-  const toeRBase=isDrift
-    ? 0.05
-    : isDrag
-      ? 0.0
-      : isOffroad
-        ? (layout==='FWD'?0.10:0.15)
-        : isRally
-          ? (layout==='RWD'?0.10:layout==='AWD'?0.08:0.05)
-          : layout==='RWD'
-            ? (isStreet?0.15:0.10)
-            : layout==='AWD'?0.08:0.05;
+  const toeRByBuild={
+    street:  {RWD:0.15,AWD:0.08,FWD:0.05},
+    track:   {RWD:0.10,AWD:0.08,FWD:0.05},
+    drift:   {RWD:0.05,AWD:0.05,FWD:0.05},
+    rally:   {RWD:0.10,AWD:0.08,FWD:0.05},
+    offroad: {RWD:0.15,AWD:0.15,FWD:0.10},
+    drag:    {RWD:0.0, AWD:0.0, FWD:0.0},
+  }[build]??{RWD:0.10,AWD:0.08,FWD:0.05};
+  const toeRBase=toeRByBuild[layout]??toeRByBuild.RWD;
   const recToeR=Math.round(Math.max(0.0,Math.min(0.25,
     toeRBase+((1-ch.frontBias/100)-0.5)*0.20+Math.max(0,rHz-fHz)*-0.03))*10)/10;
 
@@ -949,7 +941,10 @@ const DEF_DR={buildType:'track',diffType:'race',
               diffFrontAccel:28,diffFrontDecel:0,
               diffRearAccel:48,diffRearDecel:8,diffCenter:65};
 const DEF_AL={alignManual:false,
-              camberF:-2.3,camberR:-1.8,toeF:-0.1,toeR:0.1,caster:5.5};
+              camberF:-2.3,camberR:-1.8,toeF:-0.1,toeR:0.1,caster:5.5,
+              mode:'build',nudgeStrength:50};
+const ALIGN_MODE_ENC={build:0,mech:1,grip:2,manual:3};
+const ALIGN_MODE_DEC=['build','mech','grip','manual'];
 const BRAKE_BIAS_SCALE=0.20;
 
 const PRESET_SAVES=(()=>{
@@ -2118,6 +2113,9 @@ const TUTORIALS={
     {title:'ARB Solving Modes',
      focus:['arb'],
      body:'MECH and CO-SOLVE are unlocked in PRO — both solve toward your Mech Balance Target. MECH adjusts the ARB front/rear split alone to hit the target exactly, leaving rear Hz independent. CO-SOLVE adjusts both rear spring Hz and ARB split together — Spring Share controls how much of the correction comes from springs vs ARBs. WEIGHT (available in all tiers) uses weight distribution as the baseline, shifted by ARB Bias. Hz MECH mode is also unlocked in PRO: it derives rear Hz from the mech balance target instead of a ratio or flat-ride calculation. The Balance Target mode (TARGET or GRIP) applies to all three solving modes — GRIP mode auto-sets the target from the chassis grip bias and can be combined with any of MECH, CO-SOLVE, or WEIGHT.'},
+    {title:'Alignment Mode',
+     focus:['alignment'],
+     body:'BUILD (default) computes camber, toe, and caster from build type, layout, weight bias, and roll angle only. MECH nudges camber and toe toward your Mech Balance Target\'s gap from natural — reinforcing whatever oversteer/understeer intent you\'ve dialed in. GRIP nudges to counteract the chassis\'s own natural grip tendency instead, independent of ARB mode. Nudge Strength (shown for MECH/GRIP) scales how far the nudge goes — 0% matches BUILD exactly. MANUAL lets you type exact camber, toe, and caster values, bypassing the solver entirely.'},
     {title:'Tune Check',
      focus:null,
      body:'The CHECK button in the output panel opens a reverse calculator. Enter existing in-game spring and damper values to read back their natural frequency and damping ratios — useful for analysing a shared tune or verifying a manual setup.'},
@@ -2511,10 +2509,29 @@ function App(){
   const physics=useMemo(()=>feelToPhysics(ch,feEffective),[ch,feEffective]);
   const tune=useMemo(()=>computeTune(ch,physics,fe.gameMode),[ch,physics,fe.gameMode]);
   const autoAlign=useMemo(()=>computeAlignment(ch,tune,ch.layout,dr.buildType),[ch,tune,ch.layout,dr.buildType]);
-  const align=al.alignManual
-    ?{recCamberF:al.camberF,recCamberR:al.camberR,
-      recToeF:al.toeF,recToeR:al.toeR,recCaster:al.caster}
-    :autoAlign;
+  // alignMode: 'build' (default, computeAlignment only) | 'mech' (nudge toward the resolved
+  // Mech Balance Target's gap from natural — reinforces deliberate tuning intent, same signal
+  // computeDiff's MATCH CHASSIS uses) | 'grip' (nudge to counteract the chassis's own natural
+  // grip tendency, independent of ARB mode) | 'manual' (direct camber/toe/caster entry).
+  // Falls back to the legacy alignManual boolean for old persisted state.
+  const alignMode=ALIGN_MODE_DEC.includes(al.mode)?al.mode:(al.alignManual?'manual':'build');
+  const align=(()=>{
+    if(alignMode==='manual')return{recCamberF:al.camberF,recCamberR:al.camberR,
+      recToeF:al.toeF,recToeR:al.toeR,recCaster:al.caster};
+    if(alignMode!=='mech'&&alignMode!=='grip')return autoAlign;
+    const mechGap=resolveArbBalTarget(ch,fe)-naturalMechBalanceOf(ch);
+    const gripGap=-(natGripBalance-0.5)*2;
+    const rawGap=alignMode==='mech'?mechGap:gripGap;
+    const normGap=Math.max(-1,Math.min(1,rawGap/0.30));
+    const k=normGap*((al.nudgeStrength??50)/100);
+    return{
+      recCamberF:Math.round(Math.max(-4.0,Math.min(0.0,autoAlign.recCamberF-0.5*k))*10)/10,
+      recCamberR:Math.round(Math.max(-3.5,Math.min(0.0,autoAlign.recCamberR+0.3*k))*10)/10,
+      recToeF:Math.round(Math.max(-0.20,Math.min(0.15,autoAlign.recToeF-0.05*k))*10)/10,
+      recToeR:Math.round(Math.max(0.0,Math.min(0.25,autoAlign.recToeR-0.05*k))*10)/10,
+      recCaster:autoAlign.recCaster,
+    };
+  })();
   const _measuredNatForDiff=ch.useMeasuredNatBal&&ch.measuredNatBal!=null?Math.max(0.10,Math.min(0.90,ch.measuredNatBal)):null;
   const diff=useMemo(()=>computeDiff(ch,fe,dr,_measuredNatForDiff),[ch,fe,dr,_measuredNatForDiff]);
   const _brakeWtMod=ch.wheelbase>0?Math.round((ch.cgHeight/ch.wheelbase)*50):8;
@@ -4456,6 +4473,40 @@ function App(){
               );
             })()}
           </Sec></div>
+
+          {uiMode==='pro'&&<div id="zone-alignment" style={dim('alignment')}><Sec title="ALIGNMENT" open={open.alignment} onToggle={tog('alignment')}
+            onReset={()=>setAl({...DEF_AL})}>
+            <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:6}}>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>ALIGNMENT MODE</span>
+              <Hint text="BUILD (default): camber/toe/caster recommended from build type, layout, weight bias, and roll angle only. MECH: nudges camber and toe toward your resolved Mech Balance Target's gap from natural — reinforces whatever oversteer/understeer intent you've already dialed in via the ARB/Mech Balance Target. GRIP: nudges to counteract the chassis's own natural grip tendency instead, independent of ARB mode. MANUAL: type in exact values."/>
+            </div>
+            <div style={{display:'flex',gap:3,marginBottom:10,flexWrap:'wrap'}}>
+              {['build','mech','grip','manual'].map(m=>(
+                <button key={m} className={`tog${alignMode===m?' on':''}`}
+                  onClick={()=>setAl(p=>({...p,mode:m}))}>{m.toUpperCase()}</button>
+              ))}
+            </div>
+            {(alignMode==='mech'||alignMode==='grip')&&
+              <FeelSlider label="Nudge Strength" value={al.nudgeStrength??50}
+                onChange={pAl('nudgeStrength')} min={0} max={100} step={1}
+                leftLabel="SUBTLE" rightLabel="STRONG"
+                readout={`${al.nudgeStrength??50}%`}
+                hint="How strongly camber and toe are nudged away from the BUILD baseline. 0% = identical to BUILD mode. 100% = full nudge toward the MECH/GRIP gap. Caster is never adjusted by this — it isn't an oversteer/understeer lever."/>}
+            {alignMode==='manual'&&<>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 10px'}}>
+                <Field label="Camber F" value={al.camberF} onChange={pAl('camberF')} min={-4.0} max={0.0} step={0.1} unit="°"
+                  hint="Front camber, entered directly."/>
+                <Field label="Camber R" value={al.camberR} onChange={pAl('camberR')} min={-3.5} max={0.0} step={0.1} unit="°"
+                  hint="Rear camber, entered directly."/>
+                <Field label="Toe F" value={al.toeF} onChange={pAl('toeF')} min={-0.20} max={0.15} step={0.01} unit="°"
+                  hint="Front toe, entered directly. Negative = toe-out, positive = toe-in."/>
+                <Field label="Toe R" value={al.toeR} onChange={pAl('toeR')} min={0.0} max={0.25} step={0.01} unit="°"
+                  hint="Rear toe, entered directly."/>
+              </div>
+              <Field label="Caster" value={al.caster} onChange={pAl('caster')} min={4.0} max={7.5} step={0.1} unit="°"
+                hint="Caster, entered directly."/>
+            </>}
+          </Sec></div>}
 
           </>}
         </div>

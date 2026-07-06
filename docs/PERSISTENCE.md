@@ -13,7 +13,7 @@ examples of that).
 | `suspos_ch_v8` | Chassis state (`ch`) — weight, frontBias, tyres, wheelbase, track widths, CG height, layout, measured nat-bal | `DEF_CH` |
 | `suspos_fe_v8` | Feel/tune state (`fe`) — ride stiffness, ARB modes, damping, balance targets | `DEF_FE` |
 | `suspos_dr_v8` | Drivetrain state (`dr`) — build type, diff type, diff lock/bias fields | `DEF_DR` |
-| `suspos_al_v2` | Alignment state (`al`) — manual override flag, camber/toe/caster | `DEF_AL` |
+| `suspos_al_v2` | Alignment state (`al`) — mode (build/mech/grip/manual), nudgeStrength, manual camber/toe/caster, and the legacy `alignManual` flag (still read as a fallback for old saves — see [ALIGNMENT.md](ALIGNMENT.md)) | `DEF_AL` |
 | `suspos_units_v1` | Metric vs imperial display toggle | `false` (imperial) |
 | `suspos_saves_v9` | Legacy preset save slots — **read-only**, kept only as the one-time migration source for My Builds | `PRESET_SAVES` |
 | `suspos_uimode_v1` | Current complexity tier (`beginner`/`intermediate`/`pro`) | `'beginner'` |
