@@ -37,6 +37,14 @@ A **BEG / INT / PRO** toggle in the header controls how much of the input surfac
 | **INT** | All BEG inputs plus ARB modes (AUTO / ROLL / SHARE) with ARB Bias, an ARB balance mode toggle (WEIGHT / NEUTRAL — NEUTRAL solves the F/R split to exactly cancel the springs' contribution to the balance bar), individual ride frequency and damping controls (including SETTLE TIME mode — set a target settle time and ζ is back-calculated per axle, and REBOUND/BUMP MODE toggles), drivetrain intent sliders, and a **Diff Type** selector (Race / Sport / Rally / Offroad / Drift) with per-type output scaling and recommended type based on build. |
 | **PRO** | All INT inputs plus tyre sizes, balance guide, chassis balance / grip bias / stability readouts, geometry gap, Mech Balance Target slider, MECH / CO-SOLVE / MAN ARB balance modes (added on top of WEIGHT / NEUTRAL), Hz MECH mode, full chassis geometry (wheelbase, track widths, CG height), per-wheel load transfer readouts, differential MANUAL mode with MATCH CHASSIS, and **measured natural balance** calibration (enter an in-game reading to replace the geometry prediction as the solver baseline). CO-SOLVE mode includes **Auto Spring Share** — automatically finds the spring/ARB split that equalises utilisation of both, with SPR CORR / ARB CORR readouts showing each source's contribution to the balance correction. A wheel lift warning appears when rear springs are ≥20% stiffer than front. |
 
+Reference docs for maintainers:
+- [SLIDERS.md](docs/SLIDERS.md) — every slider's range, tier, physical effect, and oversteer/understeer direction
+- [FORMULAS.md](docs/FORMULAS.md) — the ground-truth handling-balance contributor formulas
+- [CODEC.md](docs/CODEC.md) — the share-code field ID table (never reuse an id)
+- [PERSISTENCE.md](docs/PERSISTENCE.md) — localStorage keys and when to bump a version
+- [PRESETS.md](docs/PRESETS.md) — factory preset values and how to add a new one
+- [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) — unresolved quirks and test-coverage gaps
+
 ---
 
 ## Calibration
@@ -79,7 +87,9 @@ The entire app is a single HTML file containing:
 - **Persistence** — `localStorage` via a custom `usePersist` hook; degrades gracefully in private browsing
 - **Share codec** — pipe-delimited numeric array, Base64-encoded (~210 chars, 64 values, fully backward-compatible — short legacy codes decode with new fields defaulted)
 
-The physics functions are at the top of the `<script>` block and can be read, tested, or extracted independently. A standalone test suite is included in `tests.js` — run with `node tests.js`.
+The physics functions are at the top of the `<script>` block and can be read, tested, or extracted independently. A standalone test suite is included in `tests.js` — run with `node tests.js` (covers spring/damper solving and `computeDiff`; `computeAlignment` is still untested — see [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md)).
+
+**Data flow:** `ch`/`fe`/`dr` (chassis/feel/drivetrain state) → `feelToPhysics(ch, fe)` resolves feel settings into concrete physics parameters (Hz, ARB balance mode, damping mode) → `computeTune(ch, physics, gameMode)` solves springs/dampers/ARBs → `computeDiff(ch, fe, dr)` solves differential locks independently → `computeAlignment(ch, tune, layout, buildType)` derives camber/toe/caster from the tune result. All four are pure functions with no shared mutable state — see [FORMULAS.md](docs/FORMULAS.md) for the handling-balance math each one feeds into.
 
 ---
 

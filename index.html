@@ -809,8 +809,13 @@ const computeDiff=(ch,fe,dr,natMechBalOverride=null)=>{
     const gap=tgt-natMechBal; // positive = user wants more rear/oversteer than natural
     // Cap correction so it can't dominate explicit user slider input
     const correction=Math.max(-25,Math.min(25,gap*150));
-    effBiasExit =Math.max(-50,Math.min(50,biasExit +correction));
-    effBiasEntry=Math.max(-50,Math.min(50,biasEntry+correction*0.5));
+    // FWD's diffBiasExit/Entry are polarity-inverted vs RWD/AWD: more front lock means more
+    // UNDERSTEER on a FWD car (see bDiffAccel/bDiffDecel in the balance formulas below), so
+    // the correction must flip sign there or "more oversteer" targets would push FWD toward
+    // more understeer instead.
+    const signedCorrection=ch.layout==='FWD'?-correction:correction;
+    effBiasExit =Math.max(-50,Math.min(50,biasExit +signedCorrection));
+    effBiasEntry=Math.max(-50,Math.min(50,biasEntry+signedCorrection*0.5));
   }
 
   let vals;
@@ -2610,9 +2615,11 @@ function App(){
     let adjustedFe={...DEF_FE,...s.fe};
     // Hz is already weight-neutral (spring rate = Hz² × cornerMass), so no scaling needed.
     if(uiMode==='beginner'){
-      adjustedFe.arbBalMode='weight';
+      // Match the Beginner Balance slider's own mechanism (NEUTRAL ARB mode + rearHzMult
+      // nudge) so the car's achieved balance stays consistent whether or not the user
+      // has touched the slider since loading this preset.
+      adjustedFe.arbBalMode='neutral';
       adjustedFe.rearHzMode='multiplier';
-      if(adjustedFe.rearHzMult==null) adjustedFe.rearHzMult=1.0;
       adjustedFe.dampCharMode='zeta';
       adjustedFe.settleBias=0;
       adjustedFe.dampingBias=0;
@@ -3158,16 +3165,24 @@ function App(){
                 </div>
                 <div id="zone-balance" style={dim('balance')}>
                 <FeelSlider label="Balance" value={balVal}
-                  onChange={v=>{const c=Math.max(-50,Math.min(50,v));setFe(p=>({...p,
-                    arbBalMode:'neutral',
-                    rearHzMode:'multiplier',
-                    arbBias:c,
-                    rearHzMult:Math.round((1.0+c*0.004)*100)/100}));}}
+                  onChange={v=>{const c=Math.max(-50,Math.min(50,v));setFe(p=>{
+                    // Nudge rearHzMult incrementally from wherever it already sits (e.g. a
+                    // loaded preset's tuned ratio) rather than overwriting it outright, so
+                    // touching this slider doesn't erase a preset's Hz character.
+                    const prevC=p.arbBias??0;
+                    const baseMult=p.rearHzMode==='multiplier'?(p.rearHzMult??1.20):1.20;
+                    const nudged=Math.max(0.50,Math.min(3.00,baseMult*(1+(c-prevC)*0.0008)));
+                    return{...p,
+                      arbBalMode:'neutral',
+                      rearHzMode:'multiplier',
+                      arbBias:c,
+                      rearHzMult:Math.round(nudged*100)/100};
+                  });}}
                   min={-50} max={50} step={1}
                   leftLabel="UNDERSTEER" rightLabel="OVERSTEER"
                   markers={[{value:0,color:'#94a3b8',label:'NEUTRAL'}]}
                   readout={balVal<-10?'UNDERSTEER':balVal>10?'OVERSTEER':'NEUTRAL'}
-                  hint="Blends two mechanisms: ARB Bias in NEUTRAL mode (nudges the ARB split away from the point that exactly cancels the springs' balance-bar bias) with a slight rear/front spring frequency ratio nudge — both pushed toward your chosen direction. Right (OVERSTEER) = more rotation, freer rear end. Left (UNDERSTEER) = more stability. Start at centre for most builds."/>
+                  hint="Blends two mechanisms: ARB Bias in NEUTRAL mode (nudges the ARB split away from the point that exactly cancels the springs' balance-bar bias) with a slight rear/front spring frequency ratio nudge — applied on top of whatever ratio a loaded preset already set, not a reset. Right (OVERSTEER) = more rotation, freer rear end. Left (UNDERSTEER) = more stability. Start at centre for most builds."/>
                 </div>
                 <div id="zone-character" style={dim('character')}>
                 <FeelSlider label="Character" value={stAgVal}

@@ -1,6 +1,14 @@
 // SUSP.OS physics engine tests
 // Run with: node tests.js
 // No dependencies required.
+//
+// Covers spring/damper solving, settle-mode ride-reference anchoring, the
+// mechBalanceLLT grip model, and computeDiff (layout-dependent lock/balance signs,
+// diff type scaling, SPORT decel lockout, and the MATCH CHASSIS FWD-polarity
+// regression — see docs/KNOWN_ISSUES.md for the bug this guards against).
+//
+// Coverage gap: computeAlignment (camber/toe/caster target derivation) is still
+// untested — see docs/KNOWN_ISSUES.md.
 
 const KG_TO_LB = 2.204622622;
 const LB_IN_TO_NM = 175.126790921;
@@ -43,6 +51,98 @@ const rsBalFromBalance = (ch, target) => {
 const cornerMasses = ch => {
   const kg = ch.weight / KG_TO_LB;
   return { front: (kg * (ch.frontBias / 100)) / 2, rear: (kg * (1 - ch.frontBias / 100)) / 2 };
+};
+
+// ── computeDiff model (must mirror app: naturalMechBalanceOf / resolveArbBalTarget / computeDiff) ──
+const MECH_BALANCE_TARGET = 0.65;
+const DIFF_BIAS_SCALE = 0.14;
+const DIFF_TYPE_SCALE = { race: 1.00, sport: 0.88, rally: 0.76, offroad: 0.52, drift: 1.10 };
+
+const naturalMechBalanceOf = ch => {
+  if (ch.useMeasuredNatBal && ch.measuredNatBal != null) return Math.max(0.10, Math.min(0.90, ch.measuredNatBal));
+  const mc = cornerMasses(ch);
+  return mc.rear * ch.trackR * ch.trackR / (mc.front * ch.trackF * ch.trackF + mc.rear * ch.trackR * ch.trackR);
+};
+const resolveArbBalTarget = (ch, fe) => fe.arbBalTarget == null
+  ? MECH_BALANCE_TARGET
+  : Math.max(0.20, Math.min(0.90, naturalMechBalanceOf(ch) + fe.arbBalTarget));
+
+const computeDiff = (ch, fe, dr, natMechBalOverride = null) => {
+  const rB = 1 - ch.frontBias / 100;
+  const cl = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
+  const biasExit = dr.diffBiasExit ?? 0;
+  const biasEntry = dr.diffBiasEntry ?? 0;
+  const frontExitBias = dr.diffFrontExitBias ?? 0;
+  const build = dr.buildType ?? 'track';
+  const diffType = dr.diffType ?? 'race';
+  const typeScale = DIFF_TYPE_SCALE[diffType] ?? 1.0;
+
+  let effBiasExit = biasExit, effBiasEntry = biasEntry;
+  if (dr.diffComplement && !dr.diffManual) {
+    const cm = cornerMasses(ch);
+    const natMechBal = natMechBalOverride != null
+      ? natMechBalOverride
+      : (cm.rear * ch.trackR * ch.trackR) / (cm.front * ch.trackF * ch.trackF + cm.rear * ch.trackR * ch.trackR);
+    const tgt = resolveArbBalTarget(ch, fe);
+    const gap = tgt - natMechBal;
+    const correction = Math.max(-25, Math.min(25, gap * 150));
+    const signedCorrection = ch.layout === 'FWD' ? -correction : correction;
+    effBiasExit = Math.max(-50, Math.min(50, biasExit + signedCorrection));
+    effBiasEntry = Math.max(-50, Math.min(50, biasEntry + signedCorrection * 0.5));
+  }
+
+  let vals;
+  if (dr.diffManual) {
+    vals = ch.layout === 'AWD'
+      ? { layout: 'AWD',
+          frontAccel: dr.diffFrontAccel ?? 25, frontDecel: dr.diffFrontDecel ?? 0,
+          rearAccel: dr.diffRearAccel ?? 50, rearDecel: dr.diffRearDecel ?? 10,
+          center: dr.diffCenter ?? 65 }
+      : { layout: ch.layout, accel: dr.diffAccel ?? 35, decel: dr.diffDecel ?? 10 };
+  } else if (ch.layout === 'AWD') {
+    const center = cl(dr.diffCenter ?? 65, 45, 80);
+    vals = { layout: 'AWD',
+      frontAccel: cl((28 - effBiasExit * 0.10 + frontExitBias * 0.12) * typeScale, 10, 40),
+      frontDecel: 0,
+      rearAccel: cl((48 + effBiasExit * 0.25) * typeScale, 20, 70),
+      rearDecel: diffType === 'sport' ? 0 : cl(8 + (rB - 0.5) * 15 + effBiasEntry * 0.15, 0, 20),
+      center };
+  } else {
+    const isRWD = ch.layout === 'RWD';
+    const accelBase = isRWD
+      ? ({ street: 28, track: 35, drift: 48, rally: 25, offroad: 18, drag: 65 }[build] ?? 35)
+      : ({ street: 15, track: 20, drift: 12, rally: 12, offroad: 10, drag: 20 }[build] ?? 20);
+    const decelBase = isRWD
+      ? ({ street: 15, track: 12, drift: 3, rally: 8, offroad: 5, drag: 0 }[build] ?? 12)
+      : ({ street: 8, track: 5, drift: 2, rally: 4, offroad: 2, drag: 0 }[build] ?? 5);
+    const accel = isRWD
+      ? cl(accelBase * typeScale + effBiasExit * 0.20, 10, 65)
+      : cl(accelBase * typeScale + effBiasExit * 0.15, 5, 35);
+    const decel = diffType === 'sport' ? 0 : cl(decelBase * typeScale + (rB - 0.5) * (isRWD ? 15 : 5) + effBiasEntry * 0.15, 0, isRWD ? 30 : 15);
+    vals = { layout: ch.layout, accel, decel };
+  }
+
+  const nf = ch.frontBias / 100;
+  let bDiffAccel = 0, bDiffDecel = 0, bDiffFront = 0, bDiffRear = 0;
+  if (vals.layout === 'AWD') {
+    const C = Math.max(0, Math.min(1, (vals.center ?? 65) / 100));
+    const bFA = -vals.frontAccel * nf * (1 - C) * DIFF_BIAS_SCALE;
+    const bRA = vals.rearAccel * (1 - nf) * C * DIFF_BIAS_SCALE;
+    const bFD = -vals.frontDecel * nf * (1 - C) * DIFF_BIAS_SCALE;
+    const bRD = vals.rearDecel * (1 - nf) * C * DIFF_BIAS_SCALE;
+    bDiffFront = bFA + bFD;
+    bDiffRear = bRA + bRD;
+    bDiffAccel = bFA + bRA;
+    bDiffDecel = bFD + bRD;
+  } else if (vals.layout === 'RWD') {
+    bDiffAccel = vals.accel * (1 - nf) * DIFF_BIAS_SCALE;
+    bDiffDecel = vals.decel * (1 - nf) * DIFF_BIAS_SCALE;
+  } else {
+    bDiffAccel = -vals.accel * nf * DIFF_BIAS_SCALE;
+    bDiffDecel = -vals.decel * nf * DIFF_BIAS_SCALE;
+  }
+
+  return { ...vals, bDiffAccel, bDiffDecel, bDiffFront, bDiffRear };
 };
 
 // Spring-frequency operating band — must mirror app's HZ_MIN/HZ_MAX.
@@ -305,6 +405,84 @@ console.log('\nsettle mode ride-reference anchoring');
   // bias direction: settleBias>0 (biasMult>1) → rear settles faster (shorter rear settle time)
   const biased = settleZetas('front', fHz, rHz, RZ, 2);
   assertEq('positive bias → rear settles faster', settle(biased.zR, rHz) < settle(biased.zF, fHz), true);
+}
+
+// ── computeDiff — layout-dependent lock and balance-contribution signs ─────────
+
+console.log('\ncomputeDiff — layout signs');
+{
+  const chRWD = { weight: 3200, frontBias: 50, trackF: 1.55, trackR: 1.52, layout: 'RWD' };
+  const chFWD = { ...chRWD, layout: 'FWD' };
+  const chAWD = { ...chRWD, layout: 'AWD' };
+  const fe0 = {};
+  const drBase = { buildType: 'track', diffType: 'race' };
+
+  // RWD: more accel/decel lock → oversteer (+)
+  const rwdLo = computeDiff(chRWD, fe0, { ...drBase, diffBiasExit: -50, diffBiasEntry: -50 });
+  const rwdHi = computeDiff(chRWD, fe0, { ...drBase, diffBiasExit: 50, diffBiasEntry: 50 });
+  assertEq('RWD: higher EXIT/ENTRY → more accel lock', rwdHi.accel > rwdLo.accel, true);
+  assertEq('RWD: bDiffAccel positive (oversteer) at high lock', rwdHi.bDiffAccel > 0, true);
+  assertEq('RWD: bDiffDecel positive (oversteer) at high lock', rwdHi.bDiffDecel > 0, true);
+
+  // FWD: more front lock → understeer (−), regardless of EXIT/ENTRY slider direction
+  const fwdLo = computeDiff(chFWD, fe0, { ...drBase, diffBiasExit: -50, diffBiasEntry: -50 });
+  const fwdHi = computeDiff(chFWD, fe0, { ...drBase, diffBiasExit: 50, diffBiasEntry: 50 });
+  assertEq('FWD: higher EXIT/ENTRY → more accel lock', fwdHi.accel > fwdLo.accel, true);
+  assertEq('FWD: bDiffAccel negative (understeer) at high lock', fwdHi.bDiffAccel < 0, true);
+  assertEq('FWD: bDiffDecel negative (understeer) at high lock', fwdHi.bDiffDecel < 0, true);
+
+  // AWD: rear-heavy center split → more oversteer than front-heavy center split.
+  // Note: with the model's default baselines (rearAccel 48 vs frontAccel 28), the diff
+  // nets oversteer-leaning even at the most front-biased center allowed (45) — that's a
+  // property of the baseline magnitudes, not a bug, so this checks the comparative
+  // direction rather than asserting an absolute understeer sign at center=45.
+  const awdRear = computeDiff(chAWD, fe0, { ...drBase, diffCenter: 80 });
+  const awdFront = computeDiff(chAWD, fe0, { ...drBase, diffCenter: 45 });
+  assertEq('AWD: rear-biased center → more oversteer than front-biased center',
+    (awdRear.bDiffAccel + awdRear.bDiffDecel) > (awdFront.bDiffAccel + awdFront.bDiffDecel), true);
+  assertEq('AWD: bDiffRear positive at rear-biased center', awdRear.bDiffRear > 0, true);
+  assertEq('AWD: bDiffFront negative at rear-biased center', awdRear.bDiffFront < 0, true);
+}
+
+// ── computeDiff — diff type scaling and SPORT decel lockout ────────────────────
+
+console.log('\ncomputeDiff — diff type scaling');
+{
+  const ch = { weight: 3200, frontBias: 50, trackF: 1.55, trackR: 1.52, layout: 'RWD' };
+  const fe0 = {};
+  const race = computeDiff(ch, fe0, { buildType: 'track', diffType: 'race' });
+  const drift = computeDiff(ch, fe0, { buildType: 'track', diffType: 'drift' });
+  const offroad = computeDiff(ch, fe0, { buildType: 'track', diffType: 'offroad' });
+  assertEq('drift (1.10×) locks harder than race (1.00×) at equal slider position', drift.accel > race.accel, true);
+  assertEq('offroad (0.52×) locks softer than race at equal slider position', offroad.accel < race.accel, true);
+
+  const sport = computeDiff(ch, fe0, { buildType: 'track', diffType: 'sport' });
+  assertEq('SPORT diff has zero decel lock (accel-only)', sport.decel, 0);
+}
+
+// ── computeDiff — MATCH CHASSIS correction (regression guard for the FWD-polarity bug) ──
+
+console.log('\ncomputeDiff — MATCH CHASSIS correction');
+{
+  // Chassis whose natural balance sits below the (default) 0.65 target, so MATCH CHASSIS
+  // sees gap>0 ("wants more oversteer") and pushes a nonzero correction on every layout.
+  const chRWD = { weight: 3200, frontBias: 50, trackF: 1.55, trackR: 1.52, layout: 'RWD' };
+  const chFWD = { ...chRWD, layout: 'FWD' };
+  const dr = { buildType: 'track', diffType: 'race', diffComplement: true, diffBiasExit: 0, diffBiasEntry: 0 };
+  const drOff = { ...dr, diffComplement: false };
+
+  const rwdOn = computeDiff(chRWD, {}, dr);
+  const rwdOff = computeDiff(chRWD, {}, drOff);
+  assertEq('RWD + MATCH CHASSIS wanting oversteer → MORE accel lock than baseline', rwdOn.accel > rwdOff.accel, true);
+
+  const fwdOn = computeDiff(chFWD, {}, dr);
+  const fwdOff = computeDiff(chFWD, {}, drOff);
+  assertEq('FWD + MATCH CHASSIS wanting oversteer → LESS front lock than baseline (not more)', fwdOn.accel < fwdOff.accel, true);
+
+  // MANUAL mode bypasses MATCH CHASSIS entirely — accel is whatever the user typed, unchanged
+  const manualDr = { ...dr, diffManual: true, diffAccel: 40 };
+  const manualOn = computeDiff(chRWD, {}, manualDr);
+  assertEq('MANUAL mode ignores MATCH CHASSIS (accel unchanged)', manualOn.accel, 40);
 }
 
 // ── summary ───────────────────────────────────────────────────────────────────
