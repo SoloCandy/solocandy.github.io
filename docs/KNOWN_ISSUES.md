@@ -5,6 +5,28 @@ of without a written trail. Not a general bug tracker — just things that
 either can't be trivially fixed, or were fixed here and are worth
 remembering *why* they broke in the first place.
 
+## Fixed — NEUTRAL+AUTO ARB budget could blow up with ARB Bias + high Rear Multiplier (resolved)
+
+`computeTune`'s NEUTRAL ARB balance mode (~index.html:635-660, AUTO stiffness
+only) expands the ARB roll-stiffness budget when the natural AUTO budget is
+too small to let the F/R split fully cancel the springs' balance-bar bias.
+That expanded budget was computed once, before ARB Bias was applied — but
+ARB Bias then shifts the split away from that exact-cancel point anyway. At
+a high Rear Multiplier (1.25×+ — springs strongly rear-biased) combined
+with ARB Bias pushed to REAR HEAVY, this left both front *and* rear ARB
+oversized (a real case hit 63.1/65.0, both effectively maxed) instead of
+the moderate values a rear-heavy bias should produce.
+
+Fixed by only running the expansion when ARB Bias is centred (`0`) — the
+only case where "reach exact cancellation" is the actual goal. Any nonzero
+bias means the user has already opted out of exact cancellation, so the
+budget stays at its natural AUTO size. Verified: same car (2.90 Hz front,
+1.25× rear multiplier) with ARB Bias at full rear-heavy went from 63.1/65.0
+(MAX/MAX) to 18.9/19.7 (LOW/LOW); ARB Bias at 0 is unaffected (still
+reaches the springs-cancelling split and still shows "ARB MAXED — CAN'T
+FULLY CANCEL" honestly when the game's 65-click limit is a genuine
+constraint).
+
 ## Fixed — MATCH CHASSIS ignored layout polarity for FWD (resolved)
 
 `computeDiff`'s MATCH CHASSIS correction (~index.html:799-814) biases
@@ -27,6 +49,21 @@ drivetrain's polarity needs an explicit per-layout check before being
 applied generically. This is the same class of bug as the Damping Bias
 hint-text mismatch (see [FORMULAS.md](FORMULAS.md)) — trust the underlying
 `bXxx` balance formulas over intuition when wiring up a new correction.
+
+**Not a bug (re-verified after an external report claimed otherwise):**
+the EXIT slider's UI code (~index.html:3444-3445) flips the sign of the
+stored `dr.diffBiasExit` value for FWD only, so the slider's right side
+reads as oversteer-leaning despite FWD's lock-to-balance polarity being
+opposite RWD/AWD's. `computeDiff`'s `+effBiasExit*0.15` term for FWD
+(~index.html:840) is *intentionally* the same sign as RWD's — the UI flip
+already carries the per-layout inversion, so the formula doesn't need to.
+An external review (Gemini) analyzed the formula in isolation, missed the
+UI-level flip, and proposed flipping the formula's sign too — which would
+double-cancel and silently reintroduce this exact bug. Re-verified live:
+FWD EXIT slider at −50 ("PUSH") reads Accel 30%; at +50 ("ROTATION") reads
+Accel 15% — correctly less lock on the oversteer-leaning side. Both sites
+now cross-reference each other in comments to prevent this specific
+misdiagnosis from recurring.
 
 ## Fixed — Test coverage gap: `computeDiff` now covered (resolved)
 
