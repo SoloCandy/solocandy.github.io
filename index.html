@@ -733,7 +733,7 @@ const computeTune=(ch,phys,gameMode)=>{
          arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
          bSp,bAb,bTot,mechBalance,gripBalance,
          rsSpF,rsSpR,rsAbF,rsAbR,
-         balArbSplit:(arbBalMode==='mech'||arbBalMode==='coSolve'||arbBalMode==='neutral')?Math.round(rF*100):null,
+         balArbSplit:(arbBalMode==='mech'||arbBalMode==='coSolve'||arbBalMode==='neutral'||arbBalMode==='chassis')?Math.round(rF*100):null,
          zetaF,zetaR,bumpZetaF,bumpZetaR,
          coSolveAutoS,coSolveSpCorr,coSolveAbCorr,coSolveLiftRisk};
 };
@@ -4005,15 +4005,18 @@ function App(){
             <ArbDial arbF={tune.arbF} arbR={tune.arbR} arbLimit={lim.arb}
               rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}
               natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
-            {((fe.arbBalMode??'weight')==='weight'||(fe.arbBalMode??'weight')==='neutral')&&(()=>{
+            {((fe.arbBalMode??'weight')==='weight'||(fe.arbBalMode??'weight')==='neutral'||(fe.arbBalMode??'weight')==='chassis')&&(()=>{
               const isNeutral=(fe.arbBalMode??'weight')==='neutral';
-              const splitPct=isNeutral?tune.balArbSplit:Math.round(physics.arbBalance/100*100);
+              const isChassis=(fe.arbBalMode??'weight')==='chassis';
+              const splitPct=(isNeutral||isChassis)?tune.balArbSplit:Math.round(physics.arbBalance/100*100);
               return(<>
                 <FeelSlider label="ARB Bias" value={fe.arbBias}
                   onChange={pFe('arbBias')} min={-50} max={50} leftLabel="FRONT HEAVY" rightLabel="REAR HEAVY"
                   markers={[{value:0,color:'#94a3b8',label:'NEUTRAL'}]}
                   hint={isNeutral
                     ?"Shifts the ARB split away from the point that exactly cancels the springs' contribution to the balance bar — at the extremes this can swing the split all the way to front-only or rear-only. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) cancels the springs' bias."
+                    :isChassis
+                    ?"Shifts the front/rear ARB stiffness split from the car's actual natural mech balance (track-width geometry, or your MEASURE NAT BAL reading) instead of raw weight %. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the calibrated natural balance."
                     :"Shifts the front/rear ARB stiffness split from the neutral weight-distribution default. FRONT HEAVY adds more front bar stiffness (more understeer). REAR HEAVY adds more rear bar stiffness (more oversteer). Neutral (centre) matches the car's weight balance."}
                   readout={`F ${100-splitPct}% / R ${splitPct}%`}/>
                 {isNeutral&&<div style={{display:'flex',alignItems:'center',gap:6,
