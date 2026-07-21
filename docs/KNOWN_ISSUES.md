@@ -27,6 +27,49 @@ reaches the springs-cancelling split and still shows "ARB MAXED — CAN'T
 FULLY CANCEL" honestly when the game's 65-click limit is a genuine
 constraint).
 
+## Fixed — MEASURE NAT BAL calibration was ignored by WEIGHT/NEUTRAL ARB modes (resolved)
+
+The Tune Check "MEASURE NAT BAL" flow lets a PRO user replace the
+track-width geometry prediction with an actual in-game Mech Balance
+reading (`ch.measuredNatBal`, read via `naturalMechBalanceOf(ch)`). That
+calibration only ever reached `resolveArbBalTarget` — the MECH/CO-SOLVE
+target and the informational "NATURAL"/"CUR" display — never the ARB
+split WEIGHT and NEUTRAL modes actually compute. Both of those read raw
+`ch.frontBias` directly (`arbBalance` in `feelToPhysics`, and NEUTRAL's
+`nf0` in `computeTune`), completely bypassing the calibration.
+
+Since WEIGHT is the default mode, this meant a user's in-game measurement
+had zero effect on their actual tune for anyone not specifically in
+MECH/CO-SOLVE. Real case: measured 0.49 in-game, calculator predicted
+CUR 0.42 (from the uncalibrated formula), applied tune actually read 0.50
+in Forza — an 0.08 gap the calibration was supposed to prevent.
+
+Fixed by adding a new PRO-only Balance Mode, **CHASSIS** (`index.html`
+`computeTune`, `arbBalMode==='chassis'` branch) — same split formula as
+WEIGHT, but anchored to `naturalMechBalanceOf(ch)` instead of raw
+`ch.frontBias`, so it honours a MEASURE NAT BAL reading (or at minimum the
+track-width-corrected geometry) instead of the cruder heuristic. WEIGHT
+and NEUTRAL themselves were deliberately left unchanged — swapping their
+formula would shift ARB output for every BEG/INT tune too, since
+`naturalMechBalanceOf`'s fallback is track-width-weighted even at default
+geometry, not just weight-fraction. CHASSIS scopes the fix to PRO only.
+
+## Changed — ARB MAN moved from Balance Mode to Stiffness Mode
+
+MAN (direct front/rear ARB click entry) used to live under Balance Mode
+(`arbBalMode:'man'`) alongside WEIGHT/NEUTRAL/MECH/CO-SOLVE. It's now a
+Stiffness Mode option (`arbMode:'man'`, alongside AUTO/ROLL/SHARE)
+instead, since it bypasses the entire budget+split system rather than
+choosing a split within a budget — a stiffness-level concept, not a
+balance-level one. Selecting Stiffness Mode MAN now hides Balance Mode
+entirely (nothing left for it to control).
+
+Old share codes/saves with `arbBalMode:'man'` still load correctly: a
+migration in `sanitizeTune` (share-code path) and a matching one-time
+`useEffect` in `App()` (persisted-state path) both rewrite it to
+`arbBalMode:'weight'` + `arbMode:'man'` on load — see
+[CODEC.md](CODEC.md)'s notes on id 41 for the encoding side of this.
+
 ## Fixed — MATCH CHASSIS ignored layout polarity for FWD (resolved)
 
 `computeDiff`'s MATCH CHASSIS correction (~index.html:799-814) biases

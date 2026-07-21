@@ -96,6 +96,21 @@ reinterprets old codes under new rules. Two examples so far:
   (0.20-0.90) to a delta from `naturalMechBalanceOf(ch)`. Old codes/saved
   builds with an explicit (non-default) target will be reinterpreted under
   the new delta semantics and will likely need re-tuning.
+- **id 41 (`arbBalMode`) `'man'`** — MAN moved from Balance Mode to Stiffness
+  Mode (id 15, `arbMode`), since it bypasses the budget/split system
+  entirely rather than choosing a split within it. `'man'` stays in
+  `ARB_BAL_MODE_DEC` at its original index purely so old codes still decode
+  the string correctly, but `sanitizeTune` immediately rewrites it: any
+  decoded `arbBalMode:'man'` becomes `arbBalMode:'weight'` + `arbMode:'man'`.
+  A matching one-time migration effect in `App()` does the same for plain
+  persisted state (pre-move saves loaded without going through a share
+  code). `arbManF`/`arbManR` (ids 46/47) are untouched by the move.
+- **id 41 (`arbBalMode`) `'chassis'`** — new PRO-only mode (index 5), added
+  alongside the MAN migration. Same split formula as WEIGHT, but anchored to
+  `naturalMechBalanceOf(ch)` (track-width geometry, or the MEASURE NAT BAL
+  reading when set) instead of raw `ch.frontBias` — see
+  [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for why WEIGHT itself was deliberately
+  left on the simpler raw-weight formula rather than switched over.
 
 When making a change like this, note it here so future debugging of "why
 did my old share code load weird" has a paper trail.

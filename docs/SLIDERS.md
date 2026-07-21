@@ -33,7 +33,7 @@ every balance-relevant slider.
 
 | Slider | Range | Effect | Balance Direction |
 |---|---|---|---|
-| ARB Bias | −50..+50 | Shifts front/rear ARB split (WEIGHT: from weight default; NEUTRAL: from the springs-cancelling point) | Right = OVERSTEER, Left = UNDERSTEER |
+| ARB Bias | −50..+50 | Shifts front/rear ARB split (WEIGHT: from weight default; NEUTRAL: from the springs-cancelling point; CHASSIS (PRO): from the car's natural mech balance) | Right = OVERSTEER, Left = UNDERSTEER |
 | Rebound ζ | 10–115% | Rebound damping ratio, both axles | None — magnitude/feel |
 | Bump Ratio | 10–100% | Bump damping as % of rebound | None — feel only |
 | Bump ζ | 10–115% | Independent bump damping | None — feel only |
@@ -59,7 +59,7 @@ every balance-relevant slider.
 | Tyre Size F/R | e.g. `265/35R18` | Grip capacity; asymmetry nudges displayed Mech Balance | Wider rear → less oversteer; wider front → less understeer |
 | Mech Balance Target | delta from NAT (≈−0.35..+0.70) | MECH/CO-SOLVE solve to `naturalMechBalanceOf(ch) + delta` | Positive = OVERSTEER target, negative = UNDERSTEER target |
 | Balance Offset | −0.20..+0.20 | GRIP mode's offset from grip-neutralizing target | Positive = OVERSTEER, negative = UNDERSTEER |
-| ARB F / ARB R (MAN) | 1–65 clicks | Direct ARB click values | More rear-relative → OVERSTEER |
+| ARB F / ARB R (Stiffness Mode MAN) | 1–65 clicks | Direct ARB click values, bypasses budget/split entirely | More rear-relative → OVERSTEER |
 | Spring Share (CO-SOLVE) | 0–100% | Splits correction between spring Hz and ARB split | None directly — redistributes *how*, not the target |
 | Accel/Decel Lock (MANUAL diff) | 0–100% each | Direct per-axle lock % | Rear lock → OVERSTEER; front lock → UNDERSTEER |
 | Center Split (MANUAL AWD) | 0–100% rear | Direct torque split | Higher % rear → OVERSTEER |
