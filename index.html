@@ -986,7 +986,7 @@ const PRESET_SAVES=(()=>{
        fe:{...DEF_FE,rideStiffness:2.20,rearHzMode:'multiplier',rearHzMult:1.15,
            dampCharMode:'settle',settleTarget:0.55,settleBias:0,
            bumpRatio:52,arbMode:'auto'},
-       dr:{...DEF_DR,buildType:'street',diffType:'sport',diffBiasExit:-10,diffBiasEntry:10}},
+       dr:{...DEF_DR,buildType:'street',diffType:'race',diffBiasExit:-10,diffBiasEntry:10}},
     2:{name:'TRACK',refCornerMassF:ref,notes:'',
        fe:{...DEF_FE,rideStiffness:2.50,rearHzMode:'multiplier',rearHzMult:1.05,
            dampCharMode:'settle',settleTarget:0.40,settleBias:-5,
@@ -4873,28 +4873,31 @@ function App(){
               ?'Starting point — fine-tune by feel in 1% steps. Accel lock aids exit rotation. Decel low for better corner entry; raise for stability under lift-off.'
               :`Starting point — fine-tune by feel in 1% steps. Front decel at 0 minimises entry understeer. Rear decel low for rotation. Center ${diff.center}% rear.`}>
 
-            {uiMode!=='beginner'&&<div style={{fontSize:10,color:'#334155',letterSpacing:1,marginBottom:6,textAlign:'right'}}>{({race:'RACE',sport:'SPORT',rally:'RALLY',offroad:'OFFROAD',drift:'DRIFT'})[dr.diffType??'race']??'RACE'} DIFF</div>}
-            {diff.layout==='AWD'?(
+            <div style={{fontSize:11,color:'#94a3b8',letterSpacing:2,marginBottom:6,fontWeight:700}}>{({race:'RACE',sport:'SPORT',rally:'RALLY',offroad:'OFFROAD',drift:'DRIFT'})[dr.diffType??'race']??'RACE'} DIFF</div>
+            {(()=>{
+              const isSport=(dr.diffType??'race')==='sport';
+              const na={value:'N/A',unit:'',ctx:null};
+              return diff.layout==='AWD'?(
               <>
                 <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:3}}>FRONT AXLE</div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
                   <Readout label="ACCEL" value={diff.frontAccel} unit="%" decimals={0} ctx={diffCtx(diff.frontAccel)}/>
-                  <Readout label="DECEL" value={diff.frontDecel} unit="%" decimals={0} ctx={diffCtx(diff.frontDecel)}/>
+                  <Readout label="DECEL" {...(isSport?na:{value:diff.frontDecel,unit:'%',ctx:diffCtx(diff.frontDecel)})} decimals={0}/>
                 </div>
                 <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:3}}>REAR AXLE</div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
                   <Readout label="ACCEL" value={diff.rearAccel} unit="%" decimals={0} ctx={diffCtx(diff.rearAccel)}/>
-                  <Readout label="DECEL" value={diff.rearDecel} unit="%" decimals={0} ctx={diffCtx(diff.rearDecel)}/>
+                  <Readout label="DECEL" {...(isSport?na:{value:diff.rearDecel,unit:'%',ctx:diffCtx(diff.rearDecel)})} decimals={0}/>
                 </div>
                 <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:3}}>CENTER</div>
-                <Readout label="SPLIT" value={diff.center} unit="% rear" decimals={0} ctx={diffCtx(diff.center)}/>
+                <Readout label="SPLIT" {...(isSport?na:{value:diff.center,unit:'% rear',ctx:diffCtx(diff.center)})} decimals={0}/>
               </>
             ):(
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
                 <Readout label="ACCEL LOCK" value={diff.accel} unit="%" decimals={0} ctx={diffCtx(diff.accel)}/>
-                <Readout label="DECEL LOCK" value={diff.decel} unit="%" decimals={0} ctx={diffCtx(diff.decel)}/>
+                <Readout label="DECEL LOCK" {...(isSport?na:{value:diff.decel,unit:'%',ctx:diffCtx(diff.decel)})} decimals={0}/>
               </div>
-            )}
+            );})()}
             {/* diff handling summary strip */}
             {(()=>{
               const fmtBias=(v,label)=>{
