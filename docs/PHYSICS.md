@@ -23,7 +23,7 @@ hzToRs = hz => clamp(HZ_MIN, HZ_MAX, hz)             // rounds/clamps a raw Hz v
 exists only to auto-migrate pre-Hz saves/share-codes that stored an
 integer 0-100 slider position instead.
 
-## Spring rate (`solveSpring`, ~index.html:203-206)
+## Spring rate (`solveSpring`)
 
 ```js
 solveSpring(hz, mass, mr) = (hz*2π)² * mass / mr² / LB_IN_TO_NM
@@ -35,7 +35,7 @@ app's calls, since Forza's displayed spring rate is wheel-rate, not
 suspension-lever-rate) and converted from N/mm to lb/in via
 `LB_IN_TO_NM = 175.126790921`.
 
-## Damper clicks (`solveDamp`/`solveDampRaw`, ~index.html:207-214)
+## Damper clicks (`solveDamp`/`solveDampRaw`)
 
 ```js
 criticalDamping(hz, mass) = 2 * sqrt((hz*2π)² * mass * mass)   // cc, the ζ=100% reference
@@ -51,7 +51,7 @@ scaling front/rear together to fit the game's click limit without losing
 their ratio — the final clamp is applied only after that scaling, not per
 axle, so `solveDamp`'s own clamp is for the simple (non-proportional) case.
 
-## Settle time ↔ ζ (`settleZetas`, ~index.html:219-225)
+## Settle time ↔ ζ (`settleZetas`)
 
 ```js
 settleZetas(rideRef, fHz, rHz, refZeta, biasMult):
@@ -70,9 +70,9 @@ settle faster regardless of which axle is the reference.
 ## Rear/secondary Hz modes
 
 `fe.rearHzMode` picks which of these derives the non-anchored axle's
-frequency (dispatch lives in `feelToPhysics`, ~index.html:252-345):
+frequency (dispatch lives in `feelToPhysics`):
 
-- **FLAT RIDE** (`flatRideRearHz` / `flatRideSharedHz`, ~index.html:169-202)
+- **FLAT RIDE** (`flatRideRearHz` / `flatRideSharedHz`)
   — solves the rear (or, in `shared` ride-ref mode, both axles from an
   average) so front and rear wheels hit the same bump in phase at the
   target speed, cancelling pitch. `flatRideSharedHz` inverts the same
@@ -88,20 +88,20 @@ frequency (dispatch lives in `feelToPhysics`, ~index.html:252-345):
   contribute a different ARB roll-stiffness fraction that dilutes the
   spring-only correction), the resulting roll-stiffness rear fraction hits
   `resolveArbBalTarget`'s target exactly. This is the most complex branch
-  in the file (~index.html:288-345) — conceptually it's "given the ARB's
+  in the file — conceptually it's "given the ARB's
   fixed contribution, what spring Hz ratio makes springs+ARBs sum to the
   target," solved differently depending on whether the ARB budget is a
   roll-stiffness fraction (WEIGHT/SHARE) or an absolute value (ROLL/MANUAL,
   the latter solved via a quadratic in `mult_man`).
-- **CO-SOLVE** (PRO only, ~index.html:262-278 and the main solve in
-  `computeTune`) — solves rear Hz *and* ARB split together, with
+- **CO-SOLVE** (PRO only — the branch in `feelToPhysics`, plus the main
+  solve in `computeTune`) — solves rear Hz *and* ARB split together, with
   `fe.springShare` controlling how much of the balance correction comes
   from springs vs ARBs. `Kcs = rHz/fHz` is derived once from the chassis,
   target, and spring share, then the ride-reference axle's slider is
   inverted through `Kcs` so the *other* axle's Hz stays correct regardless
   of which axle the user chose to anchor.
 
-## Mech balance grip model (`mechBalanceLLT`/`balanceFromRsBal`, ~index.html:233-251)
+## Mech balance grip model (`mechBalanceLLT`/`balanceFromRsBal`)
 
 ```js
 mechBalanceLLT(ch, Kf, Kr):

@@ -2,7 +2,7 @@
 
 The SHARE / LOAD CODE feature encodes tune state as a compact, sparse
 `id:value` list, Base64-wrapped. Every field gets a permanent numeric `id`
-in `CODEC_FIELDS` (~index.html:1811-1867). This table exists so a new field
+in `CODEC_FIELDS`. This table exists so a new field
 never accidentally reuses an old id and breaks existing share codes.
 
 > **Rule: ids are permanent.** Once assigned, an id must never be reused for

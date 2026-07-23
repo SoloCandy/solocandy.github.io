@@ -1,7 +1,7 @@
 # SUSP.OS — localStorage Persistence Keys
 
-All persisted state uses the `usePersist(key, initial)` hook
-(~index.html:903-915), which merges stored JSON over the default object
+All persisted state uses the `usePersist(key, initial)` hook, which merges
+stored JSON over the default object
 (`{...initial, ...parsed}`) — so adding a new field to a default object is
 automatically picked up for existing users without a migration step. Only
 bump the version suffix when a field's **meaning** changes in a way that

@@ -16,7 +16,7 @@ Hz/spring-rate/damper-click solve math feeding these formulas' inputs
 
 ---
 
-## Springs & ARBs (`computeTune`, ~index.html:680-690)
+## Springs & ARBs (`computeTune`)
 
 ```js
 const spShare = rsTotal>0 ? (rsSpF+rsSpR)/rsTotal : 1;
@@ -35,7 +35,7 @@ const bTot = bSp + bAb;
   than the front weight fraction would imply, the term goes positive
   (oversteer).
 
-## Damping (`computeTune`, ~index.html:2522-2524)
+## Damping (`bDampBias`)
 
 ```js
 const effectiveAvgZeta = (tune.zetaF+tune.zetaR)/2 || 70;
@@ -48,7 +48,7 @@ const bDampBias = -(tune.zetaF - tune.zetaR) * 16 / effectiveAvgZeta;
 - This is the formula that governs the Damping Bias slider: right
   (REAR bias, front stays firm) = oversteer; left (FRONT bias) = understeer.
 
-## Brakes (~index.html:2521-2522)
+## Brakes (`bBrakeEntry`)
 
 ```js
 const bBrakeEntry = -(brakeBias-50) * BRAKE_BIAS_SCALE; // BRAKE_BIAS_SCALE = 0.20
@@ -59,7 +59,7 @@ const bBrakeEntry = -(brakeBias-50) * BRAKE_BIAS_SCALE; // BRAKE_BIAS_SCALE = 0.
   → negative → understeer on entry. Below 50 (more rear brake) → positive
   → oversteer-leaning (more prone to rear lock-up rotation).
 
-## Differential (`computeDiff`, ~index.html:848-867)
+## Differential (`computeDiff`)
 
 ```js
 const nf = ch.frontBias/100;
@@ -91,7 +91,7 @@ bDiffDecel = bFD + bRD;
   Trust the formula for the numeric Handling Balance total; trust the hint
   text for what the lock physically does.
 
-## Total (~index.html:2525)
+## Total (`bTotFull`)
 
 ```js
 const bTotFull = tune.bTot + diff.bDiffAccel + diff.bDiffDecel + bBrakeEntry + bDampBias;

@@ -7,8 +7,8 @@ remembering *why* they broke in the first place.
 
 ## Fixed — NEUTRAL+AUTO ARB budget could blow up with ARB Bias + high Rear Multiplier (resolved)
 
-`computeTune`'s NEUTRAL ARB balance mode (~index.html:635-660, AUTO stiffness
-only) expands the ARB roll-stiffness budget when the natural AUTO budget is
+`computeTune`'s NEUTRAL ARB balance mode (AUTO stiffness only) expands
+the ARB roll-stiffness budget when the natural AUTO budget is
 too small to let the F/R split fully cancel the springs' balance-bar bias.
 That expanded budget was computed once, before ARB Bias was applied — but
 ARB Bias then shifts the split away from that exact-cancel point anyway. At
@@ -72,7 +72,7 @@ migration in `sanitizeTune` (share-code path) and a matching one-time
 
 ## Fixed — MATCH CHASSIS ignored layout polarity for FWD (resolved)
 
-`computeDiff`'s MATCH CHASSIS correction (~index.html:799-814) biases
+`computeDiff`'s MATCH CHASSIS correction biases
 `diffBiasExit`/`diffBiasEntry` toward the Mech Balance Target's gap from
 natural balance. The correction was applied with the same sign regardless
 of drivetrain layout — but more front-axle lock means *understeer* on a
@@ -94,11 +94,11 @@ hint-text mismatch (see [FORMULAS.md](FORMULAS.md)) — trust the underlying
 `bXxx` balance formulas over intuition when wiring up a new correction.
 
 **Not a bug (re-verified after an external report claimed otherwise):**
-the EXIT slider's UI code (~index.html:3444-3445) flips the sign of the
+the EXIT slider's UI code flips the sign of the
 stored `dr.diffBiasExit` value for FWD only, so the slider's right side
 reads as oversteer-leaning despite FWD's lock-to-balance polarity being
 opposite RWD/AWD's. `computeDiff`'s `+effBiasExit*0.15` term for FWD
-(~index.html:840) is *intentionally* the same sign as RWD's — the UI flip
+is *intentionally* the same sign as RWD's — the UI flip
 already carries the per-layout inversion, so the formula doesn't need to.
 An external review (Gemini) analyzed the formula in isolation, missed the
 UI-level flip, and proposed flipping the formula's sign too — which would
@@ -157,7 +157,7 @@ vs understeer direction) but never claims they're comparable in
 order of magnitude further than diff, brakes, or damping can, even when
 those are pushed to their own slider maximums.
 
-`bSp`/`bAb` (~index.html:711-713) aren't scaled by an arbitrary constant
+`bSp`/`bAb` aren't scaled by an arbitrary constant
 at all — they're derived directly from real roll-stiffness shares
 (`spShare`/`abShare`), self-normalizing against `rsTotal`. Because Rear
 Multiplier (0.50–3.00×) can push the spring-only front/rear split far from
@@ -165,7 +165,7 @@ the weight-neutral point, `bSp` alone can reach roughly **±35** at
 realistic, in-slider-range settings — worked example: RWD, front weight
 52%, `rearHzMult=3.00`, spring share ≈87% → `bSp ≈ (0.52−0.10)×100×0.87 ≈
 36.5`. By contrast `bDiffAccel`/`bDiffDecel`/`bBrakeEntry`
-(~index.html:882-895, ~index.html:2754) are each `<input>% × <weight
+are each `<input>% × <weight
 fraction> × <flat scale constant>` (`DIFF_BIAS_SCALE=0.14`,
 `BRAKE_BIAS_SCALE=0.20`) — maxing the EXIT slider on a RWD Track car tops
 out around `bDiffAccel ≈ 3.0`, maxing brake bias around `bBrakeEntry ≈
@@ -174,7 +174,7 @@ extreme — a fixed ceiling regardless of the Rebound ζ value the bias is
 applied to (the ratio in `bDampBias`'s formula cancels ζ out algebraically).
 Diff and brakes are close to invisible on the bar's own scale. Concrete
 consequence: `HandlingVerdict`'s dominant-contributor sort
-(~index.html:1604-1608, sorts by `Math.abs(val)`) will pick springs or ARB
+(sorts by `Math.abs(val)`) will pick springs or ARB
 as the "dom" contributor almost any time Ride Stiffness/Rear
 Multiplier/ARB Bias have been touched at all, even mildly — the actionable
 tip can essentially never recommend adjusting diff/brakes unless
@@ -194,7 +194,7 @@ structural fix for the center-fraction math introduced in that same
 commit, not a recalibration against real game behavior.
 
 This scale gap is **not** coordinated with the separately-known issue that
-RWD Track's diff accel ceiling (`accelBase`, ~index.html:859-861) caps out
+RWD Track's diff accel ceiling (`accelBase`) caps out
 well below community-typical lock settings. Git confirms `accelBase` has
 never been touched since the file's earliest tracked commit — not once,
 let alone in tandem with `DIFF_BIAS_SCALE`'s later bump. These are two
@@ -209,7 +209,7 @@ should get the same real-car validation rigor as the existing three-car
 protocol before changing. Raising `DIFF_BIAS_SCALE`/`BRAKE_BIAS_SCALE`
 only changes how loud diff/brakes read on the bar and the
 dominant-contributor tip — it doesn't touch `mechBalance`
-(~index.html:716-717, a separate roll-stiffness-only calculation) or any
+(a separate roll-stiffness-only calculation) or any
 value the user enters into the game, so it's lower blast radius. But
 there's no telemetry-backed target to raise either constant *to* — any new
 number would be another guess unless someone runs the same kind of

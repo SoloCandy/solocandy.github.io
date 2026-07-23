@@ -1,13 +1,13 @@
 # SUSP.OS — Factory Presets Reference
 
-The six factory presets in `PRESET_SAVES` (~index.html:950-984), loaded via
+The six factory presets in `PRESET_SAVES`, loaded via
 the FACTORY cards in the BUILDS drawer. Each preset sets `fe` and `dr`
 fields on top of the defaults (`{...DEF_FE, ...}` / `{...DEF_DR, ...}`) —
 any field not listed below stays at its `DEF_FE`/`DEF_DR` default.
 
 Loading a preset does **not** touch `ch` (chassis) or `layout` — both are
 treated as sticky, car-specific state that a preset shouldn't override (see
-`loadPreset` at ~index.html:2608, and the `layout` migration in
+`loadPreset`, and the `layout` migration in
 [CODEC.md](CODEC.md) for why layout in particular is excluded).
 
 **Beginner mode** additionally forces `arbBalMode:'neutral'` and
@@ -42,7 +42,7 @@ only understands the simple rebound-ζ/bump-ratio model.
 ## Build-type → recommended presets (Beginner mode)
 
 Beginner mode's "★ FOR YOUR BUILD" recommendation
-(`BUILD_PRESET_MAP`, ~index.html:3036) maps build type to preset numbers:
+(`BUILD_PRESET_MAP`) maps build type to preset numbers:
 
 | Build Type | Recommended preset(s) |
 |---|---|
@@ -58,7 +58,7 @@ Beginner mode's "★ FOR YOUR BUILD" recommendation
 - Add a new numbered entry to `PRESET_SAVES`, spreading `DEF_FE`/`DEF_DR`
   and overriding only what's distinctive about the preset.
 - Update `PRESET_DESC` (two nearby copies — Beginner panel and BUILD &
-  BALANCE's presets drawer, both ~index.html:3038 and ~3500) with a
+  BALANCE's presets drawer) with a
   `tag`/`sub` description pair.
 - Consider adding it to `BUILD_PRESET_MAP` if it should be the recommended
   starting point for a build type.

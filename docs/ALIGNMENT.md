@@ -1,6 +1,6 @@
 # SUSP.OS — Alignment Target Reference
 
-`computeAlignment(ch, tune, layout, buildType)` (~index.html:714-772) derives
+`computeAlignment(ch, tune, layout, buildType)` derives
 recommended camber, toe, and caster from build type, drivetrain layout,
 front weight bias, front/rear spring Hz, and roll angle. Unlike the rest of
 the physics engine (see [FORMULAS.md](FORMULAS.md)), none of its constants
@@ -119,8 +119,8 @@ caster only special-cases FWD vs everything else).
 
 ## Alignment Mode (PRO)
 
-PRO mode adds an ALIGNMENT sidebar section (`zone-alignment`,
-~index.html:4474) with a 4-way mode toggle (`al.mode`, `ALIGN_MODE_DEC`).
+PRO mode adds an ALIGNMENT sidebar section (`zone-alignment`) with a
+4-way mode toggle (`al.mode`, `ALIGN_MODE_DEC`).
 INT and Beginner always get BUILD — the whole section (and thus MECH/GRIP/
 MANUAL) is PRO-only, since there's nothing to configure without it.
 
@@ -131,7 +131,7 @@ MANUAL) is PRO-only, since there's nothing to configure without it.
 | **GRIP** | Nudges using `gripGap = -(natGripBalance-0.5)*2` instead — counteracts the chassis's own natural at-limit tendency (understeer-prone chassis gets pushed toward more aggressive/oversteer-leaning alignment, and vice versa), independent of whatever ARB balance mode is active |
 | **MANUAL** | Direct entry — wires up `al.camberF/camberR/toeF/toeR/caster` (these fields, plus `al.alignManual`, predate this feature and were previously unused dead state with no UI) |
 
-**MECH/GRIP nudge formula** (~index.html:2506-2521):
+**MECH/GRIP nudge formula:**
 
 ```js
 normGap = clamp(-1, 1, rawGap / 0.30)       // rawGap = mechGap or gripGap depending on mode
