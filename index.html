@@ -1519,7 +1519,7 @@ const Sec=({title,open,onToggle,onReset,extra,children})=>{
   );
 };
 
-const Readout=({label,value,unit,warn=false,decimals=1,ctx=null,primary=false})=>(
+const Readout=({label,value,unit,warn=false,decimals=1,ctx=null,primary=false,sub=null})=>(
   <div className="ro" style={primary?{borderColor:'#e2e8f022'}:{}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:1}}>
       <div className="rl">{label}</div>
@@ -1535,6 +1535,8 @@ const Readout=({label,value,unit,warn=false,decimals=1,ctx=null,primary=false})=
       </span>
       {unit&&<span className="ru" style={{marginTop:0}}>{unit}</span>}
     </div>
+    {sub&&<div style={{fontSize:10,color:'#64748b',marginTop:1,
+                        fontFamily:'var(--font-mono)'}}>{sub}</div>}
   </div>
 );
 
@@ -2273,6 +2275,7 @@ const GLOSSARY=[
   {group:'Damping',terms:[
     {term:'ζ (Zeta / Damping Ratio)',def:"How quickly a bounce dies out, expressed as a percentage of critical damping. 100% = critically damped (returns to rest in one smooth motion, no overshoot). SUSP.OS defaults to 70% (Butterworth) — settles cleanly in one or two cycles without feeling harsh. Below ~40% feels bouncy and underdamped; above ~100% feels sluggish and overdamped."},
     {term:'Critical Damping',def:"The exact amount of damping that stops a spring's oscillation as fast as possible without overshooting past rest. It's the reference point damping ratio (ζ) is measured against — ζ is always a percentage of this value, not an absolute number."},
+    {term:'Butterworth (≈70% ζ)',def:"The damping ratio (≈0.707, rounded to 70% here) that gives the flattest, smoothest response with no resonant peak — borrowed from Butterworth filter design. It's the reason SUSP.OS defaults Rebound ζ to 70%: firm enough to control the car, soft enough not to feel harsh over bumps."},
     {term:'Rebound',def:'Damping resistance as the suspension extends — the wheel dropping back down after being compressed. Controls how fast the wheel returns to full extension after a bump or during weight transfer.'},
     {term:'Bump (Compression)',def:'Damping resistance as the suspension compresses — the wheel moving up into a bump or under load transfer. Usually softer than rebound; Bump Ratio expresses it as a percentage of the rebound value.'},
     {term:'Settle Time',def:'Seconds for the suspension to stop moving after a disturbance. Short settle time feels planted and controlled; long settle time is more compliant over rough surfaces but can leave the car still moving mid-corner.'},
@@ -4777,9 +4780,11 @@ function App(){
 
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               <Readout label="FRONT" value={tune.arbF} warn={tune.arbF>lim.arb*0.88}
-                unit={`/ ${lim.arb}`} ctx={arbCtx(tune.arbF,lim.arb)} primary/>
+                unit={`/ ${lim.arb}`} ctx={arbCtx(tune.arbF,lim.arb)} primary
+                sub={`${Math.round(tune.rsAbF/(tune.rsSpF+tune.rsAbF)*100)}% of front roll`}/>
               <Readout label="REAR" value={tune.arbR} warn={tune.arbR>lim.arb*0.88}
-                unit={`/ ${lim.arb}`} ctx={arbCtx(tune.arbR,lim.arb)} primary/>
+                unit={`/ ${lim.arb}`} ctx={arbCtx(tune.arbR,lim.arb)} primary
+                sub={`${Math.round(tune.rsAbR/(tune.rsSpR+tune.rsAbR)*100)}% of rear roll`}/>
             </div>
             {tune.rollClamped&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
                  marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
@@ -4810,11 +4815,11 @@ function App(){
               <Readout label="FRONT"
                 value={metricUnits?tune.springF*NMM_PER_LBIN:tune.springF}
                 unit={metricUnits?'N/mm':'lb/in'} decimals={metricUnits?1:0}
-                ctx={hzCtx(tune.fHz)} primary/>
+                ctx={hzCtx(tune.fHz)} primary sub={`${tune.fHz.toFixed(2)} Hz`}/>
               <Readout label="REAR"
                 value={metricUnits?tune.springR*NMM_PER_LBIN:tune.springR}
                 unit={metricUnits?'N/mm':'lb/in'} decimals={metricUnits?1:0}
-                ctx={hzCtx(tune.rHz)} primary/>
+                ctx={hzCtx(tune.rHz)} primary sub={`${tune.rHz.toFixed(2)} Hz`}/>
             </div>
             {physics.rearHzClamped&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
                  marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
@@ -4837,10 +4842,10 @@ function App(){
             hint="Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in the damping tuning menu. Amber warn when above 88% of the game limit. F/R balance is preserved — if either end exceeds the limit, both are scaled proportionally so the ratio is maintained.">
 
             <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'1fr 1fr 1fr 1fr',gap:4}}>
-              <Readout label="REB F"  value={tune.rebF}  warn={tune.rebF>lim.damping*0.88}  unit={`/ ${lim.damping}`} primary/>
-              <Readout label="REB R"  value={tune.rebR}  warn={tune.rebR>lim.damping*0.88}  unit={`/ ${lim.damping}`} primary/>
-              <Readout label="BUMP F" value={tune.bumpF} warn={tune.bumpF>lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
-              <Readout label="BUMP R" value={tune.bumpR} warn={tune.bumpR>lim.damping*0.88} unit={`/ ${lim.damping}`} primary/>
+              <Readout label="REB F"  value={tune.rebF}  warn={tune.rebF>lim.damping*0.88}  unit={`/ ${lim.damping}`} primary sub={`${tune.zetaF.toFixed(0)}% ζ`}/>
+              <Readout label="REB R"  value={tune.rebR}  warn={tune.rebR>lim.damping*0.88}  unit={`/ ${lim.damping}`} primary sub={`${tune.zetaR.toFixed(0)}% ζ`}/>
+              <Readout label="BUMP F" value={tune.bumpF} warn={tune.bumpF>lim.damping*0.88} unit={`/ ${lim.damping}`} primary sub={`${tune.bumpZetaF.toFixed(0)}% ζ`}/>
+              <Readout label="BUMP R" value={tune.bumpR} warn={tune.bumpR>lim.damping*0.88} unit={`/ ${lim.damping}`} primary sub={`${tune.bumpZetaR.toFixed(0)}% ζ`}/>
             </div>
             {tune.dampingClamped&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
                  marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,

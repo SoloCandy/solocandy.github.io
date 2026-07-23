@@ -149,6 +149,74 @@ of the aggregate `bDiffDecel` term that doesn't capture the nuance. Not
 fixed here since it would require reworking the aggregate model, which is
 out of scope for a documentation pass.
 
+## Open — Handling Balance bar's five contributors aren't on a comparable scale
+
+[FORMULAS.md](FORMULAS.md) documents each contributor's *sign* (oversteer
+vs understeer direction) but never claims they're comparable in
+*magnitude* — and they aren't. Springs/ARB can swing the bar roughly an
+order of magnitude further than diff, brakes, or damping can, even when
+those are pushed to their own slider maximums.
+
+`bSp`/`bAb` (~index.html:711-713) aren't scaled by an arbitrary constant
+at all — they're derived directly from real roll-stiffness shares
+(`spShare`/`abShare`), self-normalizing against `rsTotal`. Because Rear
+Multiplier (0.50–3.00×) can push the spring-only front/rear split far from
+the weight-neutral point, `bSp` alone can reach roughly **±35** at
+realistic, in-slider-range settings — worked example: RWD, front weight
+52%, `rearHzMult=3.00`, spring share ≈87% → `bSp ≈ (0.52−0.10)×100×0.87 ≈
+36.5`. By contrast `bDiffAccel`/`bDiffDecel`/`bBrakeEntry`
+(~index.html:882-895, ~index.html:2754) are each `<input>% × <weight
+fraction> × <flat scale constant>` (`DIFF_BIAS_SCALE=0.14`,
+`BRAKE_BIAS_SCALE=0.20`) — maxing the EXIT slider on a RWD Track car tops
+out around `bDiffAccel ≈ 3.0`, maxing brake bias around `bBrakeEntry ≈
+-3.6`, and `bDampBias` tops out around **±10.7** at Damping Bias's ±50
+extreme — a fixed ceiling regardless of the Rebound ζ value the bias is
+applied to (the ratio in `bDampBias`'s formula cancels ζ out algebraically).
+Diff and brakes are close to invisible on the bar's own scale. Concrete
+consequence: `HandlingVerdict`'s dominant-contributor sort
+(~index.html:1604-1608, sorts by `Math.abs(val)`) will pick springs or ARB
+as the "dom" contributor almost any time Ride Stiffness/Rear
+Multiplier/ARB Bias have been touched at all, even mildly — the actionable
+tip can essentially never recommend adjusting diff/brakes unless
+spring/ARB sit at *exact* neutral defaults.
+
+Unlike `ARB_RS_SCALE`, `DAMPING_CALIBRATION`, `TIRE_LOAD_SENS`, and
+`TIRE_MECH_SCALE` — all tied in the README to SimHub telemetry and Stage 2
+testing across three real cars — `DIFF_BIAS_SCALE` and `BRAKE_BIAS_SCALE`
+have no documented calibration methodology at all. `tests.js` only asserts
+*sign* for `bDiffAccel`/`bDiffDecel`, never magnitude; `BRAKE_BIAS_SCALE`
+has zero references anywhere in `tests.js`. Git history confirms neither
+constant has ever been empirically recalibrated: `BRAKE_BIAS_SCALE` has
+exactly one commit (its introduction, `7932982`); `DIFF_BIAS_SCALE` has
+one substantive change (`fdc4361`, 0.12→0.14), and that commit's own
+message says the bump "compensates for AWD split-by-center" — a
+structural fix for the center-fraction math introduced in that same
+commit, not a recalibration against real game behavior.
+
+This scale gap is **not** coordinated with the separately-known issue that
+RWD Track's diff accel ceiling (`accelBase`, ~index.html:859-861) caps out
+well below community-typical lock settings. Git confirms `accelBase` has
+never been touched since the file's earliest tracked commit — not once,
+let alone in tandem with `DIFF_BIAS_SCALE`'s later bump. These are two
+independently-evolved numbers that happen to compound (a capped input
+*and* a low-visibility scale multiplying it), not a deliberate "keep diff
+modest" design.
+
+If either gets addressed, they need independent treatment — no single
+constant fixes both, and they carry different risk. Raising `accelBase`
+changes the actual differential recommendation entered into Forza; it
+should get the same real-car validation rigor as the existing three-car
+protocol before changing. Raising `DIFF_BIAS_SCALE`/`BRAKE_BIAS_SCALE`
+only changes how loud diff/brakes read on the bar and the
+dominant-contributor tip — it doesn't touch `mechBalance`
+(~index.html:716-717, a separate roll-stiffness-only calculation) or any
+value the user enters into the game, so it's lower blast radius. But
+there's no telemetry-backed target to raise either constant *to* — any new
+number would be another guess unless someone runs the same kind of
+structured test SUSP.OS already has a protocol for. Not fixed here since
+it's a calibration question, not a code bug — out of scope for a
+documentation pass.
+
 ## Fixed — `computeAlignment` was blind to the car's actual balance tuning (resolved)
 
 `computeAlignment` only reacted to build type, drivetrain layout, front
