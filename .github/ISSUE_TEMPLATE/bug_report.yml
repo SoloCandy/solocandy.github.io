@@ -1,0 +1,32 @@
+name: Bug report
+description: Something in the calculator looks wrong, crashes, or doesn't match Forza
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you actually see?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Car stats, which mode (BEG/INT/PRO), which sliders/settings — enough for someone else to hit the same result.
+    validations:
+      required: true
+  - type: input
+    id: share-code
+    attributes:
+      label: Share code (optional)
+      description: If you can, click SHARE → COPY CODE in the app and paste it here — it's the fastest way to reproduce your exact setup.
+    validations:
+      required: false
+  - type: input
+    id: device
+    attributes:
+      label: Browser / device
+      description: e.g. Chrome on Windows, Safari on iPhone
+    validations:
+      required: false

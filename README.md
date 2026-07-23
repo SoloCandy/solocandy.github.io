@@ -117,6 +117,14 @@ node tests.js   # run physics unit tests
 
 ---
 
+## Feedback
+
+- **Found a bug or something looks wrong?** [Open an issue](https://github.com/SoloCandy/susp-os/issues/new/choose) — a share code (SHARE → COPY CODE) makes it much easier to reproduce.
+- **Have an idea or a question?** [Start a discussion](https://github.com/SoloCandy/susp-os/discussions).
+- **Prefer email?** [soloc4ndy@gmail.com](mailto:soloc4ndy@gmail.com).
+
+---
+
 ## Credits
 
 - Physics foundation: [NumberlessMath](https://docs.google.com/spreadsheets/d/1ySrVkgQpohIduhdLCwe99p3d6KmWXKgck5Uk-qDOlPw/edit?usp=sharing) (2020)
