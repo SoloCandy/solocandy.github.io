@@ -518,7 +518,11 @@ const feelToPhysics=(ch,fe)=>{
     bumpZetaF=Math.max(10,Math.min(115,dampingBias>0?bumpZeta:bumpZeta*(1+dampingBias/100)));
     bumpZetaR=Math.max(10,Math.min(115,dampingBias<0?bumpZeta:bumpZeta*(1-dampingBias/100)));
   }
-  const arbBalance=Math.max(20,Math.min(80,(100-ch.frontBias)+fe.arbBias*0.4));
+  // SAME (default): ARB split tracks front weight % directly — a front-heavy car gets a
+  // front-heavy ARB split, reinforcing its natural tendency. OPPOSITE mirrors around 50%
+  // instead, so the bars counteract the weight distribution rather than follow it.
+  const arbSplitOpposite=!!fe.arbSplitOpposite;
+  const arbBalance=Math.max(20,Math.min(80,(arbSplitOpposite?ch.frontBias:(100-ch.frontBias))+fe.arbBias*0.4));
   const arbMode=fe.arbMode??'auto';
   // arbTargetRoll is only consumed by the roll-mode solver in computeTune.
   // The else branch is never used — pass a harmless 0 so the field is defined.
@@ -532,12 +536,12 @@ const feelToPhysics=(ch,fe)=>{
   // coSolve overrides rearHz in computeTune via effectiveRHz; flat-ride fallthrough can
   // set rearHzClamped spuriously. mechBalClamped covers coSolve limits instead.
   if(arbBalModeEarly==='coSolve') rearHzClamped=false;
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,dampCharMode,settleTarget,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbBias:fe.arbBias??0,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,springShare,springShareAuto:fe.springShareAuto!==false,arbManF:fe.arbManF,arbManR:fe.arbManR};
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,dampCharMode,settleTarget,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbBias:fe.arbBias??0,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,arbSplitOpposite,springShare,springShareAuto:fe.springShareAuto!==false,arbManF:fe.arbManF,arbManR:fe.arbManR};
 };
 
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
-  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF:zetaF0,zetaR:zetaR0,bumpZetaF:bumpZetaF0,bumpZetaR:bumpZetaR0,arbBalance,arbBias,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,arbManF,arbManR}=phys;
+  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF:zetaF0,zetaR:zetaR0,bumpZetaF:bumpZetaF0,bumpZetaR:bumpZetaR0,arbBalance,arbBias,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,arbSplitOpposite,arbManF,arbManR}=phys;
   let zetaF=zetaF0,zetaR=zetaR0,bumpZetaF=bumpZetaF0,bumpZetaR=bumpZetaR0;
   // Tyre-width correction: Forza's mech balance display includes a small tyre-width contribution.
   // Pre-compensate the solve target so Forza reads the desired value after tuning.
@@ -692,8 +696,10 @@ const computeTune=(ch,phys,gameMode)=>{
     // unaffected — this is the PRO-only mode that actually honours a MEASURE NAT BAL reading
     // (previously that calibration only reached the MECH/CO-SOLVE target, never WEIGHT/NEUTRAL's
     // own split — see docs/KNOWN_ISSUES.md).
+    // SAME/OPPOSITE mirrors WEIGHT's own toggle — SAME tracks natural balance directly,
+    // OPPOSITE mirrors around 50% so the bars counteract the chassis's natural tendency.
     const natPct=naturalMechBalanceOf(ch)*100;
-    rF=Math.max(0,Math.min(1,Math.max(20,Math.min(80,(100-natPct)+arbBias*0.4))/100));
+    rF=Math.max(0,Math.min(1,Math.max(20,Math.min(80,(arbSplitOpposite?natPct:(100-natPct))+arbBias*0.4))/100));
   }
   //
   const lightShare=Math.max(0.001,Math.min(rF,1-rF));          // smaller fraction (guard against div/0 at extremes)
@@ -985,7 +991,7 @@ const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,settleMode:false,settle
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,dampCharMode:'zeta',settleTarget:0.80,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,
               arbBalTarget:null,arbBalMode:'weight',springShare:50,springShareAuto:true,
-              arbBalTargetMode:'manual',arbBalDelta:0,
+              arbBalTargetMode:'manual',arbBalDelta:0,arbSplitOpposite:false,
               rearHzMode:'flatRide',rearHzMan:1.5,rearHzMult:1.20,rideRef:'front'};
 const DEF_DR={buildType:'track',diffType:'race',
               diffManual:false,diffComplement:false,
@@ -1569,8 +1575,10 @@ const Readout=({label,value,unit,warn=false,decimals=1,ctx=null,primary=false,su
       </span>
       {unit&&<span className="ru" style={{marginTop:0}}>{unit}</span>}
     </div>
-    {sub&&<div style={{fontSize:10,color:'#64748b',marginTop:1,
-                        fontFamily:'var(--font-mono)'}}>{sub}</div>}
+    {sub&&(Array.isArray(sub)?sub:[sub]).filter(Boolean).map((line,i)=>(
+      <div key={i} style={{fontSize:10,color:'#64748b',marginTop:1,
+                        fontFamily:'var(--font-mono)'}}>{line}</div>
+    ))}
   </div>
 );
 
@@ -1582,11 +1590,15 @@ const Stat=({label,value,unit,decimals=2})=>(
   </div>
 );
 
-const Card=({title,accent=false,hint=null,children})=>(
+const Card=({title,accent=false,hint=null,headerRight=null,children})=>(
   <div className="card" style={accent?{borderColor:'#e2e8f011'}:{}}>
     <div className="ch" style={accent?{borderBottomColor:'#e2e8f011',background:'#0a0f1a'}:{}}>
       <span style={accent?{color:'#9ca3af'}:{}}>{title}</span>
       {hint&&<Hint text={hint}/>}
+      {headerRight&&<span style={{marginLeft:'auto',fontSize:10,color:'#64748b',
+                                   letterSpacing:0,textTransform:'none',fontFamily:'var(--font-mono)'}}>
+        {headerRight}
+      </span>}
     </div>
     <div className="cb">{children}</div>
   </div>
@@ -1995,6 +2007,7 @@ const CODEC_FIELDS=[
   {id:53,group:'fe',key:'arbBalTargetMode',enc:{manual:0,grip:1},dec:['manual','grip']},
   {id:54,group:'fe',key:'arbBalDelta'},
   {id:55,group:'fe',key:'springShareAuto',bool:true},
+  {id:56,group:'fe',key:'arbSplitOpposite',bool:true},
   // Retired ids — never reuse: none yet (dead fields removed pre-v1 never had an id).
 ];
 const codecFieldDefault=f=>f.tyre?f.def:DEF_GROUPS[f.group][f.key];
@@ -2073,6 +2086,7 @@ const sanitizeTune=({ch,fe,dr})=>{
                         })(),
       springShare:      cl(fe?.springShare,         0,  100, DEF_FE.springShare),
       springShareAuto:  fe?.springShareAuto!==false,
+      arbSplitOpposite: !!fe?.arbSplitOpposite,
       dampingBias:      cl(fe?.dampingBias,      -50,   50,  DEF_FE.dampingBias),
       targetSpeed:      cl(fe?.targetSpeed,       60,  200,  DEF_FE.targetSpeed),
       gameMode:         GAME_MODE_DEC.includes(fe?.gameMode)?fe.gameMode:DEF_FE.gameMode,
@@ -3616,6 +3630,7 @@ function App(){
               if(uiMode!=='pro')return null;
               const tyreInput=(key,label)=>{
                 const val=ch[key]??DEF_CH[key];
+                const isBlank=val.trim()==='';
                 const parsed=parseTyre(val);
                 return(
                   <div style={{flex:1}}>
@@ -3624,20 +3639,22 @@ function App(){
                       onChange={e=>pCh(key)(e.target.value)}
                       placeholder="265/30R19"
                       style={{width:'100%',boxSizing:'border-box',background:'#020617',
-                              border:`1px solid ${parsed?'#1e293b':'#7f1d1d'}`,borderRadius:2,
+                              border:`1px solid ${isBlank||parsed?'#1e293b':'#7f1d1d'}`,borderRadius:2,
                               color:'#e2e8f0',fontFamily:'var(--font-mono)',fontSize:12,
                               padding:'4px 6px',outline:'none'}}/>
                     <div style={{marginTop:4,fontFamily:'var(--font-mono)'}}>
-                      {parsed
-                        ?parsed.diameter!=null
-                          ?<>
-                            <span style={{fontSize:9,color:'#64748b'}}>Ø {parsed.diameter.toFixed(0)} mm</span>
-                            <div style={{fontSize:16,fontWeight:700,color:'#e2e8f0',lineHeight:1.3}}>
-                              r {parsed.radius.toFixed(1)}<span style={{fontSize:10,fontWeight:400,color:'#94a3b8'}}> mm</span>
-                            </div>
-                          </>
-                          :<span style={{fontSize:10,color:'#94a3b8'}}>{parsed.width} mm wide</span>
-                        :<span style={{fontSize:10,color:'#94a3b8'}}>invalid format</span>}
+                      {isBlank
+                        ?<span style={{fontSize:10,color:'#64748b'}}>blank — uses default width (265mm)</span>
+                        :parsed
+                          ?parsed.diameter!=null
+                            ?<>
+                              <span style={{fontSize:9,color:'#64748b'}}>Ø {parsed.diameter.toFixed(0)} mm</span>
+                              <div style={{fontSize:16,fontWeight:700,color:'#e2e8f0',lineHeight:1.3}}>
+                                r {parsed.radius.toFixed(1)}<span style={{fontSize:10,fontWeight:400,color:'#94a3b8'}}> mm</span>
+                              </div>
+                            </>
+                            :<span style={{fontSize:10,color:'#94a3b8'}}>{parsed.width} mm wide</span>
+                          :<span style={{fontSize:10,color:'#94a3b8'}}>invalid format</span>}
                     </div>
                   </div>
                 );
@@ -4198,7 +4215,8 @@ function App(){
               arbBalMode:DEF_FE.arbBalMode,
               springShare:DEF_FE.springShare,
               arbTargetRollMan:DEF_FE.arbTargetRollMan,
-              arbShareMan:DEF_FE.arbShareMan}))}>
+              arbShareMan:DEF_FE.arbShareMan,
+              arbSplitOpposite:DEF_FE.arbSplitOpposite}))}>
             <ArbDial arbF={tune.arbF} arbR={tune.arbR} arbLimit={lim.arb}
               rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}
               natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
@@ -4311,17 +4329,31 @@ function App(){
               <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
                 <button className={`tog${(fe.arbBalMode??'weight')==='weight'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('weight')}>WEIGHT</button>
+                {uiMode==='pro'&&
+                <button className={`tog${(fe.arbBalMode??'weight')==='chassis'?' on':''}`}
+                  onClick={()=>pFe('arbBalMode')('chassis')}>CHASSIS</button>}
                 <button className={`tog${(fe.arbBalMode??'weight')==='neutral'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('neutral')}>NEUTRAL</button>
                 {uiMode==='pro'&&<>
-                <button className={`tog${(fe.arbBalMode??'weight')==='chassis'?' on':''}`}
-                  onClick={()=>pFe('arbBalMode')('chassis')}>CHASSIS</button>
                 <button className={`tog${(fe.arbBalMode??'weight')==='mech'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('mech')}>MECH</button>
                 <button className={`tog${(fe.arbBalMode??'weight')==='coSolve'?' on':''}`}
                   onClick={()=>pFe('arbBalMode')('coSolve')}>CO-SOLVE</button>
                 </>}
               </div>
+              {((fe.arbBalMode??'weight')==='weight'||(fe.arbBalMode??'weight')==='chassis')&&
+                <div style={{marginTop:8}}>
+                  <span style={{fontSize:12,color:'#94a3b8',display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
+                    Split Direction
+                    <Hint text="SAME tracks the reference balance directly — a front-heavy car gets a front-heavy ARB split, reinforcing its natural tendency (this is how WEIGHT/CHASSIS behave by default). OPPOSITE mirrors the split around 50/50 instead, so the bars actively counteract that tendency rather than follow it. Applies to both WEIGHT (raw weight %) and CHASSIS (calibrated natural balance) — ARB Bias still nudges further from whichever baseline this picks."/>
+                  </span>
+                  <div style={{display:'flex',gap:3}}>
+                    <button className={`tog${!fe.arbSplitOpposite?' on':''}`}
+                      onClick={()=>pFe('arbSplitOpposite')(false)}>SAME</button>
+                    <button className={`tog${fe.arbSplitOpposite?' on':''}`}
+                      onClick={()=>pFe('arbSplitOpposite')(true)}>OPPOSITE</button>
+                  </div>
+                </div>}
             </div>}
             {(fe.arbBalMode??'weight')==='mech'&&<>
               <div style={{display:'flex',alignItems:'center',gap:8,
@@ -4855,10 +4887,16 @@ function App(){
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               <Readout label="FRONT" value={tune.arbF} warn={tune.arbF>lim.arb*0.88}
                 unit={`/ ${lim.arb}`} ctx={arbCtx(tune.arbF,lim.arb)} primary
-                sub={`${Math.round(tune.rsAbF/(tune.rsSpF+tune.rsAbF)*100)}% of front roll`}/>
+                sub={[
+                  `${Math.round(tune.rsAbF/(tune.rsSpF+tune.rsAbF)*100)}% of front roll`,
+                  `${Math.round(tune.rsAbF/(tune.rsAbF+tune.rsAbR)*100)}% of ARB budget`,
+                ]}/>
               <Readout label="REAR" value={tune.arbR} warn={tune.arbR>lim.arb*0.88}
                 unit={`/ ${lim.arb}`} ctx={arbCtx(tune.arbR,lim.arb)} primary
-                sub={`${Math.round(tune.rsAbR/(tune.rsSpR+tune.rsAbR)*100)}% of rear roll`}/>
+                sub={[
+                  `${Math.round(tune.rsAbR/(tune.rsSpR+tune.rsAbR)*100)}% of rear roll`,
+                  `${Math.round(tune.rsAbR/(tune.rsAbF+tune.rsAbR)*100)}% of ARB budget`,
+                ]}/>
             </div>
             {tune.rollClamped&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
                  marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
@@ -4883,18 +4921,29 @@ function App(){
           </Card>
 
           <Card title="SPRINGS" accent
-            hint="Spring rates in lb/in to enter in the tuning menu. The badge shows the frequency category — SOFT/ROAD/FIRM/RACE. Hz values are shown in the FEEL section of inputs.">
+            hint="Spring rates in lb/in to enter in the tuning menu. The badge shows the frequency category — SOFT/ROAD/FIRM/RACE. Hz values are shown in the FEEL section of inputs. The ratio in the header is rear Hz ÷ front Hz — the same relationship as the Rear Multiplier slider in the RIDE section, however it's currently derived (Flat Ride, Multiplier, Mech, or Independent)."
+            headerRight={`REAR ×${(tune.rHz/tune.fHz).toFixed(2)}`}>
 
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
-              <Readout label="FRONT"
-                value={metricUnits?tune.springF*NMM_PER_LBIN:tune.springF}
-                unit={metricUnits?'N/mm':'lb/in'} decimals={metricUnits?1:0}
-                ctx={hzCtx(tune.fHz)} primary sub={`${tune.fHz.toFixed(2)} Hz`}/>
-              <Readout label="REAR"
-                value={metricUnits?tune.springR*NMM_PER_LBIN:tune.springR}
-                unit={metricUnits?'N/mm':'lb/in'} decimals={metricUnits?1:0}
-                ctx={hzCtx(tune.rHz)} primary sub={`${tune.rHz.toFixed(2)} Hz`}/>
-            </div>
+            {(()=>{
+              // Spring's own share of each axle's total roll stiffness (springs+ARB) —
+              // complements the ARB card's own "% of front/rear roll" line.
+              const springPctF=Math.round(tune.rsSpF/(tune.rsSpF+tune.rsAbF)*100);
+              const springPctR=Math.round(tune.rsSpR/(tune.rsSpR+tune.rsAbR)*100);
+              return(
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
+                  <Readout label="FRONT"
+                    value={metricUnits?tune.springF*NMM_PER_LBIN:tune.springF}
+                    unit={metricUnits?'N/mm':'lb/in'} decimals={metricUnits?1:0}
+                    ctx={hzCtx(tune.fHz)} primary
+                    sub={`${tune.fHz.toFixed(2)} Hz  ·  ${springPctF}% of front roll`}/>
+                  <Readout label="REAR"
+                    value={metricUnits?tune.springR*NMM_PER_LBIN:tune.springR}
+                    unit={metricUnits?'N/mm':'lb/in'} decimals={metricUnits?1:0}
+                    ctx={hzCtx(tune.rHz)} primary
+                    sub={`${tune.rHz.toFixed(2)} Hz  ·  ${springPctR}% of rear roll`}/>
+                </div>
+              );
+            })()}
             {physics.rearHzClamped&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
                  marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
                  border:'1px solid #f5a62333'}}>

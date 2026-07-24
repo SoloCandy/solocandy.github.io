@@ -74,8 +74,9 @@ future version might not carry.
 | 53 | fe | arbBalTargetMode | enum (`{manual:0,grip:1}`) |
 | 54 | fe | arbBalDelta | raw number |
 | 55 | fe | springShareAuto | bool |
+| 56 | fe | arbSplitOpposite | bool |
 
-**Next available id: 56.**
+**Next available id: 57.**
 
 ## Retired — never reuse
 

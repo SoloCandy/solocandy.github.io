@@ -34,6 +34,7 @@ every balance-relevant slider.
 | Slider | Range | Effect | Balance Direction |
 |---|---|---|---|
 | ARB Bias | −50..+50 | Shifts front/rear ARB split (WEIGHT: from weight default; NEUTRAL: from the springs-cancelling point; CHASSIS (PRO): from the car's natural mech balance) | Right = OVERSTEER, Left = UNDERSTEER |
+| Split Direction (WEIGHT/CHASSIS) | SAME / OPPOSITE | SAME tracks the reference balance directly (front-heavy → front-heavy ARB). OPPOSITE mirrors the split around 50/50 (front-heavy → rear-heavy ARB), so the bars counteract the reference instead of following it. ARB Bias still nudges from whichever baseline this picks. | Indirect — flips which side WEIGHT/CHASSIS lean toward by default |
 | Rebound ζ | 10–115% | Rebound damping ratio, both axles | None — magnitude/feel |
 | Bump Ratio | 10–100% | Bump damping as % of rebound | None — feel only |
 | Bump ζ | 10–115% | Independent bump damping | None — feel only |
