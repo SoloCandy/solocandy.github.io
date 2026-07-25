@@ -164,13 +164,23 @@ const cornerMasses=ch=>{
 };
 const parseTyre=str=>{
   const s=String(str??'').trim();
-  const full=s.match(/^(\d{2,3})\/(\d{2,3})[Rr](\d{1,2}(?:\.\d)?)$/);
-  if(full){const width=+full[1],aspect=+full[2],rim=+full[3];const diameter=rim*25.4+2*(width*aspect/100);return{width,aspectRatio:aspect,rimDiameter:rim,diameter,radius:diameter/2};}
-  const partial=s.match(/^(\d{2,3})\/(\d{2,3})$/);
-  if(partial){const width=+partial[1],aspect=+partial[2];return{width,aspectRatio:aspect,rimDiameter:null,diameter:null,radius:null};}
-  const w=s.match(/^(\d{2,3})$/);
-  if(w)return{width:+w[1],aspectRatio:null,rimDiameter:null,diameter:null,radius:null};
-  return null;
+  if(!s)return null;
+  // Tolerant of whatever sits between the numbers — "265/35R18", "265x35r18",
+  // "265-35-18", "265 35 18" all parse the same way. Only the digit groups
+  // themselves matter; separators are just noise. Sanity-bounded so unrelated
+  // text (e.g. stray numbers) doesn't get misread as a plausible tyre size.
+  const tokens=s.match(/\d+(?:\.\d+)?/g);
+  if(!tokens||!tokens.length)return null;
+  const width=+tokens[0];
+  if(!(width>=50&&width<=500))return null;
+  if(tokens.length===1)return{width,aspectRatio:null,rimDiameter:null,diameter:null,radius:null};
+  const aspect=+tokens[1];
+  if(!(aspect>=10&&aspect<=100))return null;
+  if(tokens.length===2)return{width,aspectRatio:aspect,rimDiameter:null,diameter:null,radius:null};
+  const rim=+tokens[2];
+  if(!(rim>=8&&rim<=30))return null;
+  const diameter=rim*25.4+2*(width*aspect/100);
+  return{width,aspectRatio:aspect,rimDiameter:rim,diameter,radius:diameter/2};
 };
 // Natural mech balance for this chassis — pure roll-stiffness rear fraction at equal springs,
 // no ARBs (matches chassisAnalysis.natBal / the "NAT" reference the Balance Guide already uses).
@@ -3628,13 +3638,21 @@ function App(){
               hint="Percentage of total weight on the front axle. Shown on the car selection screen. 50% = perfect balance. Most front-engined cars are 52–58% front."/>
             {(()=>{
               if(uiMode!=='pro')return null;
-              const tyreInput=(key,label)=>{
+              const tyreInput=(key,label,onCopyFront)=>{
                 const val=ch[key]??DEF_CH[key];
                 const isBlank=val.trim()==='';
                 const parsed=parseTyre(val);
                 return(
                   <div style={{flex:1}}>
-                    <div style={{fontSize:10,color:'#94a3b8',letterSpacing:1,marginBottom:4}}>{label}</div>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                      <div style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>{label}</div>
+                      {onCopyFront&&
+                        <button type="button" onClick={onCopyFront}
+                          style={{fontSize:9,letterSpacing:0.5,color:'#64748b',background:'transparent',
+                                  border:'1px solid #1e293b',borderRadius:2,padding:'1px 4px',
+                                  cursor:'pointer',fontFamily:'var(--font-mono)'}}
+                          title="Copy front tyre size to rear">= FRONT</button>}
+                    </div>
                     <input type="text" value={val}
                       onChange={e=>pCh(key)(e.target.value)}
                       placeholder="265/30R19"
@@ -3681,8 +3699,18 @@ function App(){
                 </div>
                 <div style={{display:'flex',gap:8,marginBottom:8}}>
                   {tyreInput('tyreF','FRONT')}
-                  {tyreInput('tyreR','REAR')}
+                  {tyreInput('tyreR','REAR',()=>pCh('tyreR')(ch.tyreF))}
                 </div>
+                {ch.layout==='AWD'&&(()=>{
+                  const pF=parseTyre(ch.tyreF),pR=parseTyre(ch.tyreR);
+                  if(pF?.radius==null||pR?.radius==null)return null;
+                  const avgRadius=(pF.radius+pR.radius)/2;
+                  return(
+                    <div style={{fontSize:10,color:'#94a3b8',marginBottom:8,fontFamily:'var(--font-mono)'}}>
+                      AVG RADIUS <span style={{color:'#e2e8f0'}}>{avgRadius.toFixed(1)} mm</span>
+                    </div>
+                  );
+                })()}
               </>);
             })()}
             {uiMode==='pro'&&<>
