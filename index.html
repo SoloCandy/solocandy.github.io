@@ -2670,7 +2670,7 @@ function App(){
     // that panel isn't obstructed. Focus-less info steps leave it as the user set it.
     else if(tutFocus)setSidebarOpen(!(tutFocus.includes('output')||tutFocus.includes('balance-bar')));
   },[tutMode,tutStep]); // eslint-disable-line
-  const[open,setOpen]=useState({chassis:false,build:false,ride:false,dampers:false,arb:false,drivetrain:false,balanceExpanded:false,presetsOpen:false,startFromOpen:true});
+  const[open,setOpen]=useState({chassis:false,build:false,ride:false,dampers:false,arb:false,drivetrain:false,balanceExpanded:false,presetsOpen:false,startFromOpen:true,factoryOpen:true,myBuildsOpen:true});
   const[showChecker,setShowChecker]=useState(false);
   const[checkerInitMode,setCheckerInitMode]=useState('decode');
   const[showGlossary,setShowGlossary]=useState(false);
@@ -3398,7 +3398,12 @@ function App(){
                         <div style={{background:'#080c14',border:'1px solid #1e293b',borderTop:'none',
                                      borderRadius:'0 0 2px 2px',padding:'6px 6px 4px',display:'flex',flexDirection:'column',gap:8}}>
                           <div>
-                            <div style={{fontSize:9,letterSpacing:2,color:'#334155',marginBottom:4}}>FACTORY</div>
+                            <div onClick={()=>setOpen(p=>({...p,factoryOpen:!p.factoryOpen}))}
+                              style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:4,userSelect:'none'}}>
+                              <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>FACTORY</span>
+                              <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.factoryOpen?'▲':'▼'}</span>
+                            </div>
+                            {open.factoryOpen&&
                             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:4}}>
                               {[1,2,3,4,5,6].map(i=>{
                                 const d=PRESET_DESC[i];
@@ -3421,10 +3426,16 @@ function App(){
                                   </div>
                                 );
                               })}
-                            </div>
+                            </div>}
                           </div>
                           <div>
-                            <div style={{fontSize:9,letterSpacing:2,color:'#334155',marginBottom:4}}>MY BUILDS</div>
+                            <div onClick={()=>setOpen(p=>({...p,myBuildsOpen:!p.myBuildsOpen}))}
+                              style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:4,userSelect:'none'}}>
+                              <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>MY BUILDS</span>
+                              {myBuilds.length>0&&<span style={{fontSize:9,color:'#475569'}}>{myBuilds.length}</span>}
+                              <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.myBuildsOpen?'▲':'▼'}</span>
+                            </div>
+                            {open.myBuildsOpen&&<>
                             <div style={{display:'flex',gap:4,marginBottom:6}}>
                               <input value={buildName} onChange={e=>setBuildName(e.target.value)}
                                 onKeyDown={e=>e.key==='Enter'&&(()=>{
@@ -3472,6 +3483,7 @@ function App(){
                                     );
                                   })}
                                 </div>}
+                            </>}
                           </div>
                         </div>
                       )}
@@ -3953,14 +3965,24 @@ function App(){
                     <div style={{background:'#080c14',border:'1px solid #1e293b',borderTop:'none',
                                  borderRadius:'0 0 2px 2px',padding:'8px 8px 6px',display:'flex',flexDirection:'column',gap:8}}>
                       <div>
-                        <div style={{fontSize:9,letterSpacing:2,color:'#334155',marginBottom:4}}>FACTORY</div>
-                        {cardGrid([1,2,3,4,5,6].map(i=>
+                        <div onClick={()=>setOpen(p=>({...p,factoryOpen:!p.factoryOpen}))}
+                          style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:4,userSelect:'none'}}>
+                          <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>FACTORY</span>
+                          <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.factoryOpen?'▲':'▼'}</span>
+                        </div>
+                        {open.factoryOpen&&cardGrid([1,2,3,4,5,6].map(i=>
                           card(i,PRESET_SAVES[i].name,PRESET_DESC[i].tag,PRESET_DESC[i].sub,
                             ()=>loadPreset(i),null)
                         ))}
                       </div>
                       <div>
-                        <div style={{fontSize:9,letterSpacing:2,color:'#334155',marginBottom:4}}>MY BUILDS</div>
+                        <div onClick={()=>setOpen(p=>({...p,myBuildsOpen:!p.myBuildsOpen}))}
+                          style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:4,userSelect:'none'}}>
+                          <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>MY BUILDS</span>
+                          {myBuilds.length>0&&<span style={{fontSize:9,color:'#475569'}}>{myBuilds.length}</span>}
+                          <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.myBuildsOpen?'▲':'▼'}</span>
+                        </div>
+                        {open.myBuildsOpen&&<>
                         <div style={{display:'flex',gap:4,marginBottom:6}}>
                           <input value={buildName} onChange={e=>setBuildName(e.target.value)}
                             onKeyDown={e=>e.key==='Enter'&&saveCurrentBuild()}
@@ -3982,6 +4004,7 @@ function App(){
                                 ()=>setMyBuilds(p=>p.filter(x=>x.id!==b.id)),
                                 ()=>setMyBuilds(p=>p.map(x=>x.id===b.id?{...x,fe:{...fe},dr:{...dr},savedAt:new Date().toLocaleDateString()}:x)));
                             }),220)}
+                        </>}
                       </div>
                     </div>
                   )}
