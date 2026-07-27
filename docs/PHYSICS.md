@@ -124,6 +124,35 @@ Calibration table.
 
 ---
 
+## Natural sag and bottoming risk (ride-height CHASSIS toggle)
+
+```js
+sag_mm = 9810 / (2π * hz)²   // per axle, using tune.fHz / tune.rHz
+```
+
+Static suspension compression under the car's own weight is a direct
+function of natural frequency alone — mass cancels out of the classic
+`f = (1/2π)√(g/δ)` relation, leaving `δ = g/(2πf)²`. Softer springs (lower
+Hz) sag more; no separate spring-rate solve is needed since `solveSpring`
+already folds mass into Hz. Since compression scales linearly with vertical
+wheel load (mass cancels out the same way at any load factor, not just 1g),
+sag at load factor `n` is simply `n × sag_1g` — a straight line through the
+origin. This feeds the CHASSIS section's SAG vs LOAD chart (PRO mode, RIDE
+HEIGHT → CG toggle): an inline SVG plotting each axle's compression line
+against load (g) on the x-axis, with a dashed reference line at that axle's
+entered ride height — where the diagonal crosses the dashed line is the
+load (in g) at which that axle bottoms out, also given as a plain number
+and an at-a-glance LOW/MED/HIGH/BOTTOMED badge (`sag_1g/rideHeight`: <0.5
+LOW, <0.8 MED, <1.0 HIGH, ≥1.0 BOTTOMED AT REST). This is intentionally
+static-only — it does not include dynamic load transfer from cornering,
+braking, or bumps (the LOAD TRANSFER readout
+elsewhere estimates that separately, at 1g) — so treat HIGH/BOTTOMED as a
+prompt to double-check, not a certainty. See README's Calibration section
+and [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for the same caveat as it applies to
+the CG-height estimate this toggle also drives.
+
+---
+
 ## Test coverage
 
 `tests.js` mirrors `flatRideRearHz`, `solveSpring`, `solveDamp`,

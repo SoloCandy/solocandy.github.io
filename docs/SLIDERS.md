@@ -45,10 +45,10 @@ every balance-relevant slider.
 | Independent Hz | 0.8–5.5 Hz | Manual secondary-axle Hz | Stiffer axle resists roll more there |
 | Target Speed | 40–180 mph | Flat Ride phase-cancelling speed target | None directly |
 | Diff Type | Race/Sport/Rally/Offroad/Drift | Lock-curve aggressiveness scaling | Indirect (scales EXIT/ENTRY) |
-| EXIT | −50..+50 | Accel-lock intent (sign-flipped for FWD so right always leans OS) | Right = OVERSTEER-leaning |
-| ENTRY (not SPORT) | −50..+50 | Decel-lock intent | Right = OVERSTEER-leaning |
-| FRONT EXIT (AWD) | −50..+50 | Front-axle accel lock | Left (PUSH) = more UNDERSTEER |
-| POWER SPLIT (AWD) | −30..+30 (20–80% rear) | Center torque split | Right (REAR) = OVERSTEER |
+| EXIT (grouped under FRONT AXLE for FWD, REAR AXLE for RWD/AWD) | −50..+50, GRIP↔ROTATE | Accel-lock intent (sign-flipped for FWD so right always leans OS) — same GRIP/ROTATE vocabulary across all layouts | Right = OVERSTEER-leaning |
+| ENTRY (not SPORT, same axle group as EXIT) | −50..+50, STABLE↔LOOSE | Decel-lock intent | Right = OVERSTEER-leaning |
+| EXIT — FRONT AXLE (AWD only) | −50..+50, PUSH↔NEUTRAL | Front-axle accel lock (independent of the FRONT/REAR AXLE EXIT above, which is rear-axle for AWD) | Left (PUSH) = more UNDERSTEER |
+| POWER SPLIT (AWD, grouped under CENTER) | −30..+30 (20–80% rear) | Center torque split | Right (REAR) = OVERSTEER |
 
 ## Pro (PRO) — adds these
 
@@ -57,6 +57,7 @@ every balance-relevant slider.
 | Wheelbase | 400–4,000mm | Flat-ride Hz solve, brake balance | None directly |
 | Track Width F/R | 1,000–2,600mm | Roll-stiffness lever arm; feeds natural mech balance | Wider front → understeer lean; wider rear → oversteer lean |
 | CG Height | 200–900mm | Roll moment arm | None directly |
+| Ride Height F/R (RIDE HEIGHT → CG toggle) | 2–10in / 5–25cm | Alternative to manual CG Height entry — estimates CG height from ride height (as shown on Forza's stat screen) + tyre radius. Also drives a SAG vs LOAD chart (static sag from ride Hz alone, `g/(2π·Hz)²`, plotted against vertical load factor with a bottom-out marker where sag crosses the entered ride height). Uncalibrated heuristic — see README Calibration notes and [KNOWN_ISSUES.md](KNOWN_ISSUES.md) | None directly — feeds `ch.cgHeight` |
 | Tyre Size F/R | e.g. `265/35R18` | Grip capacity; asymmetry nudges displayed Mech Balance | Wider rear → less oversteer; wider front → less understeer |
 | Mech Balance Target | delta from NAT (≈−0.35..+0.70) | MECH/CO-SOLVE solve to `naturalMechBalanceOf(ch) + delta` | Positive = OVERSTEER target, negative = UNDERSTEER target |
 | Balance Offset | −0.20..+0.20 | GRIP mode's offset from grip-neutralizing target | Positive = OVERSTEER, negative = UNDERSTEER |

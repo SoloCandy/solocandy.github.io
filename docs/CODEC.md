@@ -115,3 +115,17 @@ reinterprets old codes under new rules. Two examples so far:
 
 When making a change like this, note it here so future debugging of "why
 did my old share code load weird" has a paper trail.
+
+## Fields deliberately excluded from the codec
+
+Not every `ch`/`fe`/`dr` field needs an id. `useMeasuredNatBal`/
+`measuredNatBal`, and — following the same pattern — `useRideHeightCG`/
+`rideHeightF`/`rideHeightR`, are all local-only: they're inputs to a
+computed value that already has its own id (`measuredNatBal` feeds
+`naturalMechBalanceOf`'s result used elsewhere; the ride-height fields feed
+`ch.cgHeight`, id 4). A share code carries the *resulting* physics value,
+not the calibration-toggle UI state used to arrive at it — `usePersist`
+still remembers the toggle/inputs locally across reloads on the same
+device, they just don't travel with a shared code. If a future field looks
+like it should have an id but doesn't, check here first before assuming
+it's an oversight.

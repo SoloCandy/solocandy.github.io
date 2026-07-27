@@ -106,7 +106,11 @@ double-cancel and silently reintroduce this exact bug. Re-verified live:
 FWD EXIT slider at −50 ("PUSH") reads Accel 30%; at +50 ("ROTATION") reads
 Accel 15% — correctly less lock on the oversteer-leaning side. Both sites
 now cross-reference each other in comments to prevent this specific
-misdiagnosis from recurring.
+misdiagnosis from recurring. (The slider's left/right labels were later
+unified to GRIP/ROTATE across all layouts for UI consistency — FWD no
+longer shows PUSH/ROTATION specifically — but the underlying sign-flip
+logic and this verification are unaffected, since only the label text
+changed, not the polarity.)
 
 ## Fixed — Test coverage gap: `computeDiff` now covered (resolved)
 
@@ -246,3 +250,34 @@ into the same roll-compensated formula every other build uses, instead of a
 separate branch with hardcoded values. Verified manually: Drift camber now
 moves from −1.2° to −4.0° (clamp) as CG height goes from 450mm to 800mm on
 the same car, where it used to stay frozen at −3.0° regardless.
+
+## Open — Ride-height-derived CG height and bottoming risk are unvalidated heuristics
+
+The PRO CHASSIS section's RIDE HEIGHT → CG toggle estimates CG height as
+`tyreRadiusAvg + weight-weighted rideHeightAvg`, and the accompanying
+SAG vs LOAD chart derives static sag purely from ride Hz (`g/(2π·hz)²`),
+plotted linearly against a vertical load factor. Unlike `ARB_RS_SCALE`, `DAMPING_CALIBRATION`,
+`TIRE_LOAD_SENS`, and `TIRE_MECH_SCALE` — all tied in the README to real
+telemetry/testing — neither formula has been validated against actual
+Forza CG-height behaviour or real bottoming events. Both are geometric
+plausibility checks, not measured physics:
+
+- CG height genuinely depends on engine position, body height, and mass
+  distribution — none of which are available inputs. The formula sanity
+  checks against the existing manual-entry hint's ballpark ranges (a
+  typical sports car lands ≈450mm, in the middle of the 400–460mm
+  guidance) but that's a single spot-check, not a validated model across
+  vehicle classes.
+- Bottoming risk is deliberately static-only (sag vs. entered ride height)
+  and does not fold in dynamic load transfer from cornering, braking, or
+  bumps — a car flagged LOW could still bottom out under hard braking or
+  a big compression, and a car flagged HIGH/BOTTOMED may never actually
+  touch down if driven gently. The LOW/MED/HIGH/BOTTOMED thresholds
+  (0.5/0.8/1.0 sag-to-ride-height ratio) are round numbers chosen for
+  intuitive spacing, not derived from any real bottoming-incident data.
+
+Both toggle state and its ride-height inputs (`useRideHeightCG`,
+`rideHeightF`, `rideHeightR`) deliberately follow the `useMeasuredNatBal`
+precedent and are excluded from `CODEC_FIELDS` — only the resulting
+`ch.cgHeight` value travels in share codes, so this is a computed-locally,
+shared-as-output pattern like the MEASURE NAT BAL flow, not an oversight.

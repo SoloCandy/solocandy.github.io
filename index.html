@@ -144,7 +144,7 @@ window.addEventListener('DOMContentLoaded',function(){
 <script id="app-source" type="text/plain">
 const {useState,useMemo,useRef,useEffect,useLayoutEffect,useCallback}=React;
 
-const KG_TO_LB=2.204622622,LB_IN_TO_NM=175.126790921,MPH_TO_MS=0.44704;
+const KG_TO_LB=2.204622622,LB_IN_TO_NM=175.126790921,MPH_TO_MS=0.44704,IN_TO_MM=25.4;
 const KMH_PER_MPH=1.60934;
 const NMM_PER_LBIN=LB_IN_TO_NM/100; // ≈1.751 N/mm per lb/in
 const ARB_RS_SCALE=240;
@@ -996,7 +996,8 @@ const usePersist=(key,initial)=>{
 const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
               tyreF:'265/35R18',tyreR:'265/35R18',
-              useMeasuredNatBal:false,measuredNatBal:null,layout:'RWD'};
+              useMeasuredNatBal:false,measuredNatBal:null,layout:'RWD',
+              useRideHeightCG:false,rideHeightF:0.13,rideHeightR:0.12};
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,settleMode:false,settleBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,dampCharMode:'zeta',settleTarget:0.80,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,
@@ -1169,7 +1170,7 @@ const Field=({label,value,onChange,min,max,step=0.01,unit='',hint=null,logScale=
     };
   },[min,max,step,logScale]);
   return(
-    <div style={{marginBottom:10}}>
+    <div style={{marginBottom:10,minWidth:0}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:3}}>
         <span style={{fontSize:12,color:'#9ca3af',minWidth:0,overflow:'hidden',
                       textOverflow:'ellipsis',whiteSpace:'nowrap',marginRight:6}}>
@@ -1351,6 +1352,8 @@ const DampingDial=({rebound,bump})=>{
             fontSize={16} fontFamily="JetBrains Mono, monospace" fontWeight="700">{label}</text>
           <text x={CX} y={CY+11} textAnchor="middle" fill="#475569"
             fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{labelSub}</text>
+          <text x={CX} y={CY+32} textAnchor="middle" fill="#334155"
+            fontSize={8} fontFamily="sans-serif" letterSpacing={2}>DAMPERS</text>
         </svg>
         <span style={{position:'absolute',top:2,right:2,lineHeight:1}}>
           <Hint text="Red dot = rebound damping %, blue dot = bump damping %, both on a 10–115 range. Hover a dot to read its value. Center shows the bump-to-rebound ratio. The fill between them turns amber if bump exceeds rebound — bump should generally be softer (lower %) than rebound for a compliant, predictable ride."/>
@@ -1371,25 +1374,7 @@ const _dialBase=(SIZE=120,CX=60,CY=58,R=46,GAP_DEG=60)=>{
   return{START,SWEEP,polar,arcPath,CX,CY,R,SIZE};
 };
 
-// balance strip rendered inside an SVG at BY coordinate.
-// Shows this subsystem's actual rear roll-stiffness share (bright marker) vs the
-// weight-distribution reference (grey tick). Natural/target now live on the arc as ghosts.
-const _BalStrip=({rearFrac,wtRearFrac,BY=108})=>{
-  const BX=18,BW=84;
-  const splitX=BX+rearFrac*BW;
-  const wtX=BX+wtRearFrac*BW;
-  return(<>
-    <rect x={BX} y={BY} width={BW} height={3} rx={1.5} fill="#0f172a"/>
-    <rect x={BX} y={BY} width={(1-rearFrac)*BW} height={3} rx={1.5} fill="#818cf8" opacity={0.45}/>
-    <rect x={BX+(1-rearFrac)*BW} y={BY} width={rearFrac*BW} height={3} rx={1.5} fill="#f97316" opacity={0.45}/>
-    <line x1={wtX} y1={BY-2} x2={wtX} y2={BY+5} stroke="#334155" strokeWidth={1}/>
-    <rect x={splitX-1} y={BY-3} width={2} height={9} rx={1} fill="#94a3b8"/>
-    <text x={BX-2} y={BY+13} textAnchor="end" fill="#334155" fontSize={8}>F</text>
-    <text x={BX+BW+2} y={BY+13} textAnchor="start" fill="#334155" fontSize={8}>R</text>
-  </>);
-};
-
-const SpringDial=({fHz,rHz,rsSpF,rsSpR,frontBias,clamped,natBal,target,rideRef})=>{
+const SpringDial=({fHz,rHz,rsSpF,rsSpR,clamped,natBal,target,rideRef})=>{
   const[hover,setHover]=useState(null);
   const{START,SWEEP,polar,arcPath,CX,CY,SIZE}=_dialBase();
   const MIN_HZ=HZ_MIN,MAX_HZ=HZ_MAX;
@@ -1398,9 +1383,6 @@ const SpringDial=({fHz,rHz,rsSpF,rsSpR,frontBias,clamped,natBal,target,rideRef})
   const a12=toA(HZ_BANDS[0]),a18=toA(HZ_BANDS[1]),a25=toA(HZ_BANDS[2]);
   const fA=toA(fHz),rA=toA(rHz);
   const[fxS,fyS]=polar(fA);const[rxS,ryS]=polar(rA);
-  const spTot=rsSpF+rsSpR;
-  const rearSpFrac=spTot>0?rsSpR/spTot:1-(frontBias/100);
-  const wtRearFrac=1-frontBias/100;
   // Ghost dots: where the derived axle (the one the ride ref ISN'T) would sit for the
   // spring split to carry a given rear roll-stiffness fraction. Roll stiffness ∝ Hz², so
   // hold the reference axle fixed and scale the derived axle's Hz by √(target rs / current rs).
@@ -1422,9 +1404,9 @@ const SpringDial=({fHz,rHz,rsSpF,rsSpR,frontBias,clamped,natBal,target,rideRef})
   const dispSub=hover==='front'?'FRONT':hover==='rear'?'REAR':'F/R';
   const centerCol=clamped?'#f59e0b':'#e2e8f0';
   return(
-    <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
+    <div style={{display:'flex',justifyContent:'center',marginBottom:0}}>
       <div style={{position:'relative',display:'inline-block'}}>
-        <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
+        <svg width={SIZE} height={SIZE-20} style={{overflow:'visible',display:'block'}}>
           <path d={arcPath(START,endA)} fill="none" stroke="#1e293b" strokeWidth={4} strokeLinecap="round"/>
           <path d={arcPath(START,a12)} fill="none" stroke="#1e3a5f" strokeWidth={4} strokeLinecap="round"/>
           <path d={arcPath(a12,a18)}   fill="none" stroke="#14532d" strokeWidth={4} strokeLinecap="round"/>
@@ -1442,7 +1424,8 @@ const SpringDial=({fHz,rHz,rsSpF,rsSpR,frontBias,clamped,natBal,target,rideRef})
             fontSize={15} fontFamily="JetBrains Mono, monospace" fontWeight="700">{dispVal}</text>
           <text x={CX} y={CY+11} textAnchor="middle" fill="#475569"
             fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{dispSub}</text>
-          <_BalStrip rearFrac={rearSpFrac} wtRearFrac={wtRearFrac}/>
+          <text x={CX} y={CY+32} textAnchor="middle" fill="#334155"
+            fontSize={8} fontFamily="sans-serif" letterSpacing={2}>RIDE</text>
         </svg>
         <span style={{position:'absolute',top:2,right:2,lineHeight:1}}>
           <Hint text="Purple dot = front spring Hz, orange dot = rear Hz, plotted on a SOFT→RACE arc. Hover a dot to read its value. Hollow rings mark where the derived axle would need to sit for natural balance (grey) and your target (green) — close the gap to green to hit your balance target."/>
@@ -1452,7 +1435,7 @@ const SpringDial=({fHz,rHz,rsSpF,rsSpR,frontBias,clamped,natBal,target,rideRef})
   );
 };
 
-const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,frontBias,natBal,target,rideRef})=>{
+const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,natBal,target,rideRef})=>{
   const[hover,setHover]=useState(null);
   const{START,SWEEP,polar,arcPath,CX,CY,SIZE}=_dialBase();
   const toA=v=>START+(Math.min(Math.max(v,0),arbLimit)/arbLimit)*SWEEP;
@@ -1461,8 +1444,7 @@ const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,frontBias,natBal,target,rideRef})
   const fA=toA(arbF),rA=toA(arbR);
   const[fxS,fyS]=polar(fA);const[rxS,ryS]=polar(rA);
   const abTot=rsAbF+rsAbR;
-  const rearAbFrac=abTot>0?rsAbR/abTot:1-(frontBias/100);
-  const wtRearFrac=1-frontBias/100;
+  const rearAbFrac=abTot>0?rsAbR/abTot:0.5;
   // Ghost dots: where the derived axle's ARB clicks would land for the ARB split to carry a
   // given rear roll-stiffness fraction. ARB roll stiffness ∝ clicks, so scale linearly.
   const derived=rideRef==='rear'?'front':'rear';
@@ -1484,9 +1466,9 @@ const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,frontBias,natBal,target,rideRef})
   const warnF=arbF>arbLimit*0.88,warnR=arbR>arbLimit*0.88;
   const centerCol=warnF||warnR?'#f59e0b':'#e2e8f0';
   return(
-    <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
+    <div style={{display:'flex',justifyContent:'center',marginBottom:0}}>
       <div style={{position:'relative',display:'inline-block'}}>
-        <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
+        <svg width={SIZE} height={SIZE-20} style={{overflow:'visible',display:'block'}}>
           <path d={arcPath(START,endA)} fill="none" stroke="#1e293b" strokeWidth={4} strokeLinecap="round"/>
           <path d={arcPath(START,a50)} fill="none" stroke="#1e3a5f" strokeWidth={4} strokeLinecap="round"/>
           <path d={arcPath(a50,a75)}   fill="none" stroke="#713f12" strokeWidth={4} strokeLinecap="round"/>
@@ -1504,7 +1486,8 @@ const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,frontBias,natBal,target,rideRef})
             fontSize={15} fontFamily="JetBrains Mono, monospace" fontWeight="700">{dispVal}</text>
           <text x={CX} y={CY+11} textAnchor="middle" fill="#475569"
             fontSize={9} fontFamily="sans-serif" letterSpacing={2}>{dispSub}</text>
-          <_BalStrip rearFrac={rearAbFrac} wtRearFrac={wtRearFrac}/>
+          <text x={CX} y={CY+32} textAnchor="middle" fill="#334155"
+            fontSize={8} fontFamily="sans-serif" letterSpacing={2}>ARB</text>
         </svg>
         <span style={{position:'absolute',top:2,right:2,lineHeight:1}}>
           <Hint text="Purple dot = front ARB clicks, orange dot = rear ARB clicks, plotted from 0 to your ceiling. Hover a dot to read its value. Hollow rings mark where the derived axle would need to sit for natural balance (grey) and your target (green)."/>
@@ -2257,9 +2240,9 @@ const TUTORIALS={
     {title:'Ride Ref & Rear Hz',
      focus:['feel'],
      body:'RIDE REF. sets which axle the stiffness slider anchors — FRONT, SHARED, or REAR. The secondary axle frequency is derived by the Hz mode: FLAT RIDE (the mathematically ideal pitch-cancelling ratio for a target speed), MULTIPLIER (a fixed ratio of the anchored axle), or INDEPENDENT (set manually, free of the other axle).'},
-    {title:'DYNAMICS Visualiser',
+    {title:'DYNAMICS Chart',
      focus:['damping'],
-     body:'The DYNAMICS button (top of DAMPERS) opens an oscillation visualiser — shows your car\'s step response: how fast it settles, whether it overshoots, and how ride stiffness and damping interact. Use it to sense-check damping character before committing to final values.'},
+     body:'The DYNAMICS chart in the pinned VISUALS card (bottom of the sidebar) plots your car\'s step response — how fast it settles, whether it overshoots, and how ride stiffness and damping interact. Use it to sense-check damping character while you adjust the RIDE/DAMPERS sliders.'},
     {title:'Dampers',
      focus:['damping'],
      body:'REBOUND MODE and BUMP MODE toggles sit above their sliders. Rebound ζ at 70% (Butterworth) is the sweet spot — settles cleanly without oscillating; below 40% is bouncy, above 100% is sluggish. Bump Ratio sets compression as a fraction of rebound (40–65% typical). Damping Bias splits front/rear: FRONT keeps the front firm while the rear softens (planted entry); REAR softens the front (easier direction changes) — shown in the DAMP row of Handling Balance.'},
@@ -2275,13 +2258,13 @@ const TUTORIALS={
      focus:['chassis'],
      body:'Tyre sizes, wheelbase, track widths, and CG height are all now available in the CHASSIS section. Tyre width sets each axle\'s grip capacity at the limit and drives the CHASSIS BAL. (natural mechanical balance), GRIP BIAS (at-limit handling tendency), and STABILITY readouts below. Chassis geometry defaults suit most cars — enter exact values if you have them. The GEOMETRY GAP panel in BUILD & BALANCE TARGET shows whether track or tyre width changes could help close the gap between your chassis natural balance and your target.'},
     {title:'Calibrating Natural Balance',
-     focus:['build'],
+     focus:['balance-target'],
      body:'MEASURE NAT BAL (below the Balance Guide) opens Tune Check\'s MEASURE tab — it walks you through applying specific spring/ARB values in Forza, then you dial in the Mech Balance the game reports. Once set, the calculator uses your reading everywhere — Balance Guide, GRIP BIAS, natural balance — instead of the geometry prediction. Track width fields hide while active since they\'re no longer needed; wheelbase stays visible for flat-ride Hz and brake balance.'},
     {title:'Mech Balance Target',
-     focus:['build'],
+     focus:['balance-target'],
      body:'Mech Balance Target (0.20–0.90) is the rear fraction of total roll stiffness you want to achieve — the main dial for mechanical handling balance. Higher = more rear roll resistance = more rotation tendency. Lower = more front resistance = more stable, understeery feel.\n\nRWD track: 0.60–0.70. AWD: 0.55–0.65. FWD: 0.45–0.55. The BALANCE GUIDE shows your natural balance and the recommended range — use it as a reference, not a hard rule.\n\nSet this before choosing an ARB solving mode — all three modes solve toward this target.'},
     {title:'Balance Target Mode',
-     focus:['build'],
+     focus:['balance-target'],
      body:'Balance Target mode controls how the Mech Balance Target is derived.\n\nTARGET: set manually with the slider — use the Balance Guide range as a start.\n\nGRIP: auto-derives the target as 1 − natGripBalance, counteracting the car\'s natural grip tendency. Balance Offset shifts it toward oversteer (+) or understeer (−).\n\nGEOMETRY GAP shows whether track/tyre width changes could close the gap with softer ARBs.'},
     {title:'Manual Differential',
      focus:['drivetrain'],
@@ -2653,6 +2636,7 @@ function App(){
     setOpen(p=>({...p,
       chassis:!!(tutFocus?.includes('chassis')||tutFocus?.includes('garage')),
       build:!!(tutFocus?.includes('build')||tutFocus?.includes('presets')),
+      balance:!!(tutFocus?.includes('balance-target')),
       drivetrain:!!(tutFocus?.includes('drivetrain')),
       arb:!!(tutFocus?.includes('arb')),
       ride:!!(tutFocus?.includes('feel')),
@@ -2670,12 +2654,24 @@ function App(){
     // that panel isn't obstructed. Focus-less info steps leave it as the user set it.
     else if(tutFocus)setSidebarOpen(!(tutFocus.includes('output')||tutFocus.includes('balance-bar')));
   },[tutMode,tutStep]); // eslint-disable-line
-  const[open,setOpen]=useState({chassis:false,build:false,ride:false,dampers:false,arb:false,drivetrain:false,balanceExpanded:false,presetsOpen:false,startFromOpen:true,factoryOpen:true,myBuildsOpen:true});
+  const[open,setOpen]=useState({chassis:false,build:false,balance:false,ride:false,dampers:false,arb:false,drivetrain:false,balanceExpanded:false,presetsOpen:false,startFromOpen:true,factoryOpen:true,myBuildsOpen:true,visuals:false,visArb:true,visRideDampers:true,visDynamics:true,visSag:true});
+  // RIDE HEIGHT → CG: when active, keep ch.cgHeight in sync with the ride-height/tyre-radius
+  // estimate instead of leaving it as a plain manual field. Only writes when both tyre sizes
+  // parse to a full radius, and only when the rounded-mm result actually changed, so this
+  // doesn't fight the user's own edits or churn on every render.
+  useEffect(()=>{
+    if(!ch.useRideHeightCG)return;
+    const pF=parseTyre(ch.tyreF),pR=parseTyre(ch.tyreR);
+    if(pF?.radius==null||pR?.radius==null)return;
+    const tyreRadiusAvg=(pF.radius+pR.radius)/2;
+    const rideHeightAvg=(ch.rideHeightF*1000)*(ch.frontBias/100)+(ch.rideHeightR*1000)*(1-ch.frontBias/100);
+    const estMm=Math.max(200,Math.min(900,tyreRadiusAvg+rideHeightAvg));
+    if(Math.round(ch.cgHeight*1000)!==Math.round(estMm))setCh(p=>({...p,cgHeight:estMm/1000}));
+  },[ch.useRideHeightCG,ch.rideHeightF,ch.rideHeightR,ch.tyreF,ch.tyreR,ch.frontBias,ch.cgHeight]); // eslint-disable-line
   const[showChecker,setShowChecker]=useState(false);
   const[checkerInitMode,setCheckerInitMode]=useState('decode');
   const[showGlossary,setShowGlossary]=useState(false);
   const[showResetModal,setShowResetModal]=useState(false);
-  const[showOscModal,setShowOscModal]=useState(false);
   const[begResetArmed,setBegResetArmed]=useState(false);
 
   const[showDataModal,setShowDataModal]=useState(false);
@@ -3004,164 +3000,6 @@ function App(){
           </div>
         </div>
       )}
-      {showOscModal&&(()=>{
-        const close=()=>setShowOscModal(false);
-        const durSec=Math.min(4,Math.max(1.5,Math.max(tune.settle??2,tune.settleR??2)*1.8));
-        const fReb=tune.zetaF??physics.reboundZeta??70;
-        const fBmp=tune.bumpZetaF??physics.bumpZeta??39;
-        const rReb=tune.zetaR??physics.reboundZeta??70;
-        const rBmp=tune.bumpZetaR??physics.bumpZeta??39;
-        const frontPts=computeOscillation(tune.fHz,fReb,fBmp,durSec);
-        const rearPts =computeOscillation(tune.rHz,rReb,rBmp,durSec);
-        const W=340,H=130,midY=65,yScale=52,xScale=W/durSec;
-        const toPolyPts=pts=>pts.map(p=>`${(p.t*xScale).toFixed(1)},${(midY-p.x*yScale).toFixed(1)}`).join(' ');
-        const fSetX=Math.min(W-1,(tune.settle??2)*xScale);
-        const rSetX=Math.min(W-1,(tune.settleR??2)*xScale);
-        const isCoSolve=(fe.arbBalMode??'weight')==='coSolve';
-        const rRef=physics.rideRef??'front';
-        const isShared=rRef==='shared';
-        const secHz=rRef==='rear'?physics.frontHz:physics.rearHz;
-        const secLabel=rRef==='rear'?'Front':'Rear';
-        const rearHzMode=fe.rearHzMode??'flatRide';
-        let rearHzControl;
-        if(isCoSolve){
-          rearHzControl=<div style={{fontSize:9,color:'#475569',marginBottom:8,letterSpacing:0.3}}>REAR Hz set by CO-SOLVE — adjust balance target in ARB section</div>;
-        }else if(rearHzMode==='multiplier'){
-          rearHzControl=<FeelSlider label={rRef==='rear'?'Front Multiplier':rRef==='shared'?'F/R Ratio':'Rear Multiplier'} value={fe.rearHzMult??1.20} onChange={pFe('rearHzMult')} min={0.50} max={3.00} step={0.01} leftLabel="×0.50" rightLabel="×3.00" markers={[{value:1.00,color:'#94a3b8',label:'MATCH'}]} readout={`\xd7${(fe.rearHzMult??1.20).toFixed(2)} → ${secHz.toFixed(2)} Hz ${secLabel.toLowerCase()}`}/>;
-        }else if(rearHzMode==='flatRide'){
-          const spd=fe.targetSpeed??80;
-          const spdReadout=spd>=200?`FLAT RIDE OFF \xb7 ${secHz.toFixed(2)} Hz ${secLabel.toLowerCase()}`:metricUnits?`${Math.round(spd*KMH_PER_MPH)} km/h \xb7 ${secHz.toFixed(2)} Hz ${secLabel.toLowerCase()}`:`${spd} mph \xb7 ${secHz.toFixed(2)} Hz ${secLabel.toLowerCase()}`;
-          rearHzControl=<FeelSlider label="Target Speed" value={240-spd} onChange={v=>pFe('targetSpeed')(240-v)} min={40} max={180} step={5} leftLabel="OFF" rightLabel="CITY" readout={spdReadout}/>;
-        }else if(rearHzMode==='independent'){
-          rearHzControl=<FeelSlider label={`${secLabel} Hz`} value={fe.rearHzMan??secHz} onChange={pFe('rearHzMan')} min={HZ_MIN} max={HZ_MAX} step={0.01} leftLabel={HZ_MIN.toFixed(2)} rightLabel={HZ_MAX.toFixed(2)} readout={`${(fe.rearHzMan??secHz).toFixed(2)} Hz`}/>;
-        }else{
-          rearHzControl=<div style={{fontSize:9,color:'#475569',marginBottom:8,letterSpacing:0.3}}>{secLabel} Hz solved by MECH → {secHz.toFixed(2)} Hz</div>;
-        }
-        return(
-        <div style={{position:'fixed',inset:0,zIndex:950,display:'flex',alignItems:'center',
-                     justifyContent:'center',background:'#000a'}}
-             onClick={e=>{if(e.target===e.currentTarget)close();}}>
-          <div style={{background:'#0f172a',border:'1px solid #334155',borderRadius:4,
-                       padding:'18px 20px',width:'min(360px,calc(100vw - 24px))',
-                       fontFamily:'var(--font-mono)',boxShadow:'0 8px 40px #000d'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-              <span style={{fontSize:11,letterSpacing:2,color:'#94a3b8'}}>DYNAMICS</span>
-              <button className="tbtn" style={{fontSize:10,padding:'2px 6px'}} onClick={close}>&#x2715;</button>
-            </div>
-            <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}
-                 style={{display:'block',background:'#020617',borderRadius:3,marginBottom:10}}>
-              <line x1={0} y1={midY} x2={W} y2={midY} stroke="#1e293b" strokeWidth={1}/>
-              <line x1={fSetX} y1={0} x2={fSetX} y2={H} stroke="#38bdf855" strokeWidth={1} strokeDasharray="3 3"/>
-              <line x1={rSetX} y1={0} x2={rSetX} y2={H} stroke="#fb923c55" strokeWidth={1} strokeDasharray="3 3"/>
-              <polyline points={toPolyPts(rearPts)}  fill="none" stroke="#fb923c" strokeWidth={1.5} strokeLinejoin="round"/>
-              <polyline points={toPolyPts(frontPts)} fill="none" stroke="#38bdf8" strokeWidth={1.5} strokeLinejoin="round"/>
-              <text x={W-6} y={13} textAnchor="end" fontSize={9} fill="#38bdf8" fontFamily="JetBrains Mono, monospace">F</text>
-              <text x={W-6} y={25} textAnchor="end" fontSize={9} fill="#fb923c" fontFamily="JetBrains Mono, monospace">R</text>
-            </svg>
-            <div style={{display:'flex',gap:0,marginBottom:10}}>
-              {[['FRONT','#38bdf8',tune.fHz,tune.settle??0],['REAR','#fb923c',tune.rHz,tune.settleR??0]].map(([lbl,col,hz,st])=>(
-                <div key={lbl} style={{flex:1,display:'flex',flexDirection:'column',gap:2}}>
-                  <span style={{fontSize:9,color:col,letterSpacing:1}}>{lbl}</span>
-                  <span style={{fontSize:13,color:'#e2e8f0',fontWeight:700}}>{hz.toFixed(2)}<span style={{fontSize:10,color:'#94a3b8',fontWeight:400}}> Hz</span></span>
-                  <span style={{fontSize:9,color:'#475569'}}>{st.toFixed(2)}s settle</span>
-                </div>
-              ))}
-            </div>
-            {!isCoSolve&&<>
-              <div style={{display:'flex',alignItems:'center',marginBottom:3}}>
-                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>Hz MODE</span>
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:uiMode==='pro'?(isShared?'1fr 1fr 1fr':'1fr 1fr'):(isShared?'1fr 1fr':'1fr 1fr 1fr'),gap:3,marginBottom:10}}>
-                <button className={`tog${rearHzMode==='flatRide'?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,rearHzMode:'flatRide'}))}>FLAT RIDE</button>
-                <button className={`tog${rearHzMode==='multiplier'?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,rearHzMode:'multiplier',
-                    rearHzMult:Math.round(physics.rearHz/physics.frontHz*100)/100}))}>MULTIPLIER</button>
-                {uiMode==='pro'&&<button className={`tog${rearHzMode==='mech'?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,rearHzMode:'mech'}))}>MECH</button>}
-                {!isShared&&<button className={`tog${rearHzMode==='independent'?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,rearHzMode:'independent',
-                    rearHzMan:Math.round((rRef==='rear'?physics.frontHz:physics.rearHz)*100)/100}))}>INDEPENDENT</button>}
-              </div>
-            </>}
-            {rearHzControl}
-            <FeelSlider label="Ride Stiffness" value={physics.frontHz}
-              onChange={v=>pFe('rideStiffness')(hzToRs(v))}
-              min={HZ_MIN} max={HZ_MAX} step={0.01}
-              leftLabel="SOFT" rightLabel="STIFF" markers={HZ_MARKERS}
-              readout={<span style={{fontSize:10,fontFamily:'var(--font-mono)',color:'#94a3b8'}}>{physics.frontHz.toFixed(2)} Hz</span>}/>
-            {uiMode!=='beginner'&&<>
-              <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3,marginTop:8}}>
-                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>REBOUND MODE</span>
-                <Hint text={(fe.dampCharMode??'zeta')==='settle'
-                  ?"SETTLE TIME: set a target settle time in seconds. The app back-calculates the rebound ζ needed to hit that time for each axle individually — front and rear derive their own ζ from their own spring frequency."
-                  :"CHARACTER: set rebound damping directly as a ζ (damping ratio) percentage. Full manual control — you pick the value, the app doesn't back-solve anything."}/>
-              </div>
-              <div style={{display:'flex',gap:3,margin:'0 0 6px'}}>
-                <button className={`tog${(fe.dampCharMode??'zeta')==='zeta'?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,dampCharMode:'zeta'}))}>CHARACTER</button>
-                <button className={`tog${(fe.dampCharMode??'zeta')==='settle'?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,dampCharMode:'settle'}))}>SETTLE TIME</button>
-              </div>
-            </>}
-            {(fe.dampCharMode??'zeta')==='settle'
-              ?<FeelSlider label="Settle Target" value={fe.settleTarget??0.80}
-                  onChange={pFe('settleTarget')} min={0.10} max={2.00} step={0.01}
-                  leftLabel="0.10s" rightLabel="2.0s"
-                  markers={[{value:0.40,color:'#ef4444',label:'RACE'},{value:0.70,color:'#f59e0b',label:'FIRM'},{value:1.00,color:'#9ca3af',label:'ROAD'},{value:1.50,color:'#60a5fa',label:'SOFT'}]}
-                  readout={(()=>{const t=fe.settleTarget??0.80;return`${t.toFixed(2)}s → F ${Math.round(physics.zetaF)}% R ${Math.round(physics.zetaR)}%`;})()}/>
-              :<FeelSlider label="Rebound ζ" value={fe.reboundZeta??70}
-                  onChange={pFe('reboundZeta')} min={10} max={115} step={1}
-                  leftLabel="10%" rightLabel="115%"
-                  markers={[{value:40,color:'#60a5fa',label:'UNDER',lessThan:true},{value:70,color:'#f59e0b',label:'BWORTH'},{value:100,color:'#ef4444',label:'OVER'}]}
-                  readout={(()=>{const z=fe.reboundZeta??70;return z>100?`${z}% ⚠`:z>70?`${z}% · BWORTH`:`${z}%`;})()}/>}
-            <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3,marginTop:8}}>
-              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>BUMP MODE</span>
-              <Hint text={(fe.dampingMode??'ratio')==='independent'
-                ?"INDEPENDENT: set bump ζ directly, decoupled from rebound. Use this when you want a specific bump/rebound combination the ratio can't express — e.g. soft bump with firm rebound."
-                :"BUMP RATIO: set bump damping as a percentage of rebound ζ — the app derives the bump ζ from that ratio, so the two strokes stay linked as rebound changes."}/>
-            </div>
-            <div style={{display:'flex',gap:3,margin:'0 0 6px'}}>
-              <button className={`tog${(fe.dampingMode??'ratio')==='ratio'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,dampingMode:'ratio'}))}>BUMP RATIO</button>
-              <button className={`tog${(fe.dampingMode??'ratio')==='independent'?' on':''}`}
-                onClick={()=>setFe(p=>({...p,dampingMode:'independent',bumpZeta:Math.round(physics.bumpZeta)}))}>INDEPENDENT</button>
-            </div>
-            {(fe.dampingMode??'ratio')==='ratio'
-              ?<FeelSlider label="Bump Ratio" value={fe.bumpRatio??56}
-                  onChange={pFe('bumpRatio')} min={10} max={100} step={1}
-                  leftLabel="10%" rightLabel="100%"
-                  markers={[{value:30,color:'#60a5fa',label:'SOFT'},{value:65,color:'#f59e0b',label:'FIRM'}]}
-                  readout={(()=>{const ratio=Math.min(100,fe.bumpRatio??56);const effReb=(fe.dampCharMode??'zeta')==='settle'?physics.zetaF:(fe.reboundZeta??70);const bz=Math.max(10,Math.min(effReb,effReb*ratio/100));return`${ratio}% / ${Math.round(bz)}%`;})()}/>
-              :<FeelSlider label="Bump ζ" value={fe.bumpZeta??39}
-                  onChange={pFe('bumpZeta')} min={10} max={115} step={1}
-                  leftLabel="10%" rightLabel="115%"
-                  markers={[{value:40,color:'#60a5fa',label:'UNDER',lessThan:true},{value:70,color:'#f59e0b',label:'BWORTH'},{value:100,color:'#ef4444',label:'OVER'}]}
-                  readout={(()=>{const z=fe.bumpZeta??39;return z>100?`${z}% ⚠`:z>70?`${z}% · BWORTH`:`${z}%`;})()}/>}
-            <div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,marginBottom:6}}>
-              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,flex:1}}>SETTLE SYNC</span>
-              <button className={`tog${fe.settleMode?' on':''}`}
-                onClick={()=>setFe(p=>({...p,settleMode:!p.settleMode}))}>
-                {fe.settleMode?'ON':'OFF'}
-              </button>
-            </div>
-            {(fe.settleMode||(fe.dampCharMode??'zeta')==='settle')
-              ?<FeelSlider label="Settle Bias" value={fe.settleBias??0}
-                  onChange={pFe('settleBias')} min={-50} max={50} step={1}
-                  leftLabel="FRONT" rightLabel="REAR"
-                  markers={[{value:0,color:'#94a3b8',label:'EQUAL'}]}
-                  readout={Math.abs((tune.settle??0)-(tune.settleR??0))<0.01?'EQUAL':`F ${(tune.settle??0).toFixed(2)}s | ${(tune.settleR??0).toFixed(2)}s R`}/>
-              :<FeelSlider label="Damping Bias" value={-(fe.dampingBias??0)}
-                  onChange={v=>pFe('dampingBias')(-v)} min={-50} max={50} step={1}
-                  leftLabel="FRONT" rightLabel="REAR"
-                  markers={[{value:0,color:'#94a3b8',label:'EQUAL'}]}
-                  readout={(()=>{const tot=physics.zetaF+physics.zetaR;const fP=tot>0?Math.round(physics.zetaF/tot*100):50;return`F ${fP} | ${100-fP} R`;})()}/>}
-            <button className="tbtn" style={{width:'100%',marginTop:14,fontSize:11}} onClick={close}>CLOSE</button>
-          </div>
-        </div>
-        );
-      })()}
-
       {tutMode&&<TutorialPanel mode={tutMode} step={tutStep}
         onNext={()=>setTutStep(s=>Math.min(s+1,(TUTORIALS[tutMode]?.length??1)-1))}
         onPrev={()=>setTutStep(s=>Math.max(s-1,0))}
@@ -3295,18 +3133,20 @@ function App(){
           <div onClick={()=>setSidebarOpen(false)}
                style={{position:'absolute',inset:0,background:'#00000088',zIndex:150}}/>}
 
-        {/* SIDEBAR */}
-        <div className="sidebar-scroll" style={{WebkitOverflowScrolling:'touch',overscrollBehavior:'contain',
-          width:sidebarWidth,flexShrink:0,overflowY:'auto',transition:'width .2s ease',
+        {/* SIDEBAR — outer wrapper handles width/positioning; scrollable content and the
+            pinned VISUALS footer are separate children so the footer never scrolls away. */}
+        <div style={{width:sidebarWidth,flexShrink:0,transition:'width .2s ease',
           borderRight:'1px solid #0f172a',background:'#020617',
+          display:sidebarOpen?'flex':'none',flexDirection:'column',
           ...(isMobile?{
             position:'absolute',top:0,left:0,bottom:0,zIndex:200,
             transform:sidebarOpen?'translateX(0)':'translateX(-100%)',
             transition:'transform .2s ease',
             boxShadow:sidebarOpen?'4px 0 24px #000000cc':'none',
-          }:{
-            display:sidebarOpen?'block':'none',
-          })
+          }:{})
+        }}>
+        <div className="sidebar-scroll" style={{WebkitOverflowScrolling:'touch',overscrollBehavior:'contain',
+          flex:1,minHeight:0,overflowY:'auto'
         }}>
 
           {/* MOBILE-ONLY: unit + game mode controls (moved from header) */}
@@ -3728,14 +3568,47 @@ function App(){
             {uiMode==='pro'&&<>
             <Field label="Wheelbase" value={Math.round(ch.wheelbase*1000)} onChange={v=>pCh('wheelbase')(v/1000)} min={400} max={4000} step={5} unit="mm"
               hint="Distance between front and rear axles in millimetres. Used by the flat-ride formula to match rear spring frequency to your target speed, and by the brake balance calculation. Still needed in MEASURED mode — only track widths are skipped there. Typical cars: 2400–2900 mm."/>
-            {!ch.useMeasuredNatBal&&<>
-            <Field label="Track Width Front" value={Math.round(ch.trackF*1000)} onChange={v=>pCh('trackF')(v/1000)} min={1000} max={2600} step={5} unit="mm"
-              hint="Distance between left and right wheels at the front. Typical: 1400–1800 mm. Wider = more roll resistance."/>
-            <Field label="Track Width Rear" value={Math.round(ch.trackR*1000)} onChange={v=>pCh('trackR')(v/1000)} min={1000} max={2600} step={5} unit="mm"
-              hint="Distance between left and right wheels at the rear. Typical: 1400–1800 mm. Often slightly wider than front."/>
-            </>}
-            <Field label="CG Height" value={Math.round(ch.cgHeight*1000)} onChange={v=>pCh('cgHeight')(v/1000)} min={200} max={900} step={5} unit="mm"
-              hint="Estimated height of the centre of gravity above ground. The game doesn't expose this — use 400–460 mm for sports cars, 480–550 mm for sedans, 580–700 mm for SUVs. Affects roll moment and ARB stiffness."/>
+            {!ch.useMeasuredNatBal&&
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 10px'}}>
+              <Field label="Track Width F" value={Math.round(ch.trackF*1000)} onChange={v=>pCh('trackF')(v/1000)} min={1000} max={2600} step={5} unit="mm"
+                hint="Distance between left and right wheels at the front. Typical: 1400–1800 mm. Wider = more roll resistance."/>
+              <Field label="Track Width R" value={Math.round(ch.trackR*1000)} onChange={v=>pCh('trackR')(v/1000)} min={1000} max={2600} step={5} unit="mm"
+                hint="Distance between left and right wheels at the rear. Typical: 1400–1800 mm. Often slightly wider than front."/>
+            </div>}
+            <div style={{background:'#060c17',border:'1px solid #1e293b',borderRadius:2,padding:'5px 10px',margin:'2px 0 8px',display:'flex',alignItems:'center',gap:6}}>
+              <button className="tbtn" style={{fontSize:11,color:ch.useRideHeightCG?'#60a5fa':'#475569',flexShrink:0}}
+                onClick={()=>setCh(p=>({...p,useRideHeightCG:!p.useRideHeightCG}))}>RIDE HEIGHT → CG</button>
+              <Hint text="An alternative to entering CG height directly — uses the front/rear ride height Forza shows on the car's stat screen, plus tyre radius, to estimate CG height. This is a rough heuristic (real CG height also depends on engine position, body height, and mass distribution, none of which are available inputs) — treat it as a starting point, not a precise reading."/>
+            </div>
+            {ch.useRideHeightCG?(()=>{
+              const pF=parseTyre(ch.tyreF),pR=parseTyre(ch.tyreR);
+              const tyresOk=pF?.radius!=null&&pR?.radius!=null;
+              const inMm=metricUnits?10:IN_TO_MM; // display unit → mm: cm ×10, in ×25.4
+              const unitLbl=metricUnits?'cm':'in';
+              return(<>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 10px'}}>
+                  <Field label="Ride Height F" value={Math.round((ch.rideHeightF*1000/inMm)*10)/10}
+                    onChange={v=>pCh('rideHeightF')((v*inMm)/1000)}
+                    min={metricUnits?5:2} max={metricUnits?25:10} step={metricUnits?0.5:0.1} unit={unitLbl}
+                    hint={`Front ride height as shown on the car's stat/tuning screen in Forza (${unitLbl}). Used with tyre radius to estimate CG height, and to gauge bottoming risk from natural sag.`}/>
+                  <Field label="Ride Height R" value={Math.round((ch.rideHeightR*1000/inMm)*10)/10}
+                    onChange={v=>pCh('rideHeightR')((v*inMm)/1000)}
+                    min={metricUnits?5:2} max={metricUnits?25:10} step={metricUnits?0.5:0.1} unit={unitLbl}
+                    hint={`Rear ride height as shown on the car's stat/tuning screen in Forza (${unitLbl}).`}/>
+                </div>
+                <div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 8px',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>CG HEIGHT (EST.)</span>
+                  <span style={{marginLeft:'auto',fontFamily:'var(--font-mono)',fontSize:13,color:'#60a5fa'}}>{Math.round(ch.cgHeight*1000)} mm</span>
+                  <button className="tbtn" style={{fontSize:11,color:'#6b7280',flexShrink:0,padding:'2px 6px'}}
+                    onClick={()=>setCh(p=>({...p,useRideHeightCG:false}))}>✕</button>
+                </div>
+                {!tyresOk&&<div style={{fontSize:9,color:'#f59e0b',padding:'2px 0 8px'}}>Enter valid tyre sizes above to compute CG height from ride height.</div>}
+                <div style={{fontSize:9,color:'#475569',padding:'0 0 4px'}}>SAG vs LOAD moved to the pinned VISUALS card below ↓</div>
+              </>);
+            })():
+              <Field label="CG Height" value={Math.round(ch.cgHeight*1000)} onChange={v=>pCh('cgHeight')(v/1000)} min={200} max={900} step={5} unit="mm"
+                hint="Estimated height of the centre of gravity above ground. The game doesn't expose this — use 400–460 mm for sports cars, 480–550 mm for sedans, 580–700 mm for SUVs. Affects roll moment and ARB stiffness."/>
+            }
             </> }
           </Sec></div>
 
@@ -3783,133 +3656,158 @@ function App(){
                         :{diffAccel:d.accel,diffDecel:d.decel})}));
                   }}>MANUAL</button>
               </div>
-              {!dr.diffManual&&<div style={{display:'flex',alignItems:'center',gap:6,width:'100%',marginTop:4}}>
-                <button className={`tog${dr.diffComplement?' on':''}`}
-                  onClick={()=>pDr('diffComplement')(!dr.diffComplement)}
-                  style={{marginLeft:'auto'}}
-                  title="Bias the auto-solver to match chassis mech target.">
-                  MATCH CHASSIS
-                </button>
-                <Hint text="When on, the diff auto-solver factors how far your mech balance target lies from the chassis's natural balance. A target tuned for more oversteer biases the diff toward rotation; a target tuned for understeer leans the diff toward stability. Off (default) means the diff ignores chassis target entirely. Has no effect in MANUAL mode."/>
-              </div>}
             </div>}
-            {!dr.diffManual&&<>
-              <FeelSlider
-                label="EXIT"
-                // NOTE: this FWD-only sign flip is the fix for FWD's inverted lock polarity —
-                // do NOT also flip the sign inside computeDiff's FWD accel formula (the
-                // `+effBiasExit*0.15` term, ~index.html:840). That formula is intentionally
-                // uniform across layouts precisely because this UI layer already carries the
-                // per-layout inversion; flipping both would double-cancel and silently
-                // reintroduce the original bug. See docs/KNOWN_ISSUES.md's MATCH CHASSIS entry.
-                value={ch.layout==='FWD'?-(dr.diffBiasExit??0):(dr.diffBiasExit??0)}
-                onChange={v=>pDr('diffBiasExit')(ch.layout==='FWD'?-v:v)}
-                min={-50} max={50}
-                leftLabel={ch.layout==='FWD'?'PUSH':'GRIP'}
-                rightLabel={ch.layout==='FWD'?'ROTATION':'ROTATE'}
-                markers={[{value:0,color:'#475569'}]}
-                hint={(ch.layout==='FWD'
-                  ?'Front diff accel lock. Toward PUSH increases lock — more traction but more understeer on corner exit. Toward ROTATION reduces lock for cleaner pivot and less push.'
-                  :ch.layout==='RWD'
-                  ?'Rear diff accel lock. Toward ROTATE increases lock — more power oversteer on exit. Toward GRIP reduces lock for cleaner exit traction.'
-                  :'Rear diff exit character. Toward ROTATE increases rear accel lock — more oversteer on exit. Toward GRIP reduces rear accel lock for traction.')
-                  +(dr.diffComplement?' MATCH CHASSIS is on — this is further biased by your chassis mech target.':'')}
-                readout={diff.layout==='AWD'
-                  ?`R.Accel ${diff.rearAccel}%`
-                  :`Accel ${diff.accel}%`}/>
-              {ch.layout==='AWD'&&uiMode!=='beginner'&&
+            {!dr.diffManual&&(()=>{
+              const groupHdr={fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:3,marginTop:6};
+              const dt=dr.diffType??'race';
+              // Same left/right vocabulary (GRIP↔ROTATE) regardless of layout — previously FWD
+              // used PUSH↔ROTATION for the same slider, which read as a different control when
+              // switching layouts. Direction is consistent: right = more lock = more rotation-
+              // leaning, same as RWD/AWD always used.
+              return(<>
+                {ch.layout==='AWD'&&uiMode!=='beginner'&&<>
+                  <div style={groupHdr}>FRONT AXLE</div>
+                  <FeelSlider
+                    label="EXIT"
+                    value={-(dr.diffFrontExitBias??0)}
+                    onChange={v=>pDr('diffFrontExitBias')(-v)}
+                    min={-50} max={50}
+                    leftLabel="PUSH"
+                    rightLabel="NEUTRAL"
+                    markers={[{value:0,color:'#475569'}]}
+                    hint="Front diff accel lock for AWD. Toward PUSH increases front accel lock — more front-axle pull and understeer tendency on exit. Useful for AWD cars with strong rear rotation."
+                    readout={`F.Accel ${diff.frontAccel}%`}/>
+                </>}
+                <div style={groupHdr}>{ch.layout==='FWD'?'FRONT AXLE':'REAR AXLE'}</div>
+                {uiMode==='pro'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+                  <button className={`tog${dr.diffComplement?' on':''}`}
+                    onClick={()=>pDr('diffComplement')(!dr.diffComplement)}
+                    title="Bias the auto-solver to match chassis mech target.">
+                    MATCH CHASSIS
+                  </button>
+                  <Hint text="When on, the diff auto-solver factors how far your mech balance target lies from the chassis's natural balance. A target tuned for more oversteer biases the diff toward rotation; a target tuned for understeer leans the diff toward stability. Off (default) means the diff ignores chassis target entirely. Has no effect in MANUAL mode. Affects the EXIT/ENTRY sliders in this group."/>
+                </div>}
                 <FeelSlider
-                  label="FRONT EXIT"
-                  value={-(dr.diffFrontExitBias??0)}
-                  onChange={v=>pDr('diffFrontExitBias')(-v)}
+                  label="EXIT"
+                  // NOTE: this FWD-only sign flip is the fix for FWD's inverted lock polarity —
+                  // do NOT also flip the sign inside computeDiff's FWD accel formula (the
+                  // `+effBiasExit*0.15` term, ~index.html:840). That formula is intentionally
+                  // uniform across layouts precisely because this UI layer already carries the
+                  // per-layout inversion; flipping both would double-cancel and silently
+                  // reintroduce the original bug. See docs/KNOWN_ISSUES.md's MATCH CHASSIS entry.
+                  value={ch.layout==='FWD'?-(dr.diffBiasExit??0):(dr.diffBiasExit??0)}
+                  onChange={v=>pDr('diffBiasExit')(ch.layout==='FWD'?-v:v)}
                   min={-50} max={50}
-                  leftLabel="PUSH"
-                  rightLabel="NEUTRAL"
+                  leftLabel="GRIP"
+                  rightLabel="ROTATE"
                   markers={[{value:0,color:'#475569'}]}
-                  hint="Front diff accel lock for AWD. Toward PUSH increases front accel lock — more front-axle pull and understeer tendency on exit. Useful for AWD cars with strong rear rotation."
-                  readout={`F.Accel ${diff.frontAccel}%`}/>}
-              {ch.layout==='AWD'&&uiMode!=='beginner'&&(dr.diffType??'race')!=='sport'&&
-                <FeelSlider
-                  label="POWER SPLIT"
-                  value={(dr.diffCenter??65)-50}
-                  onChange={v=>pDr('diffCenter')(Math.round(v+50))}
-                  min={-30} max={30}
-                  leftLabel="FRONT"
-                  rightLabel="REAR"
+                  hint={(ch.layout==='FWD'
+                    ?'Front diff accel lock. Toward GRIP reduces lock — more traction but more understeer on corner exit is avoided. Toward ROTATE increases lock for cleaner pivot and less push.'
+                    :ch.layout==='RWD'
+                    ?'Rear diff accel lock. Toward ROTATE increases lock — more power oversteer on exit. Toward GRIP reduces lock for cleaner exit traction.'
+                    :'Rear diff exit character. Toward ROTATE increases rear accel lock — more oversteer on exit. Toward GRIP reduces rear accel lock for traction.')
+                    +(dr.diffComplement?' MATCH CHASSIS is on — this is further biased by your chassis mech target.':'')}
+                  readout={diff.layout==='AWD'
+                    ?`R.Accel ${diff.rearAccel}%`
+                    :`Accel ${diff.accel}%`}/>
+                {dt!=='sport'&&<FeelSlider
+                  label="ENTRY"
+                  value={-(dr.diffBiasEntry??0)}
+                  onChange={v=>pDr('diffBiasEntry')(-v)}
+                  min={-50} max={50}
+                  leftLabel="STABLE"
+                  rightLabel="LOOSE"
                   markers={[{value:0,color:'#475569'}]}
-                  hint="AWD center torque split. Toward REAR sends more power rearward — increases oversteer tendency and rear diff contribution to handling balance. 60–70% rear is typical for track."
-                  readout={`${diff.center??65}% rear`}/>}
-              {(dr.diffType??'race')!=='sport'&&<FeelSlider
-                label="ENTRY"
-                value={-(dr.diffBiasEntry??0)}
-                onChange={v=>pDr('diffBiasEntry')(-v)}
-                min={-50} max={50}
-                leftLabel="STABLE"
-                rightLabel="LOOSE"
-                markers={[{value:0,color:'#475569'}]}
-                hint={(ch.layout==='FWD'
-                  ?'Front diff decel lock. Toward STABLE increases lock — more resistance to rotation on entry (understeer). Toward LOOSE reduces lock for freer corner entry.'
-                  :ch.layout==='RWD'
-                  ?'Rear diff decel lock. Toward STABLE increases lock — resists lift-off oversteer. Toward LOOSE reduces lock for freer rotation on entry.'
-                  :'Rear diff decel lock. Toward STABLE increases lock — resists lift-off oversteer. Toward LOOSE reduces lock for more rear rotation on entry.')
-                  +(dr.diffComplement?' MATCH CHASSIS is on — this is further biased (at half strength) by your chassis mech target.':'')}
-                readout={diff.layout==='AWD'
-                  ?`R.Decel ${diff.rearDecel}%`
-                  :`Decel ${diff.decel}%`}/>}
-            </>}
+                  hint={(ch.layout==='FWD'
+                    ?'Front diff decel lock. Toward STABLE increases lock — more resistance to rotation on entry (understeer). Toward LOOSE reduces lock for freer corner entry.'
+                    :ch.layout==='RWD'
+                    ?'Rear diff decel lock. Toward STABLE increases lock — resists lift-off oversteer. Toward LOOSE reduces lock for freer rotation on entry.'
+                    :'Rear diff decel lock. Toward STABLE increases lock — resists lift-off oversteer. Toward LOOSE reduces lock for more rear rotation on entry.')
+                    +(dr.diffComplement?' MATCH CHASSIS is on — this is further biased (at half strength) by your chassis mech target.':'')}
+                  readout={diff.layout==='AWD'
+                    ?`R.Decel ${diff.rearDecel}%`
+                    :`Decel ${diff.decel}%`}/>}
+                {ch.layout==='AWD'&&uiMode!=='beginner'&&dt!=='sport'&&<>
+                  <div style={groupHdr}>CENTER</div>
+                  <FeelSlider
+                    label="POWER SPLIT"
+                    value={(dr.diffCenter??65)-50}
+                    onChange={v=>pDr('diffCenter')(Math.round(v+50))}
+                    min={-30} max={30}
+                    leftLabel="FRONT"
+                    rightLabel="REAR"
+                    markers={[{value:0,color:'#475569'}]}
+                    hint="AWD center torque split. Toward REAR sends more power rearward — increases oversteer tendency and rear diff contribution to handling balance. 60–70% rear is typical for track."
+                    readout={`${diff.center??65}% rear`}/>
+                </>}
+              </>);
+            })()}
             {uiMode==='pro'&&dr.diffManual&&(()=>{
               const dt=dr.diffType??'race';
               const ranges=DIFF_TYPE_RANGES[dt];
               const RangeHint=({r})=>r?<div style={{fontSize:10,color:'#475569',marginTop:1,marginBottom:4}}>typical: {r[0]}–{r[1]}%</div>:null;
+              const pairCols=dt!=='sport'?'1fr 1fr':'1fr';
               return ch.layout==='AWD'?(
                 <>
-                  <Field label="Front Accel" value={dr.diffFrontAccel} onChange={pDr('diffFrontAccel')}
-                    min={0} max={100} step={1} unit="%"
-                    hint={`Front axle lock under power. Higher = more front pull out of corners but risks understeer. Typical for ${dt}: ${ranges.frontAccel[0]}–${ranges.frontAccel[1]}%.`}/>
-                  <RangeHint r={ranges.frontAccel}/>
-                  {dt!=='sport'&&<>
-                    <Field label="Front Decel" value={dr.diffFrontDecel} onChange={pDr('diffFrontDecel')}
-                      min={0} max={100} step={1} unit="%"
-                      hint="Front axle lock off throttle. 0 is strongly recommended — anything above strongly increases understeer on corner entry."/>
-                    <RangeHint r={[0,0]}/>
-                  </>}
-                  <Field label="Rear Accel" value={dr.diffRearAccel} onChange={pDr('diffRearAccel')}
-                    min={0} max={100} step={1} unit="%"
-                    hint={`Rear axle lock under power. Higher = more oversteer on exit. Typical for ${dt}: ${ranges.rearAccel[0]}–${ranges.rearAccel[1]}%.`}/>
-                  <RangeHint r={ranges.rearAccel}/>
-                  {dt!=='sport'&&<>
-                    <Field label="Rear Decel" value={dr.diffRearDecel} onChange={pDr('diffRearDecel')}
-                      min={0} max={100} step={1} unit="%"
-                      hint="Rear axle lock off throttle. Low values improve corner entry rotation. 0–15% typical."/>
-                    <RangeHint r={ranges.decel}/>
-                  </>}
+                  <div style={{display:'grid',gridTemplateColumns:pairCols,gap:'0 10px'}}>
+                    <div>
+                      <Field label="Front Accel" value={dr.diffFrontAccel} onChange={pDr('diffFrontAccel')}
+                        min={0} max={100} step={1} unit="%"
+                        hint={`Front axle lock under power. Higher = more front pull out of corners but risks understeer. Typical for ${dt}: ${ranges.frontAccel[0]}–${ranges.frontAccel[1]}%.`}/>
+                      <RangeHint r={ranges.frontAccel}/>
+                    </div>
+                    {dt!=='sport'&&
+                    <div>
+                      <Field label="Front Decel" value={dr.diffFrontDecel} onChange={pDr('diffFrontDecel')}
+                        min={0} max={100} step={1} unit="%"
+                        hint="Front axle lock off throttle. 0 is strongly recommended — anything above strongly increases understeer on corner entry."/>
+                      <RangeHint r={[0,0]}/>
+                    </div>}
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:pairCols,gap:'0 10px'}}>
+                    <div>
+                      <Field label="Rear Accel" value={dr.diffRearAccel} onChange={pDr('diffRearAccel')}
+                        min={0} max={100} step={1} unit="%"
+                        hint={`Rear axle lock under power. Higher = more oversteer on exit. Typical for ${dt}: ${ranges.rearAccel[0]}–${ranges.rearAccel[1]}%.`}/>
+                      <RangeHint r={ranges.rearAccel}/>
+                    </div>
+                    {dt!=='sport'&&
+                    <div>
+                      <Field label="Rear Decel" value={dr.diffRearDecel} onChange={pDr('diffRearDecel')}
+                        min={0} max={100} step={1} unit="%"
+                        hint="Rear axle lock off throttle. Low values improve corner entry rotation. 0–15% typical."/>
+                      <RangeHint r={ranges.decel}/>
+                    </div>}
+                  </div>
                   <Field label="Center Split" value={dr.diffCenter} onChange={pDr('diffCenter')}
                     min={0} max={100} step={1} unit="% rear"
                     hint="Power distribution rear bias. Higher = more oversteer. 60–70% typical for track."/>
                 </>
               ):(
-                <>
-                  <Field label="Accel Lock" value={dr.diffAccel} onChange={pDr('diffAccel')}
-                    min={0} max={100} step={1} unit="%"
-                    hint={ch.layout==='RWD'
-                      ?`RWD rear accel lock. Higher = more exit oversteer. Typical for ${dt}: ${ranges.accel[0]}–${ranges.accel[1]}%.`
-                      :`FWD front accel lock. Higher = more understeer on exit. Typical for ${dt}: ${ranges.accel[0]}–${ranges.accel[1]}%.`}/>
-                  <RangeHint r={ranges.accel}/>
-                  {dt!=='sport'&&<>
+                <div style={{display:'grid',gridTemplateColumns:pairCols,gap:'0 10px'}}>
+                  <div>
+                    <Field label="Accel Lock" value={dr.diffAccel} onChange={pDr('diffAccel')}
+                      min={0} max={100} step={1} unit="%"
+                      hint={ch.layout==='RWD'
+                        ?`RWD rear accel lock. Higher = more exit oversteer. Typical for ${dt}: ${ranges.accel[0]}–${ranges.accel[1]}%.`
+                        :`FWD front accel lock. Higher = more understeer on exit. Typical for ${dt}: ${ranges.accel[0]}–${ranges.accel[1]}%.`}/>
+                    <RangeHint r={ranges.accel}/>
+                  </div>
+                  {dt!=='sport'&&
+                  <div>
                     <Field label="Decel Lock" value={dr.diffDecel} onChange={pDr('diffDecel')}
                       min={0} max={100} step={1} unit="%"
                       hint={ch.layout==='RWD'
                         ?`RWD rear decel lock. Lower = better corner entry rotation, less lift-off oversteer. Typical for ${dt}: ${ranges.decel[0]}–${ranges.decel[1]}%.`
                         :`FWD front decel lock. Lower = less understeer on entry. Typical for ${dt}: ${ranges.decel[0]}–${ranges.decel[1]}%.`}/>
                     <RangeHint r={ranges.decel}/>
-                  </>}
-                </>
+                  </div>}
+                </div>
               );
             })()}
           </Sec></div>
 
-          <div id="zone-build" style={dim('build','presets')}><Sec title={uiMode==='pro'?'BUILD & BALANCE':'BUILD'} open={open.build} onToggle={tog('build')}
-            onReset={()=>setFe(p=>({...p,arbBalTarget:DEF_FE.arbBalTarget,arbBalTargetMode:DEF_FE.arbBalTargetMode,arbBalDelta:DEF_FE.arbBalDelta}))}>
+          <div id="zone-build" style={dim('build','presets')}><Sec title="BUILD" open={open.build} onToggle={tog('build')}>
             <div id="zone-presets" style={dim('presets')}>
             {(()=>{
               const PRESET_DESC={
@@ -4015,7 +3913,11 @@ function App(){
             <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'},{value:'rally',label:'RALLY'},{value:'offroad',label:'OFFROAD'},{value:'drag',label:'DRAG'}]}
               hint="Determines your intended use. Shifts alignment targets, diff AUTO behaviour, diff type recommendation, brake balance, and the recommended Mech Balance Target range."/>
-            {uiMode==='pro'&&(()=>{
+          </Sec></div>
+
+          {uiMode==='pro'&&<div id="zone-balance-target" style={dim('balance-target')}><Sec title="BALANCE" open={open.balance} onToggle={tog('balance')}
+            onReset={()=>setFe(p=>({...p,arbBalTarget:DEF_FE.arbBalTarget,arbBalTargetMode:DEF_FE.arbBalTargetMode,arbBalDelta:DEF_FE.arbBalDelta}))}>
+            {(()=>{
               const _hasMechTarget=(fe.arbBalMode??'weight')==='mech'||(fe.arbBalMode??'weight')==='coSolve'
                 ||(fe.rearHzMode??'flatRide')==='mech';
               if(!_hasMechTarget)return(
@@ -4256,7 +4158,7 @@ function App(){
                 </div>
               );
             })()}
-          </Sec></div>
+          </Sec></div>}
 
 
           <div id="zone-arb" style={dim('arb')}><Sec title="ANTI-ROLL BARS" open={open.arb} onToggle={tog('arb')}
@@ -4268,9 +4170,6 @@ function App(){
               arbTargetRollMan:DEF_FE.arbTargetRollMan,
               arbShareMan:DEF_FE.arbShareMan,
               arbSplitOpposite:DEF_FE.arbSplitOpposite}))}>
-            <ArbDial arbF={tune.arbF} arbR={tune.arbR} arbLimit={lim.arb}
-              rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}
-              natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
             {((fe.arbBalMode??'weight')==='weight'||(fe.arbBalMode??'weight')==='neutral'||(fe.arbBalMode??'weight')==='chassis')&&(()=>{
               const isNeutral=(fe.arbBalMode??'weight')==='neutral';
               const isChassis=(fe.arbBalMode??'weight')==='chassis';
@@ -4301,44 +4200,6 @@ function App(){
               </>);
             })()}
 
-            <div style={{display:'flex',alignItems:'center',gap:6,
-                         padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
-                         border:'1px solid #1e293b',marginBottom:6,marginTop:-6}}>
-              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ROLL</span>
-              <span style={{fontFamily:'var(--font-mono)',fontSize:13,fontWeight:700,
-                            color:tune.rollClamped?'#f59e0b':'#e2e8f0'}}>{tune.rollDeg.toFixed(1)}</span>
-              <span style={{fontSize:10,color:'#94a3b8'}}>°</span>
-              <svg width="100%" height="24" viewBox="0 0 100 24" style={{flex:1,overflow:'visible',margin:'0 4px'}}>
-                <line x1="5" y1="20" x2="95" y2="20" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
-                {(fe.arbMode??'auto')==='roll'&&(
-                  <g transform={`rotate(${-Math.min(tune.rollTarget*4,25)} 50 20)`}>
-                    <line x1="15" y1="14" x2="85" y2="14" stroke="#3b82f6" strokeWidth="1.5"
-                      strokeDasharray="3 2" opacity="0.4" strokeLinecap="round"/>
-                  </g>
-                )}
-                <g transform={`rotate(${-Math.min(tune.rollDeg*4,25)} 50 20)`}
-                   style={{transition:'transform 0.15s ease-out'}}>
-                  <line x1="20" y1="14" x2="80" y2="14"
-                    stroke={tune.rollClamped?'#f59e0b':'#e2e8f0'} strokeWidth="1.5" strokeLinecap="round"/>
-                  <rect x="15" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
-                    stroke={tune.rollClamped?'#f59e0b':'#cbd5e1'} strokeWidth="1.5"/>
-                  <rect x="80" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
-                    stroke={tune.rollClamped?'#f59e0b':'#cbd5e1'} strokeWidth="1.5"/>
-                </g>
-              </svg>
-              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ARB SHARE</span>
-              <span style={{fontFamily:'var(--font-mono)',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{Math.round(tune.arbShare)}</span>
-              <span style={{fontSize:10,color:'#94a3b8'}}>%</span>
-            </div>
-            {/* roll stiffness split bar */}
-            <div style={{display:'flex',height:3,borderRadius:2,overflow:'hidden',marginBottom:2}}>
-              <div style={{flex:Math.max(0,100-tune.arbShare),background:'#3b82f6',opacity:0.55,transition:'flex .2s'}}/>
-              <div style={{flex:Math.max(0,tune.arbShare),background:'#f59e0b',opacity:0.75,transition:'flex .2s'}}/>
-            </div>
-            <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#94a3b8',marginBottom:10}}>
-              <span>SPRINGS {Math.round(100-tune.arbShare)}%</span>
-              <span>ARBs {Math.round(tune.arbShare)}%</span>
-            </div>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
               <span style={{fontSize:12,color:'#94a3b8'}}>Stiffness Mode</span>
               <Hint text={`AUTO derives ARB stiffness from the car's natural roll tendency — heavier, taller, softer cars get more ARB contribution. ROLL ° targets a specific body roll angle. SHARE % directly sets ARBs as a fraction of total roll stiffness.${uiMode==='pro'?' MAN sets front/rear ARB clicks directly for calibration testing — bypasses the budget/split system entirely, so Balance Mode is hidden while this is active.':''}`}/>
@@ -4478,10 +4339,6 @@ function App(){
               rearHzMan:DEF_FE.rearHzMan,
               rearHzMult:DEF_FE.rearHzMult,
               rideRef:DEF_FE.rideRef}))}>
-            <SpringDial fHz={tune.fHz} rHz={tune.rHz}
-              rsSpF={tune.rsSpF} rsSpR={tune.rsSpR}
-              frontBias={ch.frontBias} clamped={physics.rearHzClamped}
-              natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
             <div style={dim('feel')}>
             {(()=>{
               const isCoSolve=(fe.arbBalMode??'weight')==='coSolve';
@@ -4704,12 +4561,6 @@ function App(){
               bumpZeta:DEF_FE.bumpZeta,
               dampCharMode:DEF_FE.dampCharMode,
               settleTarget:DEF_FE.settleTarget}))}>
-            <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
-              <button className="tog" onClick={()=>setShowOscModal(true)}>DYNAMICS<Hint text="Visualise the damped spring step response — see how ride stiffness and damping shape the car's oscillation and settle time"/></button>
-            </div>
-            <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
-              <DampingDial rebound={(fe.dampCharMode??'zeta')==='settle'?Math.round(physics.zetaF):(fe.reboundZeta??70)} bump={(fe.dampCharMode??'zeta')==='settle'?Math.round(physics.bumpZetaF):physics.bumpZeta}/>
-            </div>
             {/* damping character mode toggle — INT/PRO only */}
             {uiMode!=='beginner'&&<>
               <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}>
@@ -4900,6 +4751,177 @@ function App(){
           </Sec></div>}
 
           </>}
+        </div>
+        {/* PINNED — stays put while the scrollable content above it scrolls, so graphs/dials
+            here stay visible regardless of which input section is currently open. Empty for now. */}
+        <div style={{flexShrink:0,borderTop:'1px solid #0f172a'}}>
+          <Sec title="VISUALS" open={open.visuals} onToggle={tog('visuals')}>
+            <div style={{maxHeight:'50vh',overflowY:'auto',overscrollBehavior:'contain'}}>
+              <div className="collapsible-hdr" onClick={()=>setOpen(p=>({...p,visArb:!p.visArb}))}
+                style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:3,userSelect:'none',padding:'3px 4px'}}>
+                <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>ARB</span>
+                <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.visArb?'▲':'▼'}</span>
+              </div>
+              {open.visArb&&<>
+              <ArbDial arbF={tune.arbF} arbR={tune.arbR} arbLimit={lim.arb}
+                rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}
+                natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
+              <div style={{display:'flex',alignItems:'center',gap:6,
+                           padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
+                           border:'1px solid #1e293b',marginBottom:6}}>
+                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ROLL</span>
+                <span style={{fontFamily:'var(--font-mono)',fontSize:13,fontWeight:700,
+                              color:tune.rollClamped?'#f59e0b':'#e2e8f0'}}>{tune.rollDeg.toFixed(1)}</span>
+                <span style={{fontSize:10,color:'#94a3b8'}}>°</span>
+                <svg width="100%" height="24" viewBox="0 0 100 24" style={{flex:1,overflow:'visible',margin:'0 4px'}}>
+                  <line x1="5" y1="20" x2="95" y2="20" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
+                  {(fe.arbMode??'auto')==='roll'&&(
+                    <g transform={`rotate(${-Math.min(tune.rollTarget*4,25)} 50 20)`}>
+                      <line x1="15" y1="14" x2="85" y2="14" stroke="#3b82f6" strokeWidth="1.5"
+                        strokeDasharray="3 2" opacity="0.4" strokeLinecap="round"/>
+                    </g>
+                  )}
+                  <g transform={`rotate(${-Math.min(tune.rollDeg*4,25)} 50 20)`}
+                     style={{transition:'transform 0.15s ease-out'}}>
+                    <line x1="20" y1="14" x2="80" y2="14"
+                      stroke={tune.rollClamped?'#f59e0b':'#e2e8f0'} strokeWidth="1.5" strokeLinecap="round"/>
+                    <rect x="15" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
+                      stroke={tune.rollClamped?'#f59e0b':'#cbd5e1'} strokeWidth="1.5"/>
+                    <rect x="80" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
+                      stroke={tune.rollClamped?'#f59e0b':'#cbd5e1'} strokeWidth="1.5"/>
+                  </g>
+                </svg>
+                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ARB SHARE</span>
+                <span style={{fontFamily:'var(--font-mono)',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{Math.round(tune.arbShare)}</span>
+                <span style={{fontSize:10,color:'#94a3b8'}}>%</span>
+              </div>
+              {/* roll stiffness split bar */}
+              <div style={{display:'flex',height:3,borderRadius:2,overflow:'hidden',marginBottom:2}}>
+                <div style={{flex:Math.max(0,100-tune.arbShare),background:'#3b82f6',opacity:0.55,transition:'flex .2s'}}/>
+                <div style={{flex:Math.max(0,tune.arbShare),background:'#f59e0b',opacity:0.75,transition:'flex .2s'}}/>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#94a3b8',marginBottom:18}}>
+                <span>SPRINGS {Math.round(100-tune.arbShare)}%</span>
+                <span>ARBs {Math.round(tune.arbShare)}%</span>
+              </div>
+              </>}
+
+              <div className="collapsible-hdr" onClick={()=>setOpen(p=>({...p,visRideDampers:!p.visRideDampers}))}
+                style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:3,userSelect:'none',padding:'3px 4px'}}>
+                <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>RIDE / DAMPERS</span>
+                <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.visRideDampers?'▲':'▼'}</span>
+              </div>
+              {open.visRideDampers&&
+              <div style={{display:'flex',gap:8,marginBottom:2}}>
+                <div style={{flex:1,minWidth:0,display:'flex',justifyContent:'center'}}>
+                  <SpringDial fHz={tune.fHz} rHz={tune.rHz}
+                    rsSpF={tune.rsSpF} rsSpR={tune.rsSpR}
+                    frontBias={ch.frontBias} clamped={physics.rearHzClamped}
+                    natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
+                </div>
+                <div style={{flex:1,minWidth:0,display:'flex',justifyContent:'center'}}>
+                  <DampingDial rebound={(fe.dampCharMode??'zeta')==='settle'?Math.round(physics.zetaF):(fe.reboundZeta??70)} bump={(fe.dampCharMode??'zeta')==='settle'?Math.round(physics.bumpZetaF):physics.bumpZeta}/>
+                </div>
+              </div>}
+
+              <div className="collapsible-hdr" onClick={()=>setOpen(p=>({...p,visDynamics:!p.visDynamics}))}
+                style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:3,userSelect:'none',padding:'3px 4px'}}>
+                <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>DYNAMICS</span>
+                <Hint text="Damped spring step response — shows how fast the car settles, whether it overshoots, and how ride stiffness and damping interact. Dashed lines mark each axle's settle time."/>
+                <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.visDynamics?'▲':'▼'}</span>
+              </div>
+              {open.visDynamics&&(()=>{
+                const durSec=Math.min(4,Math.max(1.5,Math.max(tune.settle??2,tune.settleR??2)*1.8));
+                const fReb=tune.zetaF??physics.reboundZeta??70;
+                const fBmp=tune.bumpZetaF??physics.bumpZeta??39;
+                const rReb=tune.zetaR??physics.reboundZeta??70;
+                const rBmp=tune.bumpZetaR??physics.bumpZeta??39;
+                const frontPts=computeOscillation(tune.fHz,fReb,fBmp,durSec);
+                const rearPts=computeOscillation(tune.rHz,rReb,rBmp,durSec);
+                const W=280,H=80,midY=40,yScale=32,xScale=W/durSec;
+                const toPolyPts=pts=>pts.map(p=>`${(p.t*xScale).toFixed(1)},${(midY-p.x*yScale).toFixed(1)}`).join(' ');
+                const fSetX=Math.min(W-1,(tune.settle??2)*xScale);
+                const rSetX=Math.min(W-1,(tune.settleR??2)*xScale);
+                return(
+                  <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}
+                       style={{display:'block',background:'#020617',borderRadius:3,marginBottom:6,border:'1px solid #1e293b'}}>
+                    <line x1={0} y1={midY} x2={W} y2={midY} stroke="#1e293b" strokeWidth={1}/>
+                    <line x1={fSetX} y1={0} x2={fSetX} y2={H} stroke="#38bdf855" strokeWidth={1} strokeDasharray="3 3"/>
+                    <line x1={rSetX} y1={0} x2={rSetX} y2={H} stroke="#fb923c55" strokeWidth={1} strokeDasharray="3 3"/>
+                    <polyline points={toPolyPts(rearPts)}  fill="none" stroke="#fb923c" strokeWidth={1.5} strokeLinejoin="round"/>
+                    <polyline points={toPolyPts(frontPts)} fill="none" stroke="#38bdf8" strokeWidth={1.5} strokeLinejoin="round"/>
+                    <text x={W-6} y={13} textAnchor="end" fontSize={9} fill="#38bdf8" fontFamily="JetBrains Mono, monospace">F</text>
+                    <text x={W-6} y={25} textAnchor="end" fontSize={9} fill="#fb923c" fontFamily="JetBrains Mono, monospace">R</text>
+                  </svg>
+                );
+              })()}
+
+              {ch.useRideHeightCG&&(()=>{
+                const pF=parseTyre(ch.tyreF),pR=parseTyre(ch.tyreR);
+                const tyresOk=pF?.radius!=null&&pR?.radius!=null;
+                if(!tyresOk)return null;
+                const gConst=9810;
+                const sagF=gConst/Math.pow(2*Math.PI*tune.fHz,2);
+                const sagR=gConst/Math.pow(2*Math.PI*tune.rHz,2);
+                const rhF=ch.rideHeightF*1000,rhR=ch.rideHeightR*1000;
+                const riskOf=ratio=>ratio>=1?['BOTTOMED','#ef4444']:ratio>=0.8?['HIGH','#f59e0b']:ratio>=0.5?['MED','#eab308']:['LOW','#4ade80'];
+                const[rF,cF]=riskOf(sagF/rhF),[rR,cR]=riskOf(sagR/rhR);
+                const COL_F='#60a5fa',COL_R='#fb923c';
+                const gBottomF=rhF/sagF,gBottomR=rhR/sagR;
+                const gMax=Math.max(1,Math.min(6,Math.max(gBottomF,gBottomR)*1.25));
+                const yMax=Math.max(rhF,rhR,sagF*gMax,sagR*gMax)*1.08;
+                const W=280,H=115,padL=36,padB=20,padT=10,padR=10;
+                const plotW=W-padL-padR,plotH=H-padT-padB;
+                const xS=g_=>padL+(g_/gMax)*plotW;
+                const yS=mm=>padT+plotH-(mm/yMax)*plotH;
+                const toDisp=mm=>metricUnits?mm/10:mm/IN_TO_MM;
+                const gEndF=Math.min(gMax,yMax/sagF),gEndR=Math.min(gMax,yMax/sagR);
+                const xTicks=Array.from({length:Math.floor(gMax)+1},(_,i)=>i).filter(g_=>g_<=gMax);
+                return(<>
+                  <div className="collapsible-hdr" onClick={()=>setOpen(p=>({...p,visSag:!p.visSag}))}
+                    style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:3,marginTop:6,userSelect:'none',padding:'3px 4px'}}>
+                    <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>SAG vs LOAD</span>
+                    <Hint text="Suspension compression scales linearly with vertical wheel load (mass cancels out of the spring/frequency relation), so this line is just static 1g sag × load factor. Dashed lines mark the ride height you entered per axle — where a diagonal crosses its dashed line is the load (in g) at which that axle bottoms out. Doesn't distinguish cornering/braking/bump load — treat it as 'how many g before contact', not a precise dynamic simulation."/>
+                    {open.visSag&&<span style={{marginLeft:'auto',display:'flex',gap:8,fontSize:9}}>
+                      <span style={{color:COL_F}}>● FRONT {rF}</span>
+                      <span style={{color:COL_R}}>● REAR {rR}</span>
+                    </span>}
+                    <span style={{marginLeft:open.visSag?0:'auto',fontSize:9,color:'#475569'}}>{open.visSag?'▲':'▼'}</span>
+                  </div>
+                  {open.visSag&&
+                  <div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 8px',marginBottom:4,display:'flex',flexDirection:'column',gap:4}}>
+                    <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:'auto'}}>
+                      {/* axes */}
+                      <line x1={padL} y1={padT} x2={padL} y2={H-padB} stroke="#1e293b" strokeWidth={1}/>
+                      <line x1={padL} y1={H-padB} x2={W-padR} y2={H-padB} stroke="#1e293b" strokeWidth={1}/>
+                      {xTicks.map(g_=>(
+                        <g key={g_}>
+                          <line x1={xS(g_)} y1={H-padB} x2={xS(g_)} y2={H-padB+3} stroke="#334155" strokeWidth={1}/>
+                          <text x={xS(g_)} y={H-padB+13} fontSize={8} fill="#475569" textAnchor="middle" fontFamily="var(--font-mono)">{g_}g</text>
+                        </g>
+                      ))}
+                      <text x={2} y={padT+4} fontSize={8} fill="#475569" fontFamily="var(--font-mono)">{Math.round(toDisp(yMax))}{metricUnits?'cm':'in'}</text>
+                      <text x={2} y={H-padB} fontSize={8} fill="#475569" fontFamily="var(--font-mono)">0</text>
+                      {/* ride-height (bottom-out) reference lines */}
+                      <line x1={padL} y1={yS(rhF)} x2={W-padR} y2={yS(rhF)} stroke={COL_F} strokeWidth={1} strokeDasharray="3,2" opacity={0.6}/>
+                      <line x1={padL} y1={yS(rhR)} x2={W-padR} y2={yS(rhR)} stroke={COL_R} strokeWidth={1} strokeDasharray="3,2" opacity={0.6}/>
+                      {/* sag-vs-load diagonals */}
+                      <line x1={xS(0)} y1={yS(0)} x2={xS(gEndF)} y2={yS(sagF*gEndF)} stroke={COL_F} strokeWidth={2}/>
+                      <line x1={xS(0)} y1={yS(0)} x2={xS(gEndR)} y2={yS(sagR*gEndR)} stroke={COL_R} strokeWidth={2}/>
+                      {/* bottom-out markers, only if reached within the plotted range */}
+                      {gBottomF<=gMax&&<circle cx={xS(gBottomF)} cy={yS(rhF)} r={2.5} fill={COL_F}/>}
+                      {gBottomR<=gMax&&<circle cx={xS(gBottomR)} cy={yS(rhR)} r={2.5} fill={COL_R}/>}
+                    </svg>
+                    <div style={{display:'flex',gap:12,fontFamily:'var(--font-mono)'}}>
+                      <span style={{fontSize:9,color:COL_F}}>{gBottomF<=gMax?`bottoms ≈${gBottomF.toFixed(1)}g`:`no bottom ≤${gMax.toFixed(1)}g`}</span>
+                      <span style={{fontSize:9,color:COL_R}}>{gBottomR<=gMax?`bottoms ≈${gBottomR.toFixed(1)}g`:`no bottom ≤${gMax.toFixed(1)}g`}</span>
+                    </div>
+                  </div>}
+                </>);
+              })()}
+            </div>
+          </Sec>
+        </div>
         </div>
 
         {/* OUTPUT PANEL */}
