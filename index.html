@@ -4776,46 +4776,54 @@ function App(){
                 <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.visArb?'▲':'▼'}</span>
               </div>
               {open.visArb&&<>
-              <ArbDial arbF={tune.arbF} arbR={tune.arbR} arbLimit={lim.arb}
-                rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}
-                natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
-              <div style={{display:'flex',alignItems:'center',gap:6,
-                           padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
-                           border:'1px solid #1e293b',marginBottom:6}}>
-                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ROLL</span>
-                <span style={{fontFamily:'var(--font-mono)',fontSize:13,fontWeight:700,
-                              color:tune.rollClamped?'#f59e0b':'#e2e8f0'}}>{tune.rollDeg.toFixed(1)}</span>
-                <span style={{fontSize:10,color:'#94a3b8'}}>°</span>
-                <svg width="100%" height="24" viewBox="0 0 100 24" style={{flex:1,overflow:'visible',margin:'0 4px'}}>
-                  <line x1="5" y1="20" x2="95" y2="20" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
-                  {(fe.arbMode??'auto')==='roll'&&(
-                    <g transform={`rotate(${-Math.min(tune.rollTarget*4,25)} 50 20)`}>
-                      <line x1="15" y1="14" x2="85" y2="14" stroke="#3b82f6" strokeWidth="1.5"
-                        strokeDasharray="3 2" opacity="0.4" strokeLinecap="round"/>
-                    </g>
-                  )}
-                  <g transform={`rotate(${-Math.min(tune.rollDeg*4,25)} 50 20)`}
-                     style={{transition:'transform 0.15s ease-out'}}>
-                    <line x1="20" y1="14" x2="80" y2="14"
-                      stroke={tune.rollClamped?'#f59e0b':'#e2e8f0'} strokeWidth="1.5" strokeLinecap="round"/>
-                    <rect x="15" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
-                      stroke={tune.rollClamped?'#f59e0b':'#cbd5e1'} strokeWidth="1.5"/>
-                    <rect x="80" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
-                      stroke={tune.rollClamped?'#f59e0b':'#cbd5e1'} strokeWidth="1.5"/>
-                  </g>
-                </svg>
-                <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ARB SHARE</span>
-                <span style={{fontFamily:'var(--font-mono)',fontSize:13,fontWeight:700,color:'#e2e8f0'}}>{Math.round(tune.arbShare)}</span>
-                <span style={{fontSize:10,color:'#94a3b8'}}>%</span>
-              </div>
-              {/* roll stiffness split bar */}
-              <div style={{display:'flex',height:3,borderRadius:2,overflow:'hidden',marginBottom:2}}>
-                <div style={{flex:Math.max(0,100-tune.arbShare),background:'#3b82f6',opacity:0.55,transition:'flex .2s'}}/>
-                <div style={{flex:Math.max(0,tune.arbShare),background:'#f59e0b',opacity:0.75,transition:'flex .2s'}}/>
-              </div>
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#94a3b8',marginBottom:18}}>
-                <span>SPRINGS {Math.round(100-tune.arbShare)}%</span>
-                <span>ARBs {Math.round(tune.arbShare)}%</span>
+              <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:18}}>
+                <div style={{flex:1,minWidth:0,display:'flex',justifyContent:'center'}}>
+                  <ArbDial arbF={tune.arbF} arbR={tune.arbR} arbLimit={lim.arb}
+                    rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}
+                    natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
+                </div>
+                <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',gap:6}}>
+                  {/* roll seesaw preview */}
+                  <div style={{padding:'4px 8px',background:'#0a0f1a',borderRadius:2,border:'1px solid #1e293b'}}>
+                    <svg width="100%" height="24" viewBox="0 0 100 24" style={{overflow:'visible'}}>
+                      <line x1="5" y1="20" x2="95" y2="20" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
+                      {(fe.arbMode??'auto')==='roll'&&(
+                        <g transform={`rotate(${-Math.min(tune.rollTarget*4,25)} 50 20)`}>
+                          <line x1="15" y1="14" x2="85" y2="14" stroke="#3b82f6" strokeWidth="1.5"
+                            strokeDasharray="3 2" opacity="0.4" strokeLinecap="round"/>
+                        </g>
+                      )}
+                      <g transform={`rotate(${-Math.min(tune.rollDeg*4,25)} 50 20)`}
+                         style={{transition:'transform 0.15s ease-out'}}>
+                        <line x1="20" y1="14" x2="80" y2="14"
+                          stroke={tune.rollClamped?'#f59e0b':'#e2e8f0'} strokeWidth="1.5" strokeLinecap="round"/>
+                        <rect x="15" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
+                          stroke={tune.rollClamped?'#f59e0b':'#cbd5e1'} strokeWidth="1.5"/>
+                        <rect x="80" y="10" width="5" height="8" rx="1.5" fill="#0f172a"
+                          stroke={tune.rollClamped?'#f59e0b':'#cbd5e1'} strokeWidth="1.5"/>
+                      </g>
+                    </svg>
+                  </div>
+                  {/* roll value */}
+                  <div style={{display:'flex',alignItems:'center',gap:6,
+                               padding:'5px 8px',background:'#0a0f1a',borderRadius:2,border:'1px solid #1e293b'}}>
+                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ROLL</span>
+                    <span style={{marginLeft:'auto',fontFamily:'var(--font-mono)',fontSize:13,fontWeight:700,
+                                  color:tune.rollClamped?'#f59e0b':'#e2e8f0'}}>{tune.rollDeg.toFixed(1)}</span>
+                    <span style={{fontSize:10,color:'#94a3b8'}}>°</span>
+                  </div>
+                  {/* springs/ARBs contribution bar — also serves as the ARB SHARE readout */}
+                  <div style={{padding:'5px 8px',background:'#0a0f1a',borderRadius:2,border:'1px solid #1e293b'}}>
+                    <div style={{display:'flex',height:3,borderRadius:2,overflow:'hidden',marginBottom:4}}>
+                      <div style={{flex:Math.max(0,100-tune.arbShare),background:'#3b82f6',opacity:0.55,transition:'flex .2s'}}/>
+                      <div style={{flex:Math.max(0,tune.arbShare),background:'#f59e0b',opacity:0.75,transition:'flex .2s'}}/>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#94a3b8'}}>
+                      <span>SPRINGS {Math.round(100-tune.arbShare)}%</span>
+                      <span>ARBs {Math.round(tune.arbShare)}%</span>
+                    </div>
+                  </div>
+                </div>
               </div>
               </>}
 
