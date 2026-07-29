@@ -753,7 +753,10 @@ const computeTune=(ch,phys,gameMode)=>{
   const rsBalance=rsKf+rsKr>0?rsKr/(rsKf+rsKr):1-ch.frontBias/100;
   const mechBalance=Math.max(0,Math.min(1,rsBalance+tireCorr));    // tyre-width corrected: matches Forza's displayed mech balance
   const gripBalance=balanceFromRsBal(ch,rsBalance);                // physical at-limit balance from LLT model (informational)
-  const mechBalClamped=(arbBalMode==='mech'||arbBalMode==='coSolve')&&Math.abs(mechBalance-arbBalTarget)>0.01;
+  // MAN ARB stiffness bypasses the budget/split solve entirely (see arbMode==='man' branch
+  // above), so a leftover arbBalMode of mech/coSolve from before switching to MAN must not
+  // trigger this "target unreachable" warning — nothing is actually solving toward it.
+  const mechBalClamped=arbMode!=='man'&&(arbBalMode==='mech'||arbBalMode==='coSolve')&&Math.abs(mechBalance-arbBalTarget)>0.01;
   const neutralClamped=arbBalMode==='neutral'&&(arbF<=1||arbF>=lim.arb||arbR<=1||arbR>=lim.arb);
   const settleF=zetaF>0?2.302/((zetaF/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn)
   const settleR=zetaR>0?2.302/((zetaR/100)*effectiveRHz*2*Math.PI):99;
@@ -2190,7 +2193,7 @@ const TUTORIALS={
     {title:'Start From a Build',
      focus:['presets'],
      cta:'Load the preset that matches your build type, then click Next.',
-     body:'Open the BUILDS drawer. The six FACTORY presets — STREET, TRACK, RALLY, DRIFT, MOTORSPT, X COUNTRY — each set a stiffness level, rear spring ratio, and damping character tuned for that build style. Load the closest one after entering your car\'s weight and bias, then adjust from there. Your own saved tunes appear below as MY BUILDS.'},
+     body:'Open the BUILDS drawer. FACTORY (its own collapsible drawer) has six presets — STREET, TRACK, RALLY, DRIFT, MOTORSPT, X COUNTRY — each setting a stiffness level, rear spring ratio, and damping character tuned for that build style. Load the closest one after entering your car\'s weight and bias, then adjust from there. Your own saved tunes appear below in the separate MY BUILDS drawer.'},
     {title:'Ride Stiffness',
      focus:['ride-stiffness'],
      body:'Controls overall suspension stiffness. ROAD is the right starting point — balanced compliance and body control for most builds. SOFT for rough surfaces or maximum comfort. FIRM for track-focused cars that need sharper response. RACE for smooth circuits only — too stiff for anything else. The Hz readout and badge update as you move the slider.'},
@@ -2233,22 +2236,22 @@ const TUTORIALS={
      body:'The BUILD section shows Build Type (STREET / TRACK / DRIFT / RALLY / OFFROAD / DRAG) — this sets your intended use and determines the recommended balance range, diff AUTO behaviour, diff type recommendation, and alignment targets.'},
     {title:'Drivetrain Sliders',
      focus:['drivetrain'],
-     body:'DIFF TYPE selects the differential installed on the car — Race, Sport, Rally, Offroad, or Drift. Each type has a different lock curve, so the same slider % produces different effective lock. Sport is accel-only (no decel control). Corner Exit controls on-throttle aggression. Corner Entry controls trail-braking rotation. AWD adds a Power Split (center diff) slider — the recommended split is calculated from your build type, weight distribution, natural mechanical balance, and front/rear tyre diameter ratio. A Front Exit Push slider is also unlocked for AWD. All DIFF rows in the Handling Balance bar update live.'},
+     body:'DIFF TYPE selects the differential installed on the car — Race, Sport, Rally, Offroad, or Drift. Each type has a different lock curve, so the same slider % produces different effective lock. Sport is accel-only (no decel control). Sliders are grouped under FRONT AXLE / REAR AXLE headers on AWD (single-axle layouts just get one group). Corner Exit controls on-throttle aggression. Corner Entry controls trail-braking rotation. AWD adds a Power Split (center diff) slider — the recommended split is calculated from your build type, weight distribution, natural mechanical balance, and front/rear tyre diameter ratio. A Front Exit Push slider is also unlocked for AWD. All DIFF rows in the Handling Balance bar update live.'},
     {title:'ARB Balance',
-     focus:['arb'],
-     body:'The ARB solver splits front/rear roll stiffness from the car\'s weight distribution by default. Fine-tune the F/R split using the ARB Bias slider — push toward front for more understeer resistance, toward rear for more rotation. NEUTRAL mode solves the split to exactly cancel the springs\' contribution to the balance bar. PRO mode unlocks MECH, CO-SOLVE, and MAN balance targeting.'},
+     focus:['arb','visuals'],
+     body:'The ARB solver splits front/rear roll stiffness from the car\'s weight distribution by default. Fine-tune the F/R split using the ARB Bias slider — push toward front for more understeer resistance, toward rear for more rotation. NEUTRAL mode solves the split to exactly cancel the springs\' contribution to the balance bar. PRO mode unlocks MECH, CO-SOLVE, and MAN balance targeting. The ARB dial, ROLL/ARB SHARE readout, and SPRINGS/ARBs split bar have moved to the pinned VISUALS card at the bottom of the sidebar — check there for the live visual.'},
     {title:'Ride Ref & Rear Hz',
      focus:['feel'],
      body:'RIDE REF. sets which axle the stiffness slider anchors — FRONT, SHARED, or REAR. The secondary axle frequency is derived by the Hz mode: FLAT RIDE (the mathematically ideal pitch-cancelling ratio for a target speed), MULTIPLIER (a fixed ratio of the anchored axle), or INDEPENDENT (set manually, free of the other axle).'},
     {title:'DYNAMICS Chart',
-     focus:['damping'],
+     focus:['visuals'],
      body:'The DYNAMICS chart in the pinned VISUALS card (bottom of the sidebar) plots your car\'s step response — how fast it settles, whether it overshoots, and how ride stiffness and damping interact. Use it to sense-check damping character while you adjust the RIDE/DAMPERS sliders.'},
     {title:'Dampers',
      focus:['damping'],
      body:'REBOUND MODE and BUMP MODE toggles sit above their sliders. Rebound ζ at 70% (Butterworth) is the sweet spot — settles cleanly without oscillating; below 40% is bouncy, above 100% is sluggish. Bump Ratio sets compression as a fraction of rebound (40–65% typical). Damping Bias splits front/rear: FRONT keeps the front firm while the rear softens (planted entry); REAR softens the front (easier direction changes) — shown in the DAMP row of Handling Balance.'},
     {title:'Garage & Builds',
      focus:['presets','garage'],
-     body:'GARAGE (in the CHASSIS section) saves your car\'s physical setup — weight, front bias, and drivetrain layout — so you can quickly switch between cars. MY BUILDS (in the BUILDS drawer, above Build Type) saves your tune — feel settings and diff tune. Loading a build always applies both. The SHARE button in the toolbar handles sharing codes between devices (COPY CODE / LOAD CODE), backing up your saved data as a JSON file (BACKUP), and restoring from a backup file (RESTORE).'},
+     body:'GARAGE (in the CHASSIS section) saves your car\'s physical setup — weight, front bias, and drivetrain layout — so you can quickly switch between cars. MY BUILDS (its own drawer in BUILDS, alongside FACTORY) saves your tune — feel settings and diff tune. Loading a build always applies both. The SHARE button in the toolbar handles sharing codes between devices (COPY CODE / LOAD CODE), backing up your saved data as a JSON file (BACKUP), and restoring from a backup file (RESTORE).'},
   ],
   pro:[
     {title:'Welcome — Pro Mode',
@@ -2256,7 +2259,7 @@ const TUTORIALS={
      body:'Pro mode adds the full physics surface on top of Intermediate: Mech Balance Target with MECH, CO-SOLVE, and MAN ARB balance modes, Hz MECH mode, chassis geometry (wheelbase, track widths, CG height), and manual differential control. Alignment and brakes are always computed automatically. This guide only covers what\'s new.'},
     {title:'Chassis Geometry',
      focus:['chassis'],
-     body:'Tyre sizes, wheelbase, track widths, and CG height are all now available in the CHASSIS section. Tyre width sets each axle\'s grip capacity at the limit and drives the CHASSIS BAL. (natural mechanical balance), GRIP BIAS (at-limit handling tendency), and STABILITY readouts below. Chassis geometry defaults suit most cars — enter exact values if you have them. The GEOMETRY GAP panel in BUILD & BALANCE TARGET shows whether track or tyre width changes could help close the gap between your chassis natural balance and your target.'},
+     body:'Tyre sizes, wheelbase, track widths, and CG height are all now available in the CHASSIS section — CG height also has a RIDE HEIGHT → CG toggle to derive it from front/rear ride height and tyre radius instead of entering it manually. Tyre width sets each axle\'s grip capacity at the limit and drives the CHASSIS BAL. (natural mechanical balance), GRIP BIAS (at-limit handling tendency), and STABILITY readouts below. Chassis geometry defaults suit most cars — enter exact values if you have them. The GEOMETRY GAP panel in the BALANCE section shows whether track or tyre width changes could help close the gap between your chassis natural balance and your target.'},
     {title:'Calibrating Natural Balance',
      focus:['balance-target'],
      body:'MEASURE NAT BAL (below the Balance Guide) opens Tune Check\'s MEASURE tab — it walks you through applying specific spring/ARB values in Forza, then you dial in the Mech Balance the game reports. Once set, the calculator uses your reading everywhere — Balance Guide, GRIP BIAS, natural balance — instead of the geometry prediction. Track width fields hide while active since they\'re no longer needed; wheelbase stays visible for flat-ride Hz and brake balance.'},
@@ -2268,10 +2271,10 @@ const TUTORIALS={
      body:'Balance Target mode controls how the Mech Balance Target is derived.\n\nTARGET: set manually with the slider — use the Balance Guide range as a start.\n\nGRIP: auto-derives the target as 1 − natGripBalance, counteracting the car\'s natural grip tendency. Balance Offset shifts it toward oversteer (+) or understeer (−).\n\nGEOMETRY GAP shows whether track/tyre width changes could close the gap with softer ARBs.'},
     {title:'Manual Differential',
      focus:['drivetrain'],
-     body:'MANUAL diff exposes individual accel and decel lock percentages per axle. AWD adds separate front/rear locks plus center power split. Range hints below each field show typical values for your selected diff type — Rally and Offroad diffs need higher % than Race to achieve equivalent lock because their curves are less aggressive. Match Chassis (AUTO mode only) biases the diff solver toward your Mech Balance Target so the differential reinforces the balance set by your springs and ARBs. The AWD center split recommendation factors in build type, weight distribution, natural mechanical balance, and front/rear tyre diameter — PRO mode shows a factor breakdown below the recommended value.'},
+     body:'MANUAL diff exposes individual accel and decel lock percentages per axle, grouped under FRONT AXLE / REAR AXLE / CENTER headers on AWD. Range hints below each field show typical values for your selected diff type — Rally and Offroad diffs need higher % than Race to achieve equivalent lock because their curves are less aggressive. MATCH CHASSIS (AUTO mode only, sits directly above the EXIT/ENTRY sliders it affects) biases the diff solver toward your Mech Balance Target so the differential reinforces the balance set by your springs and ARBs. The AWD center split recommendation factors in build type, weight distribution, natural mechanical balance, and front/rear tyre diameter — PRO mode shows a factor breakdown below the recommended value.'},
     {title:'ARB Solving Modes',
-     focus:['arb'],
-     body:'PRO unlocks CHASSIS, MECH, and CO-SOLVE balance modes, plus a MAN stiffness mode for direct ARB clicks. CHASSIS is WEIGHT\'s formula anchored to your real natural balance instead of raw weight %. MECH solves the ARB split alone to hit your Mech Balance Target exactly. CO-SOLVE adjusts rear spring Hz and ARB split together — Spring Share controls the mix. Hz MECH mode derives rear Hz from the target directly. Balance Target mode (TARGET or GRIP) applies to all three solving modes.'},
+     focus:['arb','visuals'],
+     body:'PRO unlocks CHASSIS, MECH, and CO-SOLVE balance modes, plus a MAN stiffness mode for direct ARB clicks. CHASSIS is WEIGHT\'s formula anchored to your real natural balance instead of raw weight %. MECH solves the ARB split alone to hit your Mech Balance Target exactly. CO-SOLVE adjusts rear spring Hz and ARB split together — Spring Share controls the mix. Hz MECH mode derives rear Hz from the target directly. Balance Target mode (TARGET or GRIP) applies to all three solving modes. The ARB dial itself lives in the pinned VISUALS card at the bottom of the sidebar.'},
     {title:'Alignment Mode',
      focus:['alignment'],
      body:'BUILD (default) computes camber, toe, and caster from build type, layout, weight bias, and roll angle only. MECH nudges camber and toe toward your Mech Balance Target\'s gap from natural — reinforcing whatever oversteer/understeer intent you\'ve dialed in. GRIP nudges to counteract the chassis\'s own natural grip tendency instead, independent of ARB mode. Nudge Strength (shown for MECH/GRIP) scales how far the nudge goes — 0% matches BUILD exactly. MANUAL lets you type exact camber, toe, and caster values, bypassing the solver entirely.'},
@@ -2451,7 +2454,10 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone,zoom=1})=>{
   },[step,pos]); // eslint-disable-line
 
   if(!t)return null;
-  const mLabel={beginner:'BEG',intermediate:'INT',pro:'PRO',balance:'BALANCE'}[mode]??mode.toUpperCase();
+  // 'HANDLING' (not 'BALANCE') — this tutorial mode walks through the Handling Balance
+  // results bar, which would otherwise render as "BALANCE GUIDE" and collide with the
+  // sidebar's actual BALANCE section, which has its own unrelated "BALANCE GUIDE" widget.
+  const mLabel={beginner:'BEG',intermediate:'INT',pro:'PRO',balance:'HANDLING'}[mode]??mode.toUpperCase();
   const btnStyle={background:'none',border:'1px solid #1e293b',borderRadius:2,color:'#9ca3af',
     fontFamily:'var(--font-mono)',fontSize:10,padding:'4px 10px',cursor:'pointer',letterSpacing:1};
 
@@ -2642,6 +2648,7 @@ function App(){
       ride:!!(tutFocus?.includes('feel')),
       dampers:!!(tutFocus?.includes('damping')),
       alignment:!!(tutFocus?.includes('alignment')),
+      visuals:!!(tutFocus?.includes('visuals')),
       presetsOpen:!!(tutFocus?.includes('presets')),
     }));
     if(tutFocus?.includes('garage'))setGarageOpen(true);
@@ -2886,8 +2893,12 @@ function App(){
     const avgTrack=(ch.trackF+ch.trackR)/2;   // metres
     const avgTire=(twF+twR)/2;                 // mm
     const stabIdx=Math.sqrt((avgTrack/1.6)*(avgTire/265));
-    // Recommendation target: co-solve/mech target when active, else neutral 0.50
-    const hasMechTarget=feEffective.arbBalMode==='coSolve'||feEffective.arbBalMode==='mech';
+    // Recommendation target: co-solve/mech target when active, else neutral 0.50.
+    // MAN ARB stiffness bypasses arbBalMode's solve entirely — unless Hz MECH mode is
+    // separately still solving spring Hz toward the target — so a leftover arbBalMode of
+    // mech/coSolve from before switching to MAN must not count here (see KNOWN_ISSUES.md).
+    const hasMechTarget=((feEffective.arbMode??'auto')!=='man'&&(feEffective.arbBalMode==='coSolve'||feEffective.arbBalMode==='mech'))
+      ||(feEffective.rearHzMode??'flatRide')==='mech';
     const targetBal=hasMechTarget?Math.max(0.20,Math.min(0.90,feEffective.arbBalTarget??0.55)):0.50;
     // REACH: find track-width changes that bring natural rsBalance toward target.
     // Tyre width affects grip capacity (shown via CHASSIS BAL physical display) but NOT
@@ -3918,7 +3929,7 @@ function App(){
           {uiMode==='pro'&&<div id="zone-balance-target" style={dim('balance-target')}><Sec title="BALANCE" open={open.balance} onToggle={tog('balance')}
             onReset={()=>setFe(p=>({...p,arbBalTarget:DEF_FE.arbBalTarget,arbBalTargetMode:DEF_FE.arbBalTargetMode,arbBalDelta:DEF_FE.arbBalDelta}))}>
             {(()=>{
-              const _hasMechTarget=(fe.arbBalMode??'weight')==='mech'||(fe.arbBalMode??'weight')==='coSolve'
+              const _hasMechTarget=((fe.arbMode??'auto')!=='man'&&((fe.arbBalMode??'weight')==='mech'||(fe.arbBalMode??'weight')==='coSolve'))
                 ||(fe.rearHzMode??'flatRide')==='mech';
               if(!_hasMechTarget)return(
                 <div style={{fontSize:11,color:'#64748b',lineHeight:1.5,background:'#0a0f1a',
@@ -3962,7 +3973,7 @@ function App(){
               const _hi=Math.max(_lo+0.03,Math.min(0.90,natMechBalance+_dhi));
               const _MIN=0.20,_RNG=0.70;
               const _pct=v=>Math.max(0,Math.min(100,(v-_MIN)/_RNG*100));
-              const _hasMechTarget=(fe.arbBalMode??'weight')==='mech'||(fe.arbBalMode??'weight')==='coSolve'
+              const _hasMechTarget=((fe.arbMode??'auto')!=='man'&&((fe.arbBalMode??'weight')==='mech'||(fe.arbBalMode??'weight')==='coSolve'))
                 ||(fe.rearHzMode??'flatRide')==='mech';
               const _cur=_hasMechTarget?(feEffective.arbBalTarget??natMechBalance):tune.mechBalance;
               const _curLabel=_hasMechTarget?'TARGET':'CURRENT';
@@ -4753,8 +4764,10 @@ function App(){
           </>}
         </div>
         {/* PINNED — stays put while the scrollable content above it scrolls, so graphs/dials
-            here stay visible regardless of which input section is currently open. Empty for now. */}
-        <div style={{flexShrink:0,borderTop:'1px solid #0f172a'}}>
+            here stay visible regardless of which input section is currently open. BEG mode has
+            its own simplified panel with no ARB/RIDE/DAMPERS sections for these dials to relate
+            to, so VISUALS stays hidden there. */}
+        {uiMode!=='beginner'&&<div id="zone-visuals" style={{flexShrink:0,borderTop:'1px solid #0f172a',...dim('visuals')}}>
           <Sec title="VISUALS" open={open.visuals} onToggle={tog('visuals')}>
             <div style={{maxHeight:'50vh',overflowY:'auto',overscrollBehavior:'contain'}}>
               <div className="collapsible-hdr" onClick={()=>setOpen(p=>({...p,visArb:!p.visArb}))}
@@ -4921,7 +4934,7 @@ function App(){
               })()}
             </div>
           </Sec>
-        </div>
+        </div>}
         </div>
 
         {/* OUTPUT PANEL */}
@@ -5067,9 +5080,8 @@ function App(){
               ?'Starting point — fine-tune by feel in 1% steps. Accel lock controls exit traction and understeer. Decel near zero improves corner entry rotation.'
               :diff.layout==='RWD'
               ?'Starting point — fine-tune by feel in 1% steps. Accel lock aids exit rotation. Decel low for better corner entry; raise for stability under lift-off.'
-              :`Starting point — fine-tune by feel in 1% steps. Front decel at 0 minimises entry understeer. Rear decel low for rotation. Center ${diff.center}% rear.`}>
-
-            <div style={{fontSize:11,color:'#94a3b8',letterSpacing:2,marginBottom:6,fontWeight:700}}>{({race:'RACE',sport:'SPORT',rally:'RALLY',offroad:'OFFROAD',drift:'DRIFT'})[dr.diffType??'race']??'RACE'} DIFF</div>
+              :`Starting point — fine-tune by feel in 1% steps. Front decel at 0 minimises entry understeer. Rear decel low for rotation. Center ${diff.center}% rear.`}
+            headerRight={`${({race:'RACE',sport:'SPORT',rally:'RALLY',offroad:'OFFROAD',drift:'DRIFT'})[dr.diffType??'race']??'RACE'} DIFF`}>
             {(()=>{
               const isSport=(dr.diffType??'race')==='sport';
               const na={value:'N/A',unit:'',ctx:null};
@@ -5554,7 +5566,7 @@ function App(){
                 const nat=natMechBalance;
                 const tgt=feEffective.arbBalTarget??MECH_BALANCE_TARGET;
                 const pct=v=>`${Math.max(0,Math.min(100,v*100)).toFixed(1)}%`;
-                const showTgt=(physics.arbBalMode==='mech'||physics.arbBalMode==='coSolve'||(physics.arbMode==='man'&&physics.rearHzMode==='mech'));
+                const showTgt=(physics.arbMode!=='man'&&(physics.arbBalMode==='mech'||physics.arbBalMode==='coSolve'))||(physics.arbMode==='man'&&physics.rearHzMode==='mech');
                 const _d=cur-nat;
                 return(
                   <div style={{marginTop:8}}>

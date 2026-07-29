@@ -5,6 +5,43 @@ of without a written trail. Not a general bug tracker — just things that
 either can't be trivially fixed, or were fixed here and are worth
 remembering *why* they broke in the first place.
 
+## Fixed — MAN ARB stiffness still registered as MECH/CO-SOLVE balance mode enabled (resolved)
+
+Stiffness Mode MAN (direct front/rear ARB clicks) is supposed to bypass the
+ARB budget/split solve entirely — `computeTune`'s `arbMode==='man'` branch
+does this correctly (`index.html` around the `if(arbMode==='man')` check).
+But four separate UI-facing "is a mech/co-solve target active" checks only
+looked at `arbBalMode` (`'mech'`/`'coSolve'`), never at `arbMode`, so a
+leftover `arbBalMode` of MECH or CO-SOLVE from before switching to MAN kept
+the app displaying as if a target were still being solved toward, even
+though ARB itself was no longer participating in any solve:
+
+- `chassisAnalysis.hasMechTarget` (drives the BALANCE GUIDE's target marker)
+- the BALANCE section's `_hasMechTarget` (shown twice — gates the "Balance
+  Target only applies in..." message and the CURRENT/TARGET label)
+- `computeTune`'s `mechBalClamped` (drove a "Mech balance target couldn't
+  be reached" warning even though nothing was targeting it)
+- the Handling Balance widget's `showTgt` (main output panel — showed a
+  TGT marker/value even in MAN mode)
+
+Fixed by adding `arbMode!=='man'` to the `arbBalMode==='mech'||'coSolve'`
+clause in all four, while preserving the existing `arbMode==='man' &&
+rearHzMode==='mech'` case (Hz MECH mode keeps solving spring Hz toward the
+target independently of ARB stiffness mode, so that combination correctly
+still counts). Verified: MECH balance mode + switching Stiffness Mode to
+MAN now correctly falls back to "Balance Target only applies in..." and
+drops the TGT marker; switching back to AUTO restores it.
+
+Not touched: the ANTI-ROLL BARS section's MECH/CO-SOLVE "ARB SPLIT"
+readout boxes (`(fe.arbBalMode??'weight')==='mech'/'coSolve'` blocks) still
+show under MAN — CO-SOLVE's rear-Hz solve genuinely keeps running
+independent of `arbMode` (see `computeTune`'s `arbBalMode==='coSolve'`
+branch, which isn't gated on `arbMode` at all), so a blanket hide would
+wrongly remove the still-functional SPRING SHARE control. Properly
+resolving this needs to split "ARB-derived readouts" (stale under MAN)
+from "Hz-derived readouts" (still live) rather than one on/off flag —
+left as a follow-up, not fixed here.
+
 ## Fixed — NEUTRAL+AUTO ARB budget could blow up with ARB Bias + high Rear Multiplier (resolved)
 
 `computeTune`'s NEUTRAL ARB balance mode (AUTO stiffness only) expands
