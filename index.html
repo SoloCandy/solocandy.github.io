@@ -3500,21 +3500,6 @@ function App(){
                   </div>
                 );
               };
-              const{natBal:nm,stabIdx,targetBal,hasMechTarget,
-                    trackF_rec,trackR_rec,dTrackF,dTrackR,trackFfeas,trackRfeas,gap}=chassisAnalysis;
-              const nmDelta=nm-0.5;
-              const nmCol=Math.abs(nmDelta)<0.03?'#9ca3af':nmDelta>0?'#ef4444':'#3b82f6';
-              const nmLabel=Math.abs(nmDelta)<0.03?'NEUTRAL':nmDelta>0?'OS':'US';
-              const[stabLabel,stabCol]=stabIdx<0.85?['AGILE','#f59e0b']
-                :stabIdx<0.97?['BALANCED','#9ca3af']
-                :stabIdx<1.10?['STABLE','#60a5fa']
-                :['PLANTED','#3b82f6'];
-              const showRec=gap>0.015;
-              const dimCol='#94a3b8';
-              const box={background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,
-                         padding:'4px 7px',display:'flex',justifyContent:'space-between',
-                         alignItems:'center'};
-              const fmtD=d=>(d>=0?'+':'')+Math.round(d);
               return(<>
                 <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
                   <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>TYRE SIZE</span>
