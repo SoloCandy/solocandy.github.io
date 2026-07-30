@@ -540,7 +540,7 @@ const feelToPhysics=(ch,fe)=>{
   // coSolve overrides rearHz in computeTune via effectiveRHz; flat-ride fallthrough can
   // set rearHzClamped spuriously. mechBalClamped covers coSolve limits instead.
   if(arbBalModeEarly==='coSolve') rearHzClamped=false;
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,dampCharMode,settleTarget,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbBias:fe.arbBias??0,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,arbSplitOpposite,springShare,springShareAuto:fe.springShareAuto!==false,arbManF:fe.arbManF,arbManR:fe.arbManR};
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,dampCharMode,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbBias:fe.arbBias??0,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,arbSplitOpposite,springShare,springShareAuto:fe.springShareAuto!==false,arbManF:fe.arbManF,arbManR:fe.arbManR};
 };
 
 const computeTune=(ch,phys,gameMode)=>{
@@ -1010,34 +1010,33 @@ const ALIGN_MODE_DEC=['build','mech','grip','manual'];
 const BRAKE_BIAS_SCALE=0.20;
 
 const PRESET_SAVES=(()=>{
-  const ref=Math.round(cornerMasses(DEF_CH).front);
   return{
-    1:{name:'STREET',refCornerMassF:ref,notes:'',
+    1:{name:'STREET',
        fe:{...DEF_FE,rideStiffness:2.20,rearHzMode:'multiplier',rearHzMult:1.15,
            dampCharMode:'settle',settleTarget:0.55,settleBias:0,
            bumpRatio:52,arbMode:'auto'},
        dr:{...DEF_DR,buildType:'street',diffType:'race',diffBiasExit:-10,diffBiasEntry:10}},
-    2:{name:'TRACK',refCornerMassF:ref,notes:'',
+    2:{name:'TRACK',
        fe:{...DEF_FE,rideStiffness:2.50,rearHzMode:'multiplier',rearHzMult:1.05,
            dampCharMode:'settle',settleTarget:0.40,settleBias:-5,
            bumpRatio:58,arbMode:'roll',arbTargetRollMan:1.5},
        dr:{...DEF_DR,buildType:'track',diffType:'race',diffBiasExit:5,diffBiasEntry:0}},
-    3:{name:'RALLY',refCornerMassF:ref,notes:'',
+    3:{name:'RALLY',
        fe:{...DEF_FE,rideStiffness:1.55,rearHzMode:'multiplier',rearHzMult:1.05,
            dampCharMode:'zeta',reboundZeta:58,bumpRatio:38,dampingBias:-5,
            arbMode:'share',arbShareMan:8},
        dr:{...DEF_DR,buildType:'rally',diffType:'rally',diffBiasExit:-5,diffBiasEntry:-15}},
-    4:{name:'DRIFT',refCornerMassF:ref,notes:'',
+    4:{name:'DRIFT',
        fe:{...DEF_FE,rideStiffness:1.80,rearHzMode:'multiplier',rearHzMult:1.30,
            dampCharMode:'zeta',reboundZeta:60,bumpRatio:40,dampingBias:18},
        dr:{...DEF_DR,buildType:'drift',diffType:'drift',
            diffBiasExit:22,diffBiasEntry:-18,diffRearAccel:65,diffRearDecel:15}},
-    5:{name:'MOTORSPT',refCornerMassF:ref,notes:'',
+    5:{name:'MOTORSPT',
        fe:{...DEF_FE,rideStiffness:3.20,rearHzMode:'multiplier',rearHzMult:0.92,
            dampCharMode:'settle',settleTarget:0.25,settleBias:-10,
            bumpRatio:64,arbMode:'roll',arbTargetRollMan:0.8},
        dr:{...DEF_DR,buildType:'track',diffType:'race',diffBiasExit:10,diffBiasEntry:-5}},
-    6:{name:'X COUNTRY',refCornerMassF:ref,notes:'',
+    6:{name:'X COUNTRY',
        fe:{...DEF_FE,rideStiffness:0.90,rearHzMode:'multiplier',rearHzMult:1.00,
            dampCharMode:'settle',settleTarget:1.00,settleBias:-5,
            bumpRatio:38,arbMode:'share',arbShareMan:5},
@@ -1368,7 +1367,7 @@ const _dialBase=(SIZE=120,CX=60,CY=58,R=46,GAP_DEG=60)=>{
     const sweep=((a2-a1)+360)%360;const large=sweep>180?1:0;
     return`M${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)}`;
   };
-  return{START,SWEEP,polar,arcPath,CX,CY,R,SIZE};
+  return{START,SWEEP,polar,arcPath,CX,CY,SIZE};
 };
 
 const SpringDial=({fHz,rHz,rsSpF,rsSpR,clamped,natBal,target,rideRef})=>{
