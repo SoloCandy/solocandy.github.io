@@ -4064,7 +4064,10 @@ function App(){
                 }
               }
               const fmtD=d=>(d>=0?'+':'')+Math.round(d);
-              const dSign=gap>=0?'+':'-';
+              // gap is Math.abs(_sgap), so the sign has to come from _sgap itself — testing
+              // gap here always yielded '+'. Positive = target is more rear-biased (oversteer)
+              // than natural, matching the direction text below.
+              const dSign=_sgap>=0?'+':'-';
               // In GRIP mode show the grip-based gap; otherwise (TARGET mode) show the geometry-based gap.
               if(_isGripMode){
                 if(!showGripGap)return null;
