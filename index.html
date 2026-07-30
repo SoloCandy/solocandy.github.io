@@ -4899,7 +4899,7 @@ function App(){
           <Card title="ALIGNMENT"
             hint={(()=>{
               const _camberStr={street:'-1.0°',track:'-1.5°',drift:'-2.5°',rally:'-0.8°',offroad:'-0.3°',drag:'0.0°'}[dr.buildType??'track']??'-1.5°';
-              const _prefix=al.alignManual?'Manual values.':'Recommended starting point.';
+              const _prefix=alignMode==='manual'?'Manual values.':'Recommended starting point.';
               return ch.layout==='FWD'
                 ?`${_prefix} Camber targets ${_camberStr} dynamic. FWD front camber reduced for traction. Toe-in front and rear for stability.`
                 :ch.layout==='RWD'
