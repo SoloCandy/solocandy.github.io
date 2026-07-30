@@ -4772,7 +4772,7 @@ function App(){
               <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:18}}>
                 <div style={{flex:1,minWidth:0,display:'flex',justifyContent:'center'}}>
                   <ArbDial arbF={tune.arbF} arbR={tune.arbR} arbLimit={lim.arb}
-                    rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}
+                    rsAbF={tune.rsAbF} rsAbR={tune.rsAbR}
                     natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
                 </div>
                 <div style={{flex:1,minWidth:0,display:'flex',justifyContent:'center'}}>
@@ -4831,7 +4831,7 @@ function App(){
                 <div style={{flex:1,minWidth:0,display:'flex',justifyContent:'center'}}>
                   <SpringDial fHz={tune.fHz} rHz={tune.rHz}
                     rsSpF={tune.rsSpF} rsSpR={tune.rsSpR}
-                    frontBias={ch.frontBias} clamped={physics.rearHzClamped}
+                    clamped={physics.rearHzClamped}
                     natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
                 </div>
                 <div style={{flex:1,minWidth:0,display:'flex',justifyContent:'center'}}>
