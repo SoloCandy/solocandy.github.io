@@ -333,7 +333,7 @@ const feelToPhysics=(ch,fe)=>{
       const _V_m=m_m.front*ch.trackF*ch.trackF,_W_m=m_m.rear*ch.trackR*ch.trackR;
       const _rsBalNat_m=_W_m/(_V_m+_W_m);
       let _p_m=0;
-      if(arbBalModeEarly==='weight'){
+      if(arbBalModeEarly==='weight'||arbBalModeEarly==='manual'){
         if((fe.arbMode??'auto')==='share') _p_m=Math.max(0,Math.min(0.99,(fe.arbShareMan??20)/100));
         else if((fe.arbMode??'auto')==='auto'){
           // Two-pass: first pass uses avgHz as proxy; second uses corrected Hz so the
@@ -405,7 +405,7 @@ const feelToPhysics=(ch,fe)=>{
       const _V_m=m_m.front*ch.trackF*ch.trackF,_W_m=m_m.rear*ch.trackR*ch.trackR;
       const _rsBalNat_m=_W_m/(_V_m+_W_m);
       let _p_m=0;
-      if(arbBalModeEarly==='weight'){
+      if(arbBalModeEarly==='weight'||arbBalModeEarly==='manual'){
         if((fe.arbMode??'auto')==='share') _p_m=Math.max(0,Math.min(0.99,(fe.arbShareMan??20)/100));
         else if((fe.arbMode??'auto')==='auto'){
           // Two-pass: first pass uses primaryHz for both axles; second uses corrected secondary
@@ -1327,12 +1327,18 @@ const DampingDial=({rebound,bump})=>{
                 :'B/R';
   const loA=Math.min(rebA,bumpA), hiA=Math.max(rebA,bumpA);
   const crossed=bump>rebound;
+  // Background zone bands use the same UNDER/BWORTH/OVER thresholds (40/70/100) as the
+  // Rebound ζ/Bump ζ sliders elsewhere, styled like SpringDial's SOFT→RACE bands.
+  const a40=zetaToAngle(40),a70=zetaToAngle(70),a100=zetaToAngle(100);
   return(
     <div style={{display:'flex',justifyContent:'center',marginBottom:4}}>
       <div style={{position:'relative',display:'inline-block'}}>
         <svg width={SIZE} height={SIZE} style={{overflow:'visible'}}>
-          {/* background track */}
-          <path d={arcPath(START,endA)} fill="none" stroke="#1e293b" strokeWidth={4} strokeLinecap="round"/>
+          {/* background track — zone-tinted like SpringDial's SOFT→RACE bands */}
+          <path d={arcPath(START,a40)}  fill="none" stroke="#1e3a5f" strokeWidth={4} strokeLinecap="round"/>
+          <path d={arcPath(a40,a70)}    fill="none" stroke="#14532d" strokeWidth={4} strokeLinecap="round"/>
+          <path d={arcPath(a70,a100)}   fill="none" stroke="#713f12" strokeWidth={4} strokeLinecap="round"/>
+          <path d={arcPath(a100,endA)}  fill="none" stroke="#7f1d1d" strokeWidth={4} strokeLinecap="round"/>
           {/* rebound arc: START → rebA, red */}
           <path d={arcPath(START,rebA)} fill="none" stroke="#ef4444" strokeWidth={4} strokeLinecap="round" opacity={0.7}/>
           {/* bump arc: START → bumpA, blue */}
@@ -1359,7 +1365,7 @@ const DampingDial=({rebound,bump})=>{
             fontSize={8} fontFamily="sans-serif" letterSpacing={2}>DAMPERS</text>
         </svg>
         <span style={{position:'absolute',top:2,right:2,lineHeight:1}}>
-          <Hint text="Red dot = rebound damping %, blue dot = bump damping %, both on a 10–115 range. Hover a dot to read its value. Center shows the bump-to-rebound ratio. The fill between them turns amber if bump exceeds rebound — bump should generally be softer (lower %) than rebound for a compliant, predictable ride."/>
+          <Hint text="Red dot = rebound damping %, blue dot = bump damping %, both on a 10–115 range. Hover a dot to read its value. Center shows the bump-to-rebound ratio. The fill between them turns amber if bump exceeds rebound — bump should generally be softer (lower %) than rebound for a compliant, predictable ride. The background ring is tinted by zone: blue = under-damped (bouncy), green = approaching Butterworth, amber = at/past the Butterworth sweet spot, red = overdamped (sluggish) — same thresholds as the Rebound ζ/Bump ζ sliders."/>
         </span>
       </div>
     </div>
@@ -1750,9 +1756,10 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
     const bumpRatio=Math.max(10,Math.min(100,Math.round(reboundZeta>0?domBumpZ/reboundZeta*100:56)));
     setFe(p=>({...p,
       rideStiffness:Math.round(hzF*100)/100,
-      rearHzMode:'multiplier',rearHzMult:mult,
+      rideRef:'front',rearHzMode:'multiplier',rearHzMult:mult,
       dampingMode:'ratio',dampCharMode:'zeta',settleMode:false,
       reboundZeta,bumpRatio,dampingBias,
+      arbBalMode:'manual',
       arbMode:'man',arbManF:Math.max(1,Math.min(lim.arb,ckArb.f)),arbManR:Math.max(1,Math.min(lim.arb,ckArb.r))}));
     setImported(true);
     setTimeout(()=>setImported(false),2000);
@@ -1929,8 +1936,11 @@ const REAR_HZ_MODE_ENC={'flatRide':0,'independent':1,'multiplier':2,'mech':3};
 const REAR_HZ_MODE_DEC=['flatRide','independent','multiplier','mech'];
 const ARB_MODE_ENC={'auto':0,'roll':1,'share':2,'man':4};
 const ARB_MODE_DEC=['auto','roll','share','auto','man']; // index 3 was legacy 'balance' → auto; index 4 = MAN (moved from ARB_BAL_MODE — see sanitizeTune migration)
-const ARB_BAL_MODE_ENC={'weight':0,'mech':1,'coSolve':2,'man':3,'neutral':4,'chassis':5};
-const ARB_BAL_MODE_DEC=['weight','mech','coSolve','man','neutral','chassis']; // 'man' kept for old-code decode only — see sanitizeTune migration
+const ARB_BAL_MODE_ENC={'weight':0,'mech':1,'coSolve':2,'man':3,'neutral':4,'chassis':5,'manual':6};
+const ARB_BAL_MODE_DEC=['weight','mech','coSolve','man','neutral','chassis','manual']; // 'man' kept for old-code decode only — see sanitizeTune migration
+// 'manual': invisible placeholder used when Stiffness Mode is MAN — behaves identically to
+// 'weight' everywhere (see feelToPhysics/computeTune) but never lights up a Balance Mode
+// button, so switching Stiffness Mode away from MAN doesn't look like the user chose WEIGHT.
 const RIDE_REF_ENC={'front':0,'rear':1,'shared':2};
 const RIDE_REF_DEC=['front','rear','shared'];
 const LAYOUT_ENC={'FWD':0,'RWD':1,'AWD':2};
@@ -2076,9 +2086,10 @@ const sanitizeTune=({ch,fe,dr})=>{
       arbBalMode:       (()=>{
                           const bm=ARB_BAL_MODE_DEC.includes(fe?.arbBalMode)?fe.arbBalMode:DEF_FE.arbBalMode;
                           // MAN moved from Balance Mode to Stiffness Mode (arbMode) — old saves/share
-                          // codes with arbBalMode:'man' fall back to WEIGHT here; the arbMode migration
-                          // below picks up the actual MAN behavior so old manual-click tunes still work.
-                          return bm==='man'?'weight':bm;
+                          // codes with arbBalMode:'man' fall back to the invisible 'manual' placeholder
+                          // here; the arbMode migration below picks up the actual MAN behavior so old
+                          // manual-click tunes still work.
+                          return bm==='man'?'manual':bm;
                         })(),
       springShare:      cl(fe?.springShare,         0,  100, DEF_FE.springShare),
       springShareAuto:  fe?.springShareAuto!==false,
@@ -2187,19 +2198,16 @@ const TUTORIALS={
      body:'Tell the app what you\'re working with. Drive layout (FWD / RWD / AWD) sets which wheels get power and affects how the differential recommendation is calculated. Build type (Street / Track / Drift / Rally / Offroad / Drag) shifts alignment targets, brake balance, and differential tuning toward your intended use.'},
     {title:'Weight & Front Bias',
      focus:['weight'],
-     cta:'Enter your car\'s actual values now — don\'t skip this. The defaults (3200 lb / 52%) will give wrong spring and damper outputs for your car.',
-     ctaColor:'#f59e0b',
      body:'Enter your car\'s total weight and front weight bias from the car stat screen — use the selection screen, not the tuning menu. These two numbers drive almost every calculation in the app, including the factory presets.'},
     {title:'Start From a Build',
      focus:['presets'],
-     cta:'Load the preset that matches your build type, then click Next.',
      body:'Open the BUILDS drawer. FACTORY (its own collapsible drawer) has six presets — STREET, TRACK, RALLY, DRIFT, MOTORSPT, X COUNTRY — each setting a stiffness level, rear spring ratio, and damping character tuned for that build style. Load the closest one after entering your car\'s weight and bias, then adjust from there. Your own saved tunes appear below in the separate MY BUILDS drawer.'},
     {title:'Ride Stiffness',
      focus:['ride-stiffness'],
-     body:'Controls overall suspension stiffness. ROAD is the right starting point — balanced compliance and body control for most builds. SOFT for rough surfaces or maximum comfort. FIRM for track-focused cars that need sharper response. RACE for smooth circuits only — too stiff for anything else. The Hz readout and badge update as you move the slider.'},
+     body:'Controls overall suspension stiffness. FIRM is a better starting point — sharper response with good body control for most builds. SOFT for rough surfaces or maximum comfort. ROAD for a softer, more comfort-leaning setup. RACE for smooth circuits only — too stiff for anything else. The Hz readout and badge update as you move the slider.'},
     {title:'Balance',
      focus:['balance'],
-     body:'Shifts the handling balance toward your intended character. Left (OVERSTEER) increases rear roll stiffness — more rotation and rear-end freedom. Right (UNDERSTEER) increases front roll stiffness — more stability and confidence at corner entry. Centre is the neutral point for your weight distribution. Where you set this depends on your goal: drift and rotation-heavy builds want more left, confidence-focused street and GT builds want mild right, track builds vary by layout and driver preference.'},
+     body:'Shifts the handling balance toward your intended character. Right (OVERSTEER) increases rear roll stiffness — more rotation and rear-end freedom. Left (UNDERSTEER) increases front roll stiffness — more stability and confidence at corner entry. Centre is the neutral point for your weight distribution. Where you set this depends on your goal: drift and rotation-heavy builds want more right, confidence-focused street and GT builds want mild left, track builds vary by layout and driver preference.'},
     {title:'Character',
      focus:['character'],
      body:'Controls damping feel — how quickly the suspension settles after a bump or weight transfer. STABLE means more damped: planted and predictable, suits builds where confidence and consistency matter. AGILE means lighter damping: livelier and more reactive, suits builds where feel and response matter more than composure. Match this to your driving style and what the car is built for.'},
@@ -2525,10 +2533,6 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone,zoom=1})=>{
           <span style={{fontSize:9,color:'#818cf8',letterSpacing:1,paddingBottom:1}}>▼ SCROLL FOR MORE</span>
         </div>}
       </div>
-      {t.cta&&<div style={{fontSize:10,color:t.ctaColor??'#4ade80',letterSpacing:0.5,
-        padding:'6px 8px',background:t.ctaColor?'#1a0f0a':'#0f2a1a',
-        border:`1px solid ${t.ctaColor?'#7c2d12':'#166534'}`,
-        borderRadius:2,marginBottom:10,lineHeight:1.6}}>→ {t.cta}</div>}
       <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
         {step>0&&<button style={btnStyle} onClick={onPrev}>← PREV</button>}
         {step<total-1
@@ -2588,7 +2592,7 @@ function App(){
   // state from before the move (self-guarding — once fixed, the condition never matches again).
   useEffect(()=>{
     if(fe.arbBalMode==='man'&&fe.arbMode!=='man'){
-      setFe(p=>({...p,arbBalMode:'weight',arbMode:'man'}));
+      setFe(p=>({...p,arbBalMode:'manual',arbMode:'man'}));
     }
   },[]); // eslint-disable-line
   const[showComplexity,setShowComplexity]=useState(false);
@@ -3181,7 +3185,12 @@ function App(){
           {/* BEGINNER panel */}
           {uiMode==='beginner'&&(()=>{
             const stAgVal=Math.max(-50,Math.min(50,Math.round((70-(fe.reboundZeta??70))*2)));
-            const[hzCat,hzCol]=hzCtx(physics.frontHz);
+            // Ride Stiffness must follow whichever axle rideRef currently anchors — BEG has no
+            // toggle for this, but rideRef can persist from a prior INT/PRO session, and binding
+            // this slider to frontHz unconditionally silently edits the wrong axle when it isn't 'front'.
+            const rideRefBeg=physics.rideRef??'front';
+            const ridePrimaryHz=rideRefBeg==='rear'?tune.rHz:rideRefBeg==='shared'?(tune.fHz+tune.rHz)/2:tune.fHz;
+            const[hzCat,hzCol]=hzCtx(ridePrimaryHz);
             // Beginner can't reach MECH/CO-SOLVE/MAN (PRO-only) — only whatever INT uses.
             // Blends NEUTRAL ARB mode (springs' bias cancelled) with a slight ride-Hz-ratio
             // nudge, both pushed toward the chosen direction. arbBias is the dominant term.
@@ -3345,14 +3354,14 @@ function App(){
 
                 <div id="zone-ride-stiffness" style={dim('ride-stiffness')}>
                 <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,margin:'16px 0 14px'}}>FEEL</div>
-                <FeelSlider label="Ride Stiffness" value={physics.frontHz}
+                <FeelSlider label="Ride Stiffness" value={ridePrimaryHz}
                   onChange={v=>pFe('rideStiffness')(hzToRs(v))}
                   min={HZ_MIN} max={HZ_MAX} step={0.01}
                   leftLabel="SOFT" rightLabel="STIFF"
                   markers={HZ_MARKERS}
                   readout={<span style={{display:'flex',alignItems:'center',gap:5}}>
                     <span style={{fontSize:11,color:hzCol,fontFamily:'var(--font-mono)',fontWeight:700,letterSpacing:1}}>{hzCat}</span>
-                    <span style={{fontSize:10,color:'#94a3b8',fontFamily:'var(--font-mono)'}}>{physics.frontHz.toFixed(2)} Hz</span>
+                    <span style={{fontSize:10,color:'#94a3b8',fontFamily:'var(--font-mono)'}}>{ridePrimaryHz.toFixed(2)} Hz</span>
                   </span>}
                   hint="How stiff the suspension feels. SOFT = comfortable street ride. ROAD = balanced. FIRM = responsive sport. RACE = stiff competition setup."/>
                 </div>
@@ -4782,9 +4791,10 @@ function App(){
                     rsAbF={tune.rsAbF} rsAbR={tune.rsAbR} frontBias={ch.frontBias}
                     natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
                 </div>
-                <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',gap:6}}>
+                <div style={{flex:1,minWidth:0,display:'flex',justifyContent:'center'}}>
+                <div style={{width:120,flexShrink:0,display:'flex',flexDirection:'column',gap:6}}>
                   {/* roll seesaw preview */}
-                  <div style={{padding:'4px 8px',background:'#0a0f1a',borderRadius:2,border:'1px solid #1e293b'}}>
+                  <div style={{padding:'0 4px'}}>
                     <svg width="100%" height="24" viewBox="0 0 100 24" style={{overflow:'visible'}}>
                       <line x1="5" y1="20" x2="95" y2="20" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
                       {(fe.arbMode??'auto')==='roll'&&(
@@ -4805,15 +4815,14 @@ function App(){
                     </svg>
                   </div>
                   {/* roll value */}
-                  <div style={{display:'flex',alignItems:'center',gap:6,
-                               padding:'5px 8px',background:'#0a0f1a',borderRadius:2,border:'1px solid #1e293b'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,padding:'0 4px'}}>
                     <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>ROLL</span>
                     <span style={{marginLeft:'auto',fontFamily:'var(--font-mono)',fontSize:13,fontWeight:700,
                                   color:tune.rollClamped?'#f59e0b':'#e2e8f0'}}>{tune.rollDeg.toFixed(1)}</span>
                     <span style={{fontSize:10,color:'#94a3b8'}}>°</span>
                   </div>
                   {/* springs/ARBs contribution bar — also serves as the ARB SHARE readout */}
-                  <div style={{padding:'5px 8px',background:'#0a0f1a',borderRadius:2,border:'1px solid #1e293b'}}>
+                  <div style={{padding:'0 4px'}}>
                     <div style={{display:'flex',height:3,borderRadius:2,overflow:'hidden',marginBottom:4}}>
                       <div style={{flex:Math.max(0,100-tune.arbShare),background:'#3b82f6',opacity:0.55,transition:'flex .2s'}}/>
                       <div style={{flex:Math.max(0,tune.arbShare),background:'#f59e0b',opacity:0.75,transition:'flex .2s'}}/>
@@ -4823,6 +4832,7 @@ function App(){
                       <span>ARBs {Math.round(tune.arbShare)}%</span>
                     </div>
                   </div>
+                </div>
                 </div>
               </div>
               </>}
