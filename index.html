@@ -1197,21 +1197,9 @@ const Field=({label,value,onChange,min,max,step=0.01,unit='',hint=null,logScale=
 };
 
 
-const FeelSlider=({label,value,onChange,min,max,step=1,leftLabel,rightLabel,readout=null,centered=false,locked=false,hint=null,markers=null})=>{
+const FeelSlider=({label,value,onChange,min,max,step=1,leftLabel,rightLabel,readout=null,locked=false,hint=null,markers=null})=>{
   const pct=((value-min)/(max-min))*100;
-  const cPct=((0-min)/(max-min))*100;
-  let bg;
-  if(centered){
-    if(value===0){
-      bg=`linear-gradient(to right,#0f172a 49%,#334155 49%,#334155 51%,#0f172a 51%)`;
-    } else if(value>0){
-      bg=`linear-gradient(to right,#0f172a ${cPct}%,#e2e8f0 ${cPct}%,#e2e8f0 ${pct}%,#0f172a ${pct}%)`;
-    } else {
-      bg=`linear-gradient(to right,#0f172a ${pct}%,#e2e8f0 ${pct}%,#e2e8f0 ${cPct}%,#0f172a ${cPct}%)`;
-    }
-  } else {
-    bg=`linear-gradient(to right,#e2e8f0 ${pct}%,#1e293b ${pct}%)`;
-  }
+  const bg=`linear-gradient(to right,#e2e8f0 ${pct}%,#1e293b ${pct}%)`;
   const wrapRef=useRef(null);
   const valRef=useRef(value);
   useLayoutEffect(()=>{valRef.current=value;},[value]);
@@ -1248,11 +1236,6 @@ const FeelSlider=({label,value,onChange,min,max,step=1,leftLabel,rightLabel,read
         <input type="range" className="sli" min={min} max={max} step={step} value={value}
           style={{background:bg,cursor:locked?'not-allowed':'pointer',pointerEvents:locked?'none':'auto'}}
           onChange={e=>!locked&&onChange(parseFloat(e.target.value))}/>
-        {centered&&<div style={{
-          position:'absolute',left:'50%',top:'50%',
-          transform:'translate(-50%,-50%)',
-          width:2,height:10,background:value===0?'#e2e8f0':'#334155',
-          borderRadius:1,pointerEvents:'none',transition:'background .15s'}}/>}
         {markers&&markers.map(m=>{
           const pct=(m.value-min)/(max-min);
           const left=`calc(${pct*100}% + ${(0.5-pct)*14}px)`;
@@ -1504,7 +1487,7 @@ const Toggle=({label,value,onChange,options,hint})=>(
   </div>
 );
 
-const Sec=({title,open,onToggle,onReset,extra,children})=>{
+const Sec=({title,open,onToggle,onReset,children})=>{
   const[pending,setPending]=useState(false);
   const timer=useRef(null);
   const handleReset=e=>{
@@ -1526,7 +1509,6 @@ const Sec=({title,open,onToggle,onReset,extra,children})=>{
           <div style={{width:2,height:10,borderRadius:1,flexShrink:0,
                        background:open?'#e2e8f0':'#1e293b',transition:'background .12s'}}/>
           <span>{title}</span>
-          {extra}
         </div>
         <div style={{display:'flex',alignItems:'center',gap:6}}>
           {onReset&&<button type="button"
@@ -1625,7 +1607,7 @@ const BiasSeg=({label,val,hint,primary,totalAbs})=>{
   );
 };
 
-const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bDampBias,mechBalance,gripBalance,uiMode,settleDamping})=>{
+const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bDampBias,gripBalance,uiMode,settleDamping})=>{
   const abs=Math.abs(total);
   // positive = oversteer, negative = understeer
   const label=abs<3?'NEUTRAL':total>0?'OVERSTEER':'UNDERSTEER';
@@ -1685,18 +1667,6 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
   );
   return(
     <div>
-      {mechBalance!=null&&
-        <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',
-                     marginBottom:10,padding:'6px 10px',background:'#020617',
-                     border:'1px solid #1e293b',borderRadius:2}}>
-          <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>MECH BALANCE</span>
-          <div style={{display:'flex',alignItems:'baseline',gap:6}}>
-            <span style={{fontFamily:'var(--font-mono)',fontSize:16,fontWeight:700,color:'#e2e8f0',lineHeight:1}}>
-              {mechBalance.toFixed(2)}
-            </span>
-            <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>0=FRONT · 1=REAR</span>
-          </div>
-        </div>}
       {/* tip first — most actionable info at the top */}
       <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.6,padding:'6px 8px',marginBottom:8,
                    background:'#020617',borderRadius:2,border:'1px solid #0f172a'}}>{tip}</div>
@@ -5683,7 +5653,7 @@ function App(){
                   bDiffFront={diff.bDiffFront} bDiffRear={diff.bDiffRear}
                   diffLayout={diff.layout}
                   bBrakeEntry={bBrakeEntry} bDampBias={bDampBias}
-                  gripBalance={tune.gripBalance} mechBalance={null} uiMode={uiMode}
+                  gripBalance={tune.gripBalance} uiMode={uiMode}
                   settleDamping={(fe.dampCharMode??'zeta')==='settle'||!!(fe.settleMode)}/>
                 {/* RESPONSE factor breakdown */}
                 {(()=>{
@@ -5698,8 +5668,6 @@ function App(){
                   ].map(s=>({...s,
                     // weighted deviation from neutral: positive = pushing agile, negative = pushing stable
                     deviation:(s.norm-0.5)*s.weight,
-                    // absolute contribution to total score
-                    contribution:s.norm*s.weight,
                   }));
                   const domSorted=[...segs].sort((a,b)=>Math.abs(b.deviation)-Math.abs(a.deviation));
                   const dom=domSorted[0];
@@ -5722,7 +5690,7 @@ function App(){
                     <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid #0f172a'}}>
                       <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.6,padding:'6px 8px',marginBottom:8,
                                    background:'#020617',borderRadius:2,border:'1px solid #0f172a'}}>{tip}</div>
-                      {segs.map(({label,deviation,contribution,hint,weight})=>{
+                      {segs.map(({label,deviation,hint})=>{
                         // bar: deviation scaled so ±0.25 (max spring deviation) = ±50%
                         const barPct=Math.min(50,Math.abs(deviation)/0.25*50);
                         const barStyle=deviation>=0?{left:'50%',width:`${barPct}%`}:{right:'50%',width:`${barPct}%`};
