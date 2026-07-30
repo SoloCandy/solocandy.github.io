@@ -142,7 +142,7 @@ window.addEventListener('DOMContentLoaded',function(){
 });
 </script>
 <script id="app-source" type="text/plain">
-const {useState,useMemo,useRef,useEffect,useLayoutEffect,useCallback}=React;
+const {useState,useMemo,useRef,useEffect,useLayoutEffect}=React;
 
 const KG_TO_LB=2.204622622,LB_IN_TO_NM=175.126790921,MPH_TO_MS=0.44704,IN_TO_MM=25.4;
 const KMH_PER_MPH=1.60934;
@@ -200,7 +200,6 @@ const resolveArbBalTarget=(ch,fe)=>fe.arbBalTarget==null
 // Single source of truth for the spring-frequency operating band. Change here to
 // retune the whole app — physics clamps, codec, slot-scaling, and UI sliders all read these.
 const HZ_MIN=0.8,HZ_MAX=5.5;
-const HZ_RANGE=HZ_MAX-HZ_MIN;
 const rsToHz=rs=>rs>6?0.8+(rs/100)*2.7:rs;
 const hzToRs=hz=>Math.round(Math.max(HZ_MIN,Math.min(HZ_MAX,hz))*100)/100;
 const flatRideRearHz=(fHz,wb,mph)=>{
@@ -240,10 +239,6 @@ const flatRideSharedHz=(avgHz,wb,mph)=>{
 const solveSpring=(hz,mass,mr)=>{
   const wr=Math.pow(hz*2*Math.PI,2)*mass;
   return(wr/Math.pow(mr,2))/LB_IN_TO_NM;
-};
-const solveDamp=(hz,mass,z,lim)=>{
-  const wr=Math.pow(hz*2*Math.PI,2)*mass,cc=2*Math.sqrt(wr*mass);
-  return Math.min(lim,Math.max(1,cc*(z/100)*DAMPING_CALIBRATION));
 };
 const solveDampRaw=(hz,mass,z)=>{
   const wr=Math.pow(hz*2*Math.PI,2)*mass,cc=2*Math.sqrt(wr*mass);
@@ -287,7 +282,6 @@ const balanceFromRsBal=(ch,rsBal)=>{
   return mechBalanceLLT(ch,1,r/(1-r));
 };
 const feelToPhysics=(ch,fe)=>{
-  const gameLim=GAME_LIMITS[fe.gameMode??'horizon']?.arb??65;
   let frontHz=rsToHz(fe.rideStiffness);
   const rearHzMode=fe.rearHzMode??'flatRide';
   // uiRideRef: the reference the user has chosen (front/rear/shared)
@@ -712,10 +706,6 @@ const computeTune=(ch,phys,gameMode)=>{
     rF=Math.max(0,Math.min(1,Math.max(20,Math.min(80,(arbSplitOpposite?natPct:(100-natPct))+arbBias*0.4))/100));
   }
   //
-  const lightShare=Math.max(0.001,Math.min(rF,1-rF));          // smaller fraction (guard against div/0 at extremes)
-  const heavyShare=Math.max(rF,1-rF);                          // larger fraction
-  const lightTrack=rF<=0.5?ch.trackR:ch.trackF;                // lighter side track
-  const heavyTrack=rF>=0.5?ch.trackR:ch.trackF;                // heavier side track
   // In SHARE % mode the user explicitly controls the total ARB budget.
   // Skip the proportional floor raise — it can inflate the budget by 100–1000× when
   // the balance solver produces an extreme rF (near 0 or 1), silently overriding the
@@ -1016,7 +1006,6 @@ const DEF_DR={buildType:'track',diffType:'race',
 const DEF_AL={alignManual:false,
               camberF:-2.3,camberR:-1.8,toeF:-0.1,toeR:0.1,caster:5.5,
               mode:'build',nudgeStrength:50};
-const ALIGN_MODE_ENC={build:0,mech:1,grip:2,manual:3};
 const ALIGN_MODE_DEC=['build','mech','grip','manual'];
 const BRAKE_BIAS_SCALE=0.20;
 
@@ -1132,7 +1121,6 @@ const Field=({label,value,onChange,min,max,step=0.01,unit='',hint=null,logScale=
   const t=Math.max(0,Math.min(1,valToT(value)));
   const pct=t*100;
   const clamp=v=>Math.max(min,Math.min(max,v));
-  const wheelStep=logScale?Math.max(1,Math.round(value*0.005)):step;
   const [draft,setDraft]=useState(null);
   const focused=draft!==null;
   const commit=()=>{
@@ -4361,14 +4349,11 @@ function App(){
               rideRef:DEF_FE.rideRef}))}>
             <div style={dim('feel')}>
             {(()=>{
-              const isCoSolve=(fe.arbBalMode??'weight')==='coSolve';
               const rRef=physics.rideRef??'front'; // 'front', 'rear', or 'shared'
               // Use tune.fHz/tune.rHz (not physics values) so CO-SOLVE effectiveRHz is reflected.
               // physics.rearHz is the pre-CO-SOLVE flatRide value; tune.rHz is the actual solved Hz.
               const avgHz=(tune.fHz+tune.rHz)/2;
               const primaryHz=rRef==='rear'?tune.rHz:rRef==='shared'?avgHz:tune.fHz;
-              const secLabel=rRef==='rear'?'front':'rear';
-              const secHz=rRef==='rear'?tune.fHz:tune.rHz;
               return(<>
                 {/* Ride reference toggle — always visible, works in CO-SOLVE via Hz inversion */}
                 <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
@@ -4896,7 +4881,7 @@ function App(){
                 const sagR=gConst/Math.pow(2*Math.PI*tune.rHz,2);
                 const rhF=ch.rideHeightF*1000,rhR=ch.rideHeightR*1000;
                 const riskOf=ratio=>ratio>=1?['BOTTOMED','#ef4444']:ratio>=0.8?['HIGH','#f59e0b']:ratio>=0.5?['MED','#eab308']:['LOW','#4ade80'];
-                const[rF,cF]=riskOf(sagF/rhF),[rR,cR]=riskOf(sagR/rhR);
+                const[rF]=riskOf(sagF/rhF),[rR]=riskOf(sagR/rhR);
                 const COL_F='#60a5fa',COL_R='#fb923c';
                 const gBottomF=rhF/sagF,gBottomR=rhR/sagR;
                 const gMax=Math.max(1,Math.min(6,Math.max(gBottomF,gBottomR)*1.25));
