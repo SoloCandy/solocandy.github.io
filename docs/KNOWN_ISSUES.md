@@ -318,3 +318,78 @@ Both toggle state and its ride-height inputs (`useRideHeightCG`,
 precedent and are excluded from `CODEC_FIELDS` — only the resulting
 `ch.cgHeight` value travels in share codes, so this is a computed-locally,
 shared-as-output pattern like the MEASURE NAT BAL flow, not an oversight.
+
+## Fixed — Dead-code audit (resolved)
+
+A full pass over `index.html` removed code that no consumer referenced. The
+itemised inventory lives in the commit messages (`git log --grep "Dead-code
+cleanup"`), where `git log -S<identifier>` can find any individual removal.
+Summary by kind:
+
+- **Unreferenced scalars** — `HZ_RANGE`, `ALIGN_MODE_ENC`, the `useCallback`
+  React import, `solveDamp`, `gameLim`, `wheelStep`, `isCoSolve`, the
+  `lightShare`/`heavyShare`/`lightTrack`/`heavyTrack` quartet in
+  `computeTune`, a dead `secLabel`/`secHz` pair, and unused `riskOf` colour
+  bindings.
+- **Dead object keys** — `R` off `_dialBase`'s result, `refCornerMassF` and
+  `notes` on all six `PRESET_SAVES` entries, and `settleTarget` re-exported
+  from `feelToPhysics` (the local and `fe.settleTarget` are both still live).
+- **Dead component surface** — `Sec`'s `extra` prop, `FeelSlider`'s
+  `centered` prop and its unreachable gradient branch, `HandlingVerdict`'s
+  `mechBalance` panel (its only caller passed a literal `null`), and unused
+  bindings in the RESPONSE breakdown's destructuring.
+- **Dead props at call sites** — `frontBias` passed to `SpringDial` and
+  `ArbDial`, neither of which declares it.
+- **Two large blocks** — a tyre-width recommendation chain in
+  `chassisAnalysis` computed on every render and discarded, and the ~20-binding
+  prologue of the PRO TYRE SIZE IIFE, whose live twin now sits ~550 lines
+  further down. The latter also destructured a `gap` key that
+  `chassisAnalysis` does not return, so its `showRec` guard was permanently
+  false.
+
+**Why this needed a custom verification method.** `tests.js` cannot detect
+breakage in `index.html` (it duplicates the physics rather than importing
+them), and there is no linter or CI. So the pass was gated on a zero-diff
+browser harness instead: nine `localStorage` fixtures covering BEG/INT/PRO,
+all three ride references, CO-SOLVE, MECH with off-centre weight bias,
+asymmetric tyres, and MANUAL alignment; each captured the `outerHTML` of
+every `#zone-*` section after expanding all sections and the handling-balance
+panel. Because everything removed was unreferenced, the pass criterion was
+byte-identical output. Baseline reproducibility was confirmed first (same
+fixture, two reloads, zero diffs). Every phase came back CLEAN.
+
+Two limits of that harness are worth recording. It only sees rendered DOM, so
+**tooltip text is invisible to it** — `Hint` content is not in the document
+until the tooltip is opened, which is exactly how the ALIGNMENT hint bug below
+escaped notice. And it cannot reach state that only arises mid-migration.
+
+## Fixed — ALIGNMENT card hint said "Recommended starting point" in MANUAL mode (resolved)
+
+The output panel's ALIGNMENT card built its hint prefix from
+`al.alignManual` — a legacy boolean that nothing sets true (`DEF_AL` defines
+it `false`; the alignment UI writes `al.mode`). So the hint described the
+values as a recommendation even when the user had typed them in by hand.
+
+Fixed by testing the resolved `alignMode` instead. The `al.alignManual`
+fallback inside `alignMode` itself, and its `DEF_AL` entry, both stay — they
+still migrate state saved before `al.mode` existed.
+
+Found during the dead-code audit but fixed separately, since it changes
+behaviour and the cleanup was deliberately zero-diff.
+
+## Fixed — GEOMETRY GAP readout could never show a negative sign (resolved)
+
+The BALANCE section's GEOMETRY GAP panel printed its value as
+`{dSign}{gap.toFixed(2)}`, where `dSign` was computed as `gap>=0?'+':'-'`.
+But `gap` is `Math.abs(_sgap)`, so the test could never be false and the sign
+was always `+`. The direction text immediately below it branches correctly on
+`targetBal>natBal`, so a negative gap rendered as `+0.10` directly above the
+line "Wider front track or narrower rear…" — the number contradicted its own
+caption.
+
+Fixed by taking the sign from `_sgap`, the pre-`abs` value.
+
+Worth flagging for future cleanup passes: this **looked** like dead code (a
+ternary with an unreachable branch) but was actually lost information.
+Deleting `dSign` and hardcoding `'+'` — the obvious "simplification" — would
+have made the bug permanent.

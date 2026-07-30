@@ -35,21 +35,26 @@ app's calls, since Forza's displayed spring rate is wheel-rate, not
 suspension-lever-rate) and converted from N/mm to lb/in via
 `LB_IN_TO_NM = 175.126790921`.
 
-## Damper clicks (`solveDamp`/`solveDampRaw`)
+## Damper clicks (`solveDampRaw` + `computeTune`'s `clampDamp`)
 
 ```js
 criticalDamping(hz, mass) = 2 * sqrt((hz*2π)² * mass * mass)   // cc, the ζ=100% reference
 solveDampRaw(hz, mass, z) = criticalDamping(hz, mass) * (z/100) * DAMPING_CALIBRATION
-solveDamp(hz, mass, z, lim) = clamp(1, lim, solveDampRaw(...))
 ```
 
 `z` is the damping ratio (ζ) as a 0-115% value (>100% = overdamped, allowed
 because some Forza dampers support it). `DAMPING_CALIBRATION = 0.00135` is
 the empirically-validated N/mm/s → lbf/ft/s conversion (see README's
-Calibration table). `solveDampRaw` is used internally when proportionally
-scaling front/rear together to fit the game's click limit without losing
-their ratio — the final clamp is applied only after that scaling, not per
-axle, so `solveDamp`'s own clamp is for the simple (non-proportional) case.
+Calibration table).
+
+`solveDampRaw` is deliberately unclamped. `computeTune` solves all four
+values from it, then scales front and rear together (`dampScale`) so the
+pair fits the game's click limit without losing their ratio, and only then
+applies the `1..lim` bound per value (`clampDamp`). Clamping before scaling
+would distort the front/rear relationship, which is why there is no
+clamping single-value helper — a `solveDamp` that did its own clamp existed
+once but had no callers left and was removed. `tests.js` still mirrors that
+older shape; see the note above its copy there.
 
 ## Settle time ↔ ζ (`settleZetas`)
 
@@ -155,10 +160,24 @@ the CG-height estimate this toggle also drives.
 
 ## Test coverage
 
-`tests.js` mirrors `flatRideRearHz`, `solveSpring`, `solveDamp`,
-`settleZetas`, `mechBalanceLLT`/`balanceFromRsBal` for regression testing
-(settle-mode ride-reference anchoring in particular has a dedicated test
-section, since it was the site of a prior legacy-formula regression guard).
-The Hz-mode dispatch inside `feelToPhysics` (MULTIPLIER/MECH/CO-SOLVE
-branch selection) is not separately tested — only the underlying
-functions each mode calls into.
+**`tests.js` does not import, read, or evaluate `index.html`.** It is a
+hand-maintained *duplicate* of the physics functions, re-declared inside the
+test file. It will pass unchanged even if `index.html` is deleted outright,
+so a green run proves the formulas documented here are self-consistent — it
+proves nothing about the app. Any change to a mirrored function has to be
+copied across by hand, and drift between the two is silent. There is no CI,
+no linter and no build step, so nothing else catches it either.
+
+Given that, the reliable way to verify a change to `index.html` is the
+browser: load it, check the console and `#pre-load`, and exercise the
+affected tier. See [CODE_MAP.md](CODE_MAP.md) for the runtime bootstrap that
+makes compile and runtime failures visible.
+
+`tests.js` mirrors `flatRideRearHz`, `solveSpring`, `solveDamp` (a shape the
+app no longer has — see the note above its definition there), `settleZetas`,
+and `mechBalanceLLT`/`balanceFromRsBal` (settle-mode ride-reference
+anchoring in particular has a dedicated test section, since it was the site
+of a prior legacy-formula regression guard). The Hz-mode dispatch inside
+`feelToPhysics` (MULTIPLIER/MECH/CO-SOLVE branch selection) is not
+separately tested — only the underlying functions each mode calls into.
+`computeTune`, the codec, and all React UI have no coverage at all.

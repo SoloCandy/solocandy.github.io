@@ -43,6 +43,7 @@ A **VISUALS** card is pinned to the bottom of the sidebar (collapsible, stays pu
 | **PRO** | All INT inputs plus tyre sizes, balance guide, chassis balance / grip bias / stability readouts, geometry gap, Mech Balance Target slider, a **MAN** ARB stiffness mode (set front/rear ARB clicks directly, bypassing the budget/split system — hides Balance Mode while active) and **CHASSIS** / MECH / CO-SOLVE ARB balance modes (added on top of WEIGHT / NEUTRAL — CHASSIS behaves like WEIGHT but is anchored to the car's actual natural mech balance instead of raw weight %, so it's the mode that actually benefits from a MEASURE NAT BAL reading — CHASSIS gets the same Split Direction toggle as WEIGHT), Hz MECH mode, full chassis geometry (wheelbase, track widths, CG height — with a **RIDE HEIGHT → CG** toggle to derive CG height from front/rear ride height and tyre radius instead, which also surfaces a SAG vs LOAD chart), per-wheel load transfer readouts, a differential **MANUAL** mode plus a **MATCH CHASSIS** toggle for AUTO mode (biases the EXIT/ENTRY sliders toward your chassis mech target — no effect once MANUAL is selected), an **Alignment Mode** selector (BUILD / MECH / GRIP / MANUAL — MECH and GRIP nudge camber/toe toward the car's balance tuning, scaled by a Nudge Strength slider), and **measured natural balance** calibration (enter an in-game reading to replace the geometry prediction as the solver baseline). CO-SOLVE mode includes **Auto Spring Share** — automatically finds the spring/ARB split that equalises utilisation of both, with SPR CORR / ARB CORR readouts showing each source's contribution to the balance correction. A wheel lift warning appears when rear ride frequency is ≥20% higher than front. |
 
 Reference docs for maintainers:
+- [CODE_MAP.md](docs/CODE_MAP.md) — how `index.html` is laid out, and which legacy code must not be deleted
 - [SLIDERS.md](docs/SLIDERS.md) — every slider's range, tier, physical effect, and oversteer/understeer direction
 - [PHYSICS.md](docs/PHYSICS.md) — Hz/spring/damping solve math (Ride Stiffness → spring rate/clicks, Hz modes, settle time, the LLT grip model)
 - [FORMULAS.md](docs/FORMULAS.md) — the ground-truth handling-balance contributor formulas
@@ -94,9 +95,16 @@ The entire app is a single HTML file containing:
 - **Physics engine** — `flatRideRearHz`, `feelToPhysics`, `computeTune`, `computeAlignment`, `computeDiff`, `mechBalanceLLT` — pure JS, no React dependency
 - **React UI** — in-browser JSX transpilation via `@babel/standalone`
 - **Persistence** — `localStorage` via a custom `usePersist` hook; degrades gracefully in private browsing
-- **Share codec** — pipe-delimited numeric array, Base64-encoded (~210 chars, 64 values, fully backward-compatible — short legacy codes decode with new fields defaulted)
+- **Share codec** — a sparse `id:value` list, pipe-delimited and Base64-encoded. Only fields that differ from their default are emitted, so code length varies with how far a tune strays from stock. Ids are permanent and never reused; an unknown id (from a newer app version) is skipped on decode rather than failing, and any field missing from a code decodes to its default. See [CODEC.md](docs/CODEC.md).
 
-The physics functions are at the top of the `<script>` block and can be read, tested, or extracted independently. A standalone test suite is included in `tests.js` — run with `node tests.js` (covers spring/damper solving, `computeDiff`, and `computeAlignment` — see [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) for history).
+The physics functions are at the top of the `<script>` block and are pure — no React dependency, so they can be read or lifted out on their own. A test suite is included in `tests.js` — run with `node tests.js` (covers spring/damper solving, `computeDiff`, and `computeAlignment`).
+
+> **`tests.js` does not test `index.html`.** It re-declares the physics
+> functions inside the test file rather than importing them, so it passes
+> whether or not the app is intact, and drift between the two copies is
+> silent. Treat it as an executable spec, not a regression net — changes to
+> `index.html` need checking in the browser. See
+> [CODE_MAP.md](docs/CODE_MAP.md) and [PHYSICS.md](docs/PHYSICS.md).
 
 **Data flow:** `ch`/`fe`/`dr` (chassis/feel/drivetrain state) → `feelToPhysics(ch, fe)` resolves feel settings into concrete physics parameters (Hz, ARB balance mode, damping mode) → `computeTune(ch, physics, gameMode)` solves springs/dampers/ARBs → `computeDiff(ch, fe, dr)` solves differential locks independently → `computeAlignment(ch, tune, layout, buildType)` derives camber/toe/caster from the tune result. All four are pure functions with no shared mutable state — see [FORMULAS.md](docs/FORMULAS.md) for the handling-balance math each one feeds into.
 
