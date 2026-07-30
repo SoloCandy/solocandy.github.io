@@ -12,7 +12,6 @@
 const KG_TO_LB = 2.204622622;
 const LB_IN_TO_NM = 175.126790921;
 const MPH_TO_MS = 0.44704;
-const ARB_RS_SCALE = 240;
 // NOTE: app now uses rollCenterHeight(ch)=ch.cgHeight*0.20 (not a fixed constant)
 const rollCenterHeight = ch => ch.cgHeight * 0.20;
 const DAMPING_CALIBRATION = 0.00135;
@@ -214,6 +213,12 @@ const solveSpring = (hz, mass, mr) => {
   return (wr / Math.pow(mr, 2)) / LB_IN_TO_NM;
 };
 
+// NOTE: the app no longer has a function of this name. It was removed as dead code —
+// computeTune builds damper clicks as clampDamp(solveDampRaw(...), scale) instead, applying
+// the 1..lim clamp after proportional F/R scaling. The behaviour asserted below (clamp to
+// the game limit, floor at 1, ζ=100% formula) is still what the app produces; only the
+// spelling differs. Keep this mirror in sync with solveDampRaw + clampDamp, not with a
+// same-named function.
 const solveDamp = (hz, mass, z, lim) => {
   const wr = Math.pow(hz * 2 * Math.PI, 2) * mass, cc = 2 * Math.sqrt(wr * mass);
   return Math.min(lim, Math.max(1, cc * (z / 100) * DAMPING_CALIBRATION));
