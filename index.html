@@ -2885,14 +2885,8 @@ function App(){
     ?Math.max(0.10,Math.min(0.90,ch.measuredNatBal))
     :chassisAnalysis.natBal;
   // Gap-dependent chassis recommendations — use natMechBalance so measured mode takes effect here too
-  const _r10=v=>Math.round(v/10)*10;
   const _sgap=chassisAnalysis.targetBal-natMechBalance;
   const gap=Math.abs(_sgap);
-  const twR_rec=_r10(Math.max(100,Math.min(500,_twF*Math.exp(_sgap/TIRE_MECH_SCALE))));
-  const twF_rec=_r10(Math.max(100,Math.min(500,_twR*Math.exp(-_sgap/TIRE_MECH_SCALE))));
-  const dTyreR=twR_rec-_twR,dTyreF=twF_rec-_twF;
-  const tyreRfeas=Math.abs(dTyreR)>=10&&Math.abs(dTyreR)<=80;
-  const tyreFfeas=Math.abs(dTyreF)>=10&&Math.abs(dTyreF)<=80;
   // Recommended AWD center split (rear %) — build type baseline trimmed by three chassis factors.
   const _baseCenterLookup={street:65,track:70,drift:80,rally:60,offroad:55,drag:75};
   const _baseCenter=_baseCenterLookup[dr.buildType??'track']??65;
