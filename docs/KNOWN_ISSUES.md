@@ -393,3 +393,48 @@ Worth flagging for future cleanup passes: this **looked** like dead code (a
 ternary with an unreachable branch) but was actually lost information.
 Deleting `dSign` and hardcoding `'+'` — the obvious "simplification" — would
 have made the bug permanent.
+
+## Fixed — CO-SOLVE Auto Spring Share pinned at 100% spring / 0% ARB regardless of target (resolved)
+
+Auto Spring Share is supposed to binary-search for the spring/ARB split `S`
+where "spring utilisation" equals "ARB utilisation" — i.e. find a genuine
+middle ground rather than dumping the whole balance correction onto one
+side. In practice it almost never found one. Two compounding bugs:
+
+1. **Scale mismatch.** Spring utilisation was measured as Hz distance moved
+   toward `HZ_MAX`, against the full `HZ_MIN..HZ_MAX` span (~4.7 Hz). ARB
+   utilisation was measured as clicks used against the 65-click limit.
+   Measured directly with the default chassis and a `+0.15` Mech Balance
+   Target delta: across the full `S` sweep, ARB utilisation only dropped
+   from 0.71→0.41, while spring utilisation only climbed to 0.17 at `S=100%`
+   — it could never reach ARB's floor, so the search always walked to the
+   `S=100%` boundary. AUTO behaved like SPRING ONLY in essentially every
+   realistic configuration.
+2. **Directional clamp.** Spring utilisation was `Math.max(0, ...)`-clamped,
+   so any target requiring the rear to *soften* relative to front
+   (understeer-leaning deltas — the direction a naturally rear-heavy chassis
+   typically needs) pinned the metric at exactly 0 regardless of `S`. `ARB
+   CORR` read exactly `-0.000` no matter how large the correction.
+
+Fixed by expressing both sides in the same currency: spring utilisation is
+now the incremental rear roll-stiffness the spring correction carries,
+converted through the same `ARB_RS_SCALE·track²` relationship real ARB
+clicks use, then scaled against `lim.arb` — "how many ARB clicks would this
+same physical correction have cost." No arbitrary reference band, and
+`Math.abs()` on the signed delta makes it direction-agnostic.
+
+Verified (default chassis, PRO, CO-SOLVE, AUTO on): `+0.15` target now
+splits 63% spring / 37% ARB (previously 100/0); `-0.15` splits 84%/16% with
+a nonzero ARB contribution (previously exactly 0); a small `+0.05` target
+correctly stays spring-only (cheap to do that way, not a regression); a
+large `+0.30` target shifts to 34% spring / 66% ARB. A degenerate case
+(manually forced 50% ARB share) still pins at spring-only, but for a
+legitimate reason confirmed by inspection — both ARB bars were already
+maxed at 65 clicks purely from the oversized budget, independent of `S`.
+
+An intermediate fix attempt rescaled spring utilisation against the
+Rear/Front Multiplier slider's own 0.50–3.00 band instead of the full Hz
+range. Also insufficient — a typical target's Hz ratio shift (~35%) still
+only moved the metric to ~0.18 against that scale, short of ARB's floor.
+Recorded here so a future pass doesn't reach for the same fix and stop
+short of verifying it against a real target.

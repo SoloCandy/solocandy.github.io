@@ -106,6 +106,29 @@ frequency (dispatch lives in `feelToPhysics`):
   inverted through `Kcs` so the *other* axle's Hz stays correct regardless
   of which axle the user chose to anchor.
 
+  **Auto Spring Share** (`fe.springShareAuto`, the default) picks `S`
+  itself instead of taking it from the slider: `computeTune` binary-searches
+  `S ∈ [0,1]` for the point where spring utilisation equals ARB utilisation.
+  Both are expressed in the same currency so the comparison is meaningful —
+  spring utilisation is the incremental rear roll-stiffness the spring
+  correction is carrying (relative to its `S=0` baseline), converted through
+  the same `ARB_RS_SCALE·track²` relationship real ARB clicks use, then
+  scaled 0..1 against `lim.arb`: "how many ARB clicks would this same
+  physical correction have cost, had bars done it instead." ARB utilisation
+  is simply the heavier bar's clicks against `lim.arb`. Whichever side is
+  cheaper for a given `S` absorbs more of the correction, and the search
+  converges on the split where neither is disproportionately stressed. A
+  prior version compared Hz distance against the game's Hz range instead —
+  see [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for why that mismatch left AUTO
+  pinned at 100% spring / 0% ARB in almost every real case.
+
+  Note that only spring Hz feeds the RESPONSE/transient breakdown
+  (`responseFactors` — Hz F and Hz R together are 55% of that score); ARB
+  clicks feed only the steady-state balance bar (`bAb`). So for the same
+  target, more of the correction landing on springs vs ARBs changes how much
+  the fix also shifts PLANTED↔REACTIVE character as a side effect, not just
+  which numbers move.
+
 ## Mech balance grip model (`mechBalanceLLT`/`balanceFromRsBal`)
 
 ```js
