@@ -564,7 +564,17 @@ const computeTune=(ch,phys,gameMode)=>{
     let S;
     if(phys.springShareAuto){
       // Auto Spring Share: binary-search for S (0–1) that equalises spring utilisation vs ARB utilisation.
-      // Spring util = how far effectiveRHz moves from fHz (S=0) toward HZ_MAX.
+      // Both sides are expressed in the SAME currency — ARB-click-equivalents — so they're
+      // genuinely comparable. Spring util = the incremental rear roll-stiffness the spring
+      // correction is carrying (rsSpR_s minus its S=0 baseline), converted through the same
+      // ARB_RS_SCALE·track² relationship real clicks use, then scaled 0..1 against lim.arb —
+      // "how many ARB clicks would this same correction have cost, had it been done by bars
+      // instead." A prior version scaled Hz distance against the game's Hz range (or even the
+      // Rear/Front Multiplier's 0.50–3.00 band); both were still so much wider than what a
+      // typical Mech Balance Target delta needs that spring util could never approach ARB util,
+      // leaving the search pinned at S=100% regardless of target. Click-equivalents are exact —
+      // no reference band to miscalibrate — and naturally direction-aware, since a softer-rear
+      // correction (rsSpR_s < baseline) yields the same magnitude the other way.
       // ARB util = how far the heavier ARB bar is toward lim.arb.
       // Pre-compute roll moment (chassis only, Hz-independent) for roll-mode ARB budget estimate.
       const _rm=(ch.weight/KG_TO_LB)*9.81*(ch.cgHeight-rollCenterHeight(ch));
@@ -573,7 +583,7 @@ const computeTune=(ch,phys,gameMode)=>{
         const R_sp_s=Math.max(0.001,Math.min(0.999,R_baseline+sVal*(targetRsBalance-R_baseline)));
         const rsSpR_s=R_sp_s*rsSpF_cs/(1-R_sp_s);
         const eRHz=Math.max(HZ_MIN,Math.min(HZ_MAX,Math.sqrt(2*rsSpR_s/(m.rear*ch.trackR*ch.trackR))/(2*Math.PI)));
-        const spUtil=Math.max(0,(eRHz-fHz)/Math.max(0.001,HZ_MAX-fHz));
+        const spUtil=Math.min(1,Math.abs(rsSpR_s-rsSpR_base)/(ARB_RS_SCALE*ch.trackR*ch.trackR*lim.arb));
         // Simulate ARB budget and split at this Hz state
         const wrFN_s=Math.pow(fHz*2*Math.PI,2)*m.front, wrRN_s=Math.pow(eRHz*2*Math.PI,2)*m.rear;
         const rsSpF_s=(wrFN_s*ch.trackF*ch.trackF)/2, rsSpRs=(wrRN_s*ch.trackR*ch.trackR)/2;
