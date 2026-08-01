@@ -988,6 +988,10 @@ const computeCheck=(spr,damp,masses)=>{
     zBmpF:ccF>0?(damp.bumpF/DAMPING_CALIBRATION/ccF)*100:0,zBmpR:ccR>0?(damp.bumpR/DAMPING_CALIBRATION/ccR)*100:0};
 };
 
+// NOTE: arrays fall through to `parsed` verbatim — there is deliberately no
+// per-element merging. Array-valued persisted keys (the GARAGE entry list) therefore
+// get NO default-filling from usePersist and must be normalized on read instead —
+// see normalizeEntry below, and the array-key section in docs/PERSISTENCE.md.
 const mergeDefaults=(initial,parsed)=>
   (initial&&typeof initial==='object'&&!Array.isArray(initial)
     &&parsed&&typeof parsed==='object'&&!Array.isArray(parsed))
@@ -998,12 +1002,82 @@ const usePersist=(key,initial)=>{
       return s?mergeDefaults(initial,JSON.parse(s)):initial;}
     catch(e){return initial;} // private browsing or parse error — use defaults
   });
+  // NOTE: `set` closes over the render-time `val`, so two set() calls on the SAME key
+  // within one tick clobber each other (the second computes from the stale value).
+  // Callers that need to combine multiple sources must build the full next value first
+  // and issue exactly ONE set() — see the GARAGE migration and the restore handler.
   const set=v=>{
     const next=typeof v==='function'?v(val):v;
     setVal(next);
     try{localStorage.setItem(key,JSON.stringify(next));}catch{}
   };
   return[val,set];
+};
+
+// ── GARAGE entry model ──────────────────────────────────────────────────────
+// One unified entry replaces the old split chassis-only GARAGE and tune-only MY BUILDS
+// lists. An entry carries any combination of ch / fe+dr payloads; its "kind" is DERIVED
+// from which payloads are present, never stored — a stored kind would desync the moment
+// an entry is rewritten with different data.
+const kindOf=e=>{
+  const hasCh=!!e?.ch, hasBuild=!!(e?.fe||e?.dr);
+  return hasCh&&hasBuild?'car':hasCh?'chassis':hasBuild?'build':'empty';
+};
+// 'empty' is the corrupt/hand-edited case. It renders as a deletable card rather than
+// crashing — a `ch:null` entry used to take the whole app down via the ErrorBoundary,
+// because the old garage card read s.ch.weight with no guard.
+
+// Timestamp resolution. Old entries have no createdAt/updatedAt, but their `id` is a
+// Date.now() from when they were saved, so it doubles as a creation stamp. The 1e12
+// guard (~Sept 2001) rejects small ints from hand-edited files and array indices.
+// The legacy `savedAt` field is a toLocaleDateString() STRING and is unsortable — it is
+// no longer written, only tolerated on read; dates are formatted from this number at
+// render time instead (which also fixes stale formatting if the user changes locale).
+const stampOf=e=>e?.updatedAt??e?.createdAt
+  ??(Number.isFinite(e?.id)&&e.id>1e12?e.id:Date.now());
+
+// The single choke point for everything entering the entry list (migration, legacy file
+// import, v2 file import). Because mergeDefaults skips arrays, this is what makes missing
+// fields survivable without every render site needing its own ?? defaulting.
+const normalizeEntry=raw=>{
+  const t=stampOf(raw??{});
+  return{
+    id:        Number.isFinite(raw?.id)?raw.id:Date.now(),
+    name:      (typeof raw?.name==='string'&&raw.name.trim())?raw.name:'Untitled',
+    // omit absent payloads rather than storing null — kindOf keys off truthiness, and
+    // absent keys keep backup files smaller
+    ...(raw?.ch?{ch:raw.ch}:{}),
+    ...(raw?.fe?{fe:raw.fe}:{}),
+    ...(raw?.dr?{dr:raw.dr}:{}),
+    tags:      Array.isArray(raw?.tags)?raw.tags.filter(x=>typeof x==='string'):[],
+    notes:     typeof raw?.notes==='string'?raw.notes:'',
+    createdAt: Number.isFinite(raw?.createdAt)?raw.createdAt:t,
+    updatedAt: Number.isFinite(raw?.updatedAt)?raw.updatedAt:t,
+  };
+};
+
+// Merges the two legacy lists into one. Pure and module-scope because it has TWO callers:
+// the one-time localStorage migration, and the legacy-backup-file import path. Inlining it
+// into the migration effect would guarantee the file-import copy rots, since that's the one
+// with no daily users exercising it.
+const unifyLegacy=(garageArr,buildsArr)=>{
+  const used=new Set();
+  const take=e=>{
+    let nid=Number.isFinite(e?.id)?e.id:Date.now();
+    // Both legacy lists id by Date.now(), so the same id can appear in both. Duplicate
+    // React keys cause silent render corruption, so bump — but keep the ORIGINAL id as the
+    // timestamp, or a collision would quietly rewrite that entry's date and its sort order.
+    while(used.has(nid))nid++;
+    used.add(nid);
+    const t=stampOf(e??{});
+    return normalizeEntry({...e,id:nid,createdAt:t,updatedAt:t});
+  };
+  return[
+    ...(Array.isArray(garageArr)?garageArr:[]).map(take),
+    ...(Array.isArray(buildsArr)?buildsArr:[]).map(take),
+  // sort into one timeline — concatenating by source would show "all chassis, then all
+  // builds", which reads as broken to someone who just saved a build
+  ].sort((a,b)=>b.createdAt-a.createdAt);
 };
 
 const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
@@ -2540,11 +2614,17 @@ function App(){
   const openBalTut=()=>{setBalTutStep(0);setBalTutOpen(true);};
   const closeBalTut=()=>setBalTutOpen(false);
   const[onboardSeen,setOnboardSeen]=usePersist('suspos_onboard_v1',true);
+  // LEGACY — read-only migration sources for the unified GARAGE list below. These look like
+  // dead code once the old drawers are gone, but deleting them breaks migration for anyone
+  // who hasn't opened the app since the change. See docs/CODE_MAP.md's
+  // "intentionally-retained legacy" section.
   const[garage,setGarage]=usePersist('suspos_garage_v1',[]);
   const[garageOpen,setGarageOpen]=useState(false);
   const[garageName,setGarageName]=useState('');
   const[myBuilds,setMyBuilds]=usePersist('suspos_builds_v1',[]);
   const[buildName,setBuildName]=useState('');
+  // Unified GARAGE entry list — chassis / build / car entries in one place.
+  const[entries,setEntries]=usePersist('suspos_garage_v2',[]);
   // One-time migration: pull any customized old preset slots (suspos_saves_v9) into MY BUILDS.
   // The 6 factory slots that match their defaults are skipped; only renamed/overwritten slots move.
   // Non-destructive (old key left intact); guarded by a flag so it runs at most once per browser.
@@ -2564,6 +2644,29 @@ function App(){
       }
       if(migrated.length)setMyBuilds(b=>[...migrated,...b]);
       localStorage.setItem('suspos_builds_migrated_v1','1');
+    }catch(e){/* corrupt/unavailable storage — skip migration, never block load */}
+  },[]); // eslint-disable-line
+  // One-time migration: fold the two legacy lists (chassis-only GARAGE + tune-only MY BUILDS)
+  // into the unified suspos_garage_v2 entry list. Third link in the chain
+  // suspos_saves_v9 → suspos_builds_v1 → suspos_garage_v2, so it must run AFTER the effect
+  // above or it would miss slots that migration just pulled in.
+  //
+  // Reads localStorage directly rather than the `garage`/`myBuilds` state: both effects run
+  // on the same mount pass, so the state variables still hold their render-time (pre-migration)
+  // values, while localStorage is already current — usePersist's setter writes synchronously.
+  useEffect(()=>{
+    try{
+      if(localStorage.getItem('suspos_garage_unified_v2'))return;
+      const rd=k=>{try{const v=JSON.parse(localStorage.getItem(k)||'[]');return Array.isArray(v)?v:[];}catch{return[];}};
+      const migrated=unifyLegacy(rd('suspos_garage_v1'),rd('suspos_builds_v1'));
+      if(migrated.length){
+        const sig=e=>JSON.stringify([e.name,e.ch??null,e.fe??null,e.dr??null]);
+        const seen=new Set(entries.map(sig));
+        const fresh=migrated.filter(e=>!seen.has(sig(e)));
+        // exactly ONE set call — see the usePersist note; combining two would clobber
+        if(fresh.length)setEntries([...fresh,...entries]);
+      }
+      localStorage.setItem('suspos_garage_unified_v2','1');
     }catch(e){/* corrupt/unavailable storage — skip migration, never block load */}
   },[]); // eslint-disable-line
   // One-time migration: MAN moved from Balance Mode (arbBalMode) to Stiffness Mode (arbMode).
