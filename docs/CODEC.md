@@ -75,8 +75,9 @@ future version might not carry.
 | 54 | fe | arbBalDelta | raw number |
 | 55 | fe | springShareAuto | bool |
 | 56 | fe | arbSplitOpposite | bool |
+| 57 | fe | arbBasicMan | raw number |
 
-**Next available id: 57.**
+**Next available id: 58.**
 
 ## Retired — never reuse
 
@@ -112,6 +113,13 @@ reinterprets old codes under new rules. Two examples so far:
   reading when set) instead of raw `ch.frontBias` — see
   [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for why WEIGHT itself was deliberately
   left on the simpler raw-weight formula rather than switched over.
+- **id 15 (`arbMode`) `'basic'`** — new mode (index 5), added alongside new
+  id 57 (`arbBasicMan`). Sets an ARB roll-stiffness budget directly as a
+  0–100% level (0%≈1 click, 100%≈`lim.arb` clicks, at a neutral front/rear
+  split), independent of spring stiffness — unlike SHARE %, whose budget is
+  a fraction of the *current* spring roll stiffness. Old codes are
+  unaffected: `'basic'` is a brand-new enum index, not a reinterpretation of
+  an existing one.
 
 When making a change like this, note it here so future debugging of "why
 did my old share code load weird" has a paper trail.

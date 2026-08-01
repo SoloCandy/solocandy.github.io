@@ -345,7 +345,8 @@ const feelToPhysics=(ch,fe)=>{
             _estR=Math.max(HZ_MIN,Math.min(HZ_MAX,2*avgHz*_mult/(1+_mult)));
           }
         }
-        // roll mode: ARB budget is absolute (roll-moment-based), not a share fraction — _p_m stays 0
+        // roll and basic modes: ARB budget is absolute (roll-moment-based or a direct click
+        // target respectively), not a share fraction of spring stiffness — _p_m stays 0
       }
       let _manSolved_sh=false;
       if(arbBalModeEarly==='man'){
@@ -418,7 +419,8 @@ const feelToPhysics=(ch,fe)=>{
             _estSec=Math.max(HZ_MIN,Math.min(HZ_MAX,rideRef==='front'?primaryHz*_mult:primaryHz/_mult));
           }
         }
-        // roll mode: ARB budget is absolute (roll-moment-based), not a share fraction — _p_m stays 0
+        // roll and basic modes: ARB budget is absolute (roll-moment-based or a direct click
+        // target respectively), not a share fraction of spring stiffness — _p_m stays 0
       }
       let _manSolved_fr=false;
       if(arbBalModeEarly==='man'){
@@ -534,18 +536,19 @@ const feelToPhysics=(ch,fe)=>{
     ? Math.max(0.3,Math.min(5.0,fe.arbTargetRollMan))
     : 0;
   const arbShareMan=Math.max(0,Math.min(80,fe.arbShareMan??15));
+  const arbBasicMan=Math.max(0,Math.min(100,fe.arbBasicMan??50));
   const arbBalTarget=Math.max(0.20,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
   const arbBalMode=ARB_BAL_MODE_DEC.includes(fe.arbBalMode)?fe.arbBalMode:'weight';
   const springShare=Math.max(0,Math.min(100,fe.springShare??50));
   // coSolve overrides rearHz in computeTune via effectiveRHz; flat-ride fallthrough can
   // set rearHzClamped spuriously. mechBalClamped covers coSolve limits instead.
   if(arbBalModeEarly==='coSolve') rearHzClamped=false;
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,dampCharMode,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbBias:fe.arbBias??0,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,arbSplitOpposite,springShare,springShareAuto:fe.springShareAuto!==false,arbManF:fe.arbManF,arbManR:fe.arbManR};
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,dampCharMode,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbBias:fe.arbBias??0,arbTargetRoll,arbMode,arbShareMan,arbBasicMan,arbBalTarget,arbBalMode,arbSplitOpposite,springShare,springShareAuto:fe.springShareAuto!==false,arbManF:fe.arbManF,arbManR:fe.arbManR};
 };
 
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
-  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF:zetaF0,zetaR:zetaR0,bumpZetaF:bumpZetaF0,bumpZetaR:bumpZetaR0,arbBalance,arbBias,arbTargetRoll,arbMode,arbShareMan,arbBalTarget,arbBalMode,arbSplitOpposite,arbManF,arbManR}=phys;
+  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF:zetaF0,zetaR:zetaR0,bumpZetaF:bumpZetaF0,bumpZetaR:bumpZetaR0,arbBalance,arbBias,arbTargetRoll,arbMode,arbShareMan,arbBasicMan,arbBalTarget,arbBalMode,arbSplitOpposite,arbManF,arbManR}=phys;
   let zetaF=zetaF0,zetaR=zetaR0,bumpZetaF=bumpZetaF0,bumpZetaR=bumpZetaR0;
   // Tyre-width correction: Forza's mech balance display includes a small tyre-width contribution.
   // Pre-compensate the solve target so Forza reads the desired value after tuning.
@@ -579,6 +582,9 @@ const computeTune=(ch,phys,gameMode)=>{
       // Pre-compute roll moment (chassis only, Hz-independent) for roll-mode ARB budget estimate.
       const _rm=(ch.weight/KG_TO_LB)*9.81*(ch.cgHeight-rollCenterHeight(ch));
       const _rsTotTgt=_rm/(arbTargetRoll*(Math.PI/180));
+      // BASIC: budget is a direct click target, independent of spring roll stiffness — constant
+      // across the search, unlike SHARE's budget which scales with rsSp_s at each candidate S.
+      const _basicBudget=ARB_RS_SCALE*(ch.trackF*ch.trackF+ch.trackR*ch.trackR)*(1+(lim.arb-1)*arbBasicMan/100);
       const simUtil=(sVal)=>{
         const R_sp_s=Math.max(0.001,Math.min(0.999,R_baseline+sVal*(targetRsBalance-R_baseline)));
         const rsSpR_s=R_sp_s*rsSpF_cs/(1-R_sp_s);
@@ -591,7 +597,9 @@ const computeTune=(ch,phys,gameMode)=>{
         const nRoll=rsSp_s>0?(_rm/rsSp_s)*(180/Math.PI):5;
         const autoSh=Math.max(5,Math.min(50,nRoll*7))/100;
         const sh=arbMode==='share'?arbShareMan/100:autoSh;
-        const budget_s=arbMode==='roll'?Math.max(0,_rsTotTgt-rsSp_s):rsSp_s*(sh/(1-sh));
+        const budget_s=arbMode==='roll'?Math.max(0,_rsTotTgt-rsSp_s)
+          :arbMode==='basic'?_basicBudget
+          :rsSp_s*(sh/(1-sh));
         if(budget_s<=0) return{spUtil,abUtil:0};
         const _mTgt=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr));
         const _K=_mTgt/(1-_mTgt);
@@ -663,6 +671,8 @@ const computeTune=(ch,phys,gameMode)=>{
     : autoShareTarget/100;             // auto uses natural-roll-derived share
   let rsAbBudget=arbMode==='roll'
     ? rsTotalTarget-rsSpF-rsSpR        // roll mode: invert roll equation as before
+    : arbMode==='basic'
+    ? ARB_RS_SCALE*(ch.trackF*ch.trackF+ch.trackR*ch.trackR)*(1+(lim.arb-1)*arbBasicMan/100) // basic: direct click target, unlinked from spring stiffness
     : rsSp*(shareTarget/(1-shareTarget)); // auto + share: target a fraction directly
   let rF=arbBalance/100;
   let _rsBalK=null;
@@ -1003,7 +1013,7 @@ const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               useRideHeightCG:false,rideHeightF:0.13,rideHeightR:0.12};
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,settleMode:false,settleBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,dampCharMode:'zeta',settleTarget:0.80,
-              arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,
+              arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,arbBasicMan:50,
               arbBalTarget:null,arbBalMode:'weight',springShare:50,springShareAuto:true,
               arbBalTargetMode:'manual',arbBalDelta:0,arbSplitOpposite:false,
               rearHzMode:'flatRide',rearHzMan:1.5,rearHzMult:1.20,rideRef:'front'};
@@ -1901,8 +1911,8 @@ const DAMPING_MODE_ENC={'ratio':0,'independent':1};
 const DAMPING_MODE_DEC=['ratio','independent'];
 const REAR_HZ_MODE_ENC={'flatRide':0,'independent':1,'multiplier':2,'mech':3};
 const REAR_HZ_MODE_DEC=['flatRide','independent','multiplier','mech'];
-const ARB_MODE_ENC={'auto':0,'roll':1,'share':2,'man':4};
-const ARB_MODE_DEC=['auto','roll','share','auto','man']; // index 3 was legacy 'balance' → auto; index 4 = MAN (moved from ARB_BAL_MODE — see sanitizeTune migration)
+const ARB_MODE_ENC={'auto':0,'roll':1,'share':2,'man':4,'basic':5};
+const ARB_MODE_DEC=['auto','roll','share','auto','man','basic']; // index 3 was legacy 'balance' → auto; index 4 = MAN (moved from ARB_BAL_MODE — see sanitizeTune migration)
 const ARB_BAL_MODE_ENC={'weight':0,'mech':1,'coSolve':2,'man':3,'neutral':4,'chassis':5,'manual':6};
 const ARB_BAL_MODE_DEC=['weight','mech','coSolve','man','neutral','chassis','manual']; // 'man' kept for old-code decode only — see sanitizeTune migration
 // 'manual': invisible placeholder used when Stiffness Mode is MAN — behaves identically to
@@ -1942,6 +1952,7 @@ const CODEC_FIELDS=[
   {id:15,group:'fe',key:'arbMode',enc:ARB_MODE_ENC,dec:ARB_MODE_DEC},
   {id:16,group:'fe',key:'arbTargetRollMan'},
   {id:17,group:'fe',key:'arbShareMan'},
+  {id:57,group:'fe',key:'arbBasicMan'},
   {id:18,group:'ch',key:'layout',enc:LAYOUT_ENC,dec:LAYOUT_DEC},
   {id:19,group:'dr',key:'buildType',enc:BUILD_ENC,dec:BUILD_DEC},
   {id:20,group:'dr',key:'diffManual',bool:true},
@@ -2075,6 +2086,7 @@ const sanitizeTune=({ch,fe,dr})=>{
                         })(),
       arbTargetRollMan: cl(fe?.arbTargetRollMan,  0.3,  5.0, DEF_FE.arbTargetRollMan),
       arbShareMan:      cl(fe?.arbShareMan,        0,   80,  DEF_FE.arbShareMan),
+      arbBasicMan:      cl(fe?.arbBasicMan,        0,  100,  DEF_FE.arbBasicMan),
       rearHzMode:       REAR_HZ_MODE_DEC.includes(fe?.rearHzMode)?fe.rearHzMode:DEF_FE.rearHzMode,
       rearHzMan:        cl(fe?.rearHzMan,          HZ_MIN, HZ_MAX, DEF_FE.rearHzMan),
       rearHzMult:       cl(fe?.rearHzMult,         0.5,  3.0, DEF_FE.rearHzMult),
@@ -4138,6 +4150,7 @@ function App(){
               springShare:DEF_FE.springShare,
               arbTargetRollMan:DEF_FE.arbTargetRollMan,
               arbShareMan:DEF_FE.arbShareMan,
+              arbBasicMan:DEF_FE.arbBasicMan,
               arbSplitOpposite:DEF_FE.arbSplitOpposite}))}>
             {((fe.arbBalMode??'weight')==='weight'||(fe.arbBalMode??'weight')==='neutral'||(fe.arbBalMode??'weight')==='chassis')&&(()=>{
               const isNeutral=(fe.arbBalMode??'weight')==='neutral';
@@ -4171,10 +4184,12 @@ function App(){
 
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
               <span style={{fontSize:12,color:'#94a3b8'}}>Stiffness Mode</span>
-              <Hint text={`AUTO derives ARB stiffness from the car's natural roll tendency — heavier, taller, softer cars get more ARB contribution. ROLL ° targets a specific body roll angle. SHARE % directly sets ARBs as a fraction of total roll stiffness.${uiMode==='pro'?' MAN sets front/rear ARB clicks directly for calibration testing — bypasses the budget/split system entirely, so Balance Mode is hidden while this is active.':''}`}/>
+              <Hint text={`AUTO derives ARB stiffness from the car's natural roll tendency — heavier, taller, softer cars get more ARB contribution. BASIC sets an overall stiffness level directly (0% ≈ softest, 100% ≈ stiffest bars the game allows) — like SHARE %, but the level doesn't scale with spring rate. ROLL ° targets a specific body roll angle. SHARE % directly sets ARBs as a fraction of total roll stiffness.${uiMode==='pro'?' MAN sets front/rear ARB clicks directly for calibration testing — bypasses the budget/split system entirely, so Balance Mode is hidden while this is active.':''}`}/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${(fe.arbMode??'auto')==='auto'?' on':''}`}
                   onClick={()=>pFe('arbMode')('auto')}>AUTO</button>
+                <button className={`tog${(fe.arbMode??'auto')==='basic'?' on':''}`}
+                  onClick={()=>pFe('arbMode')('basic')}>BASIC</button>
                 <button className={`tog${(fe.arbMode??'auto')==='roll'?' on':''}`}
                   onClick={()=>setFe(p=>({...p,arbMode:'roll',
                     arbTargetRollMan:Math.round(physics.arbTargetRoll*10)/10}))}>ROLL °</button>
@@ -4189,6 +4204,10 @@ function App(){
                   }}>MAN</button>}
               </div>
             </div>
+            {(fe.arbMode??'auto')==='basic'&&
+              <Field label="ARB Stiffness" value={fe.arbBasicMan??50} onChange={pFe('arbBasicMan')}
+                min={0} max={100} step={1} unit="%"
+                hint={`Overall ARB stiffness level, roughly 0% ≈ 1 click to 100% ≈ ${lim.arb} clicks (this game mode's limit) per axle at a neutral front/rear split. Unlike SHARE %, this doesn't scale with spring rate — moving the springs won't change the target level. Balance Mode still splits it front/rear, and unequal track widths mean the actual clicks per side won't land exactly on the stated percentage.`}/>}
             {(fe.arbMode??'auto')==='roll'&&
               <Field label="Target Roll Angle" value={fe.arbTargetRollMan} onChange={pFe('arbTargetRollMan')}
                 min={0.3} max={5.0} step={0.1} unit="° @ 1g"
@@ -4966,6 +4985,12 @@ function App(){
                   :(fe.arbBalMode??'weight')==='coSolve'
                   ?' ARB Share % limits the total ARB budget — increase Spring Share so CO-SOLVE contributes more spring correction, or raise ARB Share % to give the bars more range.'
                   :' ARB Share % limits the total ARB budget — raise ARB Share % to give the bars more range.')
+                :(fe.arbMode??'auto')==='basic'
+                ?((fe.arbBalMode??'weight')==='coSolve'&&fe.springShareAuto!==false
+                  ?' ARB Stiffness limits the total ARB budget — disable AUTO and increase Spring Share to let CO-SOLVE contribute more correction from springs.'
+                  :(fe.arbBalMode??'weight')==='coSolve'
+                  ?' ARB Stiffness limits the total ARB budget — increase Spring Share so CO-SOLVE contributes more spring correction, or raise ARB Stiffness % to give the bars more range.'
+                  :' ARB Stiffness limits the total ARB budget — raise ARB Stiffness % to give the bars more range.')
                 :' ARB floor/ceiling limits prevented the required front/rear split. Widen the ARB range or reduce the balance target.'}
             </div>}
           </Card>
