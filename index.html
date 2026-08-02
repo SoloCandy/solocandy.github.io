@@ -2802,6 +2802,13 @@ function App(){
   // with no visible cause.
   const[garagePanelOpen,setGaragePanelOpen]=useState(false);
   const[entryName,setEntryName]=useState('');
+  // Filter and sort are stable preferences worth persisting. Deliberately an OBJECT-valued
+  // key, so mergeDefaults actually merges it — unlike the entry array, a new field added
+  // here later gets its default for free. Search text is intentionally NOT persisted: a
+  // search box that silently hides most of the garage after a reload, with the reason
+  // scrolled out of view, is a bug factory.
+  const[garageUI,setGarageUI]=usePersist('suspos_garage_ui_v1',{filter:'all',sort:'recent'});
+  const[garageSearch,setGarageSearch]=useState('');
   // One-time migration: pull any customized old preset slots (suspos_saves_v9) into MY BUILDS.
   // The 6 factory slots that match their defaults are skipped; only renamed/overwritten slots move.
   // Non-destructive (old key left intact); guarded by a flag so it runs at most once per browser.
@@ -3250,6 +3257,27 @@ function App(){
   const garageLoadChassis=e=>{if(e.ch)setCh({...DEF_CH,...e.ch});};
   const garageLoadBuild=e=>{if(e.fe)setFe({...DEF_FE,...e.fe});if(e.dr)setDr({...DEF_DR,...e.dr});};
   const allTags=[...new Set(entries.flatMap(e=>e.tags||[]))].sort();
+  // filter by kind -> filter by text -> sort. Filtering first keeps the sort stable with
+  // respect to what's actually visible.
+  const kindCounts=entries.reduce((a,e)=>{const k=kindOf(e);a[k]=(a[k]||0)+1;return a;},{});
+  const garageList=(()=>{
+    const q=garageSearch.trim().toLowerCase();
+    let out=garageUI.filter==='all'?entries:entries.filter(e=>kindOf(e)===garageUI.filter);
+    if(q)out=out.filter(e=>{
+      // derived auto-tag labels are searchable too — typing AWD or RACE or DRIFT filters
+      // instantly with no manual tagging effort, which is what earns the feature its place
+      const hay=[e.name,e.notes||'',...(e.tags||[]),...autoTagsOf(e).map(t=>t.label)].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+    const by={
+      recent:(a,b)=>stampOf(b)-stampOf(a),
+      oldest:(a,b)=>stampOf(a)-stampOf(b),
+      name:(a,b)=>(a.name||'').toLowerCase().localeCompare((b.name||'').toLowerCase()),
+      kind:(a,b)=>{const o={chassis:0,build:1,car:2,empty:3};
+        return (o[kindOf(a)]-o[kindOf(b)])||(stampOf(b)-stampOf(a));},
+    };
+    return[...out].sort(by[garageUI.sort]||by.recent);
+  })();
   const performGlobalReset=()=>{
     if(resetOpts.tune){
       setCh({...DEF_CH});
@@ -5858,6 +5886,39 @@ function App(){
                 ))}
               </div>
             </div>
+            {/* filter / sort / search */}
+            <div style={{padding:'7px 12px',borderBottom:'1px solid #0f172a',flexShrink:0,
+                         display:'flex',flexDirection:'column',gap:5}}>
+              <div style={{display:'flex',gap:3}}>
+                {[['all','ALL',entries.length],['chassis','CHASSIS',kindCounts.chassis||0],
+                  ['build','BUILDS',kindCounts.build||0],['car','CARS',kindCounts.car||0]].map(([k,l,n])=>(
+                  <button key={k} className={`tbtn${garageUI.filter===k?' on':''}`}
+                    style={{flex:1,fontSize:9,padding:'3px 2px'}}
+                    onClick={()=>setGarageUI(u=>({...u,filter:k}))}>{l} {n}</button>
+                ))}
+              </div>
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <div style={{position:'relative',flex:1}}>
+                  <input value={garageSearch} onChange={e=>setGarageSearch(e.target.value)}
+                    placeholder="Search name, notes, tags…"
+                    style={{width:'100%',background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
+                            padding:'3px 18px 3px 7px',fontSize:10,color:'#e2e8f0',outline:'none',
+                            fontFamily:'inherit'}}/>
+                  {garageSearch&&<span onClick={()=>setGarageSearch('')}
+                    style={{position:'absolute',right:5,top:'50%',transform:'translateY(-50%)',
+                            cursor:'pointer',color:'#64748b',fontSize:11,lineHeight:1}}>×</span>}
+                </div>
+                <select value={garageUI.sort} onChange={e=>setGarageUI(u=>({...u,sort:e.target.value}))}
+                  style={{background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
+                          padding:'3px 4px',fontSize:9,color:'#94a3b8',outline:'none',
+                          fontFamily:'inherit',cursor:'pointer',flexShrink:0}}>
+                  <option value="recent">RECENT</option>
+                  <option value="oldest">OLDEST</option>
+                  <option value="name">NAME A–Z</option>
+                  <option value="kind">KIND</option>
+                </select>
+              </div>
+            </div>
             <div style={{flex:1,minHeight:0,overflowY:'auto',overscrollBehavior:'contain',
                          WebkitOverflowScrolling:'touch',padding:'8px 12px'}}>
               {/* FACTORY — read-only, deliberately NOT entries. Keeping them out of the list
@@ -5893,12 +5954,22 @@ function App(){
                   })}
                 </div>}
               </div>
-              {entries.length===0
+              {/* three distinct empty states, each with an inline escape hatch — the failure
+                  mode of a filter UI is a user who can't find their data and doesn't know why */}
+              {garageList.length===0
                 ?<div style={{fontSize:10,color:'#374151',textAlign:'center',padding:'20px 0',letterSpacing:1}}>
-                   NO SAVED ENTRIES<div style={{fontSize:9,marginTop:6,letterSpacing:0}}>
-                     Name your setup above, then save it as a chassis, a build, or both.</div>
+                   {entries.length===0
+                     ?<>NO SAVED ENTRIES<div style={{fontSize:9,marginTop:6,letterSpacing:0}}>
+                        Name your setup above, then save it as a chassis, a build, or both.</div></>
+                     :garageSearch.trim()
+                     ?<>NO MATCHES<div style={{marginTop:8}}>
+                        <button className="tbtn" style={{fontSize:9}}
+                          onClick={()=>setGarageSearch('')}>CLEAR SEARCH</button></div></>
+                     :<>NO {garageUI.filter.toUpperCase()} ENTRIES<div style={{marginTop:8}}>
+                        <button className="tbtn" style={{fontSize:9}}
+                          onClick={()=>setGarageUI(u=>({...u,filter:'all'}))}>SHOW ALL</button></div></>}
                  </div>
-                :entries.map(e=>(
+                :garageList.map(e=>(
                    <EntryCard key={e.id} entry={e} metricUnits={metricUnits} allTags={allTags}
                      onLoadChassis={garageLoadChassis} onLoadBuild={garageLoadBuild}
                      onRewrite={garageRewrite} onDelete={garageDelete} onRename={garageRename}
