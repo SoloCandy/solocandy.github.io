@@ -5839,8 +5839,7 @@ function App(){
         {/* GARAGE DRAWER — mirrors the left sidebar's overlay pattern with the axis
             flipped. Lives inside the flex body (not position:fixed) so the header and the
             pinned balance bar stay reachable while it's open. */}
-        <>
-          {garagePanelOpen&&isMobile&&
+        {garagePanelOpen&&isMobile&&
             <div onClick={()=>setGaragePanelOpen(false)}
                  style={{position:'absolute',inset:0,background:'#00000088',zIndex:150}}/>}
           <div id="zone-garage" style={{
@@ -5970,7 +5969,6 @@ function App(){
                  ))}
             </div>
           </div>
-        </>}
       </div>
     </div>
   );
