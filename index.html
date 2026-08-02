@@ -1093,6 +1093,52 @@ const parseBackup=parsed=>{
   return null;
 };
 
+// Auto-tags: DERIVED at render, never stored. Storing them would leave old entries
+// showing stale labels the moment a threshold is retuned. Each tag is only produced when
+// the entry actually carries the payload it reads from, so a chassis-only entry gets no
+// Hz/build tag and a build-only entry gets no layout/balance tag.
+const NOTES_MAX=2000;
+const autoTagsOf=e=>{
+  const out=[];
+  if(e?.ch){
+    out.push({label:e.ch.layout??'RWD',color:'#94a3b8'});
+    const fb=e.ch.frontBias??52;
+    // frontBias is an integer 30–70, so ±2 is a 5-value band around even
+    if(Math.abs(fb-50)<=2)out.push({label:'BALANCED',color:'#22c55e'});
+    else out.push({label:fb>50?'NOSE HEAVY':'TAIL HEAVY',color:'#64748b'});
+  }
+  if(e?.fe){
+    // rsToHz FIRST — it auto-converts the legacy 0–100 rideStiffness scale. Skipping it
+    // silently misclassifies old entries (a legacy 50 would read RACE instead of ROAD).
+    const[lbl,col]=hzCtx(rsToHz(e.fe.rideStiffness??1.75));
+    out.push({label:lbl,color:col});   // reuses the HZ_BANDS single source of truth
+  }
+  if(e?.dr)out.push({label:(e.dr.buildType??'track').toUpperCase(),color:'#94a3b8'});
+  return out;
+};
+
+// Summary line. Takes metricUnits because the old garage card hardcoded imperial and
+// ignored the IMP/MET toggle entirely. Wheelbase stays in metres in both unit systems,
+// matching how it's displayed everywhere else in the app.
+const entrySummary=(e,metric)=>{
+  const bits=[];
+  if(e?.ch){
+    bits.push(metric?`${Math.round(e.ch.weight/KG_TO_LB)}kg`:`${Math.round(e.ch.weight)}lb`);
+    bits.push(`${e.ch.frontBias}% F`);
+    bits.push(`${e.ch.wheelbase}m wb`);
+  }
+  if(e?.fe)bits.push(`${rsToHz(e.fe.rideStiffness??1.75).toFixed(2)} Hz`);
+  if(e?.dr)bits.push((e.dr.diffType??'race').toUpperCase());
+  return bits.join(' · ');
+};
+
+const KIND_META={
+  chassis:{label:'CH', color:'#60a5fa'},
+  build:  {label:'BLD',color:'#a78bfa'},
+  car:    {label:'CAR',color:'#4ade80'},
+  empty:  {label:'⚠',  color:'#f59e0b'},
+};
+
 const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
               tyreF:'265/35R18',tyreR:'265/35R18',
@@ -2227,6 +2273,112 @@ const OverwriteBtn=({onConfirm})=>{
   );
 };
 
+// One garage entry. Takes a props object rather than positional args — the old inline
+// card() helper had 7 positionals and this needs roughly twice that.
+const EntryCard=({entry,metricUnits,onLoadChassis,onLoadBuild,onRewrite,onDelete,onRename,onNotes,onAddTag,onRemoveTag,allTags})=>{
+  const kind=kindOf(entry);
+  const km=KIND_META[kind];
+  const[editing,setEditing]=useState(false);
+  const[draft,setDraft]=useState(entry.name);
+  const[openNotes,setOpenNotes]=useState(false);
+  const[rwOpen,setRwOpen]=useState(false);
+  const[tagDraft,setTagDraft]=useState('');
+  const[delPending,delHandle]=useTwoTap(()=>onDelete(entry.id));
+  const auto=autoTagsOf(entry);
+  const chip=(label,color,onX,key)=>(
+    <span key={key} style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:8,
+      letterSpacing:0.5,padding:'1px 4px',borderRadius:2,border:`1px solid ${color}44`,
+      color,background:`${color}14`,whiteSpace:'nowrap'}}>
+      {label}
+      {onX&&<span onClick={onX} style={{cursor:'pointer',color:'#64748b',fontSize:9,lineHeight:1}}>×</span>}
+    </span>
+  );
+  const sug=allTags.filter(t=>t.toLowerCase().startsWith(tagDraft.trim().toLowerCase())
+    &&!(entry.tags||[]).includes(t)&&tagDraft.trim()).slice(0,4);
+  const commitTag=v=>{const t=(v??tagDraft).trim();if(!t)return;onAddTag(entry.id,t);setTagDraft('');};
+  return(
+    <div style={{background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
+                 padding:'7px 8px',display:'flex',flexDirection:'column',gap:5,marginBottom:6}}>
+      {/* header */}
+      <div style={{display:'flex',alignItems:'center',gap:5,minWidth:0}}>
+        <span style={{fontSize:8,letterSpacing:1,padding:'1px 4px',borderRadius:2,flexShrink:0,
+          color:km.color,border:`1px solid ${km.color}55`,background:`${km.color}14`}}>{km.label}</span>
+        {editing
+          ?<input autoFocus value={draft} onChange={e=>setDraft(e.target.value)}
+             onBlur={()=>{onRename(entry.id,draft);setEditing(false);}}
+             onKeyDown={e=>{if(e.key==='Enter')e.target.blur();if(e.key==='Escape'){setDraft(entry.name);setEditing(false);}}}
+             style={{flex:1,minWidth:0,background:'#020617',border:'1px solid #334155',borderRadius:2,
+                     padding:'2px 5px',fontSize:11,color:'#e2e8f0',outline:'none',fontFamily:'inherit'}}/>
+          :<span onClick={()=>{setDraft(entry.name);setEditing(true);}} title="Click to rename"
+             style={{flex:1,minWidth:0,fontSize:11,color:'#cbd5e1',fontWeight:600,cursor:'text',
+                     overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{entry.name}</span>}
+        <span style={{fontSize:8,color:'#334155',flexShrink:0}}>{new Date(stampOf(entry)).toLocaleDateString()}</span>
+        <button onClick={()=>setRwOpen(o=>!o)} title="Rewrite with current setup"
+          style={{background:'none',border:'none',cursor:'pointer',fontSize:12,lineHeight:1,
+                  padding:'0 2px',flexShrink:0,color:rwOpen?'#f59e0b':'#374151'}}>↺</button>
+        <button onClick={delHandle} title={delPending?'Click again to delete':'Delete'}
+          style={{background:'none',border:'none',cursor:'pointer',fontSize:12,lineHeight:1,
+                  padding:'0 2px',flexShrink:0,color:delPending?'#ef4444':'#374151'}}>{delPending?'✓':'×'}</button>
+      </div>
+      {/* rewrite: explicit three-way, so promoting a chassis entry to a car is one click and
+          nothing has to guess which payloads the user meant to overwrite */}
+      {rwOpen&&<div style={{display:'flex',gap:3,alignItems:'center'}}>
+        <span style={{fontSize:8,color:'#64748b',letterSpacing:1,flexShrink:0}}>REWRITE</span>
+        {[['chassis','CHASSIS'],['build','BUILD'],['both','BOTH']].map(([k,l])=>(
+          <button key={k} className="tbtn" style={{fontSize:9,padding:'2px 5px'}}
+            onClick={()=>{onRewrite(entry.id,k);setRwOpen(false);}}>{l}</button>
+        ))}
+      </div>}
+      {kind!=='empty'&&<span style={{fontSize:9,color:'#475569'}}>{entrySummary(entry,metricUnits)}</span>}
+      {kind==='empty'&&<span style={{fontSize:9,color:'#f59e0b'}}>Corrupt entry — no data. Delete it.</span>}
+      {/* tags */}
+      <div style={{display:'flex',flexWrap:'wrap',gap:3,alignItems:'center'}}>
+        {auto.map((t,i)=>chip(t.label,t.color,null,'a'+i))}
+        {(entry.tags||[]).map((t,i)=>chip(t,'#818cf8',()=>onRemoveTag(entry.id,t),'m'+i))}
+      </div>
+      <div style={{position:'relative'}}>
+        <input value={tagDraft} onChange={e=>setTagDraft(e.target.value)}
+          onKeyDown={e=>{if(e.key==='Enter')commitTag();if(e.key==='Escape')setTagDraft('');}}
+          placeholder="+ tag"
+          style={{width:'100%',background:'#020617',border:'1px solid #1e293b',borderRadius:2,
+                  padding:'2px 5px',fontSize:9,color:'#e2e8f0',outline:'none',fontFamily:'inherit'}}/>
+        {sug.length>0&&<div style={{display:'flex',gap:3,marginTop:3,flexWrap:'wrap'}}>
+          {sug.map(t=>(
+            <button key={t} onClick={()=>commitTag(t)} className="tbtn"
+              style={{fontSize:8,padding:'1px 4px'}}>{t}</button>
+          ))}
+        </div>}
+      </div>
+      {/* notes */}
+      {openNotes
+        ?<div>
+           <textarea value={entry.notes||''} autoFocus
+             onChange={e=>onNotes(entry.id,e.target.value.slice(0,NOTES_MAX))}
+             onBlur={()=>setOpenNotes(false)}
+             rows={3}
+             style={{width:'100%',background:'#020617',border:'1px solid #334155',borderRadius:2,
+                     padding:'4px 5px',fontSize:10,color:'#e2e8f0',outline:'none',
+                     fontFamily:'inherit',resize:'vertical'}}/>
+           <div style={{fontSize:8,color:(entry.notes||'').length>NOTES_MAX*0.9?'#f59e0b':'#334155',textAlign:'right'}}>
+             {(entry.notes||'').length}/{NOTES_MAX}
+           </div>
+         </div>
+        :<span onClick={()=>setOpenNotes(true)} title="Click to edit notes"
+           style={{fontSize:9,color:entry.notes?'#64748b':'#334155',cursor:'text',
+                   overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+           {entry.notes?entry.notes.split('\n')[0]:'+ notes'}
+         </span>}
+      {/* load buttons — only for payloads this entry actually carries */}
+      {kind!=='empty'&&<div style={{display:'flex',gap:4}}>
+        {entry.ch&&<button className="tbtn" style={{flex:1,fontSize:9}}
+          onClick={()=>onLoadChassis(entry)}>LOAD CHASSIS</button>}
+        {(entry.fe||entry.dr)&&<button className="tbtn" style={{flex:1,fontSize:9}}
+          onClick={()=>onLoadBuild(entry)}>LOAD BUILD</button>}
+      </div>}
+    </div>
+  );
+};
+
 class ErrorBoundary extends React.Component{
   constructor(p){super(p);this.state={err:null};}
   static getDerivedStateFromError(e){return{err:e};}
@@ -2627,17 +2779,18 @@ function App(){
   const openBalTut=()=>{setBalTutStep(0);setBalTutOpen(true);};
   const closeBalTut=()=>setBalTutOpen(false);
   const[onboardSeen,setOnboardSeen]=usePersist('suspos_onboard_v1',true);
-  // LEGACY — read-only migration sources for the unified GARAGE list below. These look like
-  // dead code once the old drawers are gone, but deleting them breaks migration for anyone
-  // who hasn't opened the app since the change. See docs/CODE_MAP.md's
-  // "intentionally-retained legacy" section.
-  const[garage,setGarage]=usePersist('suspos_garage_v1',[]);
-  const[garageOpen,setGarageOpen]=useState(false);
-  const[garageName,setGarageName]=useState('');
+  // LEGACY — still read by the saves_v9 migration below and by the Beginner builds drawer.
+  // The suspos_builds_v1 KEY itself is also a migration source for the unified garage; see
+  // the note on that effect. Do not remove.
   const[myBuilds,setMyBuilds]=usePersist('suspos_builds_v1',[]);
   const[buildName,setBuildName]=useState('');
   // Unified GARAGE entry list — chassis / build / car entries in one place.
   const[entries,setEntries]=usePersist('suspos_garage_v2',[]);
+  // Standalone, deliberately NOT a key in `open`: the SECTIONS −/+ buttons blanket-toggle
+  // every key in that object, which would fling a full-height overlay across the results
+  // with no visible cause.
+  const[garagePanelOpen,setGaragePanelOpen]=useState(false);
+  const[entryName,setEntryName]=useState('');
   // One-time migration: pull any customized old preset slots (suspos_saves_v9) into MY BUILDS.
   // The 6 factory slots that match their defaults are skipped; only renamed/overwritten slots move.
   // Non-destructive (old key left intact); guarded by a flag so it runs at most once per browser.
@@ -2669,6 +2822,10 @@ function App(){
   // values, while localStorage is already current — usePersist's setter writes synchronously.
   useEffect(()=>{
     try{
+      // NOTE: suspos_garage_v1 and suspos_builds_v1 no longer have any UI or React binding —
+      // these two getItem calls are their ONLY remaining readers. They look like dead keys to
+      // a search-based audit; deleting them (or this effect) silently loses every saved
+      // chassis and build for anyone who hasn't opened the app since the unification.
       if(localStorage.getItem('suspos_garage_unified_v2'))return;
       const rd=k=>{try{const v=JSON.parse(localStorage.getItem(k)||'[]');return Array.isArray(v)?v:[];}catch{return[];}};
       const migrated=unifyLegacy(rd('suspos_garage_v1'),rd('suspos_builds_v1'));
@@ -2750,7 +2907,7 @@ function App(){
       visuals:!!(tutFocus?.includes('visuals')),
       presetsOpen:!!(tutFocus?.includes('presets')),
     }));
-    if(tutFocus?.includes('garage'))setGarageOpen(true);
+    if(tutFocus?.includes('garage'))setGaragePanelOpen(true);
     const stepMeta=TUTORIALS[tutMode]?.[tutStep];
     if(stepMeta?.sidebar==='close')setSidebarOpen(false);
     else if(stepMeta?.sidebar==='open')setSidebarOpen(true);
@@ -3055,6 +3212,34 @@ function App(){
     setFe(adjustedFe);
     setDr(p=>({...DEF_DR,...s.dr}));
   };
+  // ── GARAGE actions ────────────────────────────────────────────────────────
+  // Every mutation is a single setEntries call that stamps updatedAt (usePersist's setter
+  // closes over the render-time value, so two calls in one tick would clobber).
+  const mutEntry=(id,fn)=>setEntries(list=>list.map(e=>e.id===id?{...fn(e),updatedAt:Date.now()}:e));
+  const garageSave=which=>{
+    const now=Date.now();
+    setEntries(list=>[normalizeEntry({
+      id:now,name:entryName.trim()||'Untitled',
+      ...(which==='chassis'||which==='both'?{ch:{...ch}}:{}),
+      ...(which==='build'  ||which==='both'?{fe:{...fe},dr:{...dr}}:{}),
+      createdAt:now,updatedAt:now,
+    }),...list]);
+    setEntryName('');
+  };
+  const garageRewrite=(id,which)=>mutEntry(id,e=>({...e,
+    ...(which==='chassis'||which==='both'?{ch:{...ch}}:{}),
+    ...(which==='build'  ||which==='both'?{fe:{...fe},dr:{...dr}}:{}),
+  }));
+  const garageDelete=id=>setEntries(list=>list.filter(e=>e.id!==id));
+  const garageRename=(id,name)=>mutEntry(id,e=>({...e,name:name.trim()||'Untitled'}));
+  const garageNotes=(id,notes)=>mutEntry(id,e=>({...e,notes}));
+  const garageAddTag=(id,tag)=>mutEntry(id,e=>({...e,
+    tags:(e.tags||[]).includes(tag)?e.tags:[...(e.tags||[]),tag]}));
+  const garageRemoveTag=(id,tag)=>mutEntry(id,e=>({...e,tags:(e.tags||[]).filter(t=>t!==tag)}));
+  // Loading is undoable via the header ↩ for free — the undo effect snapshots {ch,fe,dr,al}.
+  const garageLoadChassis=e=>{if(e.ch)setCh({...DEF_CH,...e.ch});};
+  const garageLoadBuild=e=>{if(e.fe)setFe({...DEF_FE,...e.fe});if(e.dr)setDr({...DEF_DR,...e.dr});};
+  const allTags=[...new Set(entries.flatMap(e=>e.tags||[]))].sort();
   const performGlobalReset=()=>{
     if(resetOpts.tune){
       setCh({...DEF_CH});
@@ -3513,78 +3698,8 @@ function App(){
           </div>}
 
           {uiMode!=='beginner'&&<>
-          <div id="zone-chassis" style={dim('chassis','garage')}><Sec title="CHASSIS" open={open.chassis} onToggle={tog('chassis')}
+          <div id="zone-chassis" style={dim('chassis')}><Sec title="CHASSIS" open={open.chassis} onToggle={tog('chassis')}
             onReset={()=>setCh({...DEF_CH})}>
-            {/* ── Garage drawer ── */}
-            {(()=>{
-              const saveCurrentChassis=()=>{
-                const name=garageName.trim()||'Untitled';
-                setGarage(g=>[{id:Date.now(),name,ch:{...ch},savedAt:new Date().toLocaleDateString()}, ...g]);
-                setGarageName('');
-              };
-              const deleteSave=id=>setGarage(g=>g.filter(s=>s.id!==id));
-              return(
-                <div id="zone-garage" style={{marginBottom:10,...dim('garage')}}>
-                  {/* drawer header */}
-                  <div onClick={()=>setGarageOpen(o=>!o)}
-                    style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',
-                            padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
-                            border:'1px solid #1e293b',userSelect:'none'}}>
-                    <span style={{fontSize:10,letterSpacing:2,color:'#64748b'}}>GARAGE</span>
-                    {garage.length>0&&<span style={{fontSize:10,color:'#475569',marginLeft:2}}>{garage.length}</span>}
-                    <span style={{marginLeft:'auto',fontSize:10,color:'#475569'}}>{garageOpen?'▲':'▼'}</span>
-                  </div>
-                  {garageOpen&&(
-                    <div style={{background:'#080c14',border:'1px solid #1e293b',borderTop:'none',
-                                 borderRadius:'0 0 2px 2px',padding:'8px 8px 6px'}}>
-                      {/* save row */}
-                      <div style={{display:'flex',gap:4,marginBottom:8}}>
-                        <input value={garageName} onChange={e=>setGarageName(e.target.value)}
-                          onKeyDown={e=>e.key==='Enter'&&saveCurrentChassis()}
-                          placeholder="Name this chassis…"
-                          style={{flex:1,background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
-                                  padding:'4px 7px',fontSize:11,color:'#e2e8f0',outline:'none',
-                                  fontFamily:'inherit'}}/>
-                        <button onClick={saveCurrentChassis}
-                          style={{padding:'4px 10px',fontSize:10,letterSpacing:1,
-                                  background:'#1e293b',border:'1px solid #334155',borderRadius:2,
-                                  color:'#94a3b8',cursor:'pointer',flexShrink:0}}>SAVE</button>
-                      </div>
-                      {/* saved list */}
-                      {garage.length===0
-                        ? <div style={{fontSize:10,color:'#374151',textAlign:'center',padding:'10px 0',letterSpacing:1}}>NO SAVED CHASSIS</div>
-                        : <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,
-                                       maxHeight:220,overflowY:'auto',overscrollBehavior:'contain'}}>
-                            {garage.map(s=>(
-                              <div key={s.id}
-                                style={{background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
-                                        padding:'6px 7px',display:'flex',flexDirection:'column',gap:3,
-                                        minWidth:0}}>
-                                <div style={{display:'flex',alignItems:'flex-start',gap:3,minWidth:0}}>
-                                  <OverwriteBtn onConfirm={()=>setGarage(g=>g.map(x=>x.id===s.id?{...x,ch:{...ch},savedAt:new Date().toLocaleDateString()}:x))}/>
-                                  <span style={{fontSize:11,color:'#cbd5e1',fontWeight:600,
-                                                flex:1,minWidth:0,lineHeight:1.3}}>{s.name}</span>
-                                  <button onClick={()=>deleteSave(s.id)}
-                                    style={{background:'none',border:'none',color:'#374151',
-                                            cursor:'pointer',fontSize:12,lineHeight:1,
-                                            padding:'0 0 0 2px',flexShrink:0}}>×</button>
-                                </div>
-                                <div style={{fontSize:9,color:'#475569',letterSpacing:.5}}>
-                                  {Math.round(s.ch.weight)}lb · {s.ch.frontBias}% F · {s.ch.wheelbase}m wb
-                                </div>
-                                <div style={{fontSize:9,color:'#374151'}}>{s.savedAt}</div>
-                                <button onClick={()=>setCh({...DEF_CH,...s.ch})}
-                                  style={{marginTop:2,padding:'2px 0',fontSize:9,letterSpacing:1,
-                                          background:'#1e293b',border:'1px solid #334155',borderRadius:1,
-                                          color:'#64748b',cursor:'pointer',width:'100%'}}>LOAD</button>
-                              </div>
-                            ))}
-                          </div>}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
             <Toggle label="Layout" value={ch.layout} onChange={pCh('layout')}
               options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
             <Field label="Weight"
@@ -3901,109 +4016,7 @@ function App(){
             })()}
           </Sec></div>
 
-          <div id="zone-build" style={dim('build','presets')}><Sec title="BUILD" open={open.build} onToggle={tog('build')}>
-            <div id="zone-presets" style={dim('presets')}>
-            {(()=>{
-              const PRESET_DESC={
-                1:{tag:'Road comfort',sub:'Soft · compliant'},
-                2:{tag:'Corner focus',sub:'Firm · front load'},
-                3:{tag:'High travel',sub:'Soft · loose rear'},
-                4:{tag:'Rotation',sub:'Rear-biased · exit'},
-                5:{tag:'Max grip',sub:'Very stiff · track'},
-                6:{tag:'Max travel',sub:'Very soft · float'},
-              };
-              const saveCurrentBuild=()=>{
-                const name=buildName.trim()||'Untitled';
-                setMyBuilds(b=>[{id:Date.now(),name,fe:{...fe},dr:{...dr},savedAt:new Date().toLocaleDateString()},...b]);
-                setBuildName('');
-              };
-              const cardGrid=(children,maxH=180)=>(
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:4,
-                             maxHeight:maxH,overflowY:'auto',overscrollBehavior:'contain'}}>
-                  {children}
-                </div>
-              );
-              const card=(key,name,line1,line2,onLoad,onDel,onOverwrite)=>(
-                <div key={key} style={{background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
-                                       padding:'6px 7px',display:'flex',flexDirection:'column',gap:3,minWidth:0}}>
-                  <div style={{display:'flex',alignItems:'flex-start',gap:3,minWidth:0}}>
-                    {onOverwrite&&<OverwriteBtn onConfirm={onOverwrite}/>}
-                    <span style={{fontSize:11,color:'#cbd5e1',fontWeight:600,flex:1,
-                                  overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
-                                  minWidth:0}}>{name}</span>
-                    {onDel&&<button onClick={onDel}
-                      style={{background:'none',border:'none',color:'#374151',cursor:'pointer',
-                              fontSize:12,lineHeight:1,padding:'0 0 0 2px',flexShrink:0}}>×</button>}
-                  </div>
-                  <span style={{fontSize:9,color:'#475569'}}>{line1}</span>
-                  <span style={{fontSize:8,color:'#334155'}}>{line2}</span>
-                  <button onClick={onLoad}
-                    style={{marginTop:2,padding:'2px 0',fontSize:9,letterSpacing:1,
-                            background:'#1e293b',border:'1px solid #334155',borderRadius:1,
-                            color:'#64748b',cursor:'pointer',width:'100%'}}>LOAD</button>
-                </div>
-              );
-              return(
-                <div style={{marginBottom:10}}>
-                  <div onClick={()=>setOpen(p=>({...p,presetsOpen:!p.presetsOpen}))}
-                    style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',
-                            padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
-                            border:'1px solid #1e293b',userSelect:'none'}}>
-                    <span style={{fontSize:10,letterSpacing:2,color:'#64748b'}}>BUILDS</span>
-                    {myBuilds.length>0&&<span style={{fontSize:10,color:'#475569',marginLeft:2}}>{myBuilds.length}</span>}
-                    <span style={{marginLeft:'auto',fontSize:10,color:'#475569'}}>{open.presetsOpen?'▲':'▼'}</span>
-                  </div>
-                  {open.presetsOpen&&(
-                    <div style={{background:'#080c14',border:'1px solid #1e293b',borderTop:'none',
-                                 borderRadius:'0 0 2px 2px',padding:'8px 8px 6px',display:'flex',flexDirection:'column',gap:8}}>
-                      <div>
-                        <div onClick={()=>setOpen(p=>({...p,factoryOpen:!p.factoryOpen}))}
-                          style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:4,userSelect:'none'}}>
-                          <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>FACTORY</span>
-                          <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.factoryOpen?'▲':'▼'}</span>
-                        </div>
-                        {open.factoryOpen&&cardGrid([1,2,3,4,5,6].map(i=>
-                          card(i,PRESET_SAVES[i].name,PRESET_DESC[i].tag,PRESET_DESC[i].sub,
-                            ()=>loadPreset(i),null)
-                        ))}
-                      </div>
-                      <div>
-                        <div onClick={()=>setOpen(p=>({...p,myBuildsOpen:!p.myBuildsOpen}))}
-                          style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:4,userSelect:'none'}}>
-                          <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>MY BUILDS</span>
-                          {myBuilds.length>0&&<span style={{fontSize:9,color:'#475569'}}>{myBuilds.length}</span>}
-                          <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.myBuildsOpen?'▲':'▼'}</span>
-                        </div>
-                        {open.myBuildsOpen&&<>
-                        <div style={{display:'flex',gap:4,marginBottom:6}}>
-                          <input value={buildName} onChange={e=>setBuildName(e.target.value)}
-                            onKeyDown={e=>e.key==='Enter'&&saveCurrentBuild()}
-                            placeholder="Name this build…"
-                            style={{flex:1,background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
-                                    padding:'4px 7px',fontSize:11,color:'#e2e8f0',outline:'none',
-                                    fontFamily:'inherit'}}/>
-                          <button onClick={saveCurrentBuild}
-                            style={{padding:'4px 10px',fontSize:10,letterSpacing:1,background:'#1e293b',
-                                    border:'1px solid #334155',borderRadius:2,color:'#94a3b8',
-                                    cursor:'pointer',flexShrink:0}}>SAVE</button>
-                        </div>
-                        {myBuilds.length===0
-                          ? <div style={{fontSize:10,color:'#374151',textAlign:'center',padding:'8px 0',letterSpacing:1}}>NO SAVED BUILDS</div>
-                          : cardGrid(myBuilds.map(b=>{
-                              const bType=(b.dr?.buildType??'track').toUpperCase();
-                              return card(b.id,b.name,`${bType} · ${b.savedAt}`,'',
-                                ()=>{setFe({...DEF_FE,...b.fe});setDr({...DEF_DR,...b.dr});},
-                                ()=>setMyBuilds(p=>p.filter(x=>x.id!==b.id)),
-                                ()=>setMyBuilds(p=>p.map(x=>x.id===b.id?{...x,fe:{...fe},dr:{...dr},savedAt:new Date().toLocaleDateString()}:x)));
-                            }),220)}
-                        </>}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-            </div>
+          <div id="zone-build" style={dim('build')}><Sec title="BUILD" open={open.build} onToggle={tog('build')}>
             <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'},{value:'rally',label:'RALLY'},{value:'offroad',label:'OFFROAD'},{value:'drag',label:'DRAG'}]}
               hint="Determines your intended use. Shifts alignment targets, diff AUTO behaviour, diff type recommendation, brake balance, and the recommended Mech Balance Target range."/>
@@ -5329,6 +5342,8 @@ function App(){
               <button className="tbtn" onClick={()=>setShowResetModal(true)} style={{fontSize:11,color:'#fca5a5'}}
                 title="Reset tune or tutorials to defaults (saves not affected)">RESET</button>
               <div style={{flex:1}}/>
+              {uiMode!=='beginner'&&<button className="tbtn" style={{fontSize:11}}
+                onClick={()=>setGaragePanelOpen(o=>!o)}>GARAGE{entries.length>0?` ${entries.length}`:''}</button>}
               <button className="tbtn" onClick={()=>setShowChecker(true)} style={{fontSize:11}}>CHECK</button>
               <button className="tbtn" style={{fontSize:11}} onClick={()=>{
                 setDataMode('share');setShareSel({ch:true,fe:true,dr:true});
@@ -5909,6 +5924,66 @@ function App(){
           </div>
 
         </div>{/* end output panel */}
+
+        {/* GARAGE DRAWER — mirrors the left sidebar's overlay pattern with the axis
+            flipped. Lives inside the flex body (not position:fixed) so the header and the
+            pinned balance bar stay reachable while it's open. */}
+        {uiMode!=='beginner'&&<>
+          {garagePanelOpen&&isMobile&&
+            <div onClick={()=>setGaragePanelOpen(false)}
+                 style={{position:'absolute',inset:0,background:'#00000088',zIndex:150}}/>}
+          <div id="zone-garage" style={{
+            position:'absolute',top:0,right:0,bottom:0,zIndex:200,
+            width:isMobile?'100%':Math.min(420,Math.max(320,Math.floor(windowWidth*0.26))),
+            background:'#020617',borderLeft:'1px solid #0f172a',
+            display:'flex',flexDirection:'column',
+            transform:garagePanelOpen?'translateX(0)':'translateX(100%)',
+            transition:'transform .2s ease',
+            boxShadow:garagePanelOpen?'-4px 0 24px #000000cc':'none',
+            // a translated-off element is still focusable — without this, Tab from the
+            // output panel would land in the closed drawer's inputs
+            visibility:garagePanelOpen?'visible':'hidden',
+            ...dim('garage'),
+          }}>
+            <div style={{display:'flex',alignItems:'center',gap:6,padding:'9px 12px',
+                         borderBottom:'1px solid #0f172a',flexShrink:0}}>
+              <span style={{fontSize:11,letterSpacing:2,color:'#9ca3af'}}>GARAGE</span>
+              <span style={{fontSize:10,color:'#475569'}}>{entries.length}</span>
+              <span style={{flex:1}}/>
+              <button onClick={()=>setGaragePanelOpen(false)}
+                style={{background:'none',border:'none',color:'#94a3b8',cursor:'pointer',
+                        fontSize:16,lineHeight:1,padding:0}}>✕</button>
+            </div>
+            {/* save row */}
+            <div style={{padding:'8px 12px',borderBottom:'1px solid #0f172a',flexShrink:0}}>
+              <input value={entryName} onChange={e=>setEntryName(e.target.value)}
+                placeholder="Name this entry…"
+                style={{width:'100%',background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
+                        padding:'4px 7px',fontSize:11,color:'#e2e8f0',outline:'none',
+                        fontFamily:'inherit',marginBottom:5}}/>
+              <div style={{display:'flex',gap:4}}>
+                {[['chassis','SAVE CHASSIS'],['build','SAVE BUILD'],['both','SAVE CAR']].map(([k,l])=>(
+                  <button key={k} className="tbtn" style={{flex:1,fontSize:9}}
+                    onClick={()=>garageSave(k)}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{flex:1,minHeight:0,overflowY:'auto',overscrollBehavior:'contain',
+                         WebkitOverflowScrolling:'touch',padding:'8px 12px'}}>
+              {entries.length===0
+                ?<div style={{fontSize:10,color:'#374151',textAlign:'center',padding:'20px 0',letterSpacing:1}}>
+                   NO SAVED ENTRIES<div style={{fontSize:9,marginTop:6,letterSpacing:0}}>
+                     Name your setup above, then save it as a chassis, a build, or both.</div>
+                 </div>
+                :entries.map(e=>(
+                   <EntryCard key={e.id} entry={e} metricUnits={metricUnits} allTags={allTags}
+                     onLoadChassis={garageLoadChassis} onLoadBuild={garageLoadBuild}
+                     onRewrite={garageRewrite} onDelete={garageDelete} onRename={garageRename}
+                     onNotes={garageNotes} onAddTag={garageAddTag} onRemoveTag={garageRemoveTag}/>
+                 ))}
+            </div>
+          </div>
+        </>}
       </div>
     </div>
   );
