@@ -2430,8 +2430,8 @@ const TUTORIALS={
      focus:['weight'],
      body:'Enter your car\'s total weight and front weight bias from the car stat screen — use the selection screen, not the tuning menu. These two numbers drive almost every calculation in the app, including the factory presets.'},
     {title:'Start From a Build',
-     focus:['presets'],
-     body:'Open the BUILDS drawer. FACTORY (its own collapsible drawer) has six presets — STREET, TRACK, RALLY, DRIFT, MOTORSPT, X COUNTRY — each setting a stiffness level, rear spring ratio, and damping character tuned for that build style. Load the closest one after entering your car\'s weight and bias, then adjust from there. Your own saved tunes appear below in the separate MY BUILDS drawer.'},
+     focus:['garage'],sidebar:'close',
+     body:'Tap GARAGE in the toolbar to slide out your garage. At the top, FACTORY has six presets — STREET, TRACK, RALLY, DRIFT, MOTORSPT, X COUNTRY — each setting a stiffness level, rear spring ratio, and damping character tuned for that build style. The one marked ★ matches your build type. Load the closest one after entering your car\'s weight and bias, then adjust from there. Loading is undoable with the ↩ button, so try as many as you like.'},
     {title:'Ride Stiffness',
      focus:['ride-stiffness'],
      body:'Controls overall suspension stiffness. FIRM is a better starting point — sharper response with good body control for most builds. SOFT for rough surfaces or maximum comfort. ROAD for a softer, more comfort-leaning setup. RACE for smooth circuits only — too stiff for anything else. The Hz readout and badge update as you move the slider.'},
@@ -2451,7 +2451,7 @@ const TUTORIALS={
   intermediate:[
     {title:'Welcome — Intermediate Mode',
      focus:null,
-     body:'Intermediate mode unlocks more of the tuning surface on top of Beginner — individual ride frequency and damping controls, ARB modes, and garage saves. Sections in the sidebar are collapsible. This guide only covers what\'s new.'},
+     body:'Intermediate mode unlocks more of the tuning surface on top of Beginner — individual ride frequency and damping controls, and ARB modes. Sections in the sidebar are collapsible. This guide only covers what\'s new.'},
     {title:'Key Terms — Frequency & Damping',
      focus:null,
      // Glossary-style term/def pairs instead of a run-on paragraph — same treatment as
@@ -2487,9 +2487,9 @@ const TUTORIALS={
     {title:'Dampers',
      focus:['damping'],
      body:'REBOUND MODE and BUMP MODE toggles sit above their sliders. Rebound ζ at 70% (Butterworth) is the sweet spot — settles cleanly without oscillating; below 40% is bouncy, above 100% is sluggish. Bump Ratio sets compression as a fraction of rebound (40–65% typical). Damping Bias splits front/rear: FRONT keeps the front firm while the rear softens (planted entry); REAR softens the front (easier direction changes) — shown in the DAMP row of Handling Balance.'},
-    {title:'Garage & Builds',
-     focus:['presets','garage'],
-     body:'GARAGE (in the CHASSIS section) saves your car\'s physical setup — weight, front bias, and drivetrain layout — so you can quickly switch between cars. MY BUILDS (its own drawer in BUILDS, alongside FACTORY) saves your tune — feel settings and diff tune. Loading a build always applies both. The SHARE button in the toolbar handles sharing codes between devices (COPY CODE / LOAD CODE), backing up your saved data as a JSON file (BACKUP), and restoring from a backup file (RESTORE).'},
+    {title:'Garage',
+     focus:['garage'],sidebar:'close',
+     body:'GARAGE (toolbar button) is one place for everything you save. Each entry is a CHASSIS (weight, bias, layout), a BUILD (feel settings and diff tune), or a CAR holding both — save whichever you want with the three buttons at the top. A car gives you separate LOAD CHASSIS and LOAD BUILD buttons, so you can mix one car\'s chassis with another\'s tune. Every load is undoable with ↩.\n\nEntries carry notes and your own tags, plus automatic ones (drivetrain, weight balance, stiffness band, build type) that you can search on directly. Filter by kind, sort, and search from the row under the save buttons. ↺ rewrites an entry from your current setup — pick CHASSIS, BUILD, or BOTH, and BOTH is how you turn a chassis entry into a full car.\n\nThe SHARE button handles codes between devices (COPY CODE / LOAD CODE), a JSON backup of your garage (BACKUP), and restoring one (RESTORE) — including backups made before the garage was unified.'},
   ],
   pro:[
     {title:'Welcome — Pro Mode',
@@ -2914,8 +2914,8 @@ function App(){
     // current tutorial step points at (and collapse the rest) so the highlighted
     // fields are actually visible instead of hidden behind a closed accordion.
     setOpen(p=>({...p,
-      chassis:!!(tutFocus?.includes('chassis')||tutFocus?.includes('garage')),
-      build:!!(tutFocus?.includes('build')||tutFocus?.includes('presets')),
+      chassis:!!(tutFocus?.includes('chassis')),
+      build:!!(tutFocus?.includes('build')),
       balance:!!(tutFocus?.includes('balance-target')),
       drivetrain:!!(tutFocus?.includes('drivetrain')),
       arb:!!(tutFocus?.includes('arb')),
@@ -2924,7 +2924,9 @@ function App(){
       alignment:!!(tutFocus?.includes('alignment')),
       visuals:!!(tutFocus?.includes('visuals')),
     }));
-    if(tutFocus?.includes('garage'))setGaragePanelOpen(true);
+    // Assignment, not a conditional: the old inline drawer only ever needed opening, but a
+    // full-height overlay left open would obscure the results panel for every later step.
+    setGaragePanelOpen(!!tutFocus?.includes('garage'));
     const stepMeta=TUTORIALS[tutMode]?.[tutStep];
     if(stepMeta?.sidebar==='close')setSidebarOpen(false);
     else if(stepMeta?.sidebar==='open')setSidebarOpen(true);
