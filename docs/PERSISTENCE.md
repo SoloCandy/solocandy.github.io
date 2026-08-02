@@ -17,7 +17,7 @@ examples of that).
 | `suspos_units_v1` | Metric vs imperial display toggle | `false` (imperial) |
 | `suspos_saves_v9` | Legacy preset save slots — **read-only**, first link in the migration chain below | `PRESET_SAVES` |
 | `suspos_uimode_v1` | Current complexity tier (`beginner`/`intermediate`/`pro`) | `'beginner'` |
-| `suspos_zoom_v1` | Desktop UI zoom level | `1.1` |
+| `suspos_zoom_v1` | Desktop UI zoom level — **read-only** since the header zoom buttons were removed in favour of browser zoom. A previously-set value is still honoured; nothing writes it any more | `1.1` |
 | `suspos_tutorial_seen_v1` | Which tier guides have been dismissed | `{beginner:false, intermediate:false, pro:false}` |
 | `suspos_baltut_seen_v1` | Whether the Handling Balance bar's own guide has been seen | `false` |
 | `suspos_onboard_v1` | Whether the first-run onboarding has been seen | `true` |

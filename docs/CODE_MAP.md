@@ -155,7 +155,7 @@ All keys are namespaced `suspos_`. Versions are per-key; see
 requires it — the stale key is simply ignored).
 
 `suspos_ch_v8`, `suspos_fe_v8`, `suspos_dr_v8`, `suspos_al_v2`,
-`suspos_units_v1`, `suspos_uimode_v1`, `suspos_zoom_v1`,
+`suspos_units_v1`, `suspos_uimode_v1`, `suspos_zoom_v1` (read-only now),
 `suspos_tutorial_seen_v1`, `suspos_baltut_seen_v1`, `suspos_onboard_v1`,
 `suspos_garage_v2`, `suspos_garage_ui_v1`.
 

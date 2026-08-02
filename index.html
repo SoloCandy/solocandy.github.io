@@ -2431,7 +2431,7 @@ const TUTORIALS={
      body:'Enter your car\'s total weight and front weight bias from the car stat screen — use the selection screen, not the tuning menu. These two numbers drive almost every calculation in the app, including the factory presets.'},
     {title:'Start From a Build',
      focus:['garage'],sidebar:'close',
-     body:'Tap GARAGE in the toolbar to slide out your garage. At the top, FACTORY has six presets — STREET, TRACK, RALLY, DRIFT, MOTORSPT, X COUNTRY — each setting a stiffness level, rear spring ratio, and damping character tuned for that build style. The one marked ★ matches your build type. Load the closest one after entering your car\'s weight and bias, then adjust from there. Loading is undoable with the ↩ button, so try as many as you like.'},
+     body:'Tap GARAGE at the top right to slide out your garage. At the top, FACTORY has six presets — STREET, TRACK, RALLY, DRIFT, MOTORSPT, X COUNTRY — each setting a stiffness level, rear spring ratio, and damping character tuned for that build style. The one marked ★ matches your build type. Load the closest one after entering your car\'s weight and bias, then adjust from there. Loading is undoable with the ↩ button, so try as many as you like.'},
     {title:'Ride Stiffness',
      focus:['ride-stiffness'],
      body:'Controls overall suspension stiffness. FIRM is a better starting point — sharper response with good body control for most builds. SOFT for rough surfaces or maximum comfort. ROAD for a softer, more comfort-leaning setup. RACE for smooth circuits only — too stiff for anything else. The Hz readout and badge update as you move the slider.'},
@@ -2489,7 +2489,7 @@ const TUTORIALS={
      body:'REBOUND MODE and BUMP MODE toggles sit above their sliders. Rebound ζ at 70% (Butterworth) is the sweet spot — settles cleanly without oscillating; below 40% is bouncy, above 100% is sluggish. Bump Ratio sets compression as a fraction of rebound (40–65% typical). Damping Bias splits front/rear: FRONT keeps the front firm while the rear softens (planted entry); REAR softens the front (easier direction changes) — shown in the DAMP row of Handling Balance.'},
     {title:'Garage',
      focus:['garage'],sidebar:'close',
-     body:'GARAGE (toolbar button) is one place for everything you save. Each entry is a CHASSIS (weight, bias, layout), a BUILD (feel settings and diff tune), or a CAR holding both — save whichever you want with the three buttons at the top. A car gives you separate LOAD CHASSIS and LOAD BUILD buttons, so you can mix one car\'s chassis with another\'s tune. Every load is undoable with ↩.\n\nEntries carry notes and your own tags, plus automatic ones (drivetrain, weight balance, stiffness band, build type) that you can search on directly. Filter by kind, sort, and search from the row under the save buttons. ↺ rewrites an entry from your current setup — pick CHASSIS, BUILD, or BOTH, and BOTH is how you turn a chassis entry into a full car.\n\nThe SHARE button handles codes between devices (COPY CODE / LOAD CODE), a JSON backup of your garage (BACKUP), and restoring one (RESTORE) — including backups made before the garage was unified.'},
+     body:'GARAGE (top right) is one place for everything you save. Each entry is a CHASSIS (weight, bias, layout), a BUILD (feel settings and diff tune), or a CAR holding both — save whichever you want with the three buttons at the top. A car gives you separate LOAD CHASSIS and LOAD BUILD buttons, so you can mix one car\'s chassis with another\'s tune. Every load is undoable with ↩.\n\nEntries carry notes and your own tags, plus automatic ones (drivetrain, weight balance, stiffness band, build type) that you can search on directly. Filter by kind, sort, and search from the row under the save buttons. ↺ rewrites an entry from your current setup — pick CHASSIS, BUILD, or BOTH, and BOTH is how you turn a chassis entry into a full car.\n\nThe SHARE button handles codes between devices (COPY CODE / LOAD CODE), a JSON backup of your garage (BACKUP), and restoring one (RESTORE) — including backups made before the garage was unified.'},
   ],
   pro:[
     {title:'Welcome — Pro Mode',
@@ -2782,8 +2782,10 @@ function App(){
   const[metricUnits,setMetricUnits]=usePersist('suspos_units_v1',false);
   const[saves]=usePersist('suspos_saves_v9',PRESET_SAVES); // read-only: legacy slots, source for one-time MY BUILDS migration
   const[uiMode,setUiMode]=usePersist('suspos_uimode_v1','beginner');
-  const[uiZoom,setUiZoom]=usePersist('suspos_zoom_v1',1.1);
-  const bumpZoom=d=>setUiZoom(z=>parseFloat(Math.max(0.7,Math.min(1.6,z+d)).toFixed(2)));
+  // Read-only since the header zoom buttons were removed — the persisted value is still
+  // honoured (anyone who had set a custom zoom keeps it) but the app no longer writes it.
+  // Browser zoom (Ctrl +/-) covers the same need.
+  const[uiZoom]=usePersist('suspos_zoom_v1',1.1);
   const[tutSeen,setTutSeen]=usePersist('suspos_tutorial_seen_v1',{beginner:false,intermediate:false,pro:false});
   const[balTutSeen,setBalTutSeen]=usePersist('suspos_baltut_seen_v1',false);
   const[balTutOpen,setBalTutOpen]=useState(false);
@@ -3426,18 +3428,9 @@ function App(){
               onClick={()=>openTut(uiMode)}>?</button>
             <button className="tbtn" style={{fontSize:11}} title="Glossary — look up a term"
               onClick={()=>setShowGlossary(true)}>TERMS</button>
-            {!isPhone&&<>
-            <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
-            <button className="tbtn" style={{fontSize:11}} title="Zoom out"
-              onClick={()=>bumpZoom(-0.1)} disabled={uiZoom<=0.7}>−</button>
-            <span style={{fontSize:10,color:uiZoom===1?'#475569':'#94a3b8',
-                          fontFamily:'var(--font-mono)',minWidth:28,textAlign:'center',
-                          letterSpacing:0,userSelect:'none'}}>
-              {Math.round(uiZoom*100)}%
-            </span>
-            <button className="tbtn" style={{fontSize:11}} title="Zoom in"
-              onClick={()=>bumpZoom(0.1)} disabled={uiZoom>=1.6}>+</button>
-            </>}
+            {!isPhone&&<div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>}
+            <button className="tbtn" style={{fontSize:11}} title="Open your garage"
+              onClick={()=>setGaragePanelOpen(o=>!o)}>GARAGE{entries.length>0?` ${entries.length}`:''}</button>
           </div>
         </div>
         {/* Row 2 — mobile only: complexity selector */}
@@ -5262,8 +5255,6 @@ function App(){
               <button className="tbtn" onClick={()=>setShowResetModal(true)} style={{fontSize:11,color:'#fca5a5'}}
                 title="Reset tune or tutorials to defaults (saves not affected)">RESET</button>
               <div style={{flex:1}}/>
-              <button className="tbtn" style={{fontSize:11}}
-                onClick={()=>setGaragePanelOpen(o=>!o)}>GARAGE{entries.length>0?` ${entries.length}`:''}</button>
               <button className="tbtn" onClick={()=>setShowChecker(true)} style={{fontSize:11}}>CHECK</button>
               <button className="tbtn" style={{fontSize:11}} onClick={()=>{
                 setDataMode('share');setShareSel({ch:true,fe:true,dr:true});
