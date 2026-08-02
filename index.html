@@ -1196,6 +1196,18 @@ const PRESET_SAVES=(()=>{
        dr:{...DEF_DR,buildType:'offroad',diffType:'offroad'}},
   };
 })();
+// Lifted to module scope when the GARAGE panel unified the two builds drawers — these used
+// to be duplicated (with diverging text) in the Beginner panel and the INT/PRO BUILD
+// section. One copy now, rendered in the panel's FACTORY section for every tier.
+const PRESET_DESC={
+  1:{tag:'Road comfort',sub:'Soft springs · compliant damping'},
+  2:{tag:'Corner focus',sub:'Firm platform · front load'},
+  3:{tag:'High travel',sub:'Soft springs · loose rear'},
+  4:{tag:'Rotation',sub:'Rear-biased · aggressive exit'},
+  5:{tag:'Max grip',sub:'Very stiff · track-tuned'},
+  6:{tag:'Max travel',sub:'Very soft · float feel'},
+};
+const BUILD_PRESET_MAP={street:[1],track:[2,5],drift:[4],rally:[3],offroad:[6],drag:[2]};
 
 const Hint=({text})=>{
   const[pos,setPos]=useState(null);
@@ -2783,7 +2795,6 @@ function App(){
   // The suspos_builds_v1 KEY itself is also a migration source for the unified garage; see
   // the note on that effect. Do not remove.
   const[myBuilds,setMyBuilds]=usePersist('suspos_builds_v1',[]);
-  const[buildName,setBuildName]=useState('');
   // Unified GARAGE entry list — chassis / build / car entries in one place.
   const[entries,setEntries]=usePersist('suspos_garage_v2',[]);
   // Standalone, deliberately NOT a key in `open`: the SECTIONS −/+ buttons blanket-toggle
@@ -2905,7 +2916,6 @@ function App(){
       dampers:!!(tutFocus?.includes('damping')),
       alignment:!!(tutFocus?.includes('alignment')),
       visuals:!!(tutFocus?.includes('visuals')),
-      presetsOpen:!!(tutFocus?.includes('presets')),
     }));
     if(tutFocus?.includes('garage'))setGaragePanelOpen(true);
     const stepMeta=TUTORIALS[tutMode]?.[tutStep];
@@ -2917,7 +2927,7 @@ function App(){
     // that panel isn't obstructed. Focus-less info steps leave it as the user set it.
     else if(tutFocus)setSidebarOpen(!(tutFocus.includes('output')||tutFocus.includes('balance-bar')));
   },[tutMode,tutStep]); // eslint-disable-line
-  const[open,setOpen]=useState({chassis:false,build:false,balance:false,ride:false,dampers:false,arb:false,drivetrain:false,balanceExpanded:false,presetsOpen:false,startFromOpen:true,factoryOpen:true,myBuildsOpen:true,visuals:false,visArb:true,visRideDampers:true,visDynamics:true,visSag:true});
+  const[open,setOpen]=useState({chassis:false,build:false,balance:false,ride:false,dampers:false,arb:false,drivetrain:false,balanceExpanded:false,factoryOpen:true,visuals:false,visArb:true,visRideDampers:true,visDynamics:true,visSag:true});
   // RIDE HEIGHT → CG: when active, keep ch.cgHeight in sync with the ride-height/tyre-radius
   // estimate instead of leaving it as a plain manual field. Only writes when both tyre sizes
   // parse to a full radius, and only when the rounded-mm result actually changed, so this
@@ -3505,126 +3515,6 @@ function App(){
                   </div>;
                 })()}
 
-                {/* START FROM presets — after weight inputs so they apply correctly */}
-                <div id="zone-presets" style={dim('presets')}>
-                {(()=>{
-                  const PRESET_DESC={
-                    1:{tag:'Road comfort',sub:'Soft springs · compliant damping'},
-                    2:{tag:'Corner focus',sub:'Firm platform · front load'},
-                    3:{tag:'High travel',sub:'Soft springs · loose rear'},
-                    4:{tag:'Rotation',sub:'Rear-biased · aggressive exit'},
-                    5:{tag:'Max grip',sub:'Very stiff · track-tuned'},
-                    6:{tag:'Max travel',sub:'Very soft · float feel'},
-                  };
-                  const BUILD_PRESET_MAP={street:[1],track:[2,5],drift:[4],rally:[3],offroad:[6],drag:[2]};
-                  const recommended=BUILD_PRESET_MAP[dr.buildType??'track']??[];
-                  return(
-                    <div style={{marginBottom:14}}>
-                      <div onClick={()=>setOpen(p=>({...p,startFromOpen:!p.startFromOpen}))}
-                        style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',
-                                padding:'5px 8px',background:'#0a0f1a',borderRadius:2,
-                                border:'1px solid #1e293b',userSelect:'none',marginBottom:open.startFromOpen?0:0}}>
-                        <span style={{fontSize:10,letterSpacing:2,color:'#64748b'}}>BUILDS</span>
-                        {myBuilds.length>0&&<span style={{fontSize:10,color:'#475569',marginLeft:2}}>{myBuilds.length}</span>}
-                        <span style={{marginLeft:'auto',fontSize:10,color:'#475569'}}>{open.startFromOpen?'▲':'▼'}</span>
-                      </div>
-                      {open.startFromOpen&&(
-                        <div style={{background:'#080c14',border:'1px solid #1e293b',borderTop:'none',
-                                     borderRadius:'0 0 2px 2px',padding:'6px 6px 4px',display:'flex',flexDirection:'column',gap:8}}>
-                          <div>
-                            <div onClick={()=>setOpen(p=>({...p,factoryOpen:!p.factoryOpen}))}
-                              style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:4,userSelect:'none'}}>
-                              <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>FACTORY</span>
-                              <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.factoryOpen?'▲':'▼'}</span>
-                            </div>
-                            {open.factoryOpen&&
-                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:4}}>
-                              {[1,2,3,4,5,6].map(i=>{
-                                const d=PRESET_DESC[i];
-                                const isRec=recommended.includes(i);
-                                return(
-                                  <div key={i} style={{background:'#0f172a',
-                                                       border:`1px solid ${isRec?'#4f46e5':'#1e293b'}`,
-                                                       borderRadius:2,padding:'6px 7px',
-                                                       display:'flex',flexDirection:'column',gap:3}}>
-                                    <span style={{fontSize:11,color:'#cbd5e1',fontWeight:600,
-                                                  letterSpacing:.5}}>{PRESET_SAVES[i].name}</span>
-                                    <span style={{fontSize:9,color:'#475569',lineHeight:1.4}}>{d.tag}</span>
-                                    <span style={{fontSize:8,color:'#334155',lineHeight:1.4}}>{d.sub}</span>
-                                    {isRec&&<span style={{fontSize:8,color:'#818cf8',letterSpacing:.5}}>★ FOR YOUR BUILD</span>}
-                                    <button onClick={()=>loadPreset(i)}
-                                      style={{marginTop:2,padding:'2px 0',fontSize:9,letterSpacing:1,
-                                              background:isRec?'#1e1b4b':'#1e293b',
-                                              border:`1px solid ${isRec?'#4338ca':'#334155'}`,borderRadius:1,
-                                              color:isRec?'#a5b4fc':'#64748b',cursor:'pointer',width:'100%'}}>LOAD</button>
-                                  </div>
-                                );
-                              })}
-                            </div>}
-                          </div>
-                          <div>
-                            <div onClick={()=>setOpen(p=>({...p,myBuildsOpen:!p.myBuildsOpen}))}
-                              style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:4,userSelect:'none'}}>
-                              <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>MY BUILDS</span>
-                              {myBuilds.length>0&&<span style={{fontSize:9,color:'#475569'}}>{myBuilds.length}</span>}
-                              <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.myBuildsOpen?'▲':'▼'}</span>
-                            </div>
-                            {open.myBuildsOpen&&<>
-                            <div style={{display:'flex',gap:4,marginBottom:6}}>
-                              <input value={buildName} onChange={e=>setBuildName(e.target.value)}
-                                onKeyDown={e=>e.key==='Enter'&&(()=>{
-                                  const name=buildName.trim()||'Untitled';
-                                  setMyBuilds(b=>[{id:Date.now(),name,fe:{...fe},dr:{...dr},savedAt:new Date().toLocaleDateString()},...b]);
-                                  setBuildName('');
-                                })()}
-                                placeholder="Name this build…"
-                                style={{flex:1,background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
-                                        padding:'4px 7px',fontSize:11,color:'#e2e8f0',outline:'none',
-                                        fontFamily:'inherit'}}/>
-                              <button onClick={()=>{
-                                  const name=buildName.trim()||'Untitled';
-                                  setMyBuilds(b=>[{id:Date.now(),name,fe:{...fe},dr:{...dr},savedAt:new Date().toLocaleDateString()},...b]);
-                                  setBuildName('');
-                                }}
-                                style={{padding:'4px 10px',fontSize:10,letterSpacing:1,background:'#1e293b',
-                                        border:'1px solid #334155',borderRadius:2,color:'#94a3b8',
-                                        cursor:'pointer',flexShrink:0}}>SAVE</button>
-                            </div>
-                            {myBuilds.length===0
-                              ? <div style={{fontSize:10,color:'#374151',textAlign:'center',padding:'8px 0',letterSpacing:1}}>NO SAVED BUILDS</div>
-                              : <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:4,
-                                             maxHeight:180,overflowY:'auto',overscrollBehavior:'contain'}}>
-                                  {myBuilds.map(b=>{
-                                    const bType=(b.dr?.buildType??'track').toUpperCase();
-                                    return(
-                                      <div key={b.id} style={{background:'#0f172a',border:'1px solid #1e293b',borderRadius:2,
-                                                             padding:'6px 7px',display:'flex',flexDirection:'column',gap:3,minWidth:0}}>
-                                        <div style={{display:'flex',alignItems:'flex-start',gap:3,minWidth:0}}>
-                                          <OverwriteBtn onConfirm={()=>setMyBuilds(p=>p.map(x=>x.id===b.id?{...x,fe:{...fe},dr:{...dr},savedAt:new Date().toLocaleDateString()}:x))}/>
-                                          <span style={{fontSize:11,color:'#cbd5e1',fontWeight:600,flex:1,
-                                                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
-                                                        minWidth:0}}>{b.name}</span>
-                                          <button onClick={()=>setMyBuilds(p=>p.filter(x=>x.id!==b.id))}
-                                            style={{background:'none',border:'none',color:'#374151',cursor:'pointer',
-                                                    fontSize:12,lineHeight:1,padding:'0 0 0 2px',flexShrink:0}}>×</button>
-                                        </div>
-                                        <span style={{fontSize:9,color:'#475569'}}>{bType} · {b.savedAt}</span>
-                                        <button onClick={()=>{setFe({...DEF_FE,...b.fe});setDr({...DEF_DR,...b.dr});}}
-                                          style={{marginTop:2,padding:'2px 0',fontSize:9,letterSpacing:1,
-                                                  background:'#1e293b',border:'1px solid #334155',borderRadius:1,
-                                                  color:'#64748b',cursor:'pointer',width:'100%'}}>LOAD</button>
-                                      </div>
-                                    );
-                                  })}
-                                </div>}
-                            </>}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-                </div>
 
                 <div id="zone-ride-stiffness" style={dim('ride-stiffness')}>
                 <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,margin:'16px 0 14px'}}>FEEL</div>
@@ -5342,8 +5232,8 @@ function App(){
               <button className="tbtn" onClick={()=>setShowResetModal(true)} style={{fontSize:11,color:'#fca5a5'}}
                 title="Reset tune or tutorials to defaults (saves not affected)">RESET</button>
               <div style={{flex:1}}/>
-              {uiMode!=='beginner'&&<button className="tbtn" style={{fontSize:11}}
-                onClick={()=>setGaragePanelOpen(o=>!o)}>GARAGE{entries.length>0?` ${entries.length}`:''}</button>}
+              <button className="tbtn" style={{fontSize:11}}
+                onClick={()=>setGaragePanelOpen(o=>!o)}>GARAGE{entries.length>0?` ${entries.length}`:''}</button>
               <button className="tbtn" onClick={()=>setShowChecker(true)} style={{fontSize:11}}>CHECK</button>
               <button className="tbtn" style={{fontSize:11}} onClick={()=>{
                 setDataMode('share');setShareSel({ch:true,fe:true,dr:true});
@@ -5928,7 +5818,7 @@ function App(){
         {/* GARAGE DRAWER — mirrors the left sidebar's overlay pattern with the axis
             flipped. Lives inside the flex body (not position:fixed) so the header and the
             pinned balance bar stay reachable while it's open. */}
-        {uiMode!=='beginner'&&<>
+        <>
           {garagePanelOpen&&isMobile&&
             <div onClick={()=>setGaragePanelOpen(false)}
                  style={{position:'absolute',inset:0,background:'#00000088',zIndex:150}}/>}
@@ -5970,6 +5860,39 @@ function App(){
             </div>
             <div style={{flex:1,minHeight:0,overflowY:'auto',overscrollBehavior:'contain',
                          WebkitOverflowScrolling:'touch',padding:'8px 12px'}}>
+              {/* FACTORY — read-only, deliberately NOT entries. Keeping them out of the list
+                  avoids a `readonly` flag branching through every rewrite/delete/notes/tags
+                  affordance, keeps them out of counts/search/backups, and preserves
+                  loadPreset's tier-specific overrides. One LOAD button and no chassis button,
+                  which is what structurally enforces "a preset never touches ch". */}
+              <div style={{marginBottom:10}}>
+                <div onClick={()=>setOpen(p=>({...p,factoryOpen:!p.factoryOpen}))}
+                  style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',
+                          marginBottom:5,userSelect:'none'}}>
+                  <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>FACTORY</span>
+                  <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.factoryOpen?'▲':'▼'}</span>
+                </div>
+                {open.factoryOpen&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
+                  {[1,2,3,4,5,6].map(i=>{
+                    const rec=(BUILD_PRESET_MAP[dr.buildType??'track']??[]).includes(i);
+                    return(
+                      <div key={i} style={{background:'#0f172a',borderRadius:2,padding:'5px 6px',
+                        border:`1px solid ${rec?'#4f46e5':'#1e293b'}`,
+                        display:'flex',flexDirection:'column',gap:2,minWidth:0}}>
+                        <span style={{fontSize:10,color:'#cbd5e1',fontWeight:600,letterSpacing:.5}}>{PRESET_SAVES[i].name}</span>
+                        <span style={{fontSize:8,color:'#475569',lineHeight:1.3}}>{PRESET_DESC[i].tag}</span>
+                        <span style={{fontSize:8,color:'#334155',lineHeight:1.3}}>{PRESET_DESC[i].sub}</span>
+                        {rec&&<span style={{fontSize:8,color:'#818cf8',letterSpacing:.5}}>★ FOR YOUR BUILD</span>}
+                        <button onClick={()=>loadPreset(i)}
+                          style={{marginTop:2,padding:'2px 0',fontSize:8,letterSpacing:1,
+                                  background:rec?'#1e1b4b':'#1e293b',
+                                  border:`1px solid ${rec?'#4338ca':'#334155'}`,borderRadius:1,
+                                  color:rec?'#a5b4fc':'#64748b',cursor:'pointer',width:'100%'}}>LOAD</button>
+                      </div>
+                    );
+                  })}
+                </div>}
+              </div>
               {entries.length===0
                 ?<div style={{fontSize:10,color:'#374151',textAlign:'center',padding:'20px 0',letterSpacing:1}}>
                    NO SAVED ENTRIES<div style={{fontSize:9,marginTop:6,letterSpacing:0}}>
