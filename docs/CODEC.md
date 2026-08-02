@@ -90,10 +90,13 @@ Changing what a raw number *means* without changing its `id`/`group`/`key`
 is technically safe for the codec (it just moves bytes), but it silently
 reinterprets old codes under new rules. Two examples so far:
 
-- **id 18 (`layout`)** — moved from `group:'dr'` to `group:'ch'` so it
-  saves/loads with Garage instead of My Builds. Old codes still decode
-  correctly (the wire value is unchanged, only which in-memory object it's
-  written into changed).
+- **id 18 (`layout`)** — moved from `group:'dr'` to `group:'ch'` so it would save
+  and load with the chassis rather than the tune. (At the time those were two
+  separate systems, Garage and My Builds; they have since merged into one garage
+  where an entry can carry either or both — but the grouping still decides which
+  payload `layout` travels in, so the move stands. See
+  [PERSISTENCE.md](PERSISTENCE.md).) Old codes still decode correctly (the wire
+  value is unchanged, only which in-memory object it's written into changed).
 - **id 40 (`arbBalTarget`)** — changed from an absolute mech-balance value
   (0.20-0.90) to a delta from `naturalMechBalanceOf(ch)`. Old codes/saved
   builds with an explicit (non-default) target will be reinterpreted under
@@ -137,3 +140,10 @@ still remembers the toggle/inputs locally across reloads on the same
 device, they just don't travel with a shared code. If a future field looks
 like it should have an id but doesn't, check here first before assuming
 it's an oversight.
+
+Garage entries' `notes` and `tags` are excluded for the same reason, one level up:
+they describe *your* relationship to a tune ("needs work", "Nordschleife"), not the
+tune's physics. A share code carries the setup; your private note about it stays on
+your device. The whole garage is likewise outside the codec — a code is one tune,
+not a collection. Use BACKUP/RESTORE to move a garage between devices (see
+[PERSISTENCE.md](PERSISTENCE.md)).

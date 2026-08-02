@@ -1,7 +1,7 @@
 # SUSP.OS — Factory Presets Reference
 
-The six factory presets in `PRESET_SAVES`, loaded via
-the FACTORY cards in the BUILDS drawer. Each preset sets `fe` and `dr`
+The six factory presets in `PRESET_SAVES`, loaded via the FACTORY cards pinned
+at the top of the GARAGE drawer (all tiers). Each preset sets `fe` and `dr`
 fields on top of the defaults (`{...DEF_FE, ...}` / `{...DEF_DR, ...}`) —
 any field not listed below stays at its `DEF_FE`/`DEF_DR` default.
 
@@ -9,6 +9,17 @@ Loading a preset does **not** touch `ch` (chassis) or `layout` — both are
 treated as sticky, car-specific state that a preset shouldn't override (see
 `loadPreset`, and the `layout` migration in
 [CODEC.md](CODEC.md) for why layout in particular is excluded).
+
+That rule is now **structurally enforced**: presets are deliberately not garage
+entries, and each factory card exposes a single LOAD and no chassis button, so
+there is no affordance that could violate it. The user's own `car` entries are a
+separate concept with their own explicit LOAD CHASSIS / LOAD BUILD buttons — those
+*do* touch `ch`, which is the point of saving a car. See
+[PERSISTENCE.md](PERSISTENCE.md) for the entry model.
+
+Keeping presets out of the entry list also keeps them out of entry counts, search,
+sort and — most importantly — backup files, where six identical read-only entries
+would ride along in every export and multiply on every restore.
 
 **Beginner mode** additionally forces `arbBalMode:'neutral'` and
 `arbMode:'auto'` on preset load (Beginner doesn't expose these mode
@@ -39,10 +50,12 @@ only understands the simple rebound-ζ/bump-ratio model.
   ENTRY rows for what these values mean directionally (positive =
   oversteer-leaning per the convention documented there).
 
-## Build-type → recommended presets (Beginner mode)
+## Build-type → recommended presets
 
-Beginner mode's "★ FOR YOUR BUILD" recommendation
-(`BUILD_PRESET_MAP`) maps build type to preset numbers:
+The "★ FOR YOUR BUILD" recommendation (`BUILD_PRESET_MAP`) maps build type to
+preset numbers. It shows at **all tiers** — it was Beginner-only when the presets
+lived in two duplicated drawers, which read as an accident of which copy got the
+feature rather than a deliberate gate:
 
 | Build Type | Recommended preset(s) |
 |---|---|
@@ -57,9 +70,9 @@ Beginner mode's "★ FOR YOUR BUILD" recommendation
 
 - Add a new numbered entry to `PRESET_SAVES`, spreading `DEF_FE`/`DEF_DR`
   and overriding only what's distinctive about the preset.
-- Update `PRESET_DESC` (two nearby copies — Beginner panel and BUILD &
-  BALANCE's presets drawer) with a
-  `tag`/`sub` description pair.
+- Update `PRESET_DESC` (module scope, one copy — it used to be duplicated in the
+  Beginner panel and the BUILD section, with diverging text; unifying the garage
+  collapsed them) with a `tag`/`sub` description pair.
 - Consider adding it to `BUILD_PRESET_MAP` if it should be the recommended
   starting point for a build type.
 - Update this file.

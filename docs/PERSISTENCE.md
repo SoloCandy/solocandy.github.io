@@ -15,14 +15,18 @@ examples of that).
 | `suspos_dr_v8` | Drivetrain state (`dr`) — build type, diff type, diff lock/bias fields | `DEF_DR` |
 | `suspos_al_v2` | Alignment state (`al`) — mode (build/mech/grip/manual), nudgeStrength, manual camber/toe/caster, and the legacy `alignManual` flag (still read as a fallback for old saves — see [ALIGNMENT.md](ALIGNMENT.md)) | `DEF_AL` |
 | `suspos_units_v1` | Metric vs imperial display toggle | `false` (imperial) |
-| `suspos_saves_v9` | Legacy preset save slots — **read-only**, kept only as the one-time migration source for My Builds | `PRESET_SAVES` |
+| `suspos_saves_v9` | Legacy preset save slots — **read-only**, first link in the migration chain below | `PRESET_SAVES` |
 | `suspos_uimode_v1` | Current complexity tier (`beginner`/`intermediate`/`pro`) | `'beginner'` |
 | `suspos_zoom_v1` | Desktop UI zoom level | `1.1` |
 | `suspos_tutorial_seen_v1` | Which tier guides have been dismissed | `{beginner:false, intermediate:false, pro:false}` |
 | `suspos_baltut_seen_v1` | Whether the Handling Balance bar's own guide has been seen | `false` |
 | `suspos_onboard_v1` | Whether the first-run onboarding has been seen | `true` |
-| `suspos_garage_v1` | Saved Garage entries (chassis snapshots: `{id, name, ch, savedAt}`) | `[]` |
-| `suspos_builds_v1` | Saved My Builds entries (tune snapshots: `{id, name, fe, dr, savedAt}`) | `[]` |
+| `suspos_garage_v2` | **The garage.** Unified entry list — see the entry shape below | `[]` |
+| `suspos_garage_ui_v1` | Garage panel filter + sort preference (`{filter, sort}`) — search text is deliberately not persisted | `{filter:'all', sort:'recent'}` |
+| `suspos_garage_v1` | Legacy chassis-only Garage (`{id, name, ch, savedAt}`) — **read-only**, migration source | `[]` |
+| `suspos_builds_v1` | Legacy tune-only My Builds (`{id, name, fe, dr, savedAt}`) — **read-only**, migration source | `[]` |
+| `suspos_builds_migrated_v1` | Sentinel, not data — `suspos_saves_v9` → `suspos_builds_v1` migration has run | *(absent)* |
+| `suspos_garage_unified_v2` | Sentinel, not data — the `_v1` → `suspos_garage_v2` migration has run | *(absent)* |
 
 ## When to bump a version suffix
 
@@ -39,17 +43,84 @@ Don't bump for:
   handles this (existing users get the new default automatically).
 - Removing a field — the extra key just sits unused in storage, harmless.
 
-## Garage vs My Builds — what travels with what
+## The garage entry — what travels with what
 
-- **Garage** (`ch`) — the physical car: weight, front bias, tyres,
-  wheelbase, track widths, CG height, layout. Saving/loading a Garage entry
-  is a full generic spread (`{...ch}` / `{...DEF_CH,...s.ch}`), so any new
-  `ch` field automatically starts traveling with Garage saves with no code
-  change required.
-- **My Builds** (`fe` + `dr`) — the tune: feel settings and diff tune.
-  Same generic-spread behavior applies for any new `fe`/`dr` field.
+One list holds every saved thing. An entry carries any combination of payloads:
 
-This split was deliberately chosen (see the `layout` migration in
-[CODEC.md](CODEC.md)) so a field only needs to move between `ch` and
-`dr`/`fe` in the state model — Garage/My Builds save/load code itself never
-needs to change.
+```js
+{ id, name, ch?, fe?, dr?, tags:[], notes:'', createdAt, updatedAt }
+```
+
+Absent payloads are **omitted**, not stored as `null`. The entry's *kind* is
+**derived** from which payloads are present (`kindOf`), never stored — a stored
+kind would desync the moment an entry is rewritten:
+
+| Kind | Payloads | Load buttons |
+|---|---|---|
+| `chassis` | `ch` | LOAD CHASSIS |
+| `build` | `fe` + `dr` | LOAD BUILD |
+| `car` | `ch` + `fe` + `dr` | both, separately |
+| `empty` | none | none — corrupt entry, delete only |
+
+Save and load are still full generic spreads (`{...ch}` / `{...DEF_CH,...e.ch}`,
+and the same for `fe`/`dr`), so **any new `ch`/`fe`/`dr` field automatically
+travels with garage entries with no save/load code change** — the property the old
+two-list split existed to provide, preserved. Only the *grouping* changed: a field
+still only needs to live in the right one of `ch` / `fe` / `dr`.
+
+`notes` and `tags` are per-device metadata and deliberately **not** codec fields —
+see [CODEC.md](CODEC.md)'s excluded-fields section.
+
+### Migration chain
+
+`suspos_saves_v9` → `suspos_builds_v1` → `suspos_garage_v2`
+
+Each link is a mount-once effect guarded by its own sentinel, wrapped in
+`try/catch`, and **never deletes the source key**. The two `_v1` keys now have no
+UI and no React binding — the unified migration's two `getItem` calls are their
+*only* remaining readers. They look like dead keys to a search-based audit;
+removing them (or that effect) silently loses every saved chassis and build for
+anyone who hasn't opened the app since the unification. See
+[CODE_MAP.md](CODE_MAP.md)'s intentionally-retained-legacy section.
+
+That migration reads localStorage directly rather than the React state, because
+both migration effects run on the same mount pass — the state variables still hold
+their pre-migration values while localStorage is already current.
+
+## Array-valued keys need read-time normalization
+
+**`mergeDefaults` returns arrays verbatim.** It only spreads when *both* the
+default and the parsed value are non-array objects, so an array-valued key gets
+**no per-entry default filling at all**.
+
+This makes the "don't bump, adding a field is free" rule above **object-only**. For
+an array-valued key it is simply false: a new entry field is `undefined` on every
+previously stored element. The fix is a normalizer applied to everything entering
+the list (`normalizeEntry`, the single choke point for migration, legacy file
+import and v2 file import) — not a version bump, and not `??` defaulting scattered
+across every render site.
+
+`suspos_garage_v2` was still given a new version rather than reusing
+`suspos_garage_v1`, because that change was a *merge of two keys into one* — a case
+the rules above have no vocabulary for, and one where a partial merge would leave
+entries in an inconsistent state. The contrast with `suspos_garage_ui_v1`, which is
+object-valued and therefore does get free field defaulting, is the cleanest
+illustration of the distinction.
+
+## Backup file format
+
+BACKUP writes `suspos-data.json`:
+
+```json
+{ "version": 2, "entries": [ … ] }
+```
+
+RESTORE checks for `entries` **before** looking at `version`, then falls back to
+sniffing the pre-unification `{garage:[…], builds:[…]}` shape (which had no version
+field at all) and running it through the same merge the localStorage migration
+uses. So `version` is documentation and future dispatch, not a load-bearing gate,
+and a v2 file with a damaged version field still imports.
+
+Restore replaces the **selected kinds** and keeps the rest. The old behaviour
+replaced one whole list and left the other alone; with a single list, replacing
+everything would silently delete the kinds the user didn't tick.

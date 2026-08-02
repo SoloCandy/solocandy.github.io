@@ -101,35 +101,48 @@ each in its own `useMemo`.
 | `BiasSeg` | balance-bar segments |
 | `SpringDial`, `ArbDial`, `DampingDial` | the pinned VISUALS card |
 | `HandlingVerdict` | expanded handling-balance panel only |
+| `EntryCard` | one garage entry inside the GARAGE drawer |
 | `CheckerModal` | TUNE CHECK (DECODE / MEASURE) |
 | `GlossaryModal` | glossary lookup |
+| the data modal | SHARE / LOAD CODE / BACKUP / RESTORE (inline in `App`, not a component) |
 | `TutorialPanel` | the guided tours |
-| `OverwriteBtn` | MY BUILDS slots |
+| `OverwriteBtn` | *(no current call site — `useTwoTap`, the hook behind it, is what the garage reuses)* |
 | `ErrorBoundary` | wraps the app |
 
+The GARAGE drawer itself is inline JSX in `App` (it needs a dozen handlers off
+`App` state); only the per-entry card is factored out. `Sec`'s count above is
+hardcoded prose — verify it rather than trusting it after any section change.
+
 Note `HandlingVerdict` and the RESPONSE factor breakdown render **only** when
-the handling-balance panel is expanded, and the dials render **only** inside
-VISUALS (hidden entirely in BEG). None of them are reachable from a cold page
-load, which matters when testing.
+the handling-balance panel is expanded, the dials render **only** inside
+VISUALS (hidden entirely in BEG), and the GARAGE drawer renders behind a toolbar
+toggle. None of them are reachable from a cold page load, which matters when
+testing.
 
 ---
 
 ## Sidebar zones and tier gating
 
 Every spotlightable region carries an `id="zone-…"`, used by the tutorial
-system for focus/dimming. There are 19 in the source; which exist in the DOM
+system for focus/dimming. There are 18 in the source; which exist in the DOM
 depends on the tier.
 
+- **All tiers**: `zone-garage` — the right-side GARAGE drawer. It is *not* part
+  of the sidebar, so it sits outside the per-tier lists below and is the only
+  zone present at every tier regardless of panel.
 - **BEG** renders its own flat panel: `zone-layout-build`, `zone-build-type`,
-  `zone-weight`, `zone-presets`, `zone-ride-stiffness`, `zone-balance`,
-  `zone-character`, plus `zone-output` and `zone-balance-bar`. No `Sec`
-  sections at all, and no VISUALS.
+  `zone-weight`, `zone-ride-stiffness`, `zone-balance`, `zone-character`, plus
+  `zone-output` and `zone-balance-bar`. No `Sec` sections at all, and no VISUALS.
 - **INT** switches to the sectioned sidebar: `zone-chassis`, `zone-build`,
-  `zone-drivetrain`, `zone-arb`, `zone-feel`, `zone-damping`, `zone-garage`,
+  `zone-drivetrain`, `zone-arb`, `zone-feel`, `zone-damping`,
   `zone-visuals`, plus output and balance bar.
 - **PRO** adds `zone-balance-target` and `zone-alignment`, and unlocks extra
   controls inside the shared sections (CHASSIS geometry, ARB MECH/CO-SOLVE/MAN,
   Hz MECH mode, Alignment Mode).
+
+`zone-presets` no longer exists. It was duplicated across the BEG panel and the
+INT/PRO BUILD section (safe only because the two were mutually exclusive on
+`uiMode`); both copies went when the factory presets moved into the GARAGE panel.
 
 Sections are collapsed on load — `open` is plain `useState`, not persisted.
 
@@ -144,14 +157,16 @@ requires it — the stale key is simply ignored).
 `suspos_ch_v8`, `suspos_fe_v8`, `suspos_dr_v8`, `suspos_al_v2`,
 `suspos_units_v1`, `suspos_uimode_v1`, `suspos_zoom_v1`,
 `suspos_tutorial_seen_v1`, `suspos_baltut_seen_v1`, `suspos_onboard_v1`,
-`suspos_garage_v1`, `suspos_builds_v1`.
+`suspos_garage_v2`, `suspos_garage_ui_v1`.
 
-Two special ones:
+Special ones — a three-deep migration chain plus its two sentinels:
 
-- **`suspos_saves_v9`** — read-only. Kept solely as the source for the
-  one-time MY BUILDS migration. Never written.
-- **`suspos_builds_migrated_v1`** — a sentinel, not data. Its presence means
-  that migration already ran.
+- **`suspos_saves_v9`** — read-only legacy preset slots. Never written.
+- **`suspos_builds_v1`** and **`suspos_garage_v1`** — read-only legacy save
+  lists. No UI, no React binding; the unified migration's two `getItem` calls
+  are their only readers.
+- **`suspos_builds_migrated_v1`**, **`suspos_garage_unified_v2`** — sentinels,
+  not data. Presence means that link of the chain already ran.
 
 `usePersist` merges a stored object over the defaults (`{...initial,
 ...parsed}`), so a partial object in storage is valid and missing keys fall
@@ -206,11 +221,27 @@ mismatch, which invalidates every share code in existence.
 No id has been retired so far.
 
 **The `rsToHz` 0–100 → Hz conversion** — migrates saves from before Ride
-Stiffness stored Hz directly.
+Stiffness stored Hz directly. Also called by `autoTagsOf` before `hzCtx`: without
+it a legacy `rideStiffness: 50` classifies as RACE instead of ROAD. That failure
+only shows on old entries, so it survives testing on fresh data.
 
-**`TutorialPanel`'s `right` positioning fallback** — currently unreachable
-(every `setPos` sets `left`), but it is a cheap defensive branch in a system
-that has been reworked repeatedly.
+**`suspos_garage_v1` and `suspos_builds_v1`** — the pre-unification save lists.
+They have no UI and no React binding any more; the unified migration effect's two
+`getItem` calls are their **only** readers, which is exactly what makes them look
+like dead keys. Deleting them, or that effect, silently loses every saved chassis
+and build for anyone who hasn't opened the app since the unification. Same for
+the two sentinels — clearing one causes its migration to run a second time.
+
+**`suspos_saves_v9`** — first link of the same chain
+(`suspos_saves_v9` → `suspos_builds_v1` → `suspos_garage_v2`). Removing the middle
+link breaks the tail for users who skipped a version.
+
+**`TutorialPanel`'s `right` positioning fallback** — still unreachable (every
+`setPos` sets `left`). The GARAGE drawer is the first right-side, full-height
+tutorial target, and it does *not* reach that branch: a full-height element leaves
+no room above or below, so `measure()` falls through to `setPos(null)` and centres
+the card, which then draws over the drawer (card z700, drawer z200). Verified, not
+assumed. The fallback stays as a cheap defensive branch.
 
 ---
 

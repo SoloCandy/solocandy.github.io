@@ -334,6 +334,9 @@ Summary by kind:
 - **Dead object keys** — `R` off `_dialBase`'s result, `refCornerMassF` and
   `notes` on all six `PRESET_SAVES` entries, and `settleTarget` re-exported
   from `feelToPhysics` (the local and `fe.settleTarget` are both still live).
+  *(Forward note: the `notes` removed here is unrelated to the `notes` field on
+  unified GARAGE entries added later — that one is live user data. Same name,
+  different thing; don't remove it on a future sweep.)*
 - **Dead component surface** — `Sec`'s `extra` prop, `FeelSlider`'s
   `centered` prop and its unreachable gradient branch, `HandlingVerdict`'s
   `mechBalance` panel (its only caller passed a literal `null`), and unused
