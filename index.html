@@ -1080,6 +1080,19 @@ const unifyLegacy=(garageArr,buildsArr)=>{
   ].sort((a,b)=>b.createdAt-a.createdAt);
 };
 
+// Backup-file parser. Returns a normalized entry array, or null if unrecognizable.
+// Checks `entries` BEFORE branching on `version` so a v2 file whose version field got
+// corrupted still imports — version is documentation and future dispatch, not a gate.
+// The legacy branch reuses unifyLegacy verbatim, so the old-file path is exercised by the
+// same code every existing user runs once at migration and therefore can't silently rot.
+const parseBackup=parsed=>{
+  if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return null;
+  if(Array.isArray(parsed.entries))return parsed.entries.map(normalizeEntry);           // v2
+  if(Array.isArray(parsed.garage)||Array.isArray(parsed.builds))                        // v1
+    return unifyLegacy(parsed.garage,parsed.builds);
+  return null;
+};
+
 const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
               tyreF:'265/35R18',tyreR:'265/35R18',
@@ -2769,7 +2782,7 @@ function App(){
 
   const[showDataModal,setShowDataModal]=useState(false);
   const[dataMode,setDataMode]=useState('share'); // 'share'|'load'|'backup'|'restore'
-  const[exportSel,setExportSel]=useState({garage:true,builds:true});
+  const[exportSel,setExportSel]=useState({chassis:true,build:true,car:true});
   const[importCode,setImportCode]=useState('');
   const[importSel,setImportSel]=useState({ch:true,fe:true,dr:true});
   const[importErr,setImportErr]=useState('');
@@ -2777,7 +2790,7 @@ function App(){
   const[shareSel,setShareSel]=useState({ch:true,fe:true,dr:true});
   const[restoreData,setRestoreData]=useState(null);
   const[restoreErr,setRestoreErr]=useState('');
-  const[restoreSel,setRestoreSel]=useState({garage:true,builds:true});
+  const[restoreSel,setRestoreSel]=useState({chassis:true,build:true,car:true});
   const[resetOpts,setResetOpts]=useState({tune:true,tutorials:false});
   const[hzDraft,setHzDraft]=useState(null);     // transient: direct front Hz entry
   const[rearHzDraft,setRearHzDraft]=useState(null); // transient: direct rear Hz entry (independent mode)
@@ -5321,7 +5334,7 @@ function App(){
                 setDataMode('share');setShareSel({ch:true,fe:true,dr:true});
                 setShareCopied(false);setImportCode('');setImportErr('');
                 setImportSel({ch:true,fe:true,dr:true});
-                setExportSel({garage:true,builds:true});setShowDataModal(true);
+                setExportSel({chassis:true,build:true,car:true});setShowDataModal(true);
               }}>SHARE</button>
             </div>
           </div>
@@ -5386,10 +5399,10 @@ function App(){
                 </div>
                 {(()=>{
                   const hints={
-                    share:'Generates a compact code for the current tune — chassis, springs, dampers, ARBs, and all feel settings. Share it with any SUSP.OS user. Does not include your garage saves or saved builds.',
-                    load:'Paste a code from another device or user to load their tune. This overwrites your current setup — save your current tune to MY BUILDS first if you want to keep it.',
-                    backup:'Downloads a JSON file of all your garage saves and saved builds. Use this to move your collection to another device or keep a local copy. Does not include the current unsaved tune.',
-                    restore:'Loads garage saves and builds from a backup file. You can choose to restore only garage, only builds, or both. Does not affect the current unsaved tune.',
+                    share:'Generates a compact code for the current tune — chassis, springs, dampers, ARBs, and all feel settings. Share it with any SUSP.OS user. Does not include your garage entries.',
+                    load:'Paste a code from another device or user to load their tune. This overwrites your current setup — save your current tune to the garage first if you want to keep it.',
+                    backup:'Downloads a JSON file of your garage entries. Use this to move your collection to another device or keep a local copy. Does not include the current unsaved tune.',
+                    restore:'Loads garage entries from a backup file — older backups from before the garage was unified are read too. Pick which kinds to restore; the kinds you leave unticked are kept as they are. Does not affect the current unsaved tune.',
                   };
                   return<div style={{fontSize:10,color:'#94a3b8',lineHeight:1.6,marginBottom:12,letterSpacing:0.3}}>{hints[dataMode]}</div>;
                 })()}
@@ -5458,18 +5471,20 @@ function App(){
                     Download a JSON backup of your saved data. Use this to transfer between devices or browsers.
                   </div>
                   {[
-                    {key:'garage',label:'GARAGE',sub:'Chassis saves'},
-                    {key:'builds',label:'MY BUILDS',sub:'Tune saves'},
+                    {key:'chassis',label:'CHASSIS',sub:'Chassis-only entries'},
+                    {key:'build',  label:'BUILDS', sub:'Tune-only entries'},
+                    {key:'car',    label:'CARS',   sub:'Chassis + tune entries'},
                   ].map(({key,label,sub})=>chkRow(key,label,sub,exportSel[key],
-                    e=>setExportSel(s=>({...s,[key]:e.target.checked}))))}
+                    e=>setExportSel(s=>({...s,[key]:e.target.checked})),
+                    !entries.some(en=>kindOf(en)===key)))}
                   <div style={{display:'flex',gap:6,marginTop:14}}>
                     <button className="tbtn" style={{flex:1,fontSize:11}} onClick={close}>CANCEL</button>
                     <button className="tbtn on" style={{flex:1,fontSize:11}}
-                      disabled={!exportSel.garage&&!exportSel.builds}
+                      disabled={!exportSel.chassis&&!exportSel.build&&!exportSel.car}
                       onClick={()=>{
-                        const out={};
-                        if(exportSel.garage) out.garage=garage;
-                        if(exportSel.builds) out.builds=myBuilds;
+                        // 'empty' (corrupt) entries are excluded from every kind, so they
+                        // never propagate into a backup file
+                        const out={version:2,entries:entries.filter(en=>exportSel[kindOf(en)])};
                         const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
                         const url=URL.createObjectURL(blob);
                         const a=document.createElement('a');
@@ -5498,11 +5513,14 @@ function App(){
                           const reader=new FileReader();
                           reader.onload=ev=>{
                             try{
-                              const parsed=JSON.parse(ev.target.result);
-                              if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw new Error();
-                              if(!Array.isArray(parsed.garage)&&!Array.isArray(parsed.builds))throw new Error();
-                              setRestoreData(parsed);
-                              setRestoreSel({garage:Array.isArray(parsed.garage),builds:Array.isArray(parsed.builds)});
+                              // accepts both the v2 {version,entries} shape and old
+                              // {garage,builds} files; returns normalized entries or null
+                              const ents=parseBackup(JSON.parse(ev.target.result));
+                              if(!ents)throw new Error();
+                              setRestoreData(ents);
+                              setRestoreSel({chassis:ents.some(e=>kindOf(e)==='chassis'),
+                                             build:  ents.some(e=>kindOf(e)==='build'),
+                                             car:    ents.some(e=>kindOf(e)==='car')});
                               setRestoreErr('');
                             }catch{setRestoreErr('Invalid backup file.');}
                           };
@@ -5514,21 +5532,30 @@ function App(){
                   </>)}
                   {restoreData&&(<>
                     <div style={{fontSize:9,color:'#475569',marginBottom:8,letterSpacing:0.5,lineHeight:1.5}}>
-                      Select what to restore. This will overwrite your current saves.
+                      Select what to restore. Ticked kinds are replaced by the file's entries;
+                      unticked kinds in your garage are kept.
                     </div>
                     {[
-                      {key:'garage',label:'GARAGE',sub:'Chassis saves'},
-                      {key:'builds',label:'MY BUILDS',sub:'Tune saves'},
+                      {key:'chassis',label:'CHASSIS',sub:'Chassis-only entries'},
+                      {key:'build',  label:'BUILDS', sub:'Tune-only entries'},
+                      {key:'car',    label:'CARS',   sub:'Chassis + tune entries'},
                     ].map(({key,label,sub})=>chkRow(key,label,sub,restoreSel[key],
                       e=>setRestoreSel(s=>({...s,[key]:e.target.checked})),
-                      !Array.isArray(restoreData[key])))}
+                      !restoreData.some(e=>kindOf(e)===key)))}
                     <div style={{display:'flex',gap:6,marginTop:14}}>
                       <button className="tbtn" style={{flex:1,fontSize:11}} onClick={close}>CANCEL</button>
                       <button className="tbtn on" style={{flex:1,fontSize:11}}
-                        disabled={!restoreSel.garage&&!restoreSel.builds}
+                        disabled={!restoreSel.chassis&&!restoreSel.build&&!restoreSel.car}
                         onClick={()=>{
-                          if(restoreSel.garage&&Array.isArray(restoreData.garage)) setGarage(restoreData.garage);
-                          if(restoreSel.builds&&Array.isArray(restoreData.builds)) setMyBuilds(restoreData.builds);
+                          // Replace the selected kinds, KEEP the rest. The old per-list restore
+                          // replaced one whole list and left the other alone; with a single list
+                          // a naive setEntries(fromFile) would silently delete the unselected
+                          // kinds. Same spirit, now that "list" means "kind".
+                          // One set call — usePersist's setter closes over the render-time value.
+                          setEntries([
+                            ...restoreData.filter(e=>restoreSel[kindOf(e)]),
+                            ...entries.filter(e=>!restoreSel[kindOf(e)]),
+                          ].sort((a,b)=>b.createdAt-a.createdAt));
                           close();
                         }}>RESTORE</button>
                     </div>
