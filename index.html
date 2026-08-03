@@ -1500,7 +1500,7 @@ const DampingDial=({rebound,bump})=>{
             fontSize={8} fontFamily="sans-serif" letterSpacing={2}>DAMPERS</text>
         </svg>
         <span style={{position:'absolute',top:2,right:2,lineHeight:1}}>
-          <Hint text="Red dot = rebound damping %, blue dot = bump damping %, both on a 10–115 range. Hover a dot to read its value. Center shows the bump-to-rebound ratio. The fill between them turns amber if bump exceeds rebound — bump should generally be softer (lower %) than rebound for a compliant, predictable ride. The background ring is tinted by zone: blue = under-damped (bouncy), green = approaching Butterworth, amber = at/past the Butterworth sweet spot, red = overdamped (sluggish) — same thresholds as the Rebound ζ/Bump ζ sliders."/>
+          <Hint text="Red dot = rebound damping %, blue dot = bump damping %, both on a 10–115 range. Hover or tap a dot to read its value. Center shows the bump-to-rebound ratio. The fill between them turns amber if bump exceeds rebound — bump should generally be softer (lower %) than rebound for a compliant, predictable ride. The background ring is tinted by zone: blue = under-damped (bouncy), green = approaching Butterworth, amber = at/past the Butterworth sweet spot, red = overdamped (sluggish) — same thresholds as the Rebound ζ/Bump ζ sliders."/>
         </span>
       </div>
     </div>
@@ -1572,7 +1572,7 @@ const SpringDial=({fHz,rHz,rsSpF,rsSpR,clamped,natBal,target,rideRef})=>{
             fontSize={8} fontFamily="sans-serif" letterSpacing={2}>RIDE</text>
         </svg>
         <span style={{position:'absolute',top:2,right:2,lineHeight:1}}>
-          <Hint text="Purple dot = front spring Hz, orange dot = rear Hz, plotted on a SOFT→RACE arc. Hover a dot to read its value. Hollow rings mark where the derived axle would need to sit for natural balance (grey) and your target (green) — close the gap to green to hit your balance target."/>
+          <Hint text="Purple dot = front spring Hz, orange dot = rear Hz, plotted on a SOFT→RACE arc. Hover or tap a dot to read its value. Hollow rings mark where the derived axle would need to sit for natural balance (grey) and your target (green) — close the gap to green to hit your balance target."/>
         </span>
       </div>
     </div>
@@ -1634,7 +1634,7 @@ const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,natBal,target,rideRef})=>{
             fontSize={8} fontFamily="sans-serif" letterSpacing={2}>ARB</text>
         </svg>
         <span style={{position:'absolute',top:2,right:2,lineHeight:1}}>
-          <Hint text="Purple dot = front ARB clicks, orange dot = rear ARB clicks, plotted from 0 to your ceiling. Hover a dot to read its value. Hollow rings mark where the derived axle would need to sit for natural balance (grey) and your target (green)."/>
+          <Hint text="Purple dot = front ARB clicks, orange dot = rear ARB clicks, plotted from 0 to your ceiling. Hover or tap a dot to read its value. Hollow rings mark where the derived axle would need to sit for natural balance (grey) and your target (green)."/>
         </span>
       </div>
     </div>
@@ -2461,7 +2461,7 @@ const TUTORIALS={
      // the GLOSSARY modal (TERMS button), reused here because this step crams several
      // distinct concepts together and reads better broken into scannable entries.
      terms:[
-       {term:'Hz (Hertz)',def:'Natural ride frequency — how many times per second a corner would bounce if pushed down and released. Higher Hz = stiffer spring, faster response. Street: 1.0–2.0 Hz. Track: 2.0–4.0 Hz.'},
+       {term:'Hz (Hertz)',def:'Natural ride frequency — how many times per second a corner would bounce if pushed down and released. Higher Hz = stiffer spring, faster response. Street: 1.0–1.8 Hz. Track: 1.8–2.6 Hz.'},
        {term:'ζ (Zeta)',def:'Damping ratio — how quickly the bounce dies out. 70% (Butterworth) is the sweet spot, settling cleanly in one or two cycles. Below 40% feels bouncy; above 100% feels sluggish.'},
        {term:'Settle Time',def:'Seconds for the suspension to stop moving after a hit. Short = planted; long = compliant but can cause mid-corner instability.'},
      ]},
@@ -2561,10 +2561,12 @@ const TUTORIALS={
 // are organized, not alphabetically — easier to scan when you roughly know the area.
 const GLOSSARY=[
   {group:'Ride & Springs',terms:[
-    {term:'Hz (Ride Frequency)',def:'How many times per second a corner would bounce if pushed down and released. Higher Hz = stiffer spring, faster response, more control at the cost of compliance. Street cars usually run 1.0–2.0 Hz; track cars 2.0–4.0 Hz.'},
+    {term:'Hz (Ride Frequency)',def:'How many times per second a corner would bounce if pushed down and released. Higher Hz = stiffer spring, faster response, more control at the cost of compliance. Street cars usually run 1.0–1.8 Hz (the app\'s SOFT and ROAD bands); track cars 1.8–2.6 Hz (FIRM into RACE).'},
     {term:'Spring Rate (lb/in or N/mm)',def:"The force needed to compress a spring by one unit of travel. SUSP.OS derives it from your Ride Stiffness (Hz) target and each axle's corner mass — you don't set it directly."},
     {term:'Flat Ride',def:"A rear Hz set slightly higher than front so a bump hits the rear axle just as the front axle's response is finishing, cancelling pitch (nose-dive/squat) at a chosen target speed. One of three ways to set the secondary axle's Hz, alongside MULTIPLIER (fixed ratio) and INDEPENDENT (manual)."},
     {term:'Corner Mass',def:"The weight resting on one wheel — total weight split by front/rear bias, then by two for each side. Drives spring rate and damping calculations, since a heavier corner needs more force to move the same amount."},
+    {term:'Sag',def:"How far the suspension compresses under the car's own static weight, before any cornering or bumps. Softer springs sag more. The SAG vs LOAD chart in the VISUALS card plots it against increasing vertical load so you can see how much travel is left."},
+    {term:'Bottoming',def:'Running out of suspension travel — the wheel compresses as far as it can go and the chassis takes the hit directly, which spikes grip loss mid-corner. Raising ride height or stiffening springs both buy travel back.'},
   ]},
   {group:'Damping',terms:[
     {term:'ζ (Zeta / Damping Ratio)',def:"How quickly a bounce dies out, expressed as a percentage of critical damping. 100% = critically damped (returns to rest in one smooth motion, no overshoot). SUSP.OS defaults to 70% (Butterworth) — settles cleanly in one or two cycles without feeling harsh. Below ~40% feels bouncy and underdamped; above ~100% feels sluggish and overdamped."},
@@ -2580,11 +2582,23 @@ const GLOSSARY=[
     {term:'Mech(anical) Balance',def:"The rear axle's fraction of total roll stiffness (springs + ARBs), on a 0–1 scale where 0.50 is perfectly even. Higher = more rear roll resistance = more oversteer tendency. Lower = more front resistance = more understeer tendency. This is the number Forza's own tuning screen displays as \"Mech Balance.\""},
     {term:'Natural (Mech) Balance',def:"What your mech balance would be from springs alone, at equal front/rear Hz, before any ARB is added — derived from track width and corner mass, or from an in-game MEASURE NAT BAL reading. The baseline everything else is compared against."},
   ]},
+  {group:'ARB Modes',terms:[
+    {term:'Stiffness Mode',def:'Sets how much total ARB the solver hands out, before any front/rear split. AUTO derives it from the car\'s natural roll tendency. BASIC sets an overall level directly (0% ≈ softest, 100% ≈ the stiffest bars the game allows). ROLL ° solves for a target body roll angle. SHARE % sets ARBs as a fraction of total roll stiffness. MAN (PRO) bypasses all of it and takes ARB clicks directly.'},
+    {term:'Balance Mode',def:'Sets how the total ARB stiffness is split front to rear — the lever that actually moves handling balance. WEIGHT and NEUTRAL are available at INT; CHASSIS, MECH and CO-SOLVE unlock at PRO. Hidden while Stiffness Mode is MAN, since MAN sets both bars directly.'},
+    {term:'WEIGHT (Balance Mode)',def:"Splits front/rear ARB from the car's raw weight distribution, then nudges it by the ARB Bias slider. The default, and the right choice before you've customised geometry or measured anything in-game."},
+    {term:'NEUTRAL (Balance Mode)',def:"Solves the split so the ARBs exactly cancel the springs' contribution to the handling balance bar, bringing the car back to neutral regardless of how the springs are set. ARB Bias then nudges away from that neutral point rather than away from weight distribution."},
+    {term:'CHASSIS (Balance Mode)',def:"WEIGHT's formula anchored to the car's actual natural mech balance — track-width-corrected geometry, or your MEASURE NAT BAL reading when one is set — instead of raw weight %. Use it once you've entered real geometry or measured in-game."},
+    {term:'MECH (Balance Mode)',def:'Solves the ARB split alone to hit your Mech Balance Target exactly, leaving spring rates untouched. The most direct way to reach a specific target, at the cost of whatever ARB stiffness that demands.'},
+    {term:'CO-SOLVE (Balance Mode)',def:'Adjusts rear spring Hz and the ARB split together to reach the Mech Balance Target, so neither has to move as far alone. Spring Share controls how much of the correction each one carries.'},
+    {term:'Spring Share',def:'In CO-SOLVE, how much of the balance correction comes from rear spring stiffness versus the ARB split. Higher = springs do more of the work and the bars stay softer; lower = the reverse. AUTO picks the split that keeps both within range.'},
+  ]},
   {group:'Handling Balance',terms:[
     {term:'Understeer (US)',def:"The front tyres lose grip before the rear — the car doesn't turn as much as the steering input asks for. Feels stable and safe, but resists rotation."},
     {term:'Oversteer (OS)',def:'The rear tyres lose grip before the front — the car rotates more than the steering input asks for. Feels lively and rotates freely, but can snap if overdone.'},
     {term:'Grip Bias',def:"The car's physical at-the-limit handling tendency — derived from tyre load sensitivity and lateral load transfer, not just roll stiffness split. Distinct from Mech Balance: two cars with identical mech balance can have different grip bias if their tyre widths or load transfer differ."},
     {term:'Load Transfer',def:'Weight shifting onto the outside tyres as a car corners. More transfer on an axle reduces that axle\'s total available grip (since tyres lose grip faster than they gain load). Wider track and lower CG height both reduce it.'},
+    {term:'Grip-Neutral',def:"The mech balance target that exactly opposes the car's natural grip tendency, shown as a row in the Balance Guide. Targeting it cancels the chassis's built-in push or looseness rather than reinforcing it — GRIP target mode aims here automatically."},
+    {term:'Response (Planted / Reactive)',def:'A separate bar from US/OS, rating transient character — how quickly the car reacts to steering rather than which end lets go. PLANTED is settled and damped: predictable, slower to change direction. REACTIVE is quick to turn in but can feel nervous. A car can be perfectly neutral and still sit at either extreme.'},
   ]},
   {group:'Differential',terms:[
     {term:'Accel Lock',def:"How much the differential locks the driven wheels together under throttle. More lock forces both wheels to spin at closer to the same speed — more traction putting power down, but can add understeer (RWD/AWD) or resist rotation (FWD)."},
@@ -2596,6 +2610,12 @@ const GLOSSARY=[
     {term:'Caster',def:"The steering axis's forward/backward tilt. More caster adds self-centering feel and increases camber gain while turning (the outside tyre gains negative camber as you turn into a corner), at the cost of heavier steering effort."},
   ]},
 ];
+
+// Shared hint copy for controls that exist in both the BEG panel and the INT/PRO
+// sectioned sidebar. Same control, same meaning — kept as one string so the two
+// call sites can't drift apart the way the BEG/INT builds drawers once did.
+const HINT_LAYOUT='Which wheels the engine drives. Sets how the differential recommendation is calculated, and shifts alignment targets and the recommended balance range — FWD wants front grip protected, RWD wants rear traction, AWD splits the difference and unlocks the centre diff controls.';
+const HINT_BUILD_TYPE='Determines your intended use. Shifts alignment targets, diff AUTO behaviour, diff type recommendation, brake balance, and the recommended Mech Balance Target range.';
 
 const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone,zoom=1})=>{
   const steps=TUTORIALS[mode]??[];
@@ -3519,11 +3539,13 @@ function App(){
                 <div id="zone-layout-build" style={dim('layout-build')}>
                 <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:14}}>CHASSIS</div>
                 <Toggle label="Layout" value={ch.layout} onChange={pCh('layout')}
-                  options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
+                  options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}
+                  hint={HINT_LAYOUT}/>
                 </div>
                 <div id="zone-build-type" style={dim('build-type')}>
                 <Toggle label="Build" value={dr.buildType??'track'} onChange={pDr('buildType')}
-                  options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'},{value:'rally',label:'RALLY'},{value:'offroad',label:'OFFROAD'},{value:'drag',label:'DRAG'}]}/>
+                  options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'},{value:'rally',label:'RALLY'},{value:'offroad',label:'OFFROAD'},{value:'drag',label:'DRAG'}]}
+                  hint={HINT_BUILD_TYPE}/>
                 </div>
                 <div id="zone-weight" style={dim('weight')}>
                 <Field label="Weight"
@@ -3583,7 +3605,7 @@ function App(){
                   leftLabel="UNDERSTEER" rightLabel="OVERSTEER"
                   markers={[{value:0,color:'#94a3b8',label:'NEUTRAL'}]}
                   readout={balVal<-10?'UNDERSTEER':balVal>10?'OVERSTEER':'NEUTRAL'}
-                  hint="Blends two mechanisms: ARB Bias in NEUTRAL mode (nudges the ARB split away from the point that exactly cancels the springs' balance-bar bias) with a slight rear/front spring frequency ratio nudge — applied on top of whatever ratio a loaded preset already set, not a reset. Right (OVERSTEER) = more rotation, freer rear end. Left (UNDERSTEER) = more stability. Start at centre for most builds."/>
+                  hint="Blends two mechanisms: ARB Bias in NEUTRAL mode (nudges the ARB split away from the point that exactly cancels the springs' balance-bar bias) with a slight rear/front spring frequency ratio nudge — applied on top of whatever ratio a loaded factory preset or saved build already set, not a reset. Right (OVERSTEER) = more rotation, freer rear end. Left (UNDERSTEER) = more stability. Start at centre for most builds."/>
                 </div>
                 <div id="zone-character" style={dim('character')}>
                 <FeelSlider label="Character" value={stAgVal}
@@ -3626,7 +3648,8 @@ function App(){
           <div id="zone-chassis" style={dim('chassis')}><Sec title="CHASSIS" open={open.chassis} onToggle={tog('chassis')}
             onReset={()=>setCh({...DEF_CH})}>
             <Toggle label="Layout" value={ch.layout} onChange={pCh('layout')}
-              options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}/>
+              options={[{value:'FWD',label:'FWD'},{value:'RWD',label:'RWD'},{value:'AWD',label:'AWD'}]}
+              hint={HINT_LAYOUT}/>
             <Field label="Weight"
               value={metricUnits?ch.weight/KG_TO_LB:ch.weight}
               onChange={metricUnits?v=>pCh('weight')(v*KG_TO_LB):pCh('weight')}
@@ -3737,7 +3760,7 @@ function App(){
                     onClick={()=>setCh(p=>({...p,useRideHeightCG:false}))}>✕</button>
                 </div>
                 {!tyresOk&&<div style={{fontSize:9,color:'#f59e0b',padding:'2px 0 8px'}}>Enter valid tyre sizes above to compute CG height from ride height.</div>}
-                <div style={{fontSize:9,color:'#475569',padding:'0 0 4px'}}>SAG vs LOAD moved to the pinned VISUALS card below ↓</div>
+                <div style={{fontSize:9,color:'#475569',padding:'0 0 4px'}}>SAG vs LOAD is in the pinned VISUALS card below ↓</div>
               </>);
             })():
               <Field label="CG Height" value={Math.round(ch.cgHeight*1000)} onChange={v=>pCh('cgHeight')(v/1000)} min={200} max={900} step={5} unit="mm"
@@ -3944,7 +3967,7 @@ function App(){
           <div id="zone-build" style={dim('build')}><Sec title="BUILD" open={open.build} onToggle={tog('build')}>
             <Toggle label="Build Type" value={dr.buildType??'track'} onChange={pDr('buildType')}
               options={[{value:'street',label:'STREET'},{value:'track',label:'TRACK'},{value:'drift',label:'DRIFT'},{value:'rally',label:'RALLY'},{value:'offroad',label:'OFFROAD'},{value:'drag',label:'DRAG'}]}
-              hint="Determines your intended use. Shifts alignment targets, diff AUTO behaviour, diff type recommendation, brake balance, and the recommended Mech Balance Target range."/>
+              hint={HINT_BUILD_TYPE}/>
           </Sec></div>
 
           {uiMode==='pro'&&<div id="zone-balance-target" style={dim('balance-target')}><Sec title="BALANCE" open={open.balance} onToggle={tog('balance')}
@@ -3973,7 +3996,7 @@ function App(){
                   ?<Field label="Mech Balance Target" value={fe.arbBalTarget??Math.round((MECH_BALANCE_TARGET-natMechBalance)*100)/100}
                       onChange={v=>pFe('arbBalTarget')(Math.round(v*100)/100)}
                       min={Math.round((0.20-natMechBalance)*100)/100} max={Math.round((0.90-natMechBalance)*100)/100} step={0.01} unit="from NAT"
-                      hint="Deviation from the chassis natural roll balance. 0 = target the natural balance exactly — no ARB correction needed. Positive = rear-biased from natural (oversteer tendency). Negative = front-biased from natural (understeer tendency). The BALANCE GUIDE shows the recommended range for your drivetrain and build type as deltas from NAT — use those as your reference. MECH and CO-SOLVE modes solve springs and ARBs to hit this target exactly. FH6 surfaces Mech Balance in-game so you can verify the result directly."/>
+                      hint="Deviation from the chassis natural roll balance. 0 = target the natural balance exactly — no ARB correction needed. Positive = rear-biased from natural (oversteer tendency). Negative = front-biased from natural (understeer tendency). The BALANCE GUIDE shows the recommended range for your drivetrain and build type as deltas from NAT — use those as your reference. MECH and CO-SOLVE modes solve springs and ARBs to hit this target exactly. The game surfaces Mech Balance on its own tuning screen, so you can verify the result directly."/>
                   :<Field label="Balance Offset" value={fe.arbBalDelta??0} onChange={pFe('arbBalDelta')}
                       min={-0.20} max={0.20} step={0.01}
                       hint="Offset from the grip-neutralising target. 0 = mech balance exactly opposes the car's natural grip tendency for neutral at-limit handling. Positive = more rear bias (oversteer tendency). Negative = more front bias (understeer tendency). The derived target is shown in the balance guide below."/>
@@ -4272,8 +4295,13 @@ function App(){
                 hint="Fraction of total roll stiffness supplied by ARBs. 0% = springs handle all roll resistance. 20–30% is typical sport. Higher = stiffer bars relative to springs, more abrupt load transfer."/>}
             {(fe.arbMode??'auto')==='man'&&
               <div style={{display:'flex',gap:6,marginBottom:10}}>
-                <Field label="ARB F" value={fe.arbManF??20} onChange={pFe('arbManF')} min={1} max={65} step={0.1} hint="Front ARB clicks (manual)"/>
-                <Field label="ARB R" value={fe.arbManR??20} onChange={pFe('arbManR')} min={1} max={65} step={0.1} hint="Rear ARB clicks (manual)"/>
+                {/* max tracks lim.arb, not a hardcoded 65 — MOTORSPORT caps ARBs at 40 and
+                    computeTune clamps to lim.arb, so a fixed 65 let you type values that were
+                    silently discarded on the other game mode. */}
+                <Field label="ARB F" value={fe.arbManF??20} onChange={pFe('arbManF')} min={1} max={lim.arb} step={0.1}
+                  hint={`Front ARB clicks, entered directly. This game mode's limit is ${lim.arb} clicks per axle.`}/>
+                <Field label="ARB R" value={fe.arbManR??20} onChange={pFe('arbManR')} min={1} max={lim.arb} step={0.1}
+                  hint={`Rear ARB clicks, entered directly. This game mode's limit is ${lim.arb} clicks per axle.`}/>
               </div>}
             {uiMode!=='beginner'&&(fe.arbMode??'auto')!=='man'&&<div style={{marginBottom:10,marginTop:4}}>
               <span style={{fontSize:12,color:'#94a3b8',display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
@@ -5050,7 +5078,7 @@ function App(){
           </Card>
 
           <Card title="SPRINGS" accent
-            hint="Spring rates in lb/in to enter in the tuning menu. The badge shows the frequency category — SOFT/ROAD/FIRM/RACE. Hz values are shown in the FEEL section of inputs. The ratio in the header is rear Hz ÷ front Hz — the same relationship as the Rear Multiplier slider in the RIDE section, however it's currently derived (Flat Ride, Multiplier, Mech, or Independent)."
+            hint="Spring rates in lb/in to enter in the tuning menu. The badge shows the frequency category — SOFT/ROAD/FIRM/RACE. Hz values live in the RIDE section of inputs. The ratio in the header is rear Hz ÷ front Hz — the same relationship as that section's Rear Multiplier slider, however it's currently derived (Flat Ride, Multiplier, Mech, or Independent)."
             headerRight={`REAR ×${(tune.rHz/tune.fHz).toFixed(2)}`}>
 
             {(()=>{

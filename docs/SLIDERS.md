@@ -61,7 +61,7 @@ every balance-relevant slider.
 | Tyre Size F/R | e.g. `265/35R18` | Grip capacity; asymmetry nudges displayed Mech Balance | Wider rear → less oversteer; wider front → less understeer |
 | Mech Balance Target | delta from NAT (≈−0.35..+0.70) | MECH/CO-SOLVE solve to `naturalMechBalanceOf(ch) + delta` | Positive = OVERSTEER target, negative = UNDERSTEER target |
 | Balance Offset | −0.20..+0.20 | GRIP mode's offset from grip-neutralizing target | Positive = OVERSTEER, negative = UNDERSTEER |
-| ARB F / ARB R (Stiffness Mode MAN) | 1–65 clicks | Direct ARB click values, bypasses budget/split entirely | More rear-relative → OVERSTEER |
+| ARB F / ARB R (Stiffness Mode MAN) | 1–`lim.arb` clicks (65 HORIZON / 40 MOTORSPORT) | Direct ARB click values, bypasses budget/split entirely. The max tracks the game mode rather than being fixed at 65 — `computeTune` clamps to `lim.arb`, so a fixed ceiling let you type values MOTORSPORT would silently discard | More rear-relative → OVERSTEER |
 | ARB Stiffness (Stiffness Mode BASIC) | 0–100% | Sets an overall ARB roll-stiffness budget directly (0%≈1 click, 100%≈this game mode's click limit, per axle at a neutral split) — unlike SHARE %, doesn't scale with spring rate. Balance Mode still splits it front/rear like AUTO/ROLL/SHARE | None directly — redistributes level only, Balance Mode/ARB Bias set direction |
 | Spring Share (CO-SOLVE) | 0–100% | Splits correction between spring Hz and ARB split | None directly — redistributes *how*, not the target |
 | Accel/Decel Lock (MANUAL diff) | 0–100% each | Direct per-axle lock % | Rear lock → OVERSTEER; front lock → UNDERSTEER |

@@ -380,6 +380,24 @@ still migrate state saved before `al.mode` existed.
 Found during the dead-code audit but fixed separately, since it changes
 behaviour and the cleanup was deliberately zero-diff.
 
+## Fixed — MAN ARB fields accepted clicks MOTORSPORT would silently discard (resolved)
+
+The Stiffness Mode MAN inputs hardcoded `max={65}` — `GAME_LIMITS.horizon.arb`.
+In MOTORSPORT the ceiling is 40, and `computeTune` clamps both bars to
+`lim.arb`, so anything typed between 41 and 65 was accepted by the field,
+stored in `fe.arbManF`/`arbManR`, and then quietly thrown away before it
+reached the output. The field's own hint ("Front ARB clicks (manual)") named
+no limit, so nothing on screen contradicted the wrong number.
+
+Fixed by binding `max` to `lim.arb` and stating the ceiling in the hint, the
+same way the BASIC mode hint already interpolates `${lim.arb}`. Switching game
+modes now visibly re-clamps the field instead of changing the answer silently.
+
+Found during the hints/glossary audit. The general lesson matches the
+`arbCtx`/`lim.arb` pattern used everywhere else: a game-mode-dependent limit
+should never be written as a literal, because only one of the two modes will
+be right.
+
 ## Fixed — GEOMETRY GAP readout could never show a negative sign (resolved)
 
 The BALANCE section's GEOMETRY GAP panel printed its value as
