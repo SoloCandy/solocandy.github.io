@@ -3,7 +3,7 @@
 [![Live Demo](https://img.shields.io/badge/live%20demo-solocandy.github.io%2Fsusp--os-e2e8f0?style=flat-square)](https://solocandy.github.io/susp-os/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
-A single-file suspension tuning calculator for **Forza Horizon** and **Forza Motorsport**. Enter your car's physical stats and a handling target — SUSP.OS outputs exact in-game click values for springs, dampers, anti-roll bars, alignment, brakes, and differential, all grounded in real suspension physics.
+A single-file suspension tuning calculator for **Forza Horizon**, **Forza Motorsport**, and **BeamNG.drive**. Enter your car's physical stats and a handling target — SUSP.OS outputs values for springs, dampers, anti-roll bars, alignment, brakes, and differential, all grounded in real suspension physics: exact in-game clicks for the Forza titles, and real physical units (N/mm, N·s/m, N·m/rad) for BeamNG.
 
 > Physics approach based on [NumberlessMath's Forza Suspension Calculator (2020)](https://docs.google.com/spreadsheets/d/1ySrVkgQpohIduhdLCwe99p3d6KmWXKgck5Uk-qDOlPw/edit?usp=sharing)
 
@@ -75,9 +75,21 @@ Key empirical constants calibrated from real Forza data:
 
 Constants validated through a structured test protocol across three cars — 2017 Mazda MX-5 Cup, 2015 Ultima Evolution Coupe 1020, and 2011 Volkswagen Scirocco R — covering balanced, understeer, and oversteer tyre configurations and ARB ±10 click sensitivity sweeps.
 
+**These constants only apply to the two Forza modes.** `ARB_RS_SCALE` and `DAMPING_CALIBRATION` exist to bridge real physics onto Forza's abstract 1–N "click" scales, which are needed because Forza hides its internal units. The **BEAMNG** mode skips that step entirely and emits the pre-conversion values the solver already works in — N/mm, N·s/m, N·m/rad — so it introduces **no new calibration constant and needs no validation protocol**. If a BeamNG-specific fudge factor ever turns out to be necessary, that is a signal the "just skip the click compression" premise broke down somewhere and should be re-examined rather than patched. See [PHYSICS.md](docs/PHYSICS.md).
+
 **Ride-height-derived CG height** (PRO CHASSIS section, RIDE HEIGHT → CG toggle): estimates CG height as tyre radius + weight-weighted ride height. Unlike the table above, this is a plain geometric heuristic, not a measured/validated constant — real CG height also depends on engine position, body height, and mass distribution, none of which are available inputs. Treat it as a starting point, same spirit as the existing CG Height field's ballpark hint. See [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
 
-**Game limits:** Horizon — ARB 65 clicks, damper 20 clicks. Motorsport — ARB 40 clicks, damper 40 clicks.
+**Game limits:** Horizon — ARB 65 clicks, damper 20 clicks. Motorsport — ARB 40 clicks, damper 40 clicks. BeamNG — **none**, see below.
+
+**BEAMNG mode (physical units).** BeamNG builds its tuning sliders per vehicle from the car's Jbeam `variables` block, so unlike the Forza titles there is no fixed click scale to calibrate against — and the min/max you actually see depends on which suspension part or mod is installed. Rather than invent a third scale, this mode skips the click-compression step and outputs the real values the solver already computes: **springs in N/mm, dampers in N·s/m, ARB roll stiffness in N·m/rad**. Nothing is clamped, quantised, or warned about, because there is no ceiling to clamp to.
+
+Three differences from the Forza modes:
+
+- **BASIC ARB stiffness is hidden** — its budget is defined as a percentage of the click ceiling, so it has no meaning without one. AUTO, ROLL °, SHARE % and MAN all work normally; MAN takes N·m/rad instead of clicks, and converts losslessly in both directions when you switch modes.
+- **Anti-roll bar output is advisory.** Most BeamNG suspension configs expose no ARB variable at all. The number is still physically real and still drives the handling balance model and roll angle.
+- **Balance figures differ very slightly from Forza for the same inputs.** Forza deliberately recomputes roll stiffness back out of the rounded click values so the balance bar reflects what the game will really do with the numbers you type; BeamNG has no rounding to model. This is intended.
+
+This mode is exploratory: it targets generic physical output, not values scaled to one specific car or suspension mod's slider range.
 
 **Mechanical balance accuracy:**
 
@@ -99,7 +111,7 @@ The entire app is a single HTML file containing:
 - **Persistence** — `localStorage` via a custom `usePersist` hook; degrades gracefully in private browsing
 - **Share codec** — a sparse `id:value` list, pipe-delimited and Base64-encoded. Only fields that differ from their default are emitted, so code length varies with how far a tune strays from stock. Ids are permanent and never reused; an unknown id (from a newer app version) is skipped on decode rather than failing, and any field missing from a code decodes to its default. See [CODEC.md](docs/CODEC.md).
 
-The physics functions are at the top of the `<script>` block and are pure — no React dependency, so they can be read or lifted out on their own. A test suite is included in `tests.js` — run with `node tests.js` (covers spring/damper solving, `computeDiff`, and `computeAlignment`).
+The physics functions are at the top of the `<script>` block and are pure — no React dependency, so they can be read or lifted out on their own. Two test suites are included: `tests.js` (spring/damper solving, `computeDiff`, `computeAlignment`) and `tests-beamng.js` (the physical-unit game mode).
 
 > **`tests.js` does not test `index.html`.** It re-declares the physics
 > functions inside the test file rather than importing them, so it passes
@@ -107,6 +119,11 @@ The physics functions are at the top of the `<script>` block and are pure — no
 > silent. Treat it as an executable spec, not a regression net — changes to
 > `index.html` need checking in the browser. See
 > [CODE_MAP.md](docs/CODE_MAP.md) and [PHYSICS.md](docs/PHYSICS.md).
+>
+> **`tests-beamng.js` does.** It lifts the real physics layer out of
+> `index.html` and drives it, so it fails when the app breaks. It covers the
+> BEAMNG mode specifically, plus a guard that the Forza modes still clamp to
+> their own limits.
 
 **Data flow:** `ch`/`fe`/`dr` (chassis/feel/drivetrain state) → `feelToPhysics(ch, fe)` resolves feel settings into concrete physics parameters (Hz, ARB balance mode, damping mode) → `computeTune(ch, physics, gameMode)` solves springs/dampers/ARBs → `computeDiff(ch, fe, dr)` solves differential locks independently → `computeAlignment(ch, tune, layout, buildType)` derives camber/toe/caster from the tune result. All four are pure functions with no shared mutable state — see [FORMULAS.md](docs/FORMULAS.md) for the handling-balance math each one feeds into.
 
@@ -117,7 +134,8 @@ The physics functions are at the top of the `<script>` block and are pure — no
 No build tools required. Open `index.html` in a browser, edit with any text editor, reload to see changes.
 
 ```
-node tests.js   # run physics unit tests
+node tests.js          # physics unit tests (mirrored copy — see caveat above)
+node tests-beamng.js   # physical-unit mode tests (reads index.html directly)
 ```
 
 ---

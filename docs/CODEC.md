@@ -28,7 +28,7 @@ future version might not carry.
 | 7 | fe | rideStiffness | raw number |
 | 8 | fe | arbBias | raw number |
 | 9 | fe | targetSpeed | raw number |
-| 10 | fe | gameMode | enum (`GAME_MODE_ENC/DEC`) |
+| 10 | fe | gameMode | enum (`GAME_MODE_ENC/DEC`) — `beamng:2` appended; see note below |
 | 11 | fe | dampingMode | enum (`DAMPING_MODE_ENC/DEC`) |
 | 12 | fe | reboundZeta | raw number |
 | 13 | fe | bumpRatio | raw number |
@@ -83,6 +83,24 @@ future version might not carry.
 
 None yet. (No field has been deleted since the codec's v1 sparse-table
 redesign; ids that predate it were never individually numbered.)
+
+## Extending an enum (id 10 / `gameMode`, and the general rule)
+
+Appending a value to an existing enum needs **no version bump**, because three
+independent mechanisms already make it safe:
+
+1. `encodeTune` omits any field still at its default, so a `horizon` code carries
+   no `10:` pair at all. Only non-default modes emit one.
+2. `decodeTune` ignores ids it doesn't recognise and pre-fills defaults first.
+3. `sanitizeTune` gates the result through `GAME_MODE_DEC.includes(...)`, so an
+   out-of-range index falls back to `horizon`.
+
+`gameMode` gained `beamng:2` for the physical-unit output mode. An older client
+handed a `10:2` code decodes it to `horizon` rather than throwing — verified, not
+assumed. The same reasoning applies to any future enum append.
+
+**Enum indices are as permanent as ids.** Renumbering `GAME_MODE_DEC` would
+silently reinterpret every code already in circulation. Append only.
 
 ## Notes on semantic changes (id kept, meaning changed)
 

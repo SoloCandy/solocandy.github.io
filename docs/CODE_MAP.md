@@ -236,6 +236,23 @@ the two sentinels — clearing one causes its migration to run a second time.
 (`suspos_saves_v9` → `suspos_builds_v1` → `suspos_garage_v2`). Removing the middle
 link breaks the tail for users who skipped a version.
 
+**`NMM_PER_LBIN` and `N_MM_PER_LB_IN`** — two constants for the same lb/in → N/mm
+conversion, differing by exactly 10×. They are *not* redundant: `NMM_PER_LBIN` is
+wrong (see [KNOWN_ISSUES.md](KNOWN_ISSUES.md)) and still drives the MET toggle,
+while `N_MM_PER_LB_IN` is correct and drives physical-unit game modes. Collapsing
+them into one is a behaviour change either way, so it needs to be a decision, not
+a cleanup. Both carry a comment at their definition.
+
+**`ARB_UTIL_REF`** — looks like a fourth game limit but is not a ceiling and
+nothing clamps to it. It is only CO-SOLVE's utilisation denominator when the game
+mode has none, and it cancels between the two sides of that comparison except at
+the saturation clamp. Deleting it or replacing it with `1` changes CO-SOLVE's
+answer at extreme balance targets.
+
+**`_basicBudget`'s `?? ARB_UTIL_REF` guards** (two sites) — BASIC mode's button is
+hidden in physical modes, so these look unreachable. They cover a persisted
+`arbMode:'basic'` surviving a game-mode switch before the migration effect runs.
+
 **`TutorialPanel`'s `right` positioning fallback** — still unreachable (every
 `setPos` sets `left`). The GARAGE drawer is the first right-side, full-height
 tutorial target, and it does *not* reach that branch: a full-height element leaves
@@ -252,6 +269,13 @@ hooks.** `tests.js` is a hand-maintained duplicate of the physics functions
 and does not read `index.html` at all — it passes whether or not the app
 works. See the Test coverage section of [PHYSICS.md](PHYSICS.md).
 
+**`tests-beamng.js` is the exception**: it lifts the real physics layer out of
+`index.html` with string slices and drives it directly, so it *does* fail when
+the app breaks. It exists because the physical-unit mode is defined by what it
+declines to do to the solver's output, which a mirror cannot express — a mirror
+of "return the value unchanged" asserts nothing. If its `slice()` markers stop
+matching after a reorganisation, fix the markers; don't delete the suite.
+
 So the only real verification is the browser. A reasonable routine after a
 non-trivial edit:
 
@@ -264,3 +288,5 @@ non-trivial edit:
    defaults, or `sanitizeTune` moved.
 5. `node tests.js` if any mirrored physics function changed — and update the
    mirror by hand, since nothing will tell you it drifted.
+6. `node tests-beamng.js` if anything in `computeTune`, `GAME_LIMITS`, or the
+   unit constants moved. This one reads `index.html`, so it needs no mirroring.

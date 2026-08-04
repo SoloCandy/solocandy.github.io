@@ -32,8 +32,12 @@ solveSpring(hz, mass, mr) = (hz*2π)² * mass / mr² / LB_IN_TO_NM
 Standard `k = m·ωₙ²` spring-rate-from-natural-frequency relationship
 (`ωₙ = hz*2π`), divided by motion ratio squared (`mr` — always `1` in this
 app's calls, since Forza's displayed spring rate is wheel-rate, not
-suspension-lever-rate) and converted from N/mm to lb/in via
-`LB_IN_TO_NM = 175.126790921`.
+suspension-lever-rate) and converted from N/m to lb/in via
+`LB_IN_TO_NM = 175.126790921` (the constant is N/m per lb/in, despite the name).
+
+Springs are the one output that was never click-based, which is why the
+physical-unit game mode below needs no change to this solve at all — only the
+display conversion differs.
 
 ## Damper clicks (`solveDampRaw` + `computeTune`'s `clampDamp`)
 
@@ -55,6 +59,52 @@ would distort the front/rear relationship, which is why there is no
 clamping single-value helper — a `solveDamp` that did its own clamp existed
 once but had no callers left and was removed. `tests.js` still mirrors that
 older shape; see the note above its copy there.
+
+## Physical-unit output (`beamng` game mode)
+
+Both Forza modes express springs, dampers and ARBs as abstract "clicks" on a
+fixed `1..N` scale, because Forza hides its real internal units — that is what
+`DAMPING_CALIBRATION` and `ARB_RS_SCALE` exist to bridge. BeamNG builds its
+tuning sliders per-vehicle from the car's Jbeam `variables` block, so there is
+no universal scale to calibrate against and inventing a third click range would
+mean inventing a constant with nothing to validate it.
+
+Instead `GAME_LIMITS.beamng = {damping:null, arb:null, physical:true}` marks a
+mode that **skips the click-compression step** and emits what the solver already
+works in. `computeTune` branches on `isPhysical(gameMode)`, never on the mode
+name, so a future physical-unit game costs one `GAME_LIMITS` entry.
+
+| Output | Forza | Physical | Bridge |
+|---|---|---|---|
+| Springs | lb/in | N/mm | none — the solve is identical, only the display conversion differs (`N_MM_PER_LB_IN`) |
+| Dampers | 1..`lim.damping` clicks | N·s/m | `solveDampRaw`'s `calib` argument: `DAMPING_CALIBRATION` or `1` |
+| ARBs | 1..`lim.arb` clicks | N·m/rad | `clk()` — skipped entirely; the roll stiffness *is* the output |
+
+`cc = 2·√(wr·mass)` has units kg/s ≡ N·s/m, so `cc·(ζ/100)` is a genuine damping
+coefficient — the same unit BeamNG's own damping variables use. No new empirical
+constant is introduced anywhere in this path.
+
+Three consequences worth knowing:
+
+- **Nothing is clamped, floored, or quantised.** `dampScale` has *two* branches
+  (it scales up when the softer damper falls below 1 click, not only down at the
+  ceiling); both are bypassed, as is `clampDamp`'s 0.1 rounding.
+- **Balance figures differ slightly from Forza for identical inputs.** Forza
+  deliberately recomputes `rsAbF`/`rsAbR` back out of the *rounded, clamped*
+  click values, so the balance bar reflects what the game will really do with the
+  numbers you type. Physical modes have no quantisation to model, so the ARB
+  budget flows through untouched. This is correct, not drift.
+- **BASIC ARB stiffness is unavailable.** Its budget is defined as a percentage
+  of the click ceiling (`1 + (lim.arb-1)·pct/100`), so it has no meaning without
+  one. AUTO, ROLL ° and SHARE % are unaffected.
+
+CO-SOLVE's Auto Spring Share normalises spring and ARB utilisation against
+`lim.arb`. Because the same denominator divides *both* sides of its comparison,
+it cancels — physical modes substitute a nominal `ARB_UTIL_REF = 65` and reach
+the identical `S`. The one place it does not cancel is the `Math.min(1, …)`
+saturation on the spring side, which is why the constant is pinned to Horizon's
+value rather than being arbitrary. `tests-beamng.js` asserts the equivalence
+across a 21-point Mech Balance Target sweep.
 
 ## Settle time ↔ ζ (`settleZetas`)
 

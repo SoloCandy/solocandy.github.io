@@ -380,6 +380,36 @@ still migrate state saved before `al.mode` existed.
 Found during the dead-code audit but fixed separately, since it changes
 behaviour and the cleanup was deliberately zero-diff.
 
+## Open — `NMM_PER_LBIN` is 10× too high, so every MET-mode spring readout is wrong
+
+`NMM_PER_LBIN` is defined as `LB_IN_TO_NM/100`. `LB_IN_TO_NM` is **N/m** per
+lb/in (175.127 — the name is misleading), and N/m → N/mm is a divide by
+**1000**, not 100. The correct figure is 1 lbf/in = 4.4482 N / 25.4 mm =
+**0.175127 N/mm**; the constant evaluates to 1.751.
+
+Confirmed in the running app: with the default chassis the SPRINGS card shows
+`261 lb/in` under IMP and `456.3 N/mm` under MET. The correct metric value is
+**45.7 N/mm**. A 456 N/mm spring would be beyond a formula car; 45 N/mm is an
+ordinary sports-car rate. Every metric spring number the app has ever shown —
+output card, VISUALS readout, and the Tune Check spring inputs — is off by
+exactly one decimal place.
+
+**Deliberately not fixed** as part of the BeamNG work. It is a visible
+correctness change to numbers users have been reading and acting on, so it
+belongs in its own change with its own decision, not folded into a feature.
+
+The BeamNG mode does **not** use the broken constant. `N_MM_PER_LB_IN`
+(`= LB_IN_TO_NM/1000`) was added alongside it and is what physical-unit modes
+convert with, which is why BeamNG shows the correct 45.6 N/mm for the same
+chassis that MET shows 456.3 for.
+
+**Do not "de-duplicate" the two constants.** They look redundant and differ by
+a round factor of ten, which is exactly the shape of something a cleanup pass
+deletes. Both carry a comment at their definition pointing here.
+`tests-beamng.js` pins the discrepancy with an explicit assertion, so fixing
+`NMM_PER_LBIN` will fail that test — when that happens, delete the assertion and
+this entry together and fold `N_MM_PER_LB_IN` back into one constant.
+
 ## Fixed — MAN ARB fields accepted clicks MOTORSPORT would silently discard (resolved)
 
 The Stiffness Mode MAN inputs hardcoded `max={65}` — `GAME_LIMITS.horizon.arb`.
