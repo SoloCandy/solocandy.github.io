@@ -146,7 +146,18 @@ const {useState,useMemo,useRef,useEffect,useLayoutEffect}=React;
 
 const KG_TO_LB=2.204622622,LB_IN_TO_NM=175.126790921,MPH_TO_MS=0.44704,IN_TO_MM=25.4;
 const KMH_PER_MPH=1.60934;
-const NMM_PER_LBIN=LB_IN_TO_NM/100; // ≈1.751 N/mm per lb/in
+// ⚠ TWO CONVERSIONS FOR THE SAME THING — READ BEFORE TOUCHING EITHER.
+// NMM_PER_LBIN is WRONG by exactly 10×: 1 lbf/in = 4.4482 N / 25.4 mm = 0.175127 N/mm,
+// so the divisor should be 1000 (N/m → N/mm), not 100. Every MET-mode spring readout
+// is therefore 10× high (a 261 lb/in spring displays as 456.3 N/mm instead of 45.7).
+// It is deliberately NOT fixed here — correcting it silently changes every metric
+// number users have been reading, so it's tracked as its own decision in
+// docs/KNOWN_ISSUES.md rather than folded into the BeamNG work.
+// N_MM_PER_LB_IN below is the correct one, used by physical-unit game modes.
+// DO NOT "de-duplicate" these two into one constant without resolving that issue
+// first — they are not redundant, one of them is a bug.
+const NMM_PER_LBIN=LB_IN_TO_NM/100;    // ✗ 10× high — see above; MET-mode display only
+const N_MM_PER_LB_IN=LB_IN_TO_NM/1000; // ✓ correct: 1 lbf/in = 0.175127 N/mm
 const ARB_RS_SCALE=240;
 const rollCenterHeight=ch=>ch.cgHeight*0.20; // scales with CG height; ~0.09m for typical sports cars
 const DAMPING_CALIBRATION=0.00135;
@@ -156,7 +167,30 @@ const MECH_BAL_GAIN=1.8;     // axle capacity delta → balance offset (calibrat
 const WIDTH_GRIP_EXP=0.4;    // tyre width → grip capacity, sub-linear
 const TIRE_MECH_SCALE=0.08;  // tyre width rear/front log-ratio → mech balance correction (calibrated from Forza telemetry)
 const MECH_BALANCE_TARGET=0.65;
-const GAME_LIMITS={horizon:{damping:20,arb:65},motorsport:{damping:40,arb:40}};
+// Forza hides its real internal units, so both Forza modes express springs/dampers/ARBs
+// as abstract "clicks" on a fixed 1–N scale (DAMPING_CALIBRATION and ARB_RS_SCALE were
+// reverse-engineered to map real physics onto those ranges — see docs/PHYSICS.md).
+// BeamNG generates its tuning sliders per-vehicle from the car's Jbeam `variables` block,
+// so there is no universal scale to calibrate against. Instead of inventing a third click
+// range, `physical:true` modes skip the click-compression step entirely and emit the real
+// values the solver already computes upstream: N/mm, N·s/m, N·m/rad. `damping`/`arb` are
+// null because there is genuinely no ceiling — every consumer must null-check rather than
+// assume a number (no clamping, no "/ N" suffix, no percentage-of-max warnings).
+const GAME_LIMITS={horizon:{damping:20,arb:65},motorsport:{damping:40,arb:40},
+                   beamng:{damping:null,arb:null,physical:true}};
+// Branch on the capability, never on the string 'beamng' — a fourth physical-unit game
+// should cost nothing but a GAME_LIMITS entry.
+const isPhysical=gm=>!!GAME_LIMITS[gm]?.physical;
+// Nominal full-scale used ONLY as CO-SOLVE's utilisation denominator when the game mode
+// has no click ceiling. It is NOT a reintroduced limit and nothing is clamped to it —
+// see the derivation at the Auto Spring Share binary search for why the value cancels.
+const ARB_UTIL_REF=65;
+// Display labels for the game-mode buttons. Both the desktop header and the mobile
+// sidebar read this; the mobile copy used to hardcode a two-way ternary, which would
+// have silently labelled a third mode as "MS".
+const GAME_MODE_LABEL={horizon:{full:'HORIZON',short:'HZ'},
+                       motorsport:{full:'MOTORSPORT',short:'MS'},
+                       beamng:{full:'BEAMNG',short:'BNG'}};
 
 const cornerMasses=ch=>{
   const kg=ch.weight/KG_TO_LB;
@@ -240,9 +274,12 @@ const solveSpring=(hz,mass,mr)=>{
   const wr=Math.pow(hz*2*Math.PI,2)*mass;
   return(wr/Math.pow(mr,2))/LB_IN_TO_NM;
 };
-const solveDampRaw=(hz,mass,z)=>{
+// `cc*(z/100)` is the real damping coefficient in N·s/m (cc=2√(wr·mass) has units kg/s ≡ N·s/m).
+// DAMPING_CALIBRATION only exists to compress that into Forza's click range, so physical-unit
+// modes pass calib=1 and get the genuine coefficient back — no calibration constant involved.
+const solveDampRaw=(hz,mass,z,calib=DAMPING_CALIBRATION)=>{
   const wr=Math.pow(hz*2*Math.PI,2)*mass,cc=2*Math.sqrt(wr*mass);
-  return cc*(z/100)*DAMPING_CALIBRATION; // truly unclamped — bounds applied after proportional scaling
+  return cc*(z/100)*calib; // truly unclamped — bounds applied after proportional scaling
 };
 // Equal-settle damping ratios anchored to the ride-reference axle.
 // The reference axle (the one the stiffness slider anchors) holds refZeta; the other axle's
@@ -548,6 +585,15 @@ const feelToPhysics=(ch,fe)=>{
 
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
+  // Physical-unit modes (BeamNG) emit the values this solver already works in — springs
+  // stay lb/in (the display layer converts to N/mm), dampers come out in N·s/m, ARBs in
+  // N·m/rad — instead of compressing them into a click scale that has no counterpart in
+  // the target game. `dampCalib` of 1 and `physUnits` below are the only two switches.
+  const physUnits=isPhysical(gameMode);
+  const dampCalib=physUnits?1:DAMPING_CALIBRATION;
+  // Full-scale reference for CO-SOLVE's utilisation comparison only. See the long note at
+  // the binary search below for why substituting a nominal value here is sound.
+  const utilRef=lim.arb??ARB_UTIL_REF;
   const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF:zetaF0,zetaR:zetaR0,bumpZetaF:bumpZetaF0,bumpZetaR:bumpZetaR0,arbBalance,arbBias,arbTargetRoll,arbMode,arbShareMan,arbBasicMan,arbBalTarget,arbBalMode,arbSplitOpposite,arbManF,arbManR}=phys;
   let zetaF=zetaF0,zetaR=zetaR0,bumpZetaF=bumpZetaF0,bumpZetaR=bumpZetaR0;
   // Tyre-width correction: Forza's mech balance display includes a small tyre-width contribution.
@@ -570,7 +616,7 @@ const computeTune=(ch,phys,gameMode)=>{
       // Both sides are expressed in the SAME currency — ARB-click-equivalents — so they're
       // genuinely comparable. Spring util = the incremental rear roll-stiffness the spring
       // correction is carrying (rsSpR_s minus its S=0 baseline), converted through the same
-      // ARB_RS_SCALE·track² relationship real clicks use, then scaled 0..1 against lim.arb —
+      // ARB_RS_SCALE·track² relationship real clicks use, then scaled 0..1 against utilRef —
       // "how many ARB clicks would this same correction have cost, had it been done by bars
       // instead." A prior version scaled Hz distance against the game's Hz range (or even the
       // Rear/Front Multiplier's 0.50–3.00 band); both were still so much wider than what a
@@ -578,18 +624,32 @@ const computeTune=(ch,phys,gameMode)=>{
       // leaving the search pinned at S=100% regardless of target. Click-equivalents are exact —
       // no reference band to miscalibrate — and naturally direction-aware, since a softer-rear
       // correction (rsSpR_s < baseline) yields the same magnitude the other way.
-      // ARB util = how far the heavier ARB bar is toward lim.arb.
+      // ARB util = how far the heavier ARB bar is toward utilRef.
+      //
+      // utilRef is lim.arb for the Forza modes and ARB_UTIL_REF for physical-unit modes,
+      // which have no ceiling. That substitution is sound because utilRef divides BOTH
+      // sides: the search only ever compares spUtil against abUtil, so the denominator
+      // cancels and the crossing point of S is unchanged by its value. The single
+      // exception is the Math.min(1, …) saturation on spUtil below — once the spring
+      // correction exceeds the reference, the comparison stops being scale-free. That
+      // only binds for corrections larger than roughly a third of the rear spring's own
+      // roll stiffness, i.e. extreme Mech Balance Targets, and keeping ARB_UTIL_REF at
+      // Horizon's 65 makes physical modes saturate at exactly the same point Horizon
+      // does. Do not "simplify" utilRef away — the clamp is what makes it load-bearing.
       // Pre-compute roll moment (chassis only, Hz-independent) for roll-mode ARB budget estimate.
       const _rm=(ch.weight/KG_TO_LB)*9.81*(ch.cgHeight-rollCenterHeight(ch));
       const _rsTotTgt=_rm/(arbTargetRoll*(Math.PI/180));
       // BASIC: budget is a direct click target, independent of spring roll stiffness — constant
       // across the search, unlike SHARE's budget which scales with rsSp_s at each candidate S.
-      const _basicBudget=ARB_RS_SCALE*(ch.trackF*ch.trackF+ch.trackR*ch.trackR)*(1+(lim.arb-1)*arbBasicMan/100);
+      // Defined purely as a fraction of the click ceiling, so it has no meaning without one —
+      // physical-unit modes hide BASIC in the UI, and the ?? here is the belt-and-braces guard
+      // in case a persisted arbMode:'basic' survives a game-mode switch.
+      const _basicBudget=ARB_RS_SCALE*(ch.trackF*ch.trackF+ch.trackR*ch.trackR)*(1+((lim.arb??ARB_UTIL_REF)-1)*arbBasicMan/100);
       const simUtil=(sVal)=>{
         const R_sp_s=Math.max(0.001,Math.min(0.999,R_baseline+sVal*(targetRsBalance-R_baseline)));
         const rsSpR_s=R_sp_s*rsSpF_cs/(1-R_sp_s);
         const eRHz=Math.max(HZ_MIN,Math.min(HZ_MAX,Math.sqrt(2*rsSpR_s/(m.rear*ch.trackR*ch.trackR))/(2*Math.PI)));
-        const spUtil=Math.min(1,Math.abs(rsSpR_s-rsSpR_base)/(ARB_RS_SCALE*ch.trackR*ch.trackR*lim.arb));
+        const spUtil=Math.min(1,Math.abs(rsSpR_s-rsSpR_base)/(ARB_RS_SCALE*ch.trackR*ch.trackR*utilRef));
         // Simulate ARB budget and split at this Hz state
         const wrFN_s=Math.pow(fHz*2*Math.PI,2)*m.front, wrRN_s=Math.pow(eRHz*2*Math.PI,2)*m.rear;
         const rsSpF_s=(wrFN_s*ch.trackF*ch.trackF)/2, rsSpRs=(wrRN_s*ch.trackR*ch.trackR)/2;
@@ -606,7 +666,7 @@ const computeTune=(ch,phys,gameMode)=>{
         const rF_s=Math.max(0,Math.min(1,(_K*(rsSpF_s+budget_s)-rsSpRs)/(budget_s*(1+_K))));
         const abF_s=budget_s*(1-rF_s)/(ARB_RS_SCALE*ch.trackF*ch.trackF);
         const abR_s=budget_s*rF_s/(ARB_RS_SCALE*ch.trackR*ch.trackR);
-        const abUtil=Math.max(abF_s,abR_s)/lim.arb;
+        const abUtil=Math.max(abF_s,abR_s)/utilRef;
         return{spUtil,abUtil};
       };
       // spUtil increases with S, abUtil decreases — binary search for the crossing point
@@ -638,13 +698,17 @@ const computeTune=(ch,phys,gameMode)=>{
   }
   const springF=solveSpring(fHz,m.front,1);
   const springR=solveSpring(effectiveRHz,m.rear,1);
-  const rawRebF=solveDampRaw(fHz,m.front,zetaF);
-  const rawRebR=solveDampRaw(effectiveRHz,m.rear,zetaR);
-  const rawBmpF=solveDampRaw(fHz,m.front,bumpZetaF);
-  const rawBmpR=solveDampRaw(effectiveRHz,m.rear,bumpZetaR);
+  const rawRebF=solveDampRaw(fHz,m.front,zetaF,dampCalib);
+  const rawRebR=solveDampRaw(effectiveRHz,m.rear,zetaR,dampCalib);
+  const rawBmpF=solveDampRaw(fHz,m.front,bumpZetaF,dampCalib);
+  const rawBmpR=solveDampRaw(effectiveRHz,m.rear,bumpZetaR,dampCalib);
   // Proportional scale: if max exceeds limit → scale down; if min below 1 → scale up.
   // Preserves F/R ratio at both bounds.
+  // Both branches exist only to fit Forza's 1..lim.damping click range. Physical-unit modes
+  // have neither bound — note it is not enough to skip the ceiling branch, since the lo<1
+  // rule would otherwise scale a legitimate sub-1 N·s/m coefficient up by orders of magnitude.
   const dampScale=(a,b)=>{
+    if(physUnits)return 1;
     const hi=Math.max(a,b),lo=Math.min(a,b);
     if(hi>lim.damping)return lim.damping/hi;
     if(lo<1)return 1/lo;
@@ -652,7 +716,9 @@ const computeTune=(ch,phys,gameMode)=>{
   };
   const rebScale=dampScale(rawRebF,rawRebR);
   const bmpScale=dampScale(rawBmpF,rawBmpR);
-  const clampDamp=(v,s)=>Math.min(lim.damping,Math.max(1,Math.round(v*s*10)/10));
+  // Forza needs 0.1-click quantisation and a 1..lim floor/ceiling; a real N·s/m coefficient
+  // wants neither, so physical modes pass the scaled value straight through.
+  const clampDamp=(v,s)=>physUnits?v*s:Math.min(lim.damping,Math.max(1,Math.round(v*s*10)/10));
   const rebF=clampDamp(rawRebF,rebScale);
   const rebR=clampDamp(rawRebR,rebScale);
   const bumpF=clampDamp(rawBmpF,bmpScale);
@@ -672,7 +738,7 @@ const computeTune=(ch,phys,gameMode)=>{
   let rsAbBudget=arbMode==='roll'
     ? rsTotalTarget-rsSpF-rsSpR        // roll mode: invert roll equation as before
     : arbMode==='basic'
-    ? ARB_RS_SCALE*(ch.trackF*ch.trackF+ch.trackR*ch.trackR)*(1+(lim.arb-1)*arbBasicMan/100) // basic: direct click target, unlinked from spring stiffness
+    ? ARB_RS_SCALE*(ch.trackF*ch.trackF+ch.trackR*ch.trackR)*(1+((lim.arb??ARB_UTIL_REF)-1)*arbBasicMan/100) // basic: direct click target, unlinked from spring stiffness (ceiling-defined — BASIC is hidden in physical modes)
     : rsSp*(shareTarget/(1-shareTarget)); // auto + share: target a fraction directly
   let rF=arbBalance/100;
   let _rsBalK=null;
@@ -732,20 +798,32 @@ const computeTune=(ch,phys,gameMode)=>{
   // user's setting. Per-bar game minimum is still enforced by clk() below.
   if(_rsBalK!==null)
     rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)-rsSpR)/(rsAbBudget*(1+_rsBalK))));
-  const clk=(rs,track)=>{const v=Math.min(lim.arb,Math.max(1,rs/(ARB_RS_SCALE*track*track)));return Math.round(v*10)/10;};
+  // Forza: compress roll stiffness into 1..lim.arb clicks at 0.1 resolution.
+  // Physical modes: the roll stiffness IS the output (N·m/rad), so no conversion happens —
+  // only a floor at zero, since a negative budget would be nonsense either way.
+  const clk=physUnits
+    ? rs=>Math.max(0,rs)
+    : (rs,track)=>{const v=Math.min(lim.arb,Math.max(1,rs/(ARB_RS_SCALE*track*track)));return Math.round(v*10)/10;};
   let arbF,arbR;
   if(arbMode==='man'){
     // Manual mode: use user-input ARB values directly (Stiffness Mode MAN — bypasses the
-    // budget/split system entirely, which is why it lives here rather than in Balance Mode)
-    arbF=Math.max(1,Math.min(lim.arb,arbManF??20));
-    arbR=Math.max(1,Math.min(lim.arb,arbManR??20));
+    // budget/split system entirely, which is why it lives here rather than in Balance Mode).
+    // In physical modes the field carries N·m/rad, so there is nothing to clamp against.
+    arbF=physUnits?Math.max(0,arbManF??0):Math.max(1,Math.min(lim.arb,arbManF??20));
+    arbR=physUnits?Math.max(0,arbManR??0):Math.max(1,Math.min(lim.arb,arbManR??20));
   } else {
     // Auto/WEIGHT/MECH/CO-SOLVE: solve from budget
     arbF=clk(rsAbBudget*(1-rF),ch.trackF);
     arbR=clk(rsAbBudget*rF,ch.trackR);
   }
-  const rsAbF=arbF*ARB_RS_SCALE*ch.trackF*ch.trackF;
-  const rsAbR=arbR*ARB_RS_SCALE*ch.trackR*ch.trackR;
+  // Forza deliberately round-trips through the clamped, 0.1-rounded click values here, so the
+  // balance bar reflects what the game will actually do with the numbers you type. Physical
+  // modes have no quantisation to model — arbF/arbR already ARE the roll stiffness — so the
+  // budget flows through untouched. Consequence worth knowing: for identical inputs a physical
+  // mode reports slightly different mechBalance/bTot/arbShare than Forza, because Forza's are
+  // post-rounding. That is correct, not drift.
+  const rsAbF=physUnits?arbF:arbF*ARB_RS_SCALE*ch.trackF*ch.trackF;
+  const rsAbR=physUnits?arbR:arbR*ARB_RS_SCALE*ch.trackR*ch.trackR;
   const rsTotal=rsSpF+rsSpR+rsAbF+rsAbR;
   const rollDeg=rsTotal>0?rollMoment/rsTotal*(180/Math.PI):0;
   const rollClamped=arbMode==='roll'&&Math.abs(rollDeg-arbTargetRoll)>0.05;
@@ -767,7 +845,9 @@ const computeTune=(ch,phys,gameMode)=>{
   // above), so a leftover arbBalMode of mech/coSolve from before switching to MAN must not
   // trigger this "target unreachable" warning — nothing is actually solving toward it.
   const mechBalClamped=arbMode!=='man'&&(arbBalMode==='mech'||arbBalMode==='coSolve')&&Math.abs(mechBalance-arbBalTarget)>0.01;
-  const neutralClamped=arbBalMode==='neutral'&&(arbF<=1||arbF>=lim.arb||arbR<=1||arbR>=lim.arb);
+  // "ARB maxed, can't fully cancel" only means something against a ceiling. Physical modes
+  // can always supply whatever roll stiffness NEUTRAL asks for, so the warning never fires.
+  const neutralClamped=!physUnits&&arbBalMode==='neutral'&&(arbF<=1||arbF>=lim.arb||arbR<=1||arbR>=lim.arb);
   const settleF=zetaF>0?2.302/((zetaF/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn)
   const settleR=zetaR>0?2.302/((zetaR/100)*effectiveRHz*2*Math.PI):99;
   // CO-SOLVE contribution breakdown: how much of balance correction came from springs vs ARBs
@@ -775,9 +855,13 @@ const computeTune=(ch,phys,gameMode)=>{
   const coSolveSpCorr=arbBalMode==='coSolve'&&coSolveR_baseline!=null?rsBalSp-coSolveR_baseline:null;
   const coSolveAbCorr=arbBalMode==='coSolve'&&coSolveR_baseline!=null?rsBalance-rsBalSp:null;
   const coSolveLiftRisk=arbBalMode==='coSolve'&&effectiveRHz>fHz*1.20;
+  // 0.1 is the resolution of a Forza damper click. It means nothing for an N·s/m
+  // coefficient, so physical modes return full precision and let the display layer
+  // decide how many decimals to show.
+  const r1=v=>physUnits?v:Math.round(v*10)/10;
   return{springF,springR,
-         rebF:Math.round(rebF*10)/10,rebR:Math.round(rebR*10)/10,
-         bumpF:Math.round(bumpF*10)/10,bumpR:Math.round(bumpR*10)/10,
+         rebF:r1(rebF),rebR:r1(rebR),
+         bumpF:r1(bumpF),bumpR:r1(bumpR),
          arbF,arbR,
          fHz,rHz:effectiveRHz,settle:settleF,settleR,rollDeg,rollTarget:arbTargetRoll,rollClamped,mechBalClamped,neutralClamped,dampingClamped,
          arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
@@ -963,7 +1047,10 @@ const hzCtx=hz=>{
 // (SOFT is the implicit floor). Colour matches that band's hzCtx colour.
 const HZ_MARKERS=HZ_BANDS.map((v,i)=>({value:v,color:HZ_BAND_COLS[i+1],
   label:['ROAD','FIRM','RACE'][i]}));
+// "how close to the game's ceiling" — meaningless without one, so callers in physical
+// modes get null back and render no badge rather than an invented band.
 const arbCtx=(arb,limit)=>{
+  if(limit==null)return null;
   const p=(arb-1)/(limit-1);
   if(p<0.50)return['LOW','#60a5fa'];
   if(p<0.75)return['MED','#f59e0b'];
@@ -2050,8 +2137,13 @@ const GlossaryModal=({onClose})=>{
   );
 };
 
-const GAME_MODE_ENC={'horizon':0,'motorsport':1};
-const GAME_MODE_DEC=['horizon','motorsport'];
+// Appending 'beamng':2 needs no codec version bump: encodeTune omits fields still at
+// their default (so horizon codes never carry id 10 at all), decodeTune ignores ids it
+// doesn't know, and sanitizeTune's GAME_MODE_DEC.includes() check drops an out-of-range
+// value back to horizon. An older client fed a beamng code degrades to horizon instead
+// of throwing. Values are permanent — never renumber.
+const GAME_MODE_ENC={'horizon':0,'motorsport':1,'beamng':2};
+const GAME_MODE_DEC=['horizon','motorsport','beamng'];
 const DAMPING_MODE_ENC={'ratio':0,'independent':1};
 const DAMPING_MODE_DEC=['ratio','independent'];
 const REAR_HZ_MODE_ENC={'flatRide':0,'independent':1,'multiplier':2,'mech':3};
@@ -3440,10 +3532,10 @@ function App(){
               <button className={`tbtn${metricUnits?' on':''}`}
                 onClick={()=>setMetricUnits(true)} style={{fontSize:11}}>MET</button>
               <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
-              {['horizon','motorsport'].map(m=>(
+              {GAME_MODE_DEC.map(m=>(
                 <button key={m} className={`tbtn${fe.gameMode===m?' on':''}`}
                   onClick={()=>pFe('gameMode')(m)} style={{fontSize:11}}>
-                  {m.toUpperCase()}
+                  {GAME_MODE_LABEL[m].full}
                 </button>
               ))}
               <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
@@ -3512,10 +3604,10 @@ function App(){
               <button className={`tbtn${metricUnits?' on':''}`}
                 onClick={()=>setMetricUnits(true)} style={{fontSize:11}}>MET</button>
               <div style={{width:1,height:14,background:'#1e293b',margin:'0 2px'}}/>
-              {['horizon','motorsport'].map(m=>(
+              {GAME_MODE_DEC.map(m=>(
                 <button key={m} className={`tbtn${fe.gameMode===m?' on':''}`}
                   onClick={()=>pFe('gameMode')(m)} style={{fontSize:11}}>
-                  {m==='horizon'?'HZ':'MS'}
+                  {GAME_MODE_LABEL[m].short}
                 </button>
               ))}
             </div>
