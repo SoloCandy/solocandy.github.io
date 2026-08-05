@@ -1293,8 +1293,18 @@ const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,settleMode:false,settle
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,arbBasicMan:50,
               arbBalTarget:null,arbBalMode:'weight',springShare:50,springShareAuto:true,
               arbBalTargetMode:'manual',arbBalDelta:0,arbSplitOpposite:false,
-              rearHzMode:'flatRide',rearHzMan:1.5,rearHzMult:1.20,rideRef:'front'};
-const DEF_DR={buildType:'track',diffType:'race',
+              // MULTIPLIER is the fresh-install default, not FLAT RIDE — flat ride is a
+              // comfort/road philosophy (many racecars don't use it) and its ratio only
+              // stays inside the practitioner 10–20% band at moderate stiffness; it remains
+              // fully available as a Hz Mode choice. 1.20 sits at the upper end of that band.
+              rearHzMode:'multiplier',rearHzMan:1.5,rearHzMult:1.20,rideRef:'front'};
+// buildType:'street' pairs with diffType:'sport' — recommendedDiffType maps
+// street→sport, track→race (index.html, search recommendedDiffType), so these two
+// must move together or a fresh INT/PRO install shows a spurious RECOMMENDED
+// mismatch banner on the DIFFERENTIAL card. diffCenter:65 already equals
+// _baseCenterLookup.street, so no change needed there for the (AWD-only) center
+// split recommendation to stay matched.
+const DEF_DR={buildType:'street',diffType:'sport',
               diffManual:false,diffComplement:false,
               diffBiasExit:0,diffBiasEntry:0,diffFrontExitBias:0,
               diffAccel:35,diffDecel:10,
@@ -2677,7 +2687,7 @@ const TUTORIALS={
      body:'Two separate controls. Stiffness Mode sets how much total ARB you get: AUTO derives it from the car\'s natural roll tendency, BASIC sets an overall stiffness level directly, ROLL ° solves for a target body roll angle, and SHARE % sets ARBs as a fraction of total roll stiffness. Balance Mode then splits that total front to rear: WEIGHT uses the car\'s weight distribution, NEUTRAL solves the split so it exactly cancels the springs\' contribution to the balance bar.\n\nThe ARB Bias slider fine-tunes the split either way — push toward front for more understeer resistance, toward rear for more rotation. PRO adds CHASSIS, MECH and CO-SOLVE balance modes, plus a MAN stiffness mode for entering ARB clicks directly. The ARB dial, ROLL/ARB SHARE readout, and SPRINGS/ARBs split bar live in the pinned VISUALS card at the bottom of the sidebar — check there for the live visual.'},
     {title:'Ride Ref & Rear Hz',
      focus:['feel'],
-     body:'RIDE REF. sets which axle the stiffness slider anchors — FRONT, SHARED, or REAR. The secondary axle frequency is derived by the Hz mode: FLAT RIDE (the mathematically ideal pitch-cancelling ratio for a target speed), MULTIPLIER (a fixed ratio of the anchored axle), or INDEPENDENT (set manually, free of the other axle).'},
+     body:'RIDE REF. sets which axle the stiffness slider anchors — FRONT, SHARED, or REAR. The secondary axle frequency is derived by the Hz mode: MULTIPLIER (a fixed ratio of the anchored axle, the default), FLAT RIDE (the mathematically ideal pitch-cancelling ratio for a target speed), or INDEPENDENT (set manually, free of the other axle).'},
     {title:'Dampers',
      focus:['damping'],
      body:'REBOUND MODE and BUMP MODE toggles sit above their sliders. Rebound ζ at 70% (Butterworth) is the sweet spot — settles cleanly without oscillating; below 40% is bouncy, above 100% is sluggish. Bump Ratio sets compression as a fraction of rebound (40–65% typical). Damping Bias splits front/rear: FRONT keeps the front firm while the rear softens (planted entry); REAR softens the front (easier direction changes) — shown in the DAMP row of Handling Balance.'},
@@ -3853,7 +3863,8 @@ function App(){
                       setBegResetArmed(false);
                       setCh({...DEF_CH});
                       setDr({...DEF_DR});
-                      setFe({...DEF_FE,springShare:50,rearHzMode:'multiplier',rearHzMult:1.0});
+                      // DEF_FE is already Hz Mode MULTIPLIER at 1.20 — no need to override.
+                      setFe({...DEF_FE,springShare:50});
                     }}>{begResetArmed?'CONFIRM':'RESET'}</button>
                 </div>
               </div>
@@ -4726,16 +4737,16 @@ function App(){
               const isShared=(physics.rideRef??'front')==='shared';
               return<>
                 <div style={{display:'flex',alignItems:'center',marginBottom:3,marginTop:-2}}>
-                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,flex:1}}>Hz MODE<Hint text="How the secondary axle frequency is derived. FLAT RIDE: the mathematically ideal pitch-cancelling ratio for a target speed. MULTIPLIER: a fixed ratio of the anchored axle Hz. INDEPENDENT: set manually, free of the other axle. MECH: derived from the mech balance target — PRO only. Hidden in CO-SOLVE — rear Hz is solved automatically."/></span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,flex:1}}>Hz MODE<Hint text="How the secondary axle frequency is derived. MULTIPLIER: a fixed ratio of the anchored axle Hz. MECH: derived from the mech balance target — PRO only. FLAT RIDE: the mathematically ideal pitch-cancelling ratio for a target speed. INDEPENDENT: set manually, free of the other axle. Hidden in CO-SOLVE — rear Hz is solved automatically."/></span>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:uiMode==='pro'?(isShared?'1fr 1fr 1fr':'1fr 1fr'):(isShared?'1fr 1fr':'1fr 1fr 1fr'),gap:3,marginBottom:10}}>
-                  <button className={`tog${(fe.rearHzMode??'flatRide')==='flatRide'?' on':''}`}
-                    onClick={()=>setFe(p=>({...p,rearHzMode:'flatRide'}))}>FLAT RIDE</button>
                   <button className={`tog${(fe.rearHzMode??'flatRide')==='multiplier'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,rearHzMode:'multiplier',
                       rearHzMult:Math.round(physics.rearHz/physics.frontHz*100)/100}))}>MULTIPLIER</button>
                   {uiMode==='pro'&&<button className={`tog${(fe.rearHzMode??'flatRide')==='mech'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,rearHzMode:'mech'}))}>MECH</button>}
+                  <button className={`tog${(fe.rearHzMode??'flatRide')==='flatRide'?' on':''}`}
+                    onClick={()=>setFe(p=>({...p,rearHzMode:'flatRide'}))}>FLAT RIDE</button>
                   {!isShared&&<button className={`tog${(fe.rearHzMode??'flatRide')==='independent'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,rearHzMode:'independent',
                       rearHzMan:Math.round((physics.rideRef==='rear'?physics.frontHz:physics.rearHz)*100)/100}))}>INDEPENDENT</button>}
@@ -4748,8 +4759,16 @@ function App(){
               const secLabel=rRef==='rear'?'front':'rear';
               const secHz=rRef==='rear'?physics.frontHz:physics.rearHz;
               const sharedReadout=`F ${physics.frontHz.toFixed(2)} · R ${physics.rearHz.toFixed(2)} Hz${physics.rearHzClamped?' ⚠':''}`;
+              // Olley's own reference point is front ≈80% of rear (×1.25); Penske/Race Comp's
+              // practitioner range tops out around ×1.20. Above ×1.25 the flat-ride ratio has
+              // drifted outside every published source, usually because Ride Stiffness rose
+              // without Target Speed following it — the correct fix is to raise Target Speed
+              // (lower OFF/CITY position), not to abandon flat ride. See docs/PHYSICS.md.
+              const flatRideRatio=tune.fHz>0?tune.rHz/tune.fHz:1;
+              const flatRideRatioHigh=flatRideRatio>1.25;
               return(fe.rearHzMode??'flatRide')==='flatRide'
-              ? <FeelSlider label="Target Speed" value={240-fe.targetSpeed}
+              ? <>
+                <FeelSlider label="Target Speed" value={240-fe.targetSpeed}
                   onChange={v=>pFe('targetSpeed')(240-v)} min={40} max={180} step={5}
                   leftLabel="OFF" rightLabel="CITY"
                   readout={fe.targetSpeed>=200
@@ -4764,6 +4783,14 @@ function App(){
                     :rRef==='rear'
                     ?"Solves front Hz so rear and front wheels hit the road's bumps in phase at your chosen speed. Right (CITY) = lower target speed, softer front. Left (OFF) = disabled, front Hz matches rear adjusted for mass only."
                     :"The speed at which front and rear wheels hit bumps in phase (flat ride). Right (CITY) = lower target speed, stiffer rear. Left (OFF) = flat-ride correction disabled — rear Hz matches front Hz adjusted for mass only, useful for very high-speed circuits."}/>
+                {flatRideRatioHigh&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
+                     marginTop:6,padding:'6px 8px',background:'#020617',borderRadius:2,
+                     border:'1px solid #f5a62333'}}>
+                  Rear is running ×{flatRideRatio.toFixed(2)} over front — above the typical
+                  10–20% flat-ride range. Raise Target Speed (move toward OFF) or lower Ride
+                  Stiffness to bring it back in range.
+                </div>}
+                </>
             : (fe.rearHzMode??'flatRide')==='multiplier'
               ? <FeelSlider
                   label={isShared?'F/R Ratio':rRef==='rear'?'Front Multiplier':'Rear Multiplier'}

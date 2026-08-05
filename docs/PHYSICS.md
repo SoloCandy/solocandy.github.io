@@ -181,14 +181,49 @@ frequency (dispatch lives in `feelToPhysics`):
   | 3.0 Hz front, 70 mph | ×2.07 (hit `HZ_MAX`) | ×1.35 |
   | stock chassis, 30 mph | ×3.39 | ×1.54 |
 
-  Because FLAT RIDE is the default Hz mode, this was also the app's
-  out-of-box state: a fresh install put the rear axle in the RACE band while
-  the front sat in ROAD, and the handling balance bar read **+14.9 oversteer**
-  before the user touched anything. It now reads +6.5. `tests.js` pins the
+  FLAT RIDE **was** the default Hz mode when this bug was found, so it was
+  also the app's out-of-box state: a fresh install put the rear axle in the
+  RACE band while the front sat in ROAD, and the handling balance bar read
+  **+14.9 oversteer** before the user touched anything. `tests.js` pins the
   ratio at two speeds and two stiffnesses so the doubling cannot silently
-  return. See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for the behaviour-change note.
-- **MULTIPLIER** — `rearHz = frontHz * fe.rearHzMult` (or the inverse
-  split for `shared` ride-ref) — a fixed ratio, no chassis math involved.
+  return. The default has since moved to MULTIPLIER (below) — see
+  [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for both behaviour-change notes.
+
+  **Two limits worth knowing before relying on this mode:**
+
+  1. **The precondition isn't checked.** Olley's flat-ride result only holds
+     when the vehicle's pitch dynamic index is close to 1
+     (`k² ≈ a·b`, where `k` is the sprung mass's radius of gyration in pitch
+     and `a`/`b` are the CG-to-front/rear-axle distances) — that's what lets
+     front and rear be treated as two independent one-DOF systems in the
+     first place. SUSP.OS has no pitch-inertia input and never tests this;
+     the per-axle rule is applied unconditionally. For a car whose weight is
+     unusually concentrated away from the axles (heavy overhangs, mid-engine
+     packaging), the underlying assumption may not hold and the "ideal"
+     ratio is less meaningful than the formula implies.
+  2. **The ratio is only exact at one speed.** Jazar's analysis found that a
+     fixed front/rear frequency ratio cancels pitch fully at exactly one
+     vehicle speed — the flat-ride condition is inherently speed-dependent,
+     not a constant a passive suspension can satisfy everywhere at once.
+     This is the reason Target Speed is a control here rather than a single
+     baked-in multiplier, and it's a genuine advantage over a fixed ratio —
+     but it also means the "ideal" framing only applies near whatever speed
+     you've set. Outside a car's chosen Target Speed the cancellation
+     weakens by design, not by a bug in the app.
+
+  Sources: Maurice Olley's original flat-ride criteria; R.N. Jazar,
+  *"Flat Ride; Problems and Solutions in Vehicle Dynamics"* (De Gruyter,
+  *Nonlinear Engineering*, 2013); Sharp & Pilbeam, *"Olley's 'Flat Ride'
+  Revisited"* (Vehicle System Dynamics, 1999); Penske Racing Shocks,
+  *"Natural Frequency, Ride Frequency, and CPM in Race Car Suspension"*;
+  Race Comp Engineering, *"Spring Rates Part 2: Suspension Frequencies."*
+
+  Practically: if the RIDE section's flat-ride advisory banner appears
+  (ratio above ×1.25), raise Target Speed or lower Ride Stiffness — see
+  [SLIDERS.md](SLIDERS.md).
+- **MULTIPLIER** (the fresh-install default) — `rearHz = frontHz *
+  fe.rearHzMult` (or the inverse split for `shared` ride-ref) — a fixed
+  ratio, no chassis math involved.
 - **INDEPENDENT** — `fe.rearHzMan` used directly, fully decoupled.
 - **MECH** (PRO only) — solves the secondary axle's Hz so that, combined
   with whatever ARB balance mode is active (WEIGHT/ROLL/SHARE/MANUAL each

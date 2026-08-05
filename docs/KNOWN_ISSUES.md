@@ -426,6 +426,54 @@ Two notes for future work:
   rather than independent physics, so their fixtures had to be re-derived. Worth
   remembering that "the tests pass" said nothing here.
 
+## Fixed — Fresh installs defaulted to a track build with a comfort-oriented Hz mode (resolved)
+
+Fixing the `2t`→`t` offset above corrected FLAT RIDE's own math, but FLAT RIDE was
+still `DEF_FE.rearHzMode`, and `DEF_DR.buildType` defaulted to `'track'`. Research
+into flat-ride methodology (see the caveat now in
+[PHYSICS.md](PHYSICS.md#rearsecondary-hz-modes)) found the literature explicit that
+flat ride is a comfort/road philosophy — Race Comp: *"Many racecars do not use flat
+ride and there can be benefits to higher front frequencies"* — which is backwards
+for a `track`-flagged fresh install.
+
+Changed both fresh-install defaults:
+
+- `DEF_FE.rearHzMode`: `'flatRide'` → `'multiplier'` at the existing `rearHzMult:1.20`
+  (already the upper end of Penske/Race Comp's published 10–20% band).
+- `DEF_DR.buildType`: `'track'` → `'street'`.
+
+**`buildType` could not change alone.** `recommendedDiffType` maps
+`street→'sport'`, `track→'race'`; `DEF_DR.diffType` was hardcoded `'race'`,
+matching `track` exactly. Changing only `buildType` would have shown a spurious
+amber "RECOMMENDED: SPORT / → USE SPORT" mismatch banner on the DIFFERENTIAL card
+for every INT/PRO fresh install — trading one first-launch rough edge for another.
+`DEF_DR.diffType` moved to `'sport'` alongside it. Checked the AWD center-split
+recommendation for the same hazard: `DEF_DR.diffCenter:65` was already a latent
+mismatch against `_baseCenterLookup.track`'s `70` (dormant, since that banner is
+AWD-only and layout defaults to RWD) — it now matches `_baseCenterLookup.street`
+exactly, a side-effect fix rather than a new change.
+
+The BEG-panel RESET button carried its own hardcoded
+`rearHzMode:'multiplier', rearHzMult:1.0` — a second, divergent "flat" default
+(matched axles) presumably chosen specifically to counter the old `flatRide`
+default. Simplified to inherit `DEF_FE` directly now that the two agree.
+
+Also reordered the Hz Mode buttons to **MULTIPLIER, MECH, FLAT RIDE, INDEPENDENT**
+(previously FLAT RIDE first) so the button order reflects which modes the new
+defaults favour, and added an in-app advisory: when FLAT RIDE's resulting
+rear/front ratio exceeds ×1.25 (Olley's own front≈80%-of-rear reference), a banner
+suggests raising Target Speed or lowering Ride Stiffness. FLAT RIDE itself is
+unchanged and remains fully available.
+
+**Verification note:** the fresh-install default change moved `fHz`/`rHz` (and
+everything downstream — springs-R, dampers-R, ARB, balance, roll) for 56 of the
+existing 64-case Horizon/Motorsport regression fixtures from last session, because
+those fixtures don't override `rearHzMode` and therefore all resolved rear Hz via
+whatever the default was. Checked that the front axle is byte-identical in all 64
+cases (it's always the reference axle) and that the 8 CO-SOLVE fixtures are
+byte-identical (CO-SOLVE overrides `effectiveRHz` regardless of `rearHzMode`) — the
+diff is fully explained by the intended default change, not a leak elsewhere.
+
 ## Open — BeamNG anti-roll output reads soft against observed stock values
 
 The BEAMNG mode converts the solver's roll stiffness to BeamNG's linear

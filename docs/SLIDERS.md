@@ -43,7 +43,7 @@ every balance-relevant slider.
 | Settle Bias | −50..+50 | Biases which axle settles faster | Right (REAR) = OVERSTEER-leaning, Left (FRONT) = UNDERSTEER-leaning |
 | Rear/Front Multiplier | 0.50–3.00× | Secondary axle Hz as ratio of anchor | Higher → OVERSTEER-leaning, lower → UNDERSTEER-leaning |
 | Independent Hz | 0.8–5.5 Hz | Manual secondary-axle Hz | Stiffer axle resists roll more there |
-| Target Speed | 40–180 mph | Flat Ride phase-cancelling speed target | None directly |
+| Target Speed | 40–180 mph | Flat Ride phase-cancelling speed target. Should scale with Ride Stiffness — the flat-ride rear/front ratio only stays inside the ~10–20% practitioner band up to ~2.0 Hz at the default 70 mph; stiffer setups need a higher Target Speed to stay in range. The app shows an amber advisory when the ratio exceeds ×1.25 — see [PHYSICS.md](PHYSICS.md#rearsecondary-hz-modes) | None directly |
 | Diff Type | Race/Sport/Rally/Offroad/Drift | Lock-curve aggressiveness scaling | Indirect (scales EXIT/ENTRY) |
 | EXIT (grouped under FRONT AXLE for FWD, REAR AXLE for RWD/AWD) | −50..+50, GRIP↔ROTATE | Accel-lock intent (sign-flipped for FWD so right always leans OS) — same GRIP/ROTATE vocabulary across all layouts | Right = OVERSTEER-leaning |
 | ENTRY (not SPORT, same axle group as EXIT) | −50..+50, STABLE↔LOOSE | Decel-lock intent | Right = OVERSTEER-leaning |
