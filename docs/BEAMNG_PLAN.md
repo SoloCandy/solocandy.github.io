@@ -13,7 +13,9 @@
 > 2. **"1 lb/in ~ 0.1751 N/mm" (below) is right, and the code is wrong.**
 >    `NMM_PER_LBIN` divides by 100 instead of 1000, so every MET-mode spring
 >    readout is 10× high. Not fixed here by decision; BeamNG uses a separate
->    correct constant. See [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
+>    correct constant. ***Since fixed*** — the divisor is now 1000 and the
+>    separate BeamNG constant proved unnecessary once the real unit turned out to
+>    be N/m. See [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
 > 3. **CO-SOLVE did not need disabling or a new currency.** `lim.arb` divides
 >    both sides of its binary-search comparison and cancels; a nominal
 >    `ARB_UTIL_REF` reproduces Horizon's chosen `S` exactly across a 21-point

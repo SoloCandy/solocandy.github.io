@@ -236,12 +236,6 @@ the two sentinels — clearing one causes its migration to run a second time.
 (`suspos_saves_v9` → `suspos_builds_v1` → `suspos_garage_v2`). Removing the middle
 link breaks the tail for users who skipped a version.
 
-**`NMM_PER_LBIN`** — wrong by 10× and still driving the MET toggle. Not fixed
-because correcting it changes every metric number users have been reading; see
-[KNOWN_ISSUES.md](KNOWN_ISSUES.md). Physical-unit modes deliberately route around
-it via `LB_IN_TO_NM`, so "the BeamNG path works, therefore the constant is fine"
-is not a valid inference.
-
 **`ch.motionRatioF` / `motionRatioR`** — read by nothing in the physics layer, only
 by `springOut`/`dampOut` at the display boundary. That is intentional, not an
 oversight: Hz, roll stiffness and the balance model are wheel-rate quantities and

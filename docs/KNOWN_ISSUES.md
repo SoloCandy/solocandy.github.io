@@ -501,33 +501,50 @@ Resolving this needs a second and third vehicle, and ideally a source on how
 BeamNG defines `Anti-Roll Spring Rate`. Until then, treat the ARB number as a
 direction rather than a value.
 
-## Open — `NMM_PER_LBIN` is 10× too high, so every MET-mode spring readout is wrong
+## Fixed — `NMM_PER_LBIN` was 10× too high, so every MET-mode spring readout was wrong (resolved)
 
-`NMM_PER_LBIN` is defined as `LB_IN_TO_NM/100`. `LB_IN_TO_NM` is **N/m** per
+`NMM_PER_LBIN` was defined as `LB_IN_TO_NM/100`. `LB_IN_TO_NM` is **N/m** per
 lb/in (175.127 — the name is misleading), and N/m → N/mm is a divide by
 **1000**, not 100. The correct figure is 1 lbf/in = 4.4482 N / 25.4 mm =
-**0.175127 N/mm**; the constant evaluates to 1.751.
+**0.175127 N/mm**; the constant evaluated to 1.751.
 
-Confirmed in the running app: with the default chassis the SPRINGS card shows
-`261 lb/in` under IMP and `456.3 N/mm` under MET. The correct metric value is
-**45.7 N/mm**. A 456 N/mm spring would be beyond a formula car; 45 N/mm is an
-ordinary sports-car rate. Every metric spring number the app has ever shown —
-output card, VISUALS readout, and the Tune Check spring inputs — is off by
+Confirmed in the running app before the fix: with the default chassis the
+SPRINGS card showed `261 lb/in` under IMP and `457 N/mm` under MET, where the
+correct value is **45.7 N/mm**. A 457 N/mm spring would be beyond a formula car;
+45.7 is an ordinary sports-car rate. Every metric spring number the app had ever
+shown — output card, VISUALS strip, and the Tune Check spring inputs — was off by
 exactly one decimal place.
 
-**Deliberately not fixed** as part of the BeamNG work. It is a visible
-correctness change to numbers users have been reading and acting on, so it
-belongs in its own change with its own decision, not folded into a feature.
+It was **deliberately deferred** during the BeamNG work rather than folded into a
+feature commit, because it visibly changes numbers users had been reading and
+acting on. This entry records discharging that deferral.
 
-The BeamNG mode is unaffected: BeamNG's slider is **N/m**, so it converts with
-`LB_IN_TO_NM` directly and never touches this constant. (An interim
+Fixed by correcting the divisor to `1000`. All four consumers route through the
+one constant (`springOut`'s MET branch, which feeds both the SPRINGS card and the
+VISUALS strip; the Tune Check spring inputs; and the MEASURE-mode probe rate
+readouts), so no call site needed its own change.
+
+**One knock-on handled at the same time.** The Tune Check spring input rendered
+`Math.round(value * conv)` at `step={1}`. With the corrected constant those
+numbers are 10× smaller, so whole-number rounding would have turned ~0.57 lb/in
+of entry resolution into ~5.7 lb/in, and 45.7 N/mm would have displayed as "46".
+The MET branch now carries one decimal at `step 0.1`, matching the output card.
+The BeamNG branch keeps whole N/m at `step 100`, which is right for that unit.
+
+The BeamNG mode was unaffected throughout: BeamNG's slider is **N/m**, so it
+converts with `LB_IN_TO_NM` directly and never touched this constant. (An interim
 `N_MM_PER_LB_IN` existed while BeamNG output was mistakenly built in N/mm; once
 the real unit was confirmed from an in-game screenshot it became unnecessary and
-was removed rather than left as a near-duplicate.)
+was removed rather than left as a near-duplicate.) Verified post-fix: BeamNG
+springs still read ~45,600 N/m and the 64-fixture physics snapshot showed **zero**
+diffs, since the constant is display-only and `computeTune` never reads it.
 
-`tests-beamng.js` pins the discrepancy with an explicit assertion, so fixing
-`NMM_PER_LBIN` will fail that test — when that happens, delete the assertion and
-this entry together.
+`tests-beamng.js` previously pinned the wrong value deliberately. That assertion
+is now inverted to guard the correct one, checked against SI from first principles
+(`4.4482216 / 25.4`) rather than against the app's own constants, so a regression
+in either `LB_IN_TO_NM` or the divisor is caught. The MET assertion in
+`springOut`'s test was also strengthened — it compared the function against the
+same constant the function uses, so it passed under any value and pinned nothing.
 
 ## Fixed — MAN ARB fields accepted clicks MOTORSPORT would silently discard (resolved)
 

@@ -146,15 +146,12 @@ const {useState,useMemo,useRef,useEffect,useLayoutEffect}=React;
 
 const KG_TO_LB=2.204622622,LB_IN_TO_NM=175.126790921,MPH_TO_MS=0.44704,IN_TO_MM=25.4;
 const KMH_PER_MPH=1.60934;
-// ⚠ NMM_PER_LBIN is WRONG by exactly 10×: 1 lbf/in = 4.4482 N / 25.4 mm = 0.175127 N/mm,
-// so the divisor should be 1000 (LB_IN_TO_NM is N/m per lb/in), not 100. Every MET-mode
-// spring readout is therefore 10× high — a 261 lb/in spring displays as 456.3 N/mm
-// instead of 45.7. Deliberately NOT fixed here: correcting it silently changes every
-// metric number users have been reading, so it is tracked as its own decision in
-// docs/KNOWN_ISSUES.md rather than folded into unrelated work.
-// Physical-unit game modes are unaffected — BeamNG's sliders are N/m, so they use
-// LB_IN_TO_NM directly and never touch this constant.
-const NMM_PER_LBIN=LB_IN_TO_NM/100;    // ✗ 10× high — see above; MET-mode display only
+// N/mm per lb/in, for the IMP/MET display toggle. LB_IN_TO_NM is N/m per lb/in despite
+// the name, and N/m → N/mm is a divide by 1000: 1 lbf/in = 4.4482 N / 25.4 mm = 0.175127.
+// (This was /100 for a long time, making every metric spring readout 10× high — see the
+// resolved entry in docs/KNOWN_ISSUES.md.) Physical-unit game modes don't use this at all:
+// BeamNG's slider is N/m, so it converts with LB_IN_TO_NM directly.
+const NMM_PER_LBIN=LB_IN_TO_NM/1000;
 const ARB_RS_SCALE=240;
 const rollCenterHeight=ch=>ch.cgHeight*0.20; // scales with CG height; ~0.09m for typical sports cars
 const DAMPING_CALIBRATION=0.00135;
@@ -170,7 +167,8 @@ const MECH_BALANCE_TARGET=0.65;
 // BeamNG generates its tuning sliders per-vehicle from the car's Jbeam `variables` block,
 // so there is no universal scale to calibrate against. Instead of inventing a third click
 // range, `physical:true` modes skip the click-compression step entirely and emit the real
-// values the solver already computes upstream: N/mm, N·s/m, N·m/rad. `damping`/`arb` are
+// values the solver already computes upstream, in BeamNG's own slider units: N/m springs,
+// N/m/s damping, and a linear N/m anti-roll rate. `damping`/`arb` are
 // null because there is genuinely no ceiling — every consumer must null-check rather than
 // assume a number (no clamping, no "/ N" suffix, no percentage-of-max warnings).
 const GAME_LIMITS={horizon:{damping:20,arb:65},motorsport:{damping:40,arb:40},
@@ -1070,8 +1068,8 @@ const HZ_MARKERS=HZ_BANDS.map((v,i)=>({value:v,color:HZ_BAND_COLS[i+1],
 //   Spring Rate            N/m     (NOT N/mm — a 1000× error if confused)
 //   Bump/Rebound Damping   N/m/s   (identical to N·s/m; this is BeamNG's spelling)
 //   Anti-Roll Spring Rate  N/m     (a LINEAR rate, not torsional N·m/rad — see arbOut)
-// LB_IN_TO_NM is already N/m per lb/in, so springs need no separate constant and in
-// particular must never touch the 10×-high NMM_PER_LBIN used by the IMP/MET toggle.
+// LB_IN_TO_NM is already N/m per lb/in, so physical modes need no separate constant —
+// NMM_PER_LBIN is the IMP/MET display toggle's N/mm conversion and is unrelated here.
 //
 // MOTION RATIO. The solver works in wheel rate (mr=1), which is what Forza displays.
 // BeamNG's sliders act at the spring/damper instead, so an inboard spring needs
@@ -2109,16 +2107,18 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
               {/* Physical modes always take N/m regardless of the IMP/MET toggle, because that
                   is the unit BeamNG's slider and this mode's SPRINGS card both use — asking
                   for lb/in here while printing N/m there would break the round-trip.
-                  LB_IN_TO_NM is already N/m per lb/in; the MET path deliberately uses the
-                  separate (and 10× high) NMM_PER_LBIN — see the note at its definition. */}
+                  LB_IN_TO_NM is N/m per lb/in; NMM_PER_LBIN is the MET toggle's N/mm.
+                  One `conv` drives value/onChange/min/max so the round-trip stays symmetric.
+                  N/mm values are ~10× smaller than N/m ones, so MET carries a decimal and a
+                  0.1 step — at whole numbers each step would be ~5.7 lb/in of resolution. */}
               {[['Spring Rate Front','f'],['Spring Rate Rear','r']].map(([lbl,k])=>{
                 const conv=phys?LB_IN_TO_NM:NMM_PER_LBIN;
                 const converted=phys||metricUnits;
                 return <Field key={k} label={lbl}
-                  value={converted?Math.round(ckSpr[k]*conv):ckSpr[k]}
+                  value={converted?(phys?Math.round(ckSpr[k]*conv):+(ckSpr[k]*conv).toFixed(1)):ckSpr[k]}
                   onChange={converted?v=>pS(k)(v/conv):pS(k)}
                   min={converted?Math.round(50*conv):50} max={converted?Math.round(2500*conv):2500}
-                  step={phys?100:1} unit={converted?(phys?'N/m':'N/mm'):'lb/in'}/>;
+                  step={phys?100:(metricUnits?0.1:1)} unit={converted?(phys?'N/m':'N/mm'):'lb/in'}/>;
               })}
             </Card>
             <Card title="DAMPING INPUTS">

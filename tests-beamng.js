@@ -70,11 +70,11 @@ t('the Forza modes are not physical', () => {
   if (M.isPhysical('horizon') || M.isPhysical('motorsport'))
     throw new Error('a click-scale mode must not report physical');
 });
-t('NMM_PER_LBIN is still the known-wrong 10x value (see KNOWN_ISSUES)', () => {
-  // Pinned deliberately. If someone fixes it, delete this assertion and the KNOWN_ISSUES
-  // entry together — don't silently update the number.
-  near(M.NMM_PER_LBIN, M.LB_IN_TO_NM / 100, 1e-12, 'current (wrong) definition');
-  near(M.LB_IN_TO_NM / 1000, 4.4482216152605 / 25.4, 1e-6, 'what N/mm per lb/in should be');
+t('NMM_PER_LBIN converts lb/in to N/mm correctly', () => {
+  // Was LB_IN_TO_NM/100 (10x high) for a long time — see the resolved KNOWN_ISSUES entry.
+  // Asserted against SI from first principles, not against the app's own constants, so a
+  // regression in either LB_IN_TO_NM or the divisor is caught.
+  near(M.NMM_PER_LBIN, 4.4482216152605 / 25.4, 1e-6, 'N/mm per lb/in');
 });
 
 console.log('\n── output units (verified against BeamNG\'s own sliders) ──');
@@ -88,7 +88,9 @@ t('springs come out in N/m, not N/mm', () => {
 t('the IMP/MET path is untouched by the physical branch', () => {
   if (M.springOut(400, 'horizon', false).unit !== 'lb/in') throw new Error('IMP changed');
   if (M.springOut(400, 'horizon', true).unit !== 'N/mm') throw new Error('MET changed');
-  near(M.springOut(400, 'horizon', true).value, 400 * M.NMM_PER_LBIN, 1e-12, 'MET value');
+  // Absolute, not `400 * M.NMM_PER_LBIN` — comparing the function against the same
+  // constant it uses passes under any value and would pin nothing.
+  near(M.springOut(400, 'horizon', true).value, 70.05, 1e-3, 'MET value in N/mm');
 });
 t('damping is labelled N/m/s, BeamNG\'s spelling of N·s/m', () => {
   const o = M.dampOut(5000, M.GAME_LIMITS.beamng);
