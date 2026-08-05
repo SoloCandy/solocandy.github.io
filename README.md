@@ -1,4 +1,4 @@
-# SUSP.OS — Forza Suspension Calculator
+# SUSP.OS — Suspension Tuning Calculator
 
 [![Live Demo](https://img.shields.io/badge/live%20demo-solocandy.github.io%2Fsusp--os-e2e8f0?style=flat-square)](https://solocandy.github.io/susp-os/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
@@ -24,7 +24,7 @@ Forza's suspension tuning menus expose raw numbers — spring rate lb/in, damper
 1. **You describe your car** — weight, front weight bias, drivetrain layout, build type, and tyre sizes. In PRO mode: wheelbase, track widths, and CG height for full chassis geometry.
 2. **You set a handling target** — ride stiffness, mech balance target (how rear-biased the roll stiffness should be for your drivetrain and build), damping character, and differential intent. The balance guide shows recommended ranges for your layout and build type, and flags how far your chassis natural balance sits from the target.
 3. **SUSP.OS computes the physics** — spring rates from natural frequency targets, damper clicks from critical damping coefficients, ARB split solved to hit your mech balance target, alignment geometry, brake bias, and differential lock percentages.
-4. **You enter the output values into Forza** — springs, dampers, ARBs, alignment, brakes, and differential.
+4. **You enter the output values into your game's tuning menu** — springs, dampers, ARBs, alignment, brakes, and differential: exact clicks for the two Forza titles, real physical units for BeamNG.
 
 The result is a tune that starts from a principled baseline rather than trial-and-error guessing.
 
@@ -42,7 +42,7 @@ A **GARAGE** drawer slides out from the right (button at the top-right of the he
 |---|---|
 | **BEG** | Layout, build type (Street / Track / Drift / Rally / Offroad / Drag), weight, and front bias plus three feel sliders (Ride Stiffness, Balance, Character). Factory presets in the GARAGE drawer provide build-appropriate starting points, with ★ marking the one matching your build type. ARB balance is set automatically for your layout and build type. Beginner also gets the full garage — saving a chassis means not retyping weight and bias every time you switch cars. |
 | **INT** | All BEG inputs plus ARB stiffness modes (AUTO / BASIC / ROLL ° / SHARE %) with ARB Bias, an ARB balance mode toggle (WEIGHT / NEUTRAL — NEUTRAL solves the F/R split to exactly cancel the springs' contribution to the balance bar) with a **Split Direction** toggle under WEIGHT (SAME tracks the reference balance directly; OPPOSITE mirrors it around 50/50 so the bars counteract rather than reinforce it), individual ride frequency and damping controls (including SETTLE TIME mode — set a target settle time and ζ is back-calculated per axle, and REBOUND/BUMP MODE toggles), drivetrain intent sliders, and a **Diff Type** selector (Race / Sport / Rally / Offroad / Drift) with per-type output scaling and recommended type based on build. |
-| **PRO** | All INT inputs plus tyre sizes, balance guide, chassis balance / grip bias / stability readouts, geometry gap, Mech Balance Target slider, a **MAN** ARB stiffness mode (set front/rear ARB clicks directly, bypassing the budget/split system — hides Balance Mode while active) and **CHASSIS** / MECH / CO-SOLVE ARB balance modes (added on top of WEIGHT / NEUTRAL — CHASSIS behaves like WEIGHT but is anchored to the car's actual natural mech balance instead of raw weight %, so it's the mode that actually benefits from a MEASURE NAT BAL reading — CHASSIS gets the same Split Direction toggle as WEIGHT), Hz MECH mode, full chassis geometry (wheelbase, track widths, CG height — with a **RIDE HEIGHT → CG** toggle to derive CG height from front/rear ride height and tyre radius instead, which also surfaces a SAG vs LOAD chart), per-wheel load transfer readouts, a differential **MANUAL** mode plus a **MATCH CHASSIS** toggle for AUTO mode (biases the EXIT/ENTRY sliders toward your chassis mech target — no effect once MANUAL is selected), an **Alignment Mode** selector (BUILD / MECH / GRIP / MANUAL — MECH and GRIP nudge camber/toe toward the car's balance tuning, scaled by a Nudge Strength slider), and **measured natural balance** calibration (enter an in-game reading to replace the geometry prediction as the solver baseline). CO-SOLVE mode includes **Auto Spring Share** — automatically finds the spring/ARB split that equalises utilisation of both, with SPR CORR / ARB CORR readouts showing each source's contribution to the balance correction. A wheel lift warning appears when rear ride frequency is ≥20% higher than front. |
+| **PRO** | All INT inputs plus tyre sizes, balance guide, chassis balance / grip bias / stability readouts, geometry gap, Mech Balance Target slider, a **MAN** ARB stiffness mode (set front/rear ARB clicks directly, bypassing the budget/split system — hides Balance Mode while active) and **CHASSIS** / MECH / CO-SOLVE ARB balance modes (added on top of WEIGHT / NEUTRAL — CHASSIS behaves like WEIGHT but is anchored to the car's actual natural mech balance instead of raw weight %, so it's the mode that actually benefits from a MEASURE NAT BAL reading — CHASSIS gets the same Split Direction toggle as WEIGHT), Hz MECH mode, full chassis geometry (wheelbase, track widths, CG height — with a **RIDE HEIGHT → CG** toggle to derive CG height from front/rear ride height and tyre radius instead, which also surfaces a SAG vs LOAD chart), per-wheel load transfer readouts, a differential **MANUAL** mode plus a **MATCH CHASSIS** toggle for AUTO mode (biases the EXIT/ENTRY sliders toward your chassis mech target — no effect once MANUAL is selected), an **Alignment Mode** selector (BUILD / MECH / GRIP / MANUAL — MECH and GRIP nudge camber/toe toward the car's balance tuning, scaled by a Nudge Strength slider), and **measured natural balance** calibration (enter an in-game reading to replace the geometry prediction as the solver baseline). CO-SOLVE mode includes **Auto Spring Share** — automatically finds the spring/ARB split that equalises utilisation of both, with SPR CORR / ARB CORR readouts showing each source's contribution to the balance correction. A wheel lift warning appears when rear ride frequency is ≥20% higher than front. In **BEAMNG** mode, PRO also shows **Motion Ratio F / R** — BeamNG's sliders act at the spring/damper rather than the wheel, so this converts the solver's wheel-rate output to what the game expects. |
 
 Reference docs for maintainers:
 - [CODE_MAP.md](docs/CODE_MAP.md) — how `index.html` is laid out, and which legacy code must not be deleted
@@ -54,6 +54,31 @@ Reference docs for maintainers:
 - [PERSISTENCE.md](docs/PERSISTENCE.md) — localStorage keys and when to bump a version
 - [PRESETS.md](docs/PRESETS.md) — factory preset values and how to add a new one
 - [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) — unresolved quirks and test-coverage gaps
+
+---
+
+## Game Modes
+
+A **HORIZON / MOTORSPORT / BEAMNG** toggle in the header picks which game's
+tuning menu the output is written for. It only changes *units and ceilings* —
+the underlying physics solve (spring/damper/ARB targets, handling balance,
+alignment) is identical across all three.
+
+**Horizon and Motorsport** express output as abstract 1–N "clicks," because
+that's what those games' tuning screens use — Forza hides the real internal
+units, so each has its own click ceiling (Horizon: 65 ARB / 20 damper.
+Motorsport: 40 / 40). **BeamNG** has no such fixed scale — it builds its
+tuning sliders per-vehicle from the car's own config — so that mode skips the
+click conversion and outputs the real values directly: spring rate in N/m,
+damping in N/m/s, anti-roll rate in N/m.
+
+A few things are specific to BEAMNG mode: BASIC ARB stiffness is Forza-only
+and hidden there; the anti-roll number is BeamNG's least-validated output
+(see below); and PRO gains a **Motion Ratio F / R** input, since BeamNG's
+sliders act at the spring/damper rather than the wheel. Full detail —
+the unit table, all four behavioural differences from Forza, and why no new
+calibration constant was needed — is in
+[**BEAMNG mode (physical units)**](#calibration) under Calibration.
 
 ---
 
