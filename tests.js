@@ -198,11 +198,14 @@ const HZ_MIN = 0.8, HZ_MAX = 5.5;
 const rsToHz = rs => rs > 6 ? 0.8 + (rs / 100) * 2.7 : rs;
 const hzToRs = hz => Math.round(Math.max(HZ_MIN, Math.min(HZ_MAX, hz)) * 100) / 100;
 
+// Offset is ONE traverse time (wheelbase/speed), not two — see the note above the app's
+// copy. This mirror said `2 * t` for a while after the app was corrected and still passed,
+// which is precisely the silent-drift hazard README warns about for this file.
 const flatRideRearHz = (fHz, wb, mph) => {
   if (mph >= 200) return { hz: fHz, clamped: false };
   const ms = mph * MPH_TO_MS;
   if (ms < 1) return { hz: fHz * 1.2, clamped: false };
-  const t = wb / ms, d = (1 / fHz) - (2 * t);
+  const t = wb / ms, d = (1 / fHz) - t;
   const raw = d > 0.05 ? 1 / d : fHz * 1.2;
   const clamped = raw > HZ_MAX; // absolute game ceiling, not a relative cap
   return { hz: Math.min(raw, HZ_MAX), clamped };
@@ -287,16 +290,26 @@ console.log('\nflatRideRearHz');
   assertEq('70mph not clamped', r3.clamped, false);
 
   // cap at HZ_MAX game ceiling when formula overshoots (stiff spring at medium speed)
-  const r4 = flatRideRearHz(3.5, 2.7, 70); // high fHz at 70mph → raw overshoots → clamped at HZ_MAX
+  const r4 = flatRideRearHz(4.5, 2.7, 70); // high fHz at 70mph → raw ≈7.36 → clamped at HZ_MAX
   assert('cap at HZ_MAX ceiling', r4.hz, HZ_MAX, 0.001);
   assertEq('clamped flag set', r4.clamped, true);
 
   // a derived rear Hz in the expanded 4.0–5.5 band must NOT be clamped
   // (regression guard for the old 4.0 cap that silently truncated stiff rears)
-  const r5 = flatRideRearHz(3.0, 2.7, 90); // raw lands ≈5.0Hz — inside new band
-  assert('4.0–5.5 band: rear hz ≈ 5.0', r5.hz, 5.02, 0.1);
+  const r5 = flatRideRearHz(3.75, 2.7, 90); // raw lands ≈5.01Hz — inside new band
+  assert('4.0–5.5 band: rear hz ≈ 5.0', r5.hz, 5.01, 0.1);
   assertEq('4.0–5.5 band: above old 4.0 cap', r5.hz > 4.0, true);
   assertEq('4.0–5.5 band: clamped flag clear', r5.clamped, false);
+
+  // The ratio itself, pinned. Olley's flat-ride rule of thumb puts the rear roughly 10–20%
+  // stiffer than the front; the earlier `2*t` offset gave ×1.43 here and ×3.39 at 30mph,
+  // which is what made a fresh install read strongly oversteer. These two assertions are the
+  // guard against that regressing — they fail immediately if the offset is doubled again.
+  const ratio = (fHz, mph) => flatRideRearHz(fHz, 2.7, mph).hz / fHz;
+  assert('stock chassis @70mph sits in Olley band', ratio(1.75, 70), 1.18, 0.02);
+  assert('ratio tightens with speed, not loosens', ratio(1.75, 120), 1.10, 0.02);
+  assertEq('ratio stays sane at track stiffness', ratio(2.5, 70) < 1.35, true);
+  assertEq('ratio stays sane at low speed', ratio(1.75, 30) < 1.60, true);
 }
 
 // ── Hz operating band (HZ_MIN / HZ_MAX) ────────────────────────────────────────

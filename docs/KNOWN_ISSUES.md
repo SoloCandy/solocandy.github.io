@@ -380,6 +380,52 @@ still migrate state saved before `al.mode` existed.
 Found during the dead-code audit but fixed separately, since it changes
 behaviour and the cleanup was deliberately zero-diff.
 
+## Fixed — FLAT RIDE offset was doubled, biasing every fresh install toward oversteer (resolved)
+
+`flatRideRearHz` computed `1/rearHz = 1/frontHz − 2·(wheelbase/speed)`. The rear
+wheel meets a bump **one** traverse time after the front, not two, so the offset
+should be `t`. No comment or doc justified the doubling and git history doesn't
+reach past the original single-file import.
+
+FLAT RIDE is `DEF_FE.rearHzMode`, so this was the out-of-box state. On a fresh
+install with stock defaults the app produced:
+
+| | before | after |
+|---|---|---|
+| rear/front Hz ratio | ×1.43 | ×1.18 |
+| rear spring | 494 lb/in (**RACE** band) | 334 lb/in (FIRM) |
+| handling balance | **+14.9 oversteer** | +6.5 |
+
+Front sat at 1.75 Hz in the ROAD band throughout, so a new user's first view was a
+road-frequency front axle paired with a race-frequency rear, and a balance bar
+already reading strongly oversteer before they had touched a control.
+
+It also degraded as the user tuned, which is the wrong way round for a default —
+the ratio climbed with stiffness (×1.76 at 2.5 Hz front, ×2.07 at 3.0 Hz, where it
+hit the `HZ_MAX` ceiling) and with lower target speeds (×3.39 at 30 mph). Olley's
+flat-ride rule of thumb is rear ≈10–20% stiffer than front; the corrected form
+gives ×1.18 at the default and stays inside ×1.35 across the practical range.
+
+**This changes output for existing FLAT RIDE tunes**, including saved garage
+entries and shared codes — those store the *mode*, not the resolved Hz, so they
+re-solve with the corrected offset and get a softer rear. Accepted deliberately as
+a bug fix rather than versioned behind a toggle.
+
+`flatRideSharedHz` inverts the same relationship and was re-derived to match
+(`t·fHz² − fHz·(2 + 2·avg·t) + 2·avg = 0`); a round-trip check over 24
+speed/stiffness combinations confirms the solved pair still averages to the target
+and agrees with `flatRideRearHz`.
+
+Two notes for future work:
+
+- `tests.js` kept passing after the app was fixed, because it **mirrors** the
+  formula rather than importing it — exactly the silent-drift hazard the README
+  warns about for that file. The mirror is now updated and four assertions pin the
+  resulting ratio, so a re-doubling fails immediately.
+- The two clamp/band assertions in that suite encoded the old formula's numbers
+  rather than independent physics, so their fixtures had to be re-derived. Worth
+  remembering that "the tests pass" said nothing here.
+
 ## Open — BeamNG anti-roll output reads soft against observed stock values
 
 The BEAMNG mode converts the solver's roll stiffness to BeamNG's linear

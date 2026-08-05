@@ -157,11 +157,36 @@ frequency (dispatch lives in `feelToPhysics`):
 - **FLAT RIDE** (`flatRideRearHz` / `flatRideSharedHz`)
   — solves the rear (or, in `shared` ride-ref mode, both axles from an
   average) so front and rear wheels hit the same bump in phase at the
-  target speed, cancelling pitch. `flatRideSharedHz` inverts the same
-  relationship as a quadratic to solve for `fHz` when the slider represents
-  the *average* of both axles rather than the front alone. Disabled above
-  200mph (returns front Hz unchanged) and falls back to `fHz*1.2` near
-  0mph, where the flat-ride relationship becomes numerically unstable.
+  target speed, cancelling pitch. The rear wheel arrives `t = wheelbase/speed`
+  seconds later, so the rear is stiffened by exactly that much period:
+
+  ```js
+  1/rearHz = 1/frontHz − t        // ONE traverse time, not two
+  ```
+
+  `flatRideSharedHz` inverts the same relationship as a quadratic to solve
+  for `fHz` when the slider represents the *average* of both axles rather
+  than the front alone — `t·fHz² − fHz·(2 + 2·avg·t) + 2·avg = 0`, smaller
+  root. Disabled above 200mph (returns front Hz unchanged) and falls back to
+  `fHz*1.2` near 0mph, where the relationship becomes numerically unstable.
+
+  The offset was `2·t` until it was checked against real flat-ride practice.
+  Olley's rule of thumb puts the rear roughly 10–20% stiffer than the front;
+  the doubled offset gave far more, and got worse the harder you tuned:
+
+  | | old (`2t`) | now (`t`) |
+  |---|---|---|
+  | stock chassis, 70 mph | ×1.43 | ×1.18 |
+  | 2.5 Hz front, 70 mph | ×1.76 | ×1.28 |
+  | 3.0 Hz front, 70 mph | ×2.07 (hit `HZ_MAX`) | ×1.35 |
+  | stock chassis, 30 mph | ×3.39 | ×1.54 |
+
+  Because FLAT RIDE is the default Hz mode, this was also the app's
+  out-of-box state: a fresh install put the rear axle in the RACE band while
+  the front sat in ROAD, and the handling balance bar read **+14.9 oversteer**
+  before the user touched anything. It now reads +6.5. `tests.js` pins the
+  ratio at two speeds and two stiffnesses so the doubling cannot silently
+  return. See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for the behaviour-change note.
 - **MULTIPLIER** — `rearHz = frontHz * fe.rearHzMult` (or the inverse
   split for `shared` ride-ref) — a fixed ratio, no chassis math involved.
 - **INDEPENDENT** — `fe.rearHzMan` used directly, fully decoupled.
