@@ -81,12 +81,23 @@ Constants validated through a structured test protocol across three cars — 201
 
 **Game limits:** Horizon — ARB 65 clicks, damper 20 clicks. Motorsport — ARB 40 clicks, damper 40 clicks. BeamNG — **none**, see below.
 
-**BEAMNG mode (physical units).** BeamNG builds its tuning sliders per vehicle from the car's Jbeam `variables` block, so unlike the Forza titles there is no fixed click scale to calibrate against — and the min/max you actually see depends on which suspension part or mod is installed. Rather than invent a third scale, this mode skips the click-compression step and outputs the real values the solver already computes: **springs in N/mm, dampers in N·s/m, ARB roll stiffness in N·m/rad**. Nothing is clamped, quantised, or warned about, because there is no ceiling to clamp to.
+**BEAMNG mode (physical units).** BeamNG builds its tuning sliders per vehicle from the car's Jbeam `variables` block, so unlike the Forza titles there is no fixed click scale to calibrate against — and the min/max you actually see depends on which suspension part or mod is installed. Rather than invent a third scale, this mode skips the click-compression step and outputs the real values the solver already computes, in the units BeamNG's own sliders use:
 
-Three differences from the Forza modes:
+| BeamNG slider | Unit | Note |
+|---|---|---|
+| Spring Rate | **N/m** | not N/mm — confusing the two is a 1000× error |
+| Bump / Rebound Damping | **N/m/s** | the same quantity as N·s/m |
+| Anti-Roll Spring Rate | **N/m** | a *linear* rate, converted from roll stiffness by `k = 2·rs/track²` |
 
-- **BASIC ARB stiffness is hidden** — its budget is defined as a percentage of the click ceiling, so it has no meaning without one. AUTO, ROLL °, SHARE % and MAN all work normally; MAN takes N·m/rad instead of clicks, and converts losslessly in both directions when you switch modes.
-- **Anti-roll bar output is advisory.** Most BeamNG suspension configs expose no ARB variable at all. The number is still physically real and still drives the handling balance model and roll angle.
+Nothing is clamped, quantised, or warned about, because there is no ceiling to clamp to.
+
+**Motion Ratio F / R** (PRO CHASSIS, this mode only) is the one input Forza doesn't need. Forza displays wheel rate, which is what the solver produces; BeamNG's sliders act at the spring and damper, so an inboard spring must be stiffer by `1/mr²` to give the same wheel rate. Leave it at 1.0 for a direct-acting strut. It affects only the numbers you type into the game — Hz, roll stiffness and handling balance are wheel-rate quantities and don't move when you change it.
+
+Four differences from the Forza modes:
+
+- **BASIC ARB stiffness is hidden** — its budget is defined as a percentage of the click ceiling, so it has no meaning without one. AUTO, ROLL °, SHARE % and MAN all work normally; MAN takes N/m instead of clicks, and converts losslessly in both directions when you switch modes.
+- **The anti-roll number is the least reliable output here.** It measured 4–6× softer than one test vehicle's stock values, and the cause isn't established — `ARB_RS_SCALE` was calibrated against Forza clicks and may not transfer. No correction factor has been invented to close the gap. See [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
+- **Rebound-to-bump ratio runs lower than BeamNG's own defaults.** The stock vehicle sampled sat around 2.5:1 where the app's default Bump Ratio gives about 1.8:1. Raise Bump Ratio if you want to match BeamNG's house style.
 - **Balance figures differ very slightly from Forza for the same inputs.** Forza deliberately recomputes roll stiffness back out of the rounded click values so the balance bar reflects what the game will really do with the numbers you type; BeamNG has no rounding to model. This is intended.
 
 This mode is exploratory: it targets generic physical output, not values scaled to one specific car or suspension mod's slider range.

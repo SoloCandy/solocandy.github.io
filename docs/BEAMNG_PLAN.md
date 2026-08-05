@@ -27,6 +27,24 @@
 > The "15+ call sites" estimate was also low — the real count is ~56 — though
 > only about 20 are ceiling logic and the physics seam is genuinely three lines,
 > as this plan predicted.
+>
+> **Two further corrections after seeing BeamNG's actual tuning menu** (a
+> screenshot of a stock vehicle's defaults — the first real ground truth this
+> work had):
+>
+> 5. **The units below are wrong.** BeamNG's Spring Rate slider is **N/m**, not
+>    N/mm as this plan guessed at line 21 ("N/mm or N/m is the standard
+>    convention"), and its Anti-Roll Spring Rate is **N/m — a linear rate**, not
+>    the torsional N·m/rad this plan assumed. The first shipped implementation
+>    used N/mm and N·m/rad and was corrected. Damping was right (N/m/s ≡ N·s/m).
+> 6. **"Most BeamNG suspension setups don't even expose ARB as a slider"
+>    (line 22-23) is false** — the sampled vehicle exposes front and rear
+>    Anti-Roll Spring Rate. The real ARB problem is different: our converted
+>    output is 4–6× softer than that vehicle's stock values, cause unresolved.
+>
+> The plan also has a genuine gap it never considers: **motion ratio**. Forza
+> displays wheel rate, which is what the solver produces; BeamNG's sliders act at
+> the spring. Handled with display-only per-axle inputs — see PHYSICS.md.
 
 ## Context (why this exists)
 

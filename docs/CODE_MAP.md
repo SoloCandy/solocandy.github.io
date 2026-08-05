@@ -236,12 +236,17 @@ the two sentinels — clearing one causes its migration to run a second time.
 (`suspos_saves_v9` → `suspos_builds_v1` → `suspos_garage_v2`). Removing the middle
 link breaks the tail for users who skipped a version.
 
-**`NMM_PER_LBIN` and `N_MM_PER_LB_IN`** — two constants for the same lb/in → N/mm
-conversion, differing by exactly 10×. They are *not* redundant: `NMM_PER_LBIN` is
-wrong (see [KNOWN_ISSUES.md](KNOWN_ISSUES.md)) and still drives the MET toggle,
-while `N_MM_PER_LB_IN` is correct and drives physical-unit game modes. Collapsing
-them into one is a behaviour change either way, so it needs to be a decision, not
-a cleanup. Both carry a comment at their definition.
+**`NMM_PER_LBIN`** — wrong by 10× and still driving the MET toggle. Not fixed
+because correcting it changes every metric number users have been reading; see
+[KNOWN_ISSUES.md](KNOWN_ISSUES.md). Physical-unit modes deliberately route around
+it via `LB_IN_TO_NM`, so "the BeamNG path works, therefore the constant is fine"
+is not a valid inference.
+
+**`ch.motionRatioF` / `motionRatioR`** — read by nothing in the physics layer, only
+by `springOut`/`dampOut` at the display boundary. That is intentional, not an
+oversight: Hz, roll stiffness and the balance model are wheel-rate quantities and
+must not move when a motion ratio is entered. A grep for these keys inside
+`computeTune` will correctly find nothing.
 
 **`ARB_UTIL_REF`** — looks like a fourth game limit but is not a ceiling and
 nothing clamps to it. It is only CO-SOLVE's utilisation denominator when the game

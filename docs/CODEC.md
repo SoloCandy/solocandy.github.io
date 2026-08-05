@@ -76,8 +76,16 @@ future version might not carry.
 | 55 | fe | springShareAuto | bool |
 | 56 | fe | arbSplitOpposite | bool |
 | 57 | fe | arbBasicMan | raw number |
+| 58 | ch | motionRatioF | raw number |
+| 59 | ch | motionRatioR | raw number |
 
-**Next available id: 58.**
+**Next available id: 60.**
+
+Ids 58/59 are `group:'ch'` because a motion ratio describes the car's suspension
+geometry, so it travels with a chassis entry rather than a tune — same reasoning
+as id 18 (`layout`). They are display-only (physical-unit game modes divide the
+shown rate by `mr²`) and inert in the Forza modes, but they still belong in the
+codec so a shared BeamNG tune reproduces the numbers the sender saw.
 
 ## Retired — never reuse
 

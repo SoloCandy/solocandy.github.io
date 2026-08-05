@@ -35,7 +35,8 @@ const M = new Function(
   slice('const GAME_MODE_ENC=', 'const CODEC_FIELDS=') + '\n' +
   slice('const KG_TO_LB=', 'const arbCtx=') +
   '\nreturn{computeTune,feelToPhysics,DEF_CH,DEF_FE,GAME_LIMITS,ARB_RS_SCALE,' +
-  'DAMPING_CALIBRATION,LB_IN_TO_NM,N_MM_PER_LB_IN,NMM_PER_LBIN,cornerMasses,isPhysical};'
+  'DAMPING_CALIBRATION,LB_IN_TO_NM,NMM_PER_LBIN,cornerMasses,isPhysical,' +
+  'springOut,dampOut,arbOut,warnOver,mrDiv};'
 )();
 
 let pass = 0, fail = 0;
@@ -69,19 +70,63 @@ t('the Forza modes are not physical', () => {
   if (M.isPhysical('horizon') || M.isPhysical('motorsport'))
     throw new Error('a click-scale mode must not report physical');
 });
-t('N_MM_PER_LB_IN is the correct conversion (1 lbf/in = 0.175127 N/mm)', () => {
-  // Exactly N/m per lb/in divided by 1000 — that "/1000" is the whole point of this constant
-  // existing separately from NMM_PER_LBIN, so assert it exactly.
-  near(M.N_MM_PER_LB_IN, M.LB_IN_TO_NM / 1000, 1e-12, 'derivation from LB_IN_TO_NM');
-  // And that it matches physical truth. Loose tolerance: the app's LB_IN_TO_NM is itself
-  // imprecise in its 7th significant figure (175.126790921 vs 175.12683525), which predates
-  // this work and is far below display resolution.
-  near(M.N_MM_PER_LB_IN, 4.4482216152605 / 25.4, 1e-6, 'N/mm per lb/in');
-});
 t('NMM_PER_LBIN is still the known-wrong 10x value (see KNOWN_ISSUES)', () => {
-  // Pinned deliberately. If someone fixes it, this test should be deleted along with the
-  // KNOWN_ISSUES entry and N_MM_PER_LB_IN folded back in — not silently updated.
-  near(M.NMM_PER_LBIN, M.N_MM_PER_LB_IN * 10, 1e-9, 'the documented 10x discrepancy');
+  // Pinned deliberately. If someone fixes it, delete this assertion and the KNOWN_ISSUES
+  // entry together — don't silently update the number.
+  near(M.NMM_PER_LBIN, M.LB_IN_TO_NM / 100, 1e-12, 'current (wrong) definition');
+  near(M.LB_IN_TO_NM / 1000, 4.4482216152605 / 25.4, 1e-6, 'what N/mm per lb/in should be');
+});
+
+console.log('\n── output units (verified against BeamNG\'s own sliders) ──');
+t('springs come out in N/m, not N/mm', () => {
+  // The unit BeamNG's Spring Rate slider uses. Confusing the two is a 1000x error.
+  const o = M.springOut(400, 'beamng', false);
+  if (o.unit !== 'N/m') throw new Error(`unit is "${o.unit}"`);
+  near(o.value, 400 * M.LB_IN_TO_NM, 1e-9, 'N/m value');
+  if (o.value < 10000) throw new Error(`${o.value} looks like N/mm, not N/m`);
+});
+t('the IMP/MET path is untouched by the physical branch', () => {
+  if (M.springOut(400, 'horizon', false).unit !== 'lb/in') throw new Error('IMP changed');
+  if (M.springOut(400, 'horizon', true).unit !== 'N/mm') throw new Error('MET changed');
+  near(M.springOut(400, 'horizon', true).value, 400 * M.NMM_PER_LBIN, 1e-12, 'MET value');
+});
+t('damping is labelled N/m/s, BeamNG\'s spelling of N·s/m', () => {
+  const o = M.dampOut(5000, M.GAME_LIMITS.beamng);
+  if (o.unit !== 'N/m/s') throw new Error(`unit is "${o.unit}"`);
+  near(o.value, 5000, 1e-12, 'value passes through unscaled at mr=1');
+});
+t('ARB comes out as a LINEAR N/m rate, not torsional N·m/rad', () => {
+  const track = 1.55, rs = 12000;
+  const o = M.arbOut(rs, M.GAME_LIMITS.beamng, track);
+  if (o.unit !== 'N/m') throw new Error(`unit is "${o.unit}"`);
+  near(o.value, 2 * rs / (track * track), 1e-9, 'k = 2·rs/track²');
+});
+t('Forza readouts still show a "/ N" denominator', () => {
+  if (M.dampOut(7.8, M.GAME_LIMITS.horizon).unit !== '/ 20') throw new Error('damper suffix');
+  if (M.arbOut(21.4, M.GAME_LIMITS.motorsport).unit !== '/ 40') throw new Error('ARB suffix');
+});
+
+console.log('\n── motion ratio (display-only) ──');
+t('mrDiv squares the ratio and defends against nonsense input', () => {
+  near(M.mrDiv(1), 1, 1e-12, 'unity'); near(M.mrDiv(0.7), 0.49, 1e-12, 'squared');
+  for (const bad of [0, -1, null, undefined, NaN, 'x'])
+    if (M.mrDiv(bad) !== 1) throw new Error(`mrDiv(${String(bad)}) = ${M.mrDiv(bad)}`);
+});
+t('a motion ratio below 1 stiffens the displayed spring and damper rate', () => {
+  const base = M.springOut(400, 'beamng', false, 1).value;
+  near(M.springOut(400, 'beamng', false, 0.7).value, base / 0.49, 1e-9, 'spring at mr 0.7');
+  near(M.dampOut(5000, M.GAME_LIMITS.beamng, 0.5).value, 5000 / 0.25, 1e-9, 'damper at mr 0.5');
+});
+t('motion ratio never reaches the physics — Hz and balance are wheel-rate quantities', () => {
+  const a = solve({}, {}, 'beamng').tune;
+  const b = solve({ motionRatioF: 0.6, motionRatioR: 0.55 }, {}, 'beamng').tune;
+  for (const k of ['springF', 'springR', 'rebF', 'bumpR', 'arbF', 'arbR', 'fHz', 'rHz',
+                   'mechBalance', 'bTot', 'arbShare', 'rollDeg'])
+    near(a[k], b[k], 1e-12, `${k} moved when a motion ratio was set`);
+});
+t('motion ratio is inert in the Forza modes', () => {
+  const o = M.springOut(400, 'horizon', false, 0.5);
+  near(o.value, 400, 1e-12, 'lb/in output ignores mr');
 });
 
 console.log('\n── springs ──');
@@ -89,11 +134,11 @@ for (const [label, over] of CHS) {
   t(`${label}: spring rate is mode-invariant`, () => {
     near(solve(over, {}, 'beamng').tune.springF, solve(over, {}, 'horizon').tune.springF, 1e-12, 'springF');
   });
-  t(`${label}: N/mm output equals wheel rate / 1000`, () => {
+  t(`${label}: N/m output equals the wheel rate exactly`, () => {
     const { ch, tune } = solve(over, {}, 'beamng');
     const m = M.cornerMasses(ch);
     const wr = Math.pow(tune.fHz * 2 * Math.PI, 2) * m.front;   // N/m
-    near(tune.springF * M.N_MM_PER_LB_IN, wr / 1000, 1e-9, 'springF in N/mm');
+    near(M.springOut(tune.springF, 'beamng', false, ch.motionRatioF).value, wr, 1e-9, 'springF in N/m');
   });
 }
 

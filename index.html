@@ -146,18 +146,15 @@ const {useState,useMemo,useRef,useEffect,useLayoutEffect}=React;
 
 const KG_TO_LB=2.204622622,LB_IN_TO_NM=175.126790921,MPH_TO_MS=0.44704,IN_TO_MM=25.4;
 const KMH_PER_MPH=1.60934;
-// ⚠ TWO CONVERSIONS FOR THE SAME THING — READ BEFORE TOUCHING EITHER.
-// NMM_PER_LBIN is WRONG by exactly 10×: 1 lbf/in = 4.4482 N / 25.4 mm = 0.175127 N/mm,
-// so the divisor should be 1000 (N/m → N/mm), not 100. Every MET-mode spring readout
-// is therefore 10× high (a 261 lb/in spring displays as 456.3 N/mm instead of 45.7).
-// It is deliberately NOT fixed here — correcting it silently changes every metric
-// number users have been reading, so it's tracked as its own decision in
-// docs/KNOWN_ISSUES.md rather than folded into the BeamNG work.
-// N_MM_PER_LB_IN below is the correct one, used by physical-unit game modes.
-// DO NOT "de-duplicate" these two into one constant without resolving that issue
-// first — they are not redundant, one of them is a bug.
+// ⚠ NMM_PER_LBIN is WRONG by exactly 10×: 1 lbf/in = 4.4482 N / 25.4 mm = 0.175127 N/mm,
+// so the divisor should be 1000 (LB_IN_TO_NM is N/m per lb/in), not 100. Every MET-mode
+// spring readout is therefore 10× high — a 261 lb/in spring displays as 456.3 N/mm
+// instead of 45.7. Deliberately NOT fixed here: correcting it silently changes every
+// metric number users have been reading, so it is tracked as its own decision in
+// docs/KNOWN_ISSUES.md rather than folded into unrelated work.
+// Physical-unit game modes are unaffected — BeamNG's sliders are N/m, so they use
+// LB_IN_TO_NM directly and never touch this constant.
 const NMM_PER_LBIN=LB_IN_TO_NM/100;    // ✗ 10× high — see above; MET-mode display only
-const N_MM_PER_LB_IN=LB_IN_TO_NM/1000; // ✓ correct: 1 lbf/in = 0.175127 N/mm
 const ARB_RS_SCALE=240;
 const rollCenterHeight=ch=>ch.cgHeight*0.20; // scales with CG height; ~0.09m for typical sports cars
 const DAMPING_CALIBRATION=0.00135;
@@ -586,9 +583,11 @@ const feelToPhysics=(ch,fe)=>{
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
   // Physical-unit modes (BeamNG) emit the values this solver already works in — springs
-  // stay lb/in (the display layer converts to N/mm), dampers come out in N·s/m, ARBs in
-  // N·m/rad — instead of compressing them into a click scale that has no counterpart in
-  // the target game. `dampCalib` of 1 and `physUnits` below are the only two switches.
+  // stay lb/in and dampers/ARBs come out as real coefficients, instead of being compressed
+  // into a click scale that has no counterpart in the target game. The display layer then
+  // converts to whatever units that game's sliders actually use — for BeamNG, N/m springs,
+  // N/m/s damping and a linear N/m anti-roll rate; see the helpers near arbCtx.
+  // `dampCalib` of 1 and `physUnits` below are the only two switches here.
   const physUnits=isPhysical(gameMode);
   const dampCalib=physUnits?1:DAMPING_CALIBRATION;
   // Full-scale reference for CO-SOLVE's utilisation comparison only. See the long note at
@@ -1050,21 +1049,36 @@ const HZ_MARKERS=HZ_BANDS.map((v,i)=>({value:v,color:HZ_BAND_COLS[i+1],
 // ── Output unit formatting ──────────────────────────────────────────────────
 // The Forza modes emit clicks on a 1..lim scale, so their readouts want a "/ N"
 // denominator and a near-the-ceiling warning. Physical modes emit real units and
-// want neither. These four helpers are the single place that difference is decided,
-// so no readout has to branch on the game mode itself.
-//   springUnit  — lb/in or N/mm. Note physical modes use N_MM_PER_LB_IN, the CORRECT
-//                 conversion, not the 10×-high NMM_PER_LBIN the IMP/MET toggle uses.
-//   dampUnit    — "/ 20" style denominator, or N·s/m.
-//   arbUnit     — "/ 65" style denominator, or N·m/rad.
-// `warnOver` returns null when there is no ceiling, which reads as "no warning".
-const springOut=(lbIn,gameMode,metric)=>isPhysical(gameMode)
-  ? {value:lbIn*N_MM_PER_LB_IN,unit:'N/mm',decimals:1}
+// want neither. These helpers are the single place that difference is decided, so no
+// readout has to branch on the game mode itself.
+//
+// UNITS ARE COPIED FROM BEAMNG'S OWN TUNING SLIDERS, verified against a screenshot of
+// a stock vehicle's defaults — do not "tidy" them into more conventional SI spellings:
+//   Spring Rate            N/m     (NOT N/mm — a 1000× error if confused)
+//   Bump/Rebound Damping   N/m/s   (identical to N·s/m; this is BeamNG's spelling)
+//   Anti-Roll Spring Rate  N/m     (a LINEAR rate, not torsional N·m/rad — see arbOut)
+// LB_IN_TO_NM is already N/m per lb/in, so springs need no separate constant and in
+// particular must never touch the 10×-high NMM_PER_LBIN used by the IMP/MET toggle.
+//
+// MOTION RATIO. The solver works in wheel rate (mr=1), which is what Forza displays.
+// BeamNG's sliders act at the spring/damper instead, so an inboard spring needs
+// rate/mr² to produce the same wheel rate. That correction belongs HERE, at the
+// display layer, and deliberately not in computeTune: Hz, roll stiffness and the whole
+// balance model are wheel-rate quantities and must not move when a motion ratio is
+// entered. Only the number you type into the game changes.
+const mrDiv=mr=>{const v=Number(mr);return v>0?v*v:1;};
+const springOut=(lbIn,gameMode,metric,mr=1)=>isPhysical(gameMode)
+  ? {value:lbIn*LB_IN_TO_NM/mrDiv(mr),unit:'N/m',decimals:0}
   : {value:metric?lbIn*NMM_PER_LBIN:lbIn,unit:metric?'N/mm':'lb/in',decimals:metric?1:0};
-const dampOut=(v,lim)=>lim.damping==null
-  ? {value:v,unit:'N·s/m',decimals:0}
+const dampOut=(v,lim,mr=1)=>lim.damping==null
+  ? {value:v/mrDiv(mr),unit:'N/m/s',decimals:0}
   : {value:v,unit:`/ ${lim.damping}`,decimals:1};
-const arbOut=(v,lim)=>lim.arb==null
-  ? {value:v,unit:'N·m/rad',decimals:0}
+// Roll stiffness (N·m/rad) → the linear anti-roll rate BeamNG asks for, by the same
+// rs = k·track²/2 relationship the spring side uses, inverted. No motion-ratio term:
+// whether BeamNG's anti-roll rate is specified at the wheel or at the bar is not
+// established, so applying one would be a guess stacked on a guess. See KNOWN_ISSUES.
+const arbOut=(v,lim,track=1.55)=>lim.arb==null
+  ? {value:2*v/(track*track),unit:'N/m',decimals:0}
   : {value:v,unit:`/ ${lim.arb}`,decimals:1};
 const warnOver=(v,ceiling)=>ceiling==null?false:v>ceiling*0.88;
 // "how close to the game's ceiling" — meaningless without one, so callers in physical
@@ -1255,7 +1269,12 @@ const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
               tyreF:'265/35R18',tyreR:'265/35R18',
               useMeasuredNatBal:false,measuredNatBal:null,layout:'RWD',
-              useRideHeightCG:false,rideHeightF:0.13,rideHeightR:0.12};
+              useRideHeightCG:false,rideHeightF:0.13,rideHeightR:0.12,
+              // Spring/damper travel per unit wheel travel. 1.0 = direct-acting, which is
+              // what Forza displays, so these are inert in the Forza modes and only affect
+              // physical-unit output (rate/mr²). They are display-only by design — nothing
+              // in the physics reads them, see the note at springOut.
+              motionRatioF:1.0,motionRatioR:1.0};
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,settleMode:false,settleBias:0,targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,dampCharMode:'zeta',settleTarget:0.80,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,arbBasicMan:50,
@@ -1696,7 +1715,7 @@ const SpringDial=({fHz,rHz,rsSpF,rsSpR,clamped,natBal,target,rideRef})=>{
 // have no ceiling, so the caller passes a dynamic scale and sets `physical` — the arc then
 // reads purely as an F/R split (which is what the centre readout shows anyway) and the
 // bands, which would otherwise imply a limit that doesn't exist, are suppressed.
-const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,natBal,target,rideRef,physical=false})=>{
+const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,natBal,target,rideRef,physical=false,dispF,dispR})=>{
   const[hover,setHover]=useState(null);
   const{START,SWEEP,polar,arcPath,CX,CY,SIZE}=_dialBase();
   const toA=v=>START+(Math.min(Math.max(v,0),arbLimit)/arbLimit)*SWEEP;
@@ -1722,9 +1741,12 @@ const ArbDial=({arbF,arbR,arbLimit,rsAbF,rsAbR,natBal,target,rideRef,physical=fa
   const ghostDot=(v,col,key)=>{if(v==null)return null;const[x,y]=polar(toA(v));
     return<circle key={key} cx={x} cy={y} r={4} fill="none" stroke={col} strokeWidth={1.5} opacity={0.75}/>;};
   const rearPct=Math.round(rearAbFrac*100);
-  const dispVal=hover==='front'?arbF.toFixed(physical?0:1):hover==='rear'?arbR.toFixed(physical?0:1):`${rearPct}%`;
-  const dispSub=hover==='front'?(physical?'N·m/rad F':`/ ${arbLimit} F`)
-               :hover==='rear' ?(physical?'N·m/rad R':`/ ${arbLimit} R`):'R SPLIT';
+  // In physical mode the dial's own values are roll stiffness; `dispF`/`dispR` carry the
+  // N/m figures the ARB card shows, so hovering here can't contradict what you'd type in.
+  const hv=hover==='front'?(physical?(dispF??arbF):arbF):(physical?(dispR??arbR):arbR);
+  const dispVal=hover?hv.toFixed(physical?0:1):`${rearPct}%`;
+  const dispSub=hover==='front'?(physical?'N/m F':`/ ${arbLimit} F`)
+               :hover==='rear' ?(physical?'N/m R':`/ ${arbLimit} R`):'R SPLIT';
   const warnF=!physical&&arbF>arbLimit*0.88,warnR=!physical&&arbR>arbLimit*0.88;
   const centerCol=warnF||warnR?'#f59e0b':'#e2e8f0';
   return(
@@ -1974,17 +1996,18 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
 };
 
 const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
-  // A physical-unit game mode has no click ceiling, so the ARB and damper inputs here take
-  // real N·m/rad and N·s/m instead — which also means computeCheck must not divide the
-  // damping calibration back out. Seeds differ by orders of magnitude between the two, so
-  // they key off the same flag rather than being hardcoded.
+  // A physical-unit game mode has no click ceiling, so the inputs here take BeamNG's own
+  // units — N/m springs and anti-roll rate, N/m/s damping — which also means computeCheck
+  // must not divide the damping calibration back out. Seeds differ by orders of magnitude
+  // between the two, so they key off the same flag rather than being hardcoded. Seed values
+  // are the stock figures observed on a test vehicle.
   const phys=lim.damping==null;
   const[ckMode,setCkMode]=useState(initialMode??'decode');
   const[probeHz,setProbeHz]=useState(2.5);
-  const[ckSpr,setCkSpr]=useState({f:400,r:300});
-  const[ckDmp,setCkDmp]=useState(phys?{rebF:4000,rebR:4000,bumpF:2200,bumpR:2200}
+  const[ckSpr,setCkSpr]=useState(phys?{f:70000/LB_IN_TO_NM,r:200000/LB_IN_TO_NM}:{f:400,r:300});
+  const[ckDmp,setCkDmp]=useState(phys?{rebF:16000,rebR:10000,bumpF:6000,bumpR:4000}
                                      :{rebF:5,rebR:5,bumpF:3,bumpR:3});
-  const[ckArb,setCkArb]=useState(phys?{f:12000,r:11000}:{f:20,r:20});
+  const[ckArb,setCkArb]=useState(phys?{f:40000,r:60000}:{f:20,r:20});
   const[imported,setImported]=useState(false);
   const pS=k=>v=>setCkSpr(p=>({...p,[k]:v}));
   const pD=k=>v=>setCkDmp(p=>({...p,[k]:v}));
@@ -2009,8 +2032,10 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
       reboundZeta,bumpRatio,dampingBias,
       arbBalMode:'manual',
       arbMode:'man',
-      arbManF:phys?Math.max(0,ckArb.f):Math.max(1,Math.min(lim.arb,ckArb.f)),
-      arbManR:phys?Math.max(0,ckArb.r):Math.max(1,Math.min(lim.arb,ckArb.r))}));
+      // fe.arbMan* is always roll stiffness; the physical inputs above are BeamNG's linear
+      // N/m, so invert k = 2·rs/track² on the way in.
+      arbManF:phys?Math.max(0,ckArb.f*ch.trackF*ch.trackF/2):Math.max(1,Math.min(lim.arb,ckArb.f)),
+      arbManR:phys?Math.max(0,ckArb.r*ch.trackR*ch.trackR/2):Math.max(1,Math.min(lim.arb,ckArb.r))}));
     setImported(true);
     setTimeout(()=>setImported(false),2000);
   };
@@ -2049,28 +2074,28 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
               <Stat label="Corner mass rear" value={masses.rear} unit="kg"/>
             </Card>
             <Card title="ARB INPUTS" hint={phys
-              ?"ARB roll stiffness in N·m/rad — the same unit this mode outputs, so no conversion is needed."
+              ?"Anti-Roll Spring Rate in N/m, copied straight off BeamNG's slider. Converted to roll stiffness internally by rs = k·track²/2, so the chassis track widths matter here."
               :"ARB clicks are entered directly — no conversion needed, same units as the in-game tune."}>
               {[['ARB Front','f'],['ARB Rear','r']].map(([lbl,k])=>(
                 <Field key={k} label={lbl} value={ckArb[k]} onChange={pA(k)}
-                  min={phys?0:1} max={phys?60000:lim.arb} step={phys?100:0.1}
-                  unit={phys?'N·m/rad':`/ ${lim.arb}`}/>
+                  min={phys?0:1} max={phys?200000:lim.arb} step={phys?500:0.1}
+                  unit={phys?'N/m':`/ ${lim.arb}`}/>
               ))}
             </Card>
             <Card title="SPRING INPUTS">
-              {/* Physical modes always take N/mm regardless of the IMP/MET toggle, because
-                  that is the unit this mode's SPRINGS card outputs — asking for lb/in here
-                  while printing N/mm there would make the checker unusable as a round-trip.
-                  Note the two conversions differ: N_MM_PER_LB_IN is correct, NMM_PER_LBIN
-                  (used by the MET toggle) is 10× high — see the note at their definitions. */}
+              {/* Physical modes always take N/m regardless of the IMP/MET toggle, because that
+                  is the unit BeamNG's slider and this mode's SPRINGS card both use — asking
+                  for lb/in here while printing N/m there would break the round-trip.
+                  LB_IN_TO_NM is already N/m per lb/in; the MET path deliberately uses the
+                  separate (and 10× high) NMM_PER_LBIN — see the note at its definition. */}
               {[['Spring Rate Front','f'],['Spring Rate Rear','r']].map(([lbl,k])=>{
-                const nmm=phys||metricUnits;
-                const conv=phys?N_MM_PER_LB_IN:NMM_PER_LBIN;
+                const conv=phys?LB_IN_TO_NM:NMM_PER_LBIN;
+                const converted=phys||metricUnits;
                 return <Field key={k} label={lbl}
-                  value={nmm?ckSpr[k]*conv:ckSpr[k]}
-                  onChange={nmm?v=>pS(k)(v/conv):pS(k)}
-                  min={nmm?Math.round(50*conv):50} max={nmm?Math.round(2500*conv):2500}
-                  step={phys?1:1} unit={nmm?'N/mm':'lb/in'}/>;
+                  value={converted?Math.round(ckSpr[k]*conv):ckSpr[k]}
+                  onChange={converted?v=>pS(k)(v/conv):pS(k)}
+                  min={converted?Math.round(50*conv):50} max={converted?Math.round(2500*conv):2500}
+                  step={phys?100:1} unit={converted?(phys?'N/m':'N/mm'):'lb/in'}/>;
               })}
             </Card>
             <Card title="DAMPING INPUTS">
@@ -2078,7 +2103,7 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
                 ['Bump Front','bumpF'],['Bump Rear','bumpR']].map(([lbl,k])=>(
                 <Field key={k} label={lbl} value={ckDmp[k]} onChange={pD(k)}
                   min={phys?0:1} max={phys?40000:lim.damping} step={phys?50:0.1}
-                  unit={phys?'N·s/m':`/ ${lim.damping}`}/>
+                  unit={phys?'N/m/s':`/ ${lim.damping}`}/>
               ))}
             </Card>
             <Card title="DECODED TUNE" accent
@@ -2091,8 +2116,8 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
               <Stat label="Rebound ratio rear"  value={ck.zRebR} unit="%" decimals={1}/>
               <Stat label="Bump ratio front"    value={ck.zBmpF} unit="%" decimals={1}/>
               <Stat label="Bump ratio rear"     value={ck.zBmpR} unit="%" decimals={1}/>
-              <Stat label="ARB front" value={ckArb.f} unit={phys?'N·m/rad':`/ ${lim.arb}`} decimals={phys?0:1}/>
-              <Stat label="ARB rear"  value={ckArb.r} unit={phys?'N·m/rad':`/ ${lim.arb}`} decimals={phys?0:1}/>
+              <Stat label="ARB front" value={ckArb.f} unit={phys?'N/m':`/ ${lim.arb}`} decimals={phys?0:1}/>
+              <Stat label="ARB rear"  value={ckArb.r} unit={phys?'N/m':`/ ${lim.arb}`} decimals={phys?0:1}/>
               <button className={`tbtn${imported?' saved':''}`} style={{width:'100%',marginTop:8,fontSize:10}}
                 onClick={importDecoded}>{imported?'IMPORTED ✓':'IMPORT?'}</button>
             </Card>
@@ -2281,6 +2306,11 @@ const CODEC_FIELDS=[
   {id:54,group:'fe',key:'arbBalDelta'},
   {id:55,group:'fe',key:'springShareAuto',bool:true},
   {id:56,group:'fe',key:'arbSplitOpposite',bool:true},
+  // 58/59: motion ratios. group:'ch' because they describe the car's suspension geometry,
+  // so they travel with a chassis entry rather than a tune — same reasoning as id 18.
+  // (57 is arbBasicMan, declared above out of numeric order.)
+  {id:58,group:'ch',key:'motionRatioF'},
+  {id:59,group:'ch',key:'motionRatioR'},
   // Retired ids — never reuse: none yet (dead fields removed pre-v1 never had an id).
 ];
 const codecFieldDefault=f=>f.tyre?f.def:DEF_GROUPS[f.group][f.key];
@@ -2345,6 +2375,10 @@ const sanitizeTune=({ch,fe,dr})=>{
       tyreF: parseTyre(ch?.tyreF)?ch.tyreF:DEF_CH.tyreF,
       tyreR: parseTyre(ch?.tyreR)?ch.tyreR:DEF_CH.tyreR,
       layout:       LAYOUT_DEC.includes(ch?.layout)?ch.layout:DEF_CH.layout,
+      // Floor at 0.2 rather than 0: mrDiv squares this, so a near-zero ratio would
+      // scale the displayed rate toward infinity.
+      motionRatioF: cl(ch?.motionRatioF,    0.2,  1.5,  DEF_CH.motionRatioF),
+      motionRatioR: cl(ch?.motionRatioR,    0.2,  1.5,  DEF_CH.motionRatioR),
     },
     fe:{
       rideStiffness:    (()=>{const rs=n(fe?.rideStiffness,DEF_FE.rideStiffness);const hz=rs>6?0.8+(rs/100)*2.7:rs;return Math.max(HZ_MIN,Math.min(HZ_MAX,Math.round(hz*100)/100));})(),
@@ -3911,6 +3945,16 @@ function App(){
               <Field label="Track Width R" value={Math.round(ch.trackR*1000)} onChange={v=>pCh('trackR')(v/1000)} min={1000} max={2600} step={5} unit="mm"
                 hint="Distance between left and right wheels at the rear. Typical: 1400–1800 mm. Often slightly wider than front."/>
             </div>}
+            {/* Physical-unit modes only. Forza's tuning screen shows wheel rate, which is what
+                the solver already produces, so a motion ratio would be meaningless there — the
+                fields are hidden rather than shown inert. */}
+            {physMode&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 10px'}}>
+              {[['F','motionRatioF','Front'],['R','motionRatioR','Rear']].map(([ax,key,side])=>(
+                <Field key={ax} label={`Motion Ratio ${ax}`} value={ch[key]??1.0}
+                  onChange={pCh(key)} min={0.2} max={1.5} step={0.01}
+                  hint={`How far the ${side.toLowerCase()} spring and damper move per unit of wheel travel. 1.0 = direct-acting (strut on the hub). Lower means the spring sits inboard on a control arm and must be stiffer to give the same wheel rate — the output is divided by the ratio squared, so 0.7 raises it by about double. BeamNG's sliders act at the spring, so this is what makes the numbers match; it does not change Hz, roll stiffness, or handling balance. Leave at 1.0 unless you know the car's geometry.`}/>
+              ))}
+            </div>}
             <div style={{background:'#060c17',border:'1px solid #1e293b',borderRadius:2,padding:'5px 10px',margin:'2px 0 8px',display:'flex',alignItems:'center',gap:6}}>
               <button className="tbtn" style={{fontSize:11,color:ch.useRideHeightCG?'#60a5fa':'#475569',flexShrink:0}}
                 onClick={()=>setCh(p=>({...p,useRideHeightCG:!p.useRideHeightCG}))}>RIDE HEIGHT → CG</button>
@@ -4480,17 +4524,23 @@ function App(){
               <div style={{display:'flex',gap:6,marginBottom:10}}>
                 {/* max tracks lim.arb, not a hardcoded 65 — MOTORSPORT caps ARBs at 40 and
                     computeTune clamps to lim.arb, so a fixed 65 let you type values that were
-                    silently discarded on the other game mode. Physical modes have no ceiling
-                    at all, and the field carries roll stiffness rather than clicks. */}
+                    silently discarded on the other game mode. Physical modes have no ceiling.
+                    fe.arbMan{F,R} is ALWAYS stored as roll stiffness (N·m/rad); the N/m the
+                    user sees in a physical mode is converted at this boundary only, so the
+                    game-mode migration effect and computeTune both stay in one unit. */}
                 {['F','R'].map(ax=>{
                   const key=ax==='F'?'arbManF':'arbManR';
                   const side=ax==='F'?'Front':'Rear';
-                  return <Field key={ax} label={`ARB ${ax}`} value={fe[key]??(physMode?12000:20)}
-                    onChange={pFe(key)}
-                    min={physMode?0:1} max={physMode?60000:lim.arb} step={physMode?100:0.1}
-                    unit={physMode?'N·m/rad':undefined}
+                  const track=ax==='F'?ch.trackF:ch.trackR;
+                  const toLin=rs=>2*rs/(track*track), toRs=k=>k*track*track/2;
+                  const stored=fe[key]??(physMode?12000:20);
+                  return <Field key={ax} label={`ARB ${ax}`}
+                    value={physMode?Math.round(toLin(stored)):stored}
+                    onChange={physMode?v=>pFe(key)(toRs(v)):pFe(key)}
+                    min={physMode?0:1} max={physMode?200000:lim.arb} step={physMode?500:0.1}
+                    unit={physMode?'N/m':undefined}
                     hint={physMode
-                      ?`${side} ARB roll stiffness, entered directly in N·m/rad. No ceiling — BeamNG has no fixed ARB scale.`
+                      ?`${side} Anti-Roll Spring Rate in N/m, the same unit BeamNG's slider uses. No ceiling — BeamNG has no fixed ARB scale. Stored internally as roll stiffness and converted by k = 2·rs/track², so changing track width moves this number.`
                       :`${side} ARB clicks, entered directly. This game mode's limit is ${lim.arb} clicks per axle.`}/>;
                 })}
               </div>}
@@ -4793,18 +4843,19 @@ function App(){
             <div style={{display:'flex',alignItems:'center',gap:6,
                          padding:'4px 8px',background:'#0a0f1a',borderRadius:2,
                          border:'1px solid #1e293b',marginBottom:8,marginTop:-4}}>
+              {/* Same springOut the SPRINGS card uses, so this strip can't drift from it —
+                  it previously hardcoded the IMP/MET branch and would have shown N/mm in a
+                  mode whose card says N/m. */}
               <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>SPR F</span>
               <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'#9ca3af'}}>
-                {metricUnits
-                  ?`${(tune.springF*NMM_PER_LBIN).toFixed(1)} N/mm`
-                  :`${Math.round(tune.springF)} lb/in`}
+                {(()=>{const o=springOut(tune.springF,fe.gameMode,metricUnits,ch.motionRatioF);
+                  return `${o.value.toFixed(o.decimals)} ${o.unit}`;})()}
               </span>
               <div style={{flex:1,height:1,background:'#1e293b'}}/>
               <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>SPR R</span>
               <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'#9ca3af'}}>
-                {metricUnits
-                  ?`${(tune.springR*NMM_PER_LBIN).toFixed(1)} N/mm`
-                  :`${Math.round(tune.springR)} lb/in`}
+                {(()=>{const o=springOut(tune.springR,fe.gameMode,metricUnits,ch.motionRatioR);
+                  return `${o.value.toFixed(o.decimals)} ${o.unit}`;})()}
               </span>
             </div>
             </div>
@@ -5030,6 +5081,8 @@ function App(){
                       a percentage-of-max; ArbDial hides its warning bands under `physical`. */}
                   <ArbDial arbF={tune.arbF} arbR={tune.arbR}
                     arbLimit={lim.arb??Math.max(1,tune.arbF,tune.arbR)*1.25} physical={physMode}
+                    dispF={arbOut(tune.arbF,lim,ch.trackF).value}
+                    dispR={arbOut(tune.arbR,lim,ch.trackR).value}
                     rsAbF={tune.rsAbF} rsAbR={tune.rsAbR}
                     natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
                 </div>
@@ -5229,16 +5282,16 @@ function App(){
           <div style={{display:'grid',gridTemplateColumns:windowWidth<900?'1fr':'1fr 1fr',gap:6,marginBottom:6}}>
           <Card title="ANTI-ROLL BARS" accent
             hint={physMode
-              ?"Roll stiffness per axle in N·m/rad. Most BeamNG suspension configs don't expose an anti-roll bar variable at all, so treat these as advisory — they still drive the handling balance model and the roll angle above."
+              ?"Anti-Roll Spring Rate per axle in N/m, matching BeamNG's slider. Converted from the solver's roll stiffness by k = 2·rs/track². Reads soft against the stock values on at least one vehicle — the cause isn't established, so treat it as a starting point rather than a target. See KNOWN_ISSUES."
               :"Click values to enter in the ARB tuning menu. Roll angle and ARB share are shown in the ANTI-ROLL BARS section of inputs. Amber warn when above 88% of the game limit."}>
 
-            {physMode&&<div style={{fontSize:10,color:'#64748b',lineHeight:1.6,marginBottom:6}}>
-              Advisory — BeamNG generates its tuning sliders per vehicle, and most suspension
-              configs have no ARB variable to enter these into.
+            {physMode&&<div style={{fontSize:10,color:'#f59e0b',lineHeight:1.6,marginBottom:6}}>
+              Least reliable output in this mode — measured soft against stock values on a
+              test vehicle, cause unresolved. Use as a direction, not a number to trust.
             </div>}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
-              {[['FRONT',tune.arbF,tune.rsAbF,tune.rsSpF],['REAR',tune.arbR,tune.rsAbR,tune.rsSpR]].map(([lbl,v,rsAb,rsSp])=>{
-                const o=arbOut(v,lim);
+              {[['FRONT',tune.arbF,tune.rsAbF,tune.rsSpF,ch.trackF],['REAR',tune.arbR,tune.rsAbR,tune.rsSpR,ch.trackR]].map(([lbl,v,rsAb,rsSp,track])=>{
+                const o=arbOut(v,lim,track);
                 return <Readout key={lbl} label={lbl} value={o.value} decimals={o.decimals}
                   warn={warnOver(v,lim.arb)} unit={o.unit} ctx={arbCtx(v,lim.arb)} primary
                   sub={[
@@ -5276,7 +5329,7 @@ function App(){
           </Card>
 
           <Card title="SPRINGS" accent
-            hint={`Spring rates in ${physMode?'N/mm':'lb/in'} to enter in the tuning menu. The badge shows the frequency category — SOFT/ROAD/FIRM/RACE. Hz values live in the RIDE section of inputs. The ratio in the header is rear Hz ÷ front Hz — the same relationship as that section's Rear Multiplier slider, however it's currently derived (Flat Ride, Multiplier, Mech, or Independent).`}
+            hint={`Spring rates in ${physMode?'N/m — the unit BeamNG’s Spring Rate slider uses, and divided by motion ratio squared if you set one':'lb/in'} to enter in the tuning menu. The badge shows the frequency category — SOFT/ROAD/FIRM/RACE. Hz values live in the RIDE section of inputs. The ratio in the header is rear Hz ÷ front Hz — the same relationship as that section's Rear Multiplier slider, however it's currently derived (Flat Ride, Multiplier, Mech, or Independent).`}
             headerRight={`REAR ×${(tune.rHz/tune.fHz).toFixed(2)}`}>
 
             {(()=>{
@@ -5286,11 +5339,11 @@ function App(){
               const springPctR=Math.round(tune.rsSpR/(tune.rsSpR+tune.rsAbR)*100);
               return(
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
-                  {(()=>{const o=springOut(tune.springF,fe.gameMode,metricUnits);
+                  {(()=>{const o=springOut(tune.springF,fe.gameMode,metricUnits,ch.motionRatioF);
                     return <Readout label="FRONT" value={o.value} unit={o.unit} decimals={o.decimals}
                       ctx={hzCtx(tune.fHz)} primary
                       sub={`${tune.fHz.toFixed(2)} Hz  ·  ${springPctF}% of front roll`}/>;})()}
-                  {(()=>{const o=springOut(tune.springR,fe.gameMode,metricUnits);
+                  {(()=>{const o=springOut(tune.springR,fe.gameMode,metricUnits,ch.motionRatioR);
                     return <Readout label="REAR" value={o.value} unit={o.unit} decimals={o.decimals}
                       ctx={hzCtx(tune.rHz)} primary
                       sub={`${tune.rHz.toFixed(2)} Hz  ·  ${springPctR}% of rear roll`}/>;})()}
@@ -5316,13 +5369,13 @@ function App(){
           {/* 4 — DAMPERS */}
           <Card title="DAMPERS" accent
             hint={physMode
-              ?"Rebound (REB) and bump (BUMP) damping coefficients in N·s/m for front and rear. These are the real coefficients the solver works in, with no game-specific scaling applied — BeamNG's damping variables use the same N/m/s unit."
+              ?"Rebound (REB) and bump (BUMP) damping in N/m/s, matching BeamNG's sliders. These are the real coefficients the solver works in with no game-specific scaling, divided by motion ratio squared if you set one. Note BeamNG's own defaults tend to run a much higher rebound-to-bump ratio than this app's default Bump Ratio produces."
               :"Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in the damping tuning menu. Amber warn when above 88% of the game limit. F/R balance is preserved — if either end exceeds the limit, both are scaled proportionally so the ratio is maintained."}>
 
             <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'1fr 1fr 1fr 1fr',gap:4}}>
-              {[['REB F',tune.rebF,tune.zetaF],['REB R',tune.rebR,tune.zetaR],
-                ['BUMP F',tune.bumpF,tune.bumpZetaF],['BUMP R',tune.bumpR,tune.bumpZetaR]].map(([lbl,v,z])=>{
-                const o=dampOut(v,lim);
+              {[['REB F',tune.rebF,tune.zetaF,ch.motionRatioF],['REB R',tune.rebR,tune.zetaR,ch.motionRatioR],
+                ['BUMP F',tune.bumpF,tune.bumpZetaF,ch.motionRatioF],['BUMP R',tune.bumpR,tune.bumpZetaR,ch.motionRatioR]].map(([lbl,v,z,mr])=>{
+                const o=dampOut(v,lim,mr);
                 return <Readout key={lbl} label={lbl} value={o.value} decimals={o.decimals}
                   warn={warnOver(v,lim.damping)} unit={o.unit} primary sub={`${z.toFixed(0)}% ζ`}/>;
               })}

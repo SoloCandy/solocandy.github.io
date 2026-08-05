@@ -74,15 +74,42 @@ mode that **skips the click-compression step** and emits what the solver already
 works in. `computeTune` branches on `isPhysical(gameMode)`, never on the mode
 name, so a future physical-unit game costs one `GAME_LIMITS` entry.
 
-| Output | Forza | Physical | Bridge |
+**Units are taken from BeamNG's own tuning sliders**, verified against a screenshot
+of a stock vehicle's defaults. They are not the most conventional SI spellings and
+must not be "tidied":
+
+| Output | Forza | BeamNG slider | Bridge |
 |---|---|---|---|
-| Springs | lb/in | N/mm | none — the solve is identical, only the display conversion differs (`N_MM_PER_LB_IN`) |
-| Dampers | 1..`lim.damping` clicks | N·s/m | `solveDampRaw`'s `calib` argument: `DAMPING_CALIBRATION` or `1` |
-| ARBs | 1..`lim.arb` clicks | N·m/rad | `clk()` — skipped entirely; the roll stiffness *is* the output |
+| Spring Rate | lb/in | **N/m** (*not* N/mm — a 1000× error) | the solve is identical; `LB_IN_TO_NM` is already N/m per lb/in |
+| Bump/Rebound Damping | 1..`lim.damping` clicks | **N/m/s** (≡ N·s/m) | `solveDampRaw`'s `calib` argument: `DAMPING_CALIBRATION` or `1` |
+| Anti-Roll Spring Rate | 1..`lim.arb` clicks | **N/m**, a *linear* rate | `clk()` skipped, then `k = 2·rs/track²` at the display layer |
 
 `cc = 2·√(wr·mass)` has units kg/s ≡ N·s/m, so `cc·(ζ/100)` is a genuine damping
-coefficient — the same unit BeamNG's own damping variables use. No new empirical
+coefficient — the same quantity BeamNG's damping variables hold. No new empirical
 constant is introduced anywhere in this path.
+
+Note the ARB conversion changes *kind*, not just scale: the solver's currency is
+torsional roll stiffness (N·m/rad) while BeamNG asks for a linear rate. The
+inversion of `rs = k·track²/2` is the same relationship the spring side already
+uses. `fe.arbMan{F,R}` is always **stored** as roll stiffness; the N/m a user sees
+and types in a physical mode is converted at the field boundary only, so the
+game-mode migration effect and `computeTune` both stay in one unit.
+
+### Motion ratio
+
+Forza's tuning screen displays **wheel rate**, which is what `solveSpring` produces
+(`mr` is always 1 at its call sites). BeamNG's sliders act at the **spring and
+damper**, so an inboard spring must be stiffer by `1/mr²` to give the same wheel
+rate. `ch.motionRatioF`/`motionRatioR` (PRO CHASSIS, physical modes only, default
+1.0) apply that correction.
+
+It is applied **at the display layer and deliberately not in `computeTune`**. Hz,
+roll stiffness, mech balance and every handling-balance figure are wheel-rate
+quantities and must not move when a motion ratio is entered — only the number you
+type into the game changes. `tests-beamng.js` asserts that invariant directly.
+
+BeamNG does not expose motion ratio, and it differs per vehicle *and* per axle, so
+it cannot be derived — only entered. Left at 1.0 the output is the wheel rate.
 
 Three consequences worth knowing:
 

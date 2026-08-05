@@ -380,6 +380,33 @@ still migrate state saved before `al.mode` existed.
 Found during the dead-code audit but fixed separately, since it changes
 behaviour and the cleanup was deliberately zero-diff.
 
+## Open — BeamNG anti-roll output reads soft against observed stock values
+
+The BEAMNG mode converts the solver's roll stiffness to BeamNG's linear
+Anti-Roll Spring Rate by inverting `rs = k·track²/2`, the same relationship the
+spring side uses. On the default chassis that yields ≈10,300 / 9,800 N/m front and
+rear. A stock vehicle's own defaults, read off the tuning menu, were **40,000 /
+60,000 N/m** — roughly 4–6× stiffer.
+
+Springs and dampers land far closer (same order of magnitude, explicable by the
+vehicle's mass and motion ratio being unknown), so the ARB gap stands out as the
+outlier. Three candidate causes, none established:
+
+- `ARB_RS_SCALE = 240` was calibrated against **Forza ARB clicks**. Nothing says
+  that mapping transfers to BeamNG's anti-roll model.
+- BeamNG's anti-roll rate may be specified **at the bar** rather than at the wheel,
+  in which case a motion-ratio-like term is missing.
+- The test vehicle may simply run stiff bars. A single vehicle is one data point.
+
+**No fudge factor has been applied** — inventing a multiplier to close a gap whose
+cause is unknown is exactly what the physical-unit approach exists to avoid. The
+ARB card carries an amber caveat naming it as the least reliable output in the
+mode, and the hint says the same.
+
+Resolving this needs a second and third vehicle, and ideally a source on how
+BeamNG defines `Anti-Roll Spring Rate`. Until then, treat the ARB number as a
+direction rather than a value.
+
 ## Open — `NMM_PER_LBIN` is 10× too high, so every MET-mode spring readout is wrong
 
 `NMM_PER_LBIN` is defined as `LB_IN_TO_NM/100`. `LB_IN_TO_NM` is **N/m** per
@@ -398,17 +425,15 @@ exactly one decimal place.
 correctness change to numbers users have been reading and acting on, so it
 belongs in its own change with its own decision, not folded into a feature.
 
-The BeamNG mode does **not** use the broken constant. `N_MM_PER_LB_IN`
-(`= LB_IN_TO_NM/1000`) was added alongside it and is what physical-unit modes
-convert with, which is why BeamNG shows the correct 45.6 N/mm for the same
-chassis that MET shows 456.3 for.
+The BeamNG mode is unaffected: BeamNG's slider is **N/m**, so it converts with
+`LB_IN_TO_NM` directly and never touches this constant. (An interim
+`N_MM_PER_LB_IN` existed while BeamNG output was mistakenly built in N/mm; once
+the real unit was confirmed from an in-game screenshot it became unnecessary and
+was removed rather than left as a near-duplicate.)
 
-**Do not "de-duplicate" the two constants.** They look redundant and differ by
-a round factor of ten, which is exactly the shape of something a cleanup pass
-deletes. Both carry a comment at their definition pointing here.
 `tests-beamng.js` pins the discrepancy with an explicit assertion, so fixing
 `NMM_PER_LBIN` will fail that test — when that happens, delete the assertion and
-this entry together and fold `N_MM_PER_LB_IN` back into one constant.
+this entry together.
 
 ## Fixed — MAN ARB fields accepted clicks MOTORSPORT would silently discard (resolved)
 
