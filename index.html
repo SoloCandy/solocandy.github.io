@@ -5322,12 +5322,12 @@ function App(){
           <div style={{display:'grid',gridTemplateColumns:windowWidth<900?'1fr':'1fr 1fr',gap:6,marginBottom:6}}>
           <Card title="ANTI-ROLL BARS" accent
             hint={physMode
-              ?"Anti-Roll Spring Rate per axle in N/m, matching BeamNG's slider. Converted from the solver's roll stiffness by k = 2·rs/track². Reads soft against the stock values on at least one vehicle — the cause isn't established, so treat it as a starting point rather than a target. See KNOWN_ISSUES."
+              ?"Anti-Roll Spring Rate per axle in N/m, matching BeamNG's slider. Converted from the solver's roll stiffness by k = 2·rs/track², which assumes the bar acts at the wheels. BeamNG specifies the rate at the bar's own lever instead, so a real inboard bar needs a higher number by (track/arm)² — this output reads roughly 4–6× soft on a sampled vehicle. Scale it up by that ratio if you know the geometry, or treat it as a direction. See KNOWN_ISSUES."
               :"Click values to enter in the ARB tuning menu. Roll angle and ARB share are shown in the ANTI-ROLL BARS section of inputs. Amber warn when above 88% of the game limit."}>
 
             {physMode&&<div style={{fontSize:10,color:'#f59e0b',lineHeight:1.6,marginBottom:6}}>
-              Least reliable output in this mode — measured soft against stock values on a
-              test vehicle, cause unresolved. Use as a direction, not a number to trust.
+              Reads ~4–6× soft: this assumes the bar acts at the wheels, but BeamNG sets
+              the rate at the bar's own lever. Scale up by (track/arm)² if you know it.
             </div>}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
               {[['FRONT',tune.arbF,tune.rsAbF,tune.rsSpF,ch.trackF],['REAR',tune.arbR,tune.rsAbR,tune.rsSpR,ch.trackR]].map(([lbl,v,rsAb,rsSp,track])=>{
