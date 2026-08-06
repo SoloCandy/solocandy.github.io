@@ -95,6 +95,20 @@ uses. `fe.arbMan{F,R}` is always **stored** as roll stiffness; the N/m a user se
 and types in a physical mode is converted at the field boundary only, so the
 game-mode migration effect and `computeTune` both stay in one unit.
 
+**The ARB conversion uses the wrong lever arm — known, unfixed.** BeamNG's linear
+anti-roll rate is specified at the *bar's own lever*, not at the wheel, and reaches
+roll stiffness through that lever squared: the BeamNG forum gives it as *"the
+stiffness you get would equal the beamSpring you put in multiplied by length of the
+arm to the power of 2,"* alongside a warning that the motion ratio means real-life
+values don't transfer. `k = 2·rs/track²` implicitly assumes the arm **is** the full
+track — i.e. that the bar acts at the wheels. A real bar attaches inboard, so its
+arm is shorter and the required N/m is higher by `(track/arm)²`. This is why the
+output measures 4–6× soft against a stock vehicle; the intended fix is an ARB motion
+ratio input mirroring the spring one, `k = 2·rs/(track²·mr²)`. Two things remain
+unknown and are not guessed at: the exact coefficient (`k·arm²` vs `2·k·arm²`) and
+any given vehicle's arm length. See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for the full
+derivation, the eliminated hypotheses, and the deferred fix.
+
 ### Motion ratio
 
 Forza's tuning screen displays **wheel rate**, which is what `solveSpring` produces

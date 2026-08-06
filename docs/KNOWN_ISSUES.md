@@ -474,7 +474,7 @@ cases (it's always the reference axle) and that the 8 CO-SOLVE fixtures are
 byte-identical (CO-SOLVE overrides `effectiveRHz` regardless of `rearHzMode`) — the
 diff is fully explained by the intended default change, not a leak elsewhere.
 
-## Open — BeamNG anti-roll output reads soft against observed stock values
+## Open — BeamNG anti-roll output reads soft; cause identified (wrong lever arm), fix deferred
 
 The BEAMNG mode converts the solver's roll stiffness to BeamNG's linear
 Anti-Roll Spring Rate by inverting `rs = k·track²/2`, the same relationship the
@@ -482,24 +482,80 @@ spring side uses. On the default chassis that yields ≈10,300 / 9,800 N/m front
 rear. A stock vehicle's own defaults, read off the tuning menu, were **40,000 /
 60,000 N/m** — roughly 4–6× stiffer.
 
-Springs and dampers land far closer (same order of magnitude, explicable by the
-vehicle's mass and motion ratio being unknown), so the ARB gap stands out as the
-outlier. Three candidate causes, none established:
+This entry originally listed three candidate causes with none established. That
+research is now done: **one is eliminated, one is confirmed as the cause, and one
+is weakened.** The gap itself is still open — nothing in the app has changed.
 
-- `ARB_RS_SCALE = 240` was calibrated against **Forza ARB clicks**. Nothing says
-  that mapping transfers to BeamNG's anti-roll model.
-- BeamNG's anti-roll rate may be specified **at the bar** rather than at the wheel,
-  in which case a motion-ratio-like term is missing.
-- The test vehicle may simply run stiff bars. A single vehicle is one data point.
+### 1. `ARB_RS_SCALE` doesn't transfer from Forza — ELIMINATED
 
-**No fudge factor has been applied** — inventing a multiplier to close a gap whose
-cause is unknown is exactly what the physical-unit approach exists to avoid. The
-ARB card carries an amber caveat naming it as the least reliable output in the
-mode, and the hint says the same.
+Verified in `index.html`: under `physUnits`, `clk` is `rs => Math.max(0, rs)`. The
+constant is not in the path at all. Every reachable physical-mode budget is
+physics-derived — ROLL inverts roll moment / target angle, AUTO and SHARE take a
+fraction of the *spring* roll stiffness (`rsSp * share/(1-share)`). The only
+`ARB_RS_SCALE` budget path is BASIC, which is hidden in physical modes. The Forza
+click constant cannot be causing this.
 
-Resolving this needs a second and third vehicle, and ideally a source on how
-BeamNG defines `Anti-Roll Spring Rate`. Until then, treat the ARB number as a
-direction rather than a value.
+### 2. The rate is specified at the bar, not at the wheel — CONFIRMED, this is the cause
+
+- BeamNG's docs define `torsionbars` `spring` as **N·m/rad** (torsional) and name
+  sway bars as their use case — but the vehicle's tuning slider reads **N/m**, a
+  *linear* rate, so that vehicle drives a linear beam rather than a torsionbar.
+- The BeamNG forum states the relationship directly: *"the stiffness you get would
+  equal the beamSpring you put in multiplied by length of the arm to the power of
+  2"* — so the N/m figure is at the bar's own lever and reaches roll stiffness via
+  **arm²**.
+- The same thread warns *"the motion ratio… definitely means that you shouldn't use
+  real life values"* — the identical caveat that motivated the spring/damper Motion
+  Ratio input already in the app.
+
+`arbOut`'s `k = 2·rs/track²` assumes the bar's lever arm **is the full track**, i.e.
+that the bar acts at the wheels. Any real anti-roll bar attaches inboard on the
+control arm, so its arm is shorter and the N/m needed is larger by `(track/arm)²`.
+The observed 4–6× implies an arm ratio of ~2.0–2.4×; on a 1.55 m track that puts the
+effective arm at roughly 0.63–0.78 m, entirely ordinary drop-link geometry.
+
+### 3. The test vehicle just runs stiff bars — WEAKENED
+
+The gap is systematic across *both* axles rather than one-off, and its magnitude
+matches ordinary geometry rather than an outlier setup. Not excluded on a single
+vehicle, but no longer the leading explanation.
+
+### Still genuinely unknown
+
+- **The exact coefficient** — whether the relationship is `K = k·arm²` or
+  `2·k·arm²`. The two conventions differ by 2× and the forum post is informal prose,
+  not a spec. Not something to guess at.
+- **The arm length for any given vehicle** — BeamNG does not expose it, and it
+  differs per vehicle and per axle, exactly like the spring motion ratio.
+
+### Deferred fix (specified, not implemented)
+
+An **ARB Motion Ratio F/R** chassis input, defaulting to **1.0** so today's output
+is unchanged and no constant is invented, applied as:
+
+```
+k = 2·rs / (track² · mr²)
+```
+
+reusing the existing `mrDiv()` helper next to `springOut` in `index.html`.
+
+Two constraints for whoever implements it:
+
+- It must be applied at **every** N/m ↔ roll-stiffness site — the ARB output card,
+  MAN-mode entry, and the Tune Check ARB inputs. An asymmetry between the display
+  and entry conversions caused a real bug during the spring motion-ratio work.
+- It must be a **separate** field from `motionRatioF`/`motionRatioR`. The spring
+  mount and the ARB drop link are independent geometry; reusing the spring value
+  would be wrong.
+
+**No fudge factor has been applied** — inventing a multiplier to close the gap is
+exactly what the physical-unit approach exists to avoid, and one sampled vehicle is
+not a calibration. A second and third vehicle would confirm the arm-ratio range and
+settle the coefficient question.
+
+**Stale as of this research:** the in-app ARB caveats still say *"cause
+unresolved"* (amber banner) and *"the cause isn't established"* (hint). Both are
+superseded by the above and should be corrected alongside the deferred fix.
 
 ## Fixed — `NMM_PER_LBIN` was 10× too high, so every MET-mode spring readout was wrong (resolved)
 
