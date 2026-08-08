@@ -1906,8 +1906,11 @@ const OutRow=({label,meta=[],value,unit,decimals=1,warn=false,note=null,noteColo
 );
 // Bordered wrapper grouping related OutRows (Camber F+R, Toe F+R, …), mirroring the
 // nested boxes in the wireframe. No internal dividers — the grouping is the signal.
+// Background matches the DIFFERENTIAL card's RECOMMENDED / CENTER SPLIT call-outs so
+// every boxed element in the output panel sits on one surface colour.
 const RowGroup=({children,style})=>(
-  <div style={{border:'1px solid #1e293b',borderRadius:2,marginBottom:5,...style}}>{children}</div>
+  <div style={{border:'1px solid #1e293b',borderRadius:2,marginBottom:5,
+               background:'#0f172a',...style}}>{children}</div>
 );
 
 const Stat=({label,value,unit,decimals=2})=>(
@@ -5582,50 +5585,52 @@ function App(){
               const curCenter=dr.diffCenter??65;
               const centerMatch=curCenter===recommendedCenter;
               const centerReasons={street:'mild rear bias — comfortable AWD character',track:'rear-weighted for rotation and exit drive',drift:'very rear-heavy — maximises rotation and wheelspin',rally:'more neutral — front traction on mixed surfaces',offroad:'slight front bias — stability on loose and uneven ground',drag:'rear-heavy for straight-line launch traction'};
-              return(<>
-                {uiMode!=='beginner'&&<div style={{marginTop:6,padding:'6px 8px',background:'#0f172a',borderRadius:2,border:'1px solid #1e293b'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:recMatch?0:4}}>
-                    <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>RECOMMENDED</span>
-                    <span style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:700,
-                      color:recMatch?'#22c55e':'#f59e0b',marginLeft:'auto'}}>
-                      {recLabel.toUpperCase()}
-                    </span>
-                    {!recMatch&&<button className="tbtn" style={{fontSize:9,color:'#60a5fa',padding:'2px 6px'}}
-                      onClick={()=>setDr(p=>({...p,diffType:recType}))}>
-                      → USE {recType.toUpperCase()}
-                    </button>}
+              // CENTER SPLIT is its own box to the right of RECOMMENDED rather than a
+              // section stacked inside it. FWD/RWD (and SPORT, which has no centre lock)
+              // have no split, so RECOMMENDED simply keeps the full width there.
+              const showSplit=isAWD&&(dr.diffType??'race')!=='sport';
+              const box={flex:'1 1 240px',minWidth:0,padding:'6px 8px',
+                         background:'#0f172a',borderRadius:2,border:'1px solid #1e293b'};
+              if(uiMode==='beginner')return null;
+              return(
+                <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:6}}>
+                  <div style={box}>
+                    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:recMatch?0:4}}>
+                      <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>RECOMMENDED</span>
+                      <span style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:700,
+                        color:recMatch?'#22c55e':'#f59e0b',marginLeft:'auto'}}>
+                        {recLabel.toUpperCase()}
+                      </span>
+                      {!recMatch&&<button className="tbtn" style={{fontSize:9,color:'#60a5fa',padding:'2px 6px'}}
+                        onClick={()=>setDr(p=>({...p,diffType:recType}))}>
+                        → USE {recType.toUpperCase()}
+                      </button>}
+                    </div>
+                    <div style={{fontSize:10,color:recMatch?'#334155':'#475569',lineHeight:1.5}}>
+                      {buildLabel} build → {recLabel}: {recReason}.
+                    </div>
                   </div>
-                  {!recMatch&&<div style={{fontSize:10,color:'#475569',lineHeight:1.5}}>
-                    {buildLabel} build → {recLabel}: {recReason}.
+                  {showSplit&&<div style={box}>
+                    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:centerMatch?0:4}}>
+                      <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>CENTER SPLIT</span>
+                      <span style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:700,
+                        color:centerMatch?'#22c55e':'#f59e0b',marginLeft:'auto'}}>
+                        {recommendedCenter}% REAR
+                      </span>
+                      {!centerMatch&&<button className="tbtn" style={{fontSize:9,color:'#60a5fa',padding:'2px 6px'}}
+                        onClick={()=>setDr(p=>({...p,diffCenter:recommendedCenter}))}>
+                        → USE {recommendedCenter}%
+                      </button>}
+                    </div>
+                    <div style={{fontSize:10,color:centerMatch?'#334155':'#475569',lineHeight:1.5}}>
+                      {buildLabel} build → {recommendedCenter}% rear: {centerReasons[dr.buildType??'track']}.
+                      {uiMode==='pro'&&(_weightAdj!==0||_diamAdj!==0||_natAdj!==0)&&<div style={{fontSize:9,color:centerMatch?'#1e293b':'#334155',marginTop:2}}>
+                        base {_baseCenter}%{_weightAdj!==0?` · weight ${_weightAdj>0?'+':''}${_weightAdj}%`:''}{_diamAdj!==0?` · tyres ${_diamAdj>0?'+':''}${_diamAdj}%`:''}{_natAdj!==0?` · balance ${_natAdj>0?'+':''}${_natAdj}%`:''}
+                      </div>}
+                    </div>
                   </div>}
-                  {recMatch&&<div style={{fontSize:10,color:'#334155',lineHeight:1.5}}>
-                    {buildLabel} build → {recLabel}: {recReason}.
-                  </div>}
-                  {isAWD&&(dr.diffType??'race')!=='sport'&&<div style={{display:'flex',alignItems:'center',gap:6,marginTop:6,paddingTop:6,borderTop:'1px solid #1e293b',marginBottom:centerMatch?0:4}}>
-                    <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>CENTER SPLIT</span>
-                    <span style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:700,
-                      color:centerMatch?'#22c55e':'#f59e0b',marginLeft:'auto'}}>
-                      {recommendedCenter}% REAR
-                    </span>
-                    {!centerMatch&&<button className="tbtn" style={{fontSize:9,color:'#60a5fa',padding:'2px 6px'}}
-                      onClick={()=>setDr(p=>({...p,diffCenter:recommendedCenter}))}>
-                      → USE {recommendedCenter}%
-                    </button>}
-                  </div>}
-                  {isAWD&&!centerMatch&&<div style={{fontSize:10,color:'#475569',lineHeight:1.5}}>
-                    {buildLabel} build → {recommendedCenter}% rear: {centerReasons[dr.buildType??'track']}.
-                    {uiMode==='pro'&&(_weightAdj!==0||_diamAdj!==0||_natAdj!==0)&&<div style={{fontSize:9,color:'#334155',marginTop:2}}>
-                      base {_baseCenter}%{_weightAdj!==0?` · weight ${_weightAdj>0?'+':''}${_weightAdj}%`:''}{_diamAdj!==0?` · tyres ${_diamAdj>0?'+':''}${_diamAdj}%`:''}{_natAdj!==0?` · balance ${_natAdj>0?'+':''}${_natAdj}%`:''}
-                    </div>}
-                  </div>}
-                  {isAWD&&centerMatch&&<div style={{fontSize:10,color:'#334155',lineHeight:1.5}}>
-                    {buildLabel} build → {recommendedCenter}% rear: {centerReasons[dr.buildType??'track']}.
-                    {uiMode==='pro'&&(_weightAdj!==0||_diamAdj!==0||_natAdj!==0)&&<div style={{fontSize:9,color:'#1e293b',marginTop:2}}>
-                      base {_baseCenter}%{_weightAdj!==0?` · weight ${_weightAdj>0?'+':''}${_weightAdj}%`:''}{_diamAdj!==0?` · tyres ${_diamAdj>0?'+':''}${_diamAdj}%`:''}{_natAdj!==0?` · balance ${_natAdj>0?'+':''}${_natAdj}%`:''}
-                    </div>}
-                  </div>}
-                </div>}
-              </>);
+                </div>
+              );
             })()}
           </Card>
 
