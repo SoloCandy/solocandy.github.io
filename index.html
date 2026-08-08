@@ -5465,16 +5465,21 @@ function App(){
           </Card>
 
           {/* 4 — DAMPERS */}
-          {/* headerRight: Bump Ratio is only actually applied in 'ratio' damping mode; under
+          {/* headerRight: F/R bias is the front axle's share of total ζ, not the raw
+              dampingBias input — 50% is balanced, above is front-biased. Same formula as
+              the Damping Bias slider's own readout, and unlike the raw input it stays
+              truthful under SETTLE mode, where settleBias drives the split instead.
+              Bump Ratio is only actually applied in 'ratio' damping mode; under
               INDEPENDENT the bump ζ is set directly, so showing a ratio there would be a lie. */}
           <Card title="DAMPERS" accent
-            headerRight={`F/R BIAS ${(fe.dampingBias??0)>0?'+':''}${fe.dampingBias??0}%  ·  ${
+            headerRight={`F/R BIAS ${(()=>{const tot=physics.zetaF+physics.zetaR;
+                return tot>0?Math.round(physics.zetaF/tot*100):50;})()}% F  ·  ${
               (physics.dampingMode??'ratio')==='ratio'
                 ?`BUMP RATIO ${physics.bumpRatioVal??56}%`
                 :`BUMP ${Math.round(physics.bumpZeta??39)}% ζ`}`}
             hint={physMode
-              ?"Rebound (REB) and bump (BUMP) damping in N/m/s, matching BeamNG's sliders. These are the real coefficients the solver works in with no game-specific scaling, divided by motion ratio squared if you set one. Note BeamNG's own defaults tend to run a much higher rebound-to-bump ratio than this app's default Bump Ratio produces."
-              :"Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in the damping tuning menu. Amber warn when above 88% of the game limit. F/R balance is preserved — if either end exceeds the limit, both are scaled proportionally so the ratio is maintained."}>
+              ?"Rebound (REB) and bump (BUMP) damping in N/m/s, matching BeamNG's sliders. These are the real coefficients the solver works in with no game-specific scaling, divided by motion ratio squared if you set one. Note BeamNG's own defaults tend to run a much higher rebound-to-bump ratio than this app's default Bump Ratio produces. F/R BIAS in the header is the front axle's share of total damping — 50% is balanced, above 50% is front-biased, below is rear-biased."
+              :"Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in the damping tuning menu. Amber warn when above 88% of the game limit. F/R balance is preserved — if either end exceeds the limit, both are scaled proportionally so the ratio is maintained. F/R BIAS in the header is the front axle's share of total damping — 50% is balanced, above 50% is front-biased, below is rear-biased."}>
 
             {(()=>{
               // Matches the RIDE section's existing readouts, which warn on >100 only.
