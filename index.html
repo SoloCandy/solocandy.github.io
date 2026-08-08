@@ -3278,6 +3278,23 @@ function App(){
   // sidebar grows with the display: 300px baseline, up to 440px at very wide screens.
   const sidebarWidth=isMobile?300:Math.min(440,Math.max(340,Math.floor(windowWidth*0.25)));
 
+  // The full header row (brand + IMP/MET + the three game modes + BEG/INT/PRO + ↩/?/TERMS/GARAGE)
+  // needs ~975px once the four 8px divider margins and a two-digit GARAGE count are included.
+  // That is well above isMobile's 768px cutoff, so between those two widths the desktop header
+  // used to render and silently push GARAGE and its neighbours off-screen — there is no wrap and
+  // no horizontal scroll on that row. Adding a third game mode (BEAMNG) is what pushed it over;
+  // two modes fitted inside 768px. 1000 leaves headroom for a three-digit count and for font
+  // metrics that differ from the machine this was measured on — measured flush at exactly 960,
+  // so do not lower this without re-measuring the GARAGE button's right edge against the viewport.
+  //
+  // Deliberately NOT folded into isMobile: that flag also drives the sidebar overlay, the
+  // backdrop, sidebarWidth and the brand sizing, and turning every ~900px laptop into the
+  // overlay-sidebar layout would be a far bigger behaviour change than this bug warrants.
+  // headerCompact only decides WHERE the units/game-mode/tier groups live, and the three
+  // gate sites that move them (header row 1, header row 2, sidebar top) must stay in sync —
+  // gating only some of them would make those controls unreachable in the gap.
+  const headerCompact=windowWidth<1000;
+
   const pCh=k=>v=>setCh(p=>({...p,[k]:v}));
   const pFe=k=>v=>setFe(p=>({...p,[k]:v}));
   const pDr=k=>v=>setDr(p=>({...p,[k]:v}));
@@ -3670,7 +3687,7 @@ function App(){
             </div>
           </div>
           <div style={{display:'flex',gap:3,alignItems:'center'}}>
-            {!isMobile&&<>
+            {!headerCompact&&<>
               <button className={`tbtn${!metricUnits?' on':''}`}
                 onClick={()=>setMetricUnits(false)} style={{fontSize:11}}>IMP</button>
               <button className={`tbtn${metricUnits?' on':''}`}
@@ -3701,8 +3718,8 @@ function App(){
               onClick={()=>setGaragePanelOpen(o=>!o)}>GARAGE{entries.length>0?` ${entries.length}`:''}</button>
           </div>
         </div>
-        {/* Row 2 — mobile only: complexity selector */}
-        {isMobile&&(
+        {/* Row 2 — compact header only: complexity selector */}
+        {headerCompact&&(
           <div style={{display:'flex',gap:4,padding:'0 14px 8px'}}>
             {[['beginner','BEG'],['intermediate','INT'],['pro','PRO']].map(([mode,label])=>(
               <button key={mode} className={`tbtn${uiMode===mode?' on':''}`}
@@ -3739,8 +3756,8 @@ function App(){
           flex:1,minHeight:0,overflowY:'auto'
         }}>
 
-          {/* MOBILE-ONLY: unit + game mode controls (moved from header) */}
-          {isMobile&&(
+          {/* COMPACT-HEADER ONLY: unit + game mode controls (moved out of the header row) */}
+          {headerCompact&&(
             <div style={{display:'flex',gap:4,alignItems:'center',padding:'8px 12px',
                          borderBottom:'1px solid #0f172a',flexShrink:0}}>
               <button className={`tbtn${!metricUnits?' on':''}`}
