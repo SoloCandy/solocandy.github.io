@@ -72,7 +72,7 @@ every balance-relevant slider.
 
 ## Auto-computed by default, or PRO's Alignment Mode
 
-BRAKES (balance %, pressure %) is always fully computed from build type/
+BRAKES (balance % — pressure was removed as dead output) is always fully computed from build type/
 layout/weight bias/chassis geometry, with no manual override. ALIGNMENT
 (camber, toe, caster) is computed the same way by default (BUILD mode), but
 PRO mode adds an Alignment Mode toggle (BUILD/MECH/GRIP/MANUAL) — see the

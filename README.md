@@ -3,7 +3,7 @@
 [![Live Demo](https://img.shields.io/badge/live%20demo-solocandy.github.io%2Fsusp--os-e2e8f0?style=flat-square)](https://solocandy.github.io/susp-os/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
-A single-file suspension tuning calculator for **Forza Horizon**, **Forza Motorsport**, and **BeamNG.drive**. Enter your car's physical stats and a handling target — SUSP.OS outputs values for springs, dampers, anti-roll bars, alignment, brakes, and differential, all grounded in real suspension physics: exact in-game clicks for the Forza titles, and real physical units (N/mm, N·s/m, N·m/rad) for BeamNG.
+A single-file suspension tuning calculator for **Forza Horizon**, **Forza Motorsport**, and **BeamNG.drive**. Enter your car's physical stats and a handling target — SUSP.OS outputs values for springs, dampers, anti-roll bars, alignment, brakes, and differential, all grounded in real suspension physics: exact in-game clicks for the Forza titles, and real physical units (N/m, N/m/s) for BeamNG.
 
 > Physics approach based on [NumberlessMath's Forza Suspension Calculator (2020)](https://docs.google.com/spreadsheets/d/1ySrVkgQpohIduhdLCwe99p3d6KmWXKgck5Uk-qDOlPw/edit?usp=sharing)
 
@@ -100,7 +100,7 @@ Key empirical constants calibrated from real Forza data:
 
 Constants validated through a structured test protocol across three cars — 2017 Mazda MX-5 Cup, 2015 Ultima Evolution Coupe 1020, and 2011 Volkswagen Scirocco R — covering balanced, understeer, and oversteer tyre configurations and ARB ±10 click sensitivity sweeps.
 
-**These constants only apply to the two Forza modes.** `ARB_RS_SCALE` and `DAMPING_CALIBRATION` exist to bridge real physics onto Forza's abstract 1–N "click" scales, which are needed because Forza hides its internal units. The **BEAMNG** mode skips that step entirely and emits the pre-conversion values the solver already works in — N/mm, N·s/m, N·m/rad — so it introduces **no new calibration constant and needs no validation protocol**. If a BeamNG-specific fudge factor ever turns out to be necessary, that is a signal the "just skip the click compression" premise broke down somewhere and should be re-examined rather than patched. See [PHYSICS.md](docs/PHYSICS.md).
+**These constants only apply to the two Forza modes.** `ARB_RS_SCALE` and `DAMPING_CALIBRATION` exist to bridge real physics onto Forza's abstract 1–N "click" scales, which are needed because Forza hides its internal units. The **BEAMNG** mode skips that step entirely and emits the pre-conversion values the solver already works in — N/m for spring and anti-roll rate, N/m/s for damping — so it introduces **no new calibration constant and needs no validation protocol**. If a BeamNG-specific fudge factor ever turns out to be necessary, that is a signal the "just skip the click compression" premise broke down somewhere and should be re-examined rather than patched. See [PHYSICS.md](docs/PHYSICS.md).
 
 **Ride-height-derived CG height** (PRO CHASSIS section, RIDE HEIGHT → CG toggle): estimates CG height as tyre radius + weight-weighted ride height. Unlike the table above, this is a plain geometric heuristic, not a measured/validated constant — real CG height also depends on engine position, body height, and mass distribution, none of which are available inputs. Treat it as a starting point, same spirit as the existing CG Height field's ballpark hint. See [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
 
@@ -121,7 +121,7 @@ Nothing is clamped, quantised, or warned about, because there is no ceiling to c
 Four differences from the Forza modes:
 
 - **BASIC ARB stiffness is hidden** — its budget is defined as a percentage of the click ceiling, so it has no meaning without one. AUTO, ROLL °, SHARE % and MAN all work normally; MAN takes N/m instead of clicks, and converts losslessly in both directions when you switch modes.
-- **The anti-roll number is the least reliable output here.** It measured 4–6× softer than one test vehicle's stock values, and the cause isn't established — `ARB_RS_SCALE` was calibrated against Forza clicks and may not transfer. No correction factor has been invented to close the gap. See [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
+- **The anti-roll number is the least reliable output here.** It measured 4–6× softer than one test vehicle's stock values. The cause is now identified: BeamNG's figure is the rate at the bar's own lever arm, reaching roll stiffness via `arm²`, while `k = 2·rs/track²` assumes the bar acts at the wheels. `ARB_RS_SCALE` was ruled out — it isn't in the physical-mode path at all. The arm length isn't exposed by the game and differs per vehicle, so no correction factor has been invented to close the gap. See [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
 - **Rebound-to-bump ratio runs lower than BeamNG's own defaults.** The stock vehicle sampled sat around 2.5:1 where the app's default Bump Ratio gives about 1.8:1. Raise Bump Ratio if you want to match BeamNG's house style.
 - **Balance figures differ very slightly from Forza for the same inputs.** Forza deliberately recomputes roll stiffness back out of the rounded click values so the balance bar reflects what the game will really do with the numbers you type; BeamNG has no rounding to model. This is intended.
 

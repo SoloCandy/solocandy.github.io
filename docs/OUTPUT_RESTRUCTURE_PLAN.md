@@ -1,5 +1,29 @@
 # SUSP.OS — Output section restructure (Forza mode): plan for Claude Code
 
+> **STATUS: IMPLEMENTED.** Kept for the reasoning, not as a to-do list. The
+> shipped components are `OutRow`/`RowGroup` — see [CODE_MAP.md](CODE_MAP.md).
+> Every checklist item below was verified. Three corrections found during
+> implementation:
+>
+> 1. **The Rebound ζ slider's 40% "UNDER" tick is a scale marker, not a warning
+>    threshold**, and it is rebound-specific. Reusing it for bump rows as this
+>    plan's "reuse the same threshold logic" implies would flag the app's own
+>    default as broken: the default Bump Ratio of 56% yields a bump ζ near 39%.
+>    Shipped as overdamped (>100) on all rows, underdamped only on rebound.
+> 2. **`settle` was renamed to `settleF`.** The plan anticipated the name
+>    mismatch; the fix was a rename across 5 consumers rather than an alias,
+>    since `settle`/`settleR` reads as an error once both axles are surfaced.
+> 3. **The DIFFERENTIAL recommendation call-outs were then split into two
+>    side-by-side boxes** (RECOMMENDED left, CENTER SPLIT right) in a follow-up,
+>    and `RowGroup` picked up their `#0f172a` background so the whole panel sits
+>    on one surface. Not in this plan — a later request.
+>
+> One thing this plan got wrong by omission: the `F/R Bias ##%` header it
+> specifies as "existing `fe.dampingBias` input state" is only meaningful in one
+> of three damping branches — under SETTLE mode `settleBias` drives the split
+> and `dampingBias` is ignored. Shipped as the front axle's share of total ζ
+> (50% balanced, higher = front), which is truthful in every mode.
+
 ## Context / goal
 
 The output panel (`index.html`, `#zone-output`, the six cards from ALIGNMENT

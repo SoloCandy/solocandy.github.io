@@ -42,7 +42,10 @@
 > 6. **"Most BeamNG suspension setups don't even expose ARB as a slider"
 >    (line 22-23) is false** — the sampled vehicle exposes front and rear
 >    Anti-Roll Spring Rate. The real ARB problem is different: our converted
->    output is 4–6× softer than that vehicle's stock values, cause unresolved.
+>    output is 4–6× softer than that vehicle's stock values. ***Cause since
+>    identified*** — BeamNG's rate is at the bar's own lever arm (`arm²`), not at
+>    the wheel. Still open, since the arm length isn't exposed. See
+>    [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
 >
 > The plan also has a genuine gap it never considers: **motion ratio**. Forza
 > displays wheel rate, which is what the solver produces; BeamNG's sliders act at
