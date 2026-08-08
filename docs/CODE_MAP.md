@@ -97,7 +97,9 @@ each in its own `useMemo`.
 | `FeelSlider` | BEG feel sliders and most INT/PRO sliders |
 | `Toggle` | mode switches |
 | `Sec` | the nine collapsible sidebar sections (`div.stog` header) |
-| `Readout`, `Stat`, `Card` | the output panel |
+| `Card` | section wrapper in the output panel (title, ⓘ hint, `headerRight`) |
+| `OutRow`, `RowGroup` | the output panel's full-width value rows and their bordered groups |
+| `Readout`, `Stat` | Tune Check and sidebar readouts — **not** the output panel any more (it moved to `OutRow` so each value is one scannable line to transcribe into a tuning menu) |
 | `BiasSeg` | balance-bar segments |
 | `SpringDial`, `ArbDial`, `DampingDial` | the pinned VISUALS card |
 | `HandlingVerdict` | expanded handling-balance panel only |

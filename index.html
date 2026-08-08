@@ -873,7 +873,7 @@ const computeTune=(ch,phys,gameMode)=>{
          rebF:r1(rebF),rebR:r1(rebR),
          bumpF:r1(bumpF),bumpR:r1(bumpR),
          arbF,arbR,
-         fHz,rHz:effectiveRHz,settle:settleF,settleR,rollDeg,rollTarget:arbTargetRoll,rollClamped,mechBalClamped,neutralClamped,dampingClamped,
+         fHz,rHz:effectiveRHz,settleF,settleR,rollDeg,rollTarget:arbTargetRoll,rollClamped,mechBalClamped,neutralClamped,dampingClamped,
          arbShare:rsTotal>0?(rsAbF+rsAbR)/rsTotal*100:0,
          bSp,bAb,bTot,mechBalance,gripBalance,
          rsSpF,rsSpR,rsAbF,rsAbR,
@@ -1879,6 +1879,35 @@ const Readout=({label,value,unit,warn=false,decimals=1,ctx=null,primary=false,su
                         fontFamily:'var(--font-mono)'}}>{line}</div>
     ))}
   </div>
+);
+
+// ── Output rows ─────────────────────────────────────────────────────────────
+// The output panel is a "read it, type it into the game" checklist, so each value
+// gets one full-width line rather than a bordered mini-card (Readout, still used by
+// Tune Check and the sidebar). Label left, optional mono meta in the middle, value
+// hard right — which is where the eye lands when transcribing into a tuning menu.
+// Deliberately no per-value hint icon and no boxed context badge: section-level
+// hints live on Card, and ctx reads as inline text here instead.
+const OutRow=({label,meta=[],value,unit,decimals=1,warn=false,note=null,noteColor='#f59e0b'})=>(
+  <div style={{display:'flex',alignItems:'baseline',gap:10,padding:'7px 10px'}}>
+    <span style={{fontSize:11,color:'#cbd5e1',letterSpacing:0.5,flexShrink:0}}>{label}</span>
+    {(Array.isArray(meta)?meta:[meta]).filter(Boolean).map((m,i)=>(
+      <span key={i} style={{fontSize:10,color:'#64748b',fontFamily:'var(--font-mono)',
+                            whiteSpace:'nowrap'}}>{m}</span>
+    ))}
+    <span style={{flex:1,minWidth:8}}/>
+    {note&&<span style={{fontSize:10,color:noteColor,whiteSpace:'nowrap'}}>{note}</span>}
+    <span style={{fontFamily:'var(--font-mono)',fontSize:15,fontWeight:700,
+                  color:warn?'#f59e0b':'#e2e8f0',whiteSpace:'nowrap'}}>
+      {typeof value==='number'?value.toFixed(decimals):value}
+    </span>
+    {unit&&<span style={{fontSize:10,color:'#64748b',whiteSpace:'nowrap'}}>{unit}</span>}
+  </div>
+);
+// Bordered wrapper grouping related OutRows (Camber F+R, Toe F+R, …), mirroring the
+// nested boxes in the wireframe. No internal dividers — the grouping is the signal.
+const RowGroup=({children,style})=>(
+  <div style={{border:'1px solid #1e293b',borderRadius:2,marginBottom:5,...style}}>{children}</div>
 );
 
 const Stat=({label,value,unit,decimals=2})=>(
@@ -3379,7 +3408,6 @@ function App(){
   const _brakeGripAdj=uiMode==='pro'?Math.round((natGripBalance-0.5)*15):0;
   const recBrakeBias=Math.round(Math.max(50,Math.min(68,ch.frontBias+_brakeWtMod+_brakeBuildMod+_brakeGripAdj)));
   const brakeBias=recBrakeBias;
-  const brakePressure=100;
   // positive = oversteer, negative = understeer
   const bBrakeEntry=-(brakeBias-50)*BRAKE_BIAS_SCALE; // high front bias → understeer (−)
   const effectiveAvgZeta=(tune.zetaF+tune.zetaR)/2||70;
@@ -5034,7 +5062,7 @@ function App(){
                   leftLabel="FRONT" rightLabel="REAR"
                   markers={[{value:0,color:'#94a3b8',label:'EQUAL'}]}
                   readout={(()=>{
-                    return Math.abs(tune.settle-tune.settleR)<0.01?'EQUAL':`F ${tune.settle.toFixed(2)}s | ${tune.settleR.toFixed(2)}s R`;
+                    return Math.abs(tune.settleF-tune.settleR)<0.01?'EQUAL':`F ${tune.settleF.toFixed(2)}s | ${tune.settleR.toFixed(2)}s R`;
                   })()}
                   hint="Biases settle time between front and rear. At centre (0), front and rear damp out in equal time. Left (FRONT) makes the front settle faster — sharper turn-in. Right (REAR) makes the rear settle faster — more rotation, looser rear end. The bias scales as 2× at ±50."/>
               : <FeelSlider label="Damping Bias" value={-(fe.dampingBias??0)}
@@ -5045,7 +5073,7 @@ function App(){
                   hint="Biases damping toward one axle by softening the opposite side. The biased axle stays at the base ζ; the other drops up to 50% at ±50. Front bias: front stays firm, rear softens — understeer tendency, more stable overall. Rear bias: rear stays firm, front softens — oversteer tendency, looser rotation."/>}
             {(()=>{
               const biased=(fe.dampingBias??0)!==0||!!(fe.settleMode)||(fe.dampCharMode??'zeta')==='settle';
-              const worst=Math.max(tune.settle,tune.settleR);
+              const worst=Math.max(tune.settleF,tune.settleR);
               const[cat,col]=worst<0.35?['PLANTED','#ef4444']:worst<0.60?['RACE','#f59e0b']:
                              worst<0.90?['SPORT','#9ca3af']:worst<1.30?['ROAD','#60a5fa']:['SOFT','#818cf8'];
               const lbl=t=><span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,width:44,flexShrink:0}}>{t}</span>;
@@ -5073,8 +5101,8 @@ function App(){
                   )}
                   <div style={{display:'flex',alignItems:'center',marginTop:biased?0:-2}}>
                     {lbl('SETTLE')}
-                    {biased?<>{val(`${tune.settle.toFixed(2)}s`)}<div style={{flex:1}}/>{val(`${tune.settleR.toFixed(2)}s`)}</>
-                           :<>{val(`${tune.settle.toFixed(2)}s`)}</>}
+                    {biased?<>{val(`${tune.settleF.toFixed(2)}s`)}<div style={{flex:1}}/>{val(`${tune.settleR.toFixed(2)}s`)}</>
+                           :<>{val(`${tune.settleF.toFixed(2)}s`)}</>}
                     <span style={{fontSize:10,color:col,letterSpacing:1,marginLeft:biased?4:6}}>{cat}</span>
                   </div>
                 </div>
@@ -5214,7 +5242,7 @@ function App(){
                 <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.visDynamics?'▲':'▼'}</span>
               </div>
               {open.visDynamics&&(()=>{
-                const durSec=Math.min(4,Math.max(1.5,Math.max(tune.settle??2,tune.settleR??2)*1.8));
+                const durSec=Math.min(4,Math.max(1.5,Math.max(tune.settleF??2,tune.settleR??2)*1.8));
                 const fReb=tune.zetaF??physics.reboundZeta??70;
                 const fBmp=tune.bumpZetaF??physics.bumpZeta??39;
                 const rReb=tune.zetaR??physics.reboundZeta??70;
@@ -5223,7 +5251,7 @@ function App(){
                 const rearPts=computeOscillation(tune.rHz,rReb,rBmp,durSec);
                 const W=280,H=80,midY=40,yScale=32,xScale=W/durSec;
                 const toPolyPts=pts=>pts.map(p=>`${(p.t*xScale).toFixed(1)},${(midY-p.x*yScale).toFixed(1)}`).join(' ');
-                const fSetX=Math.min(W-1,(tune.settle??2)*xScale);
+                const fSetX=Math.min(W-1,(tune.settleF??2)*xScale);
                 const rSetX=Math.min(W-1,(tune.settleR??2)*xScale);
                 return(
                   <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}
@@ -5312,7 +5340,10 @@ function App(){
 
           {/* cards — scrollable */}
           <div id="zone-output" style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',overscrollBehavior:'contain',padding:'8px 10px 6px',minHeight:0,...dim('output')}}>
-          <div style={{maxWidth:1400,margin:'0 auto'}}>
+          {/* No maxWidth cap: the output is now full-width rows rather than columns of
+              mini-cards, so a wide monitor should use the width instead of leaving dead
+              margin either side. */}
+          <div>
 
           {/* 1 — ALIGNMENT */}
           <Card title="ALIGNMENT"
@@ -5326,18 +5357,22 @@ function App(){
                 :`${_prefix} Camber targets ${_camberStr} dynamic at ${tune.rollDeg.toFixed(1)}° roll. Front toe-out for turn-in, rear toe-in scaled to center bias.`;
             })()}>
 
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:4}}>
-              <Readout label="CAMBER F" value={align.recCamberF} unit="°" decimals={1} primary/>
-              <Readout label="CAMBER R" value={align.recCamberR} unit="°" decimals={1} primary/>
-              <Readout label="TOE F"    value={align.recToeF}    unit="°" decimals={1} primary/>
-              <Readout label="TOE R"    value={align.recToeR}    unit="°" decimals={1} primary/>
-            </div>
-            <Readout label="CASTER" value={align.recCaster} unit="°" decimals={1} primary/>
+            <RowGroup>
+              <OutRow label="Camber Front" value={align.recCamberF} unit="°"/>
+              <OutRow label="Camber Rear"  value={align.recCamberR} unit="°"/>
+            </RowGroup>
+            <RowGroup>
+              <OutRow label="Toe Front" value={align.recToeF} unit="°"/>
+              <OutRow label="Toe Rear"  value={align.recToeR} unit="°"/>
+            </RowGroup>
+            <RowGroup style={{marginBottom:0}}>
+              <OutRow label="Caster" value={align.recCaster} unit="°"/>
+            </RowGroup>
           </Card>
 
-          {/* 2+3 — ANTI-ROLL BARS + SPRINGS side by side (stacked on phones) */}
-          <div style={{display:'grid',gridTemplateColumns:windowWidth<900?'1fr':'1fr 1fr',gap:6,marginBottom:6}}>
+          {/* 2 — ANTI-ROLL BARS (full width; previously half of a 2-column grid) */}
           <Card title="ANTI-ROLL BARS" accent
+            headerRight={`ROLL ${tune.rollDeg.toFixed(1)}°`}
             hint={physMode
               ?"Anti-Roll Spring Rate per axle in N/m, matching BeamNG's slider. Converted from the solver's roll stiffness by k = 2·rs/track², which assumes the bar acts at the wheels. BeamNG specifies the rate at the bar's own lever instead, so a real inboard bar needs a higher number by (track/arm)² — this output reads roughly 4–6× soft on a sampled vehicle. Scale it up by that ratio if you know the geometry, or treat it as a direction. See KNOWN_ISSUES."
               :"Click values to enter in the ARB tuning menu. Roll angle and ARB share are shown in the ANTI-ROLL BARS section of inputs. Amber warn when above 88% of the game limit."}>
@@ -5346,17 +5381,20 @@ function App(){
               Reads ~4–6× soft: this assumes the bar acts at the wheels, but BeamNG sets
               the rate at the bar's own lever. Scale up by (track/arm)² if you know it.
             </div>}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
-              {[['FRONT',tune.arbF,tune.rsAbF,tune.rsSpF,ch.trackF],['REAR',tune.arbR,tune.rsAbR,tune.rsSpR,ch.trackR]].map(([lbl,v,rsAb,rsSp,track])=>{
+            <RowGroup style={{marginBottom:0}}>
+              {[['Front',tune.arbF,tune.rsAbF,tune.rsSpF,ch.trackF,'front'],
+                ['Rear', tune.arbR,tune.rsAbR,tune.rsSpR,ch.trackR,'rear']].map(([lbl,v,rsAb,rsSp,track,side])=>{
                 const o=arbOut(v,lim,track);
-                return <Readout key={lbl} label={lbl} value={o.value} decimals={o.decimals}
-                  warn={warnOver(v,lim.arb)} unit={o.unit} ctx={arbCtx(v,lim.arb)} primary
-                  sub={[
-                    `${Math.round(rsAb/(rsSp+rsAb)*100)}% of ${lbl==='FRONT'?'front':'rear'} roll`,
+                const c=arbCtx(v,lim.arb);
+                return <OutRow key={lbl} label={lbl} value={o.value} decimals={o.decimals}
+                  warn={warnOver(v,lim.arb)} unit={o.unit}
+                  note={c?c[0]:null} noteColor={c?c[1]:undefined}
+                  meta={[
+                    `${Math.round(rsAb/(rsSp+rsAb)*100)}% of ${side} roll`,
                     `${Math.round(rsAb/(tune.rsAbF+tune.rsAbR)*100)}% of ARB budget`,
                   ]}/>;
               })}
-            </div>
+            </RowGroup>
             {tune.rollClamped&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
                  marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
                  border:'1px solid #f5a62333'}}>
@@ -5394,17 +5432,18 @@ function App(){
               // complements the ARB card's own "% of front/rear roll" line.
               const springPctF=Math.round(tune.rsSpF/(tune.rsSpF+tune.rsAbF)*100);
               const springPctR=Math.round(tune.rsSpR/(tune.rsSpR+tune.rsAbR)*100);
+              const rows=[['Front',tune.springF,ch.motionRatioF,tune.fHz,springPctF,'front'],
+                          ['Rear', tune.springR,ch.motionRatioR,tune.rHz,springPctR,'rear']];
               return(
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
-                  {(()=>{const o=springOut(tune.springF,fe.gameMode,metricUnits,ch.motionRatioF);
-                    return <Readout label="FRONT" value={o.value} unit={o.unit} decimals={o.decimals}
-                      ctx={hzCtx(tune.fHz)} primary
-                      sub={`${tune.fHz.toFixed(2)} Hz  ·  ${springPctF}% of front roll`}/>;})()}
-                  {(()=>{const o=springOut(tune.springR,fe.gameMode,metricUnits,ch.motionRatioR);
-                    return <Readout label="REAR" value={o.value} unit={o.unit} decimals={o.decimals}
-                      ctx={hzCtx(tune.rHz)} primary
-                      sub={`${tune.rHz.toFixed(2)} Hz  ·  ${springPctR}% of rear roll`}/>;})()}
-                </div>
+                <RowGroup style={{marginBottom:0}}>
+                  {rows.map(([lbl,spring,mr,hz,pct,side])=>{
+                    const o=springOut(spring,fe.gameMode,metricUnits,mr);
+                    const c=hzCtx(hz);
+                    return <OutRow key={lbl} label={lbl} value={o.value} unit={o.unit} decimals={o.decimals}
+                      note={c?c[0]:null} noteColor={c?c[1]:undefined}
+                      meta={[`${pct}% of ${side} roll`,`${hz.toFixed(2)} Hz`]}/>;
+                  })}
+                </RowGroup>
               );
             })()}
             {physics.rearHzClamped&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
@@ -5421,22 +5460,45 @@ function App(){
                 :' Lower Spring Share or enable AUTO to let ARBs carry more of the balance correction.'}
             </div>}
           </Card>
-          </div>
 
           {/* 4 — DAMPERS */}
+          {/* headerRight: Bump Ratio is only actually applied in 'ratio' damping mode; under
+              INDEPENDENT the bump ζ is set directly, so showing a ratio there would be a lie. */}
           <Card title="DAMPERS" accent
+            headerRight={`F/R BIAS ${(fe.dampingBias??0)>0?'+':''}${fe.dampingBias??0}%  ·  ${
+              (physics.dampingMode??'ratio')==='ratio'
+                ?`BUMP RATIO ${physics.bumpRatioVal??56}%`
+                :`BUMP ${Math.round(physics.bumpZeta??39)}% ζ`}`}
             hint={physMode
               ?"Rebound (REB) and bump (BUMP) damping in N/m/s, matching BeamNG's sliders. These are the real coefficients the solver works in with no game-specific scaling, divided by motion ratio squared if you set one. Note BeamNG's own defaults tend to run a much higher rebound-to-bump ratio than this app's default Bump Ratio produces."
               :"Rebound (REB) and bump (BUMP) click values for front and rear dampers. Enter in the damping tuning menu. Amber warn when above 88% of the game limit. F/R balance is preserved — if either end exceeds the limit, both are scaled proportionally so the ratio is maintained."}>
 
-            <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'1fr 1fr 1fr 1fr',gap:4}}>
-              {[['REB F',tune.rebF,tune.zetaF,ch.motionRatioF],['REB R',tune.rebR,tune.zetaR,ch.motionRatioR],
-                ['BUMP F',tune.bumpF,tune.bumpZetaF,ch.motionRatioF],['BUMP R',tune.bumpR,tune.bumpZetaR,ch.motionRatioR]].map(([lbl,v,z,mr])=>{
+            {(()=>{
+              // Matches the RIDE section's existing readouts, which warn on >100 only.
+              // The 40% "UNDER" tick on the Rebound ζ slider is a scale marker, not a warning,
+              // and it is rebound-specific: the default Bump Ratio of 56% yields a bump ζ near
+              // 39%, so treating <40 as a fault would flag the app's own default as broken.
+              // Underdamped is therefore only called out on the rebound rows.
+              const zNote=(z,isReb)=>z>100?'⚠ OVERDAMPED':(isReb&&z<40?'⚠ UNDERDAMPED':null);
+              const row=([lbl,v,z,mr,settle,isReb])=>{
                 const o=dampOut(v,lim,mr);
-                return <Readout key={lbl} label={lbl} value={o.value} decimals={o.decimals}
-                  warn={warnOver(v,lim.damping)} unit={o.unit} primary sub={`${z.toFixed(0)}% ζ`}/>;
-              })}
-            </div>
+                return <OutRow key={lbl} label={lbl} value={o.value} decimals={o.decimals}
+                  warn={warnOver(v,lim.damping)} unit={o.unit} note={zNote(z,isReb)}
+                  meta={[settle!=null?`${settle.toFixed(2)}s settle`:null,`${z.toFixed(0)}% ζ`]}/>;
+              };
+              return(<>
+                <RowGroup>
+                  {row(['Front Rebound',tune.rebF,tune.zetaF,ch.motionRatioF,tune.settleF,true])}
+                  {row(['Rear Rebound', tune.rebR,tune.zetaR,ch.motionRatioR,tune.settleR,true])}
+                </RowGroup>
+                <RowGroup style={{marginBottom:0}}>
+                  {/* Settle time is a property of the rebound stroke (ln(10)/(ζ·ωn) uses the
+                      rebound ζ), so it is deliberately not repeated on the bump rows. */}
+                  {row(['Front Bump',tune.bumpF,tune.bumpZetaF,ch.motionRatioF,null,false])}
+                  {row(['Rear Bump', tune.bumpR,tune.bumpZetaR,ch.motionRatioR,null,false])}
+                </RowGroup>
+              </>);
+            })()}
             {tune.dampingClamped&&<div style={{fontSize:11,color:'#f59e0b',lineHeight:1.6,
                  marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
                  border:'1px solid #f5a62333'}}>
@@ -5447,12 +5509,16 @@ function App(){
 
           {/* 5 — BRAKES */}
           <Card title="BRAKES"
-            hint="Brake balance and pressure starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. The recommendation accounts for forward weight transfer under braking (CG height and wheelbase) and is always front-biased relative to your weight distribution. Fine-tune in 1% steps by feel.">
+            hint="Brake balance starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. The recommendation accounts for forward weight transfer under braking (CG height and wheelbase) and is always front-biased relative to your weight distribution. Fine-tune in 1% steps by feel.">
 
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
-              <Readout label="BALANCE" value={brakeBias} unit="% F"                ctx={brakeBias>55?['FRONT','#3b82f6']:brakeBias<50?['REAR','#ef4444']:['NEUTRAL','#cbd5e1']}/>
-              <Readout label="PRESSURE" value={brakePressure} unit="%" decimals={0}/>
-            </div>
+            {(()=>{
+              const c=brakeBias>55?['FRONT','#3b82f6']:brakeBias<50?['REAR','#ef4444']:['NEUTRAL','#cbd5e1'];
+              return(
+                <RowGroup style={{marginBottom:0}}>
+                  <OutRow label="Balance" value={brakeBias} unit="% F" note={c[0]} noteColor={c[1]}/>
+                </RowGroup>
+              );
+            })()}
           </Card>
 
           {/* 6 — DIFFERENTIAL */}
@@ -5464,56 +5530,42 @@ function App(){
               :`Starting point — fine-tune by feel in 1% steps. Front decel at 0 minimises entry understeer. Rear decel low for rotation. Center ${diff.center}% rear.`}
             headerRight={`${({race:'RACE',sport:'SPORT',rally:'RALLY',offroad:'OFFROAD',drift:'DRIFT'})[dr.diffType??'race']??'RACE'} DIFF`}>
             {(()=>{
+              // SPORT is accel-only in-game, so every decel field reads N/A rather than a
+              // number the tuning menu won't accept.
               const isSport=(dr.diffType??'race')==='sport';
-              const na={value:'N/A',unit:'',ctx:null};
+              const lock=(label,v,unit='%')=>{
+                if(isSport&&/Decel|Split/.test(label))
+                  return <OutRow key={label} label={label} value="N/A" unit=""/>;
+                const c=diffCtx(v);
+                return <OutRow key={label} label={label} value={v} unit={unit} decimals={0}
+                  note={c?c[0]:null} noteColor={c?c[1]:undefined}/>;
+              };
+              // AWD genuinely has three differentials (front, rear, centre); FWD/RWD have one,
+              // so they get two rows and no split — there is no axle split to show.
               return diff.layout==='AWD'?(
               <>
-                <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:3}}>FRONT AXLE</div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
-                  <Readout label="ACCEL" value={diff.frontAccel} unit="%" decimals={0} ctx={diffCtx(diff.frontAccel)}/>
-                  <Readout label="DECEL" {...(isSport?na:{value:diff.frontDecel,unit:'%',ctx:diffCtx(diff.frontDecel)})} decimals={0}/>
-                </div>
-                <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:3}}>REAR AXLE</div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
-                  <Readout label="ACCEL" value={diff.rearAccel} unit="%" decimals={0} ctx={diffCtx(diff.rearAccel)}/>
-                  <Readout label="DECEL" {...(isSport?na:{value:diff.rearDecel,unit:'%',ctx:diffCtx(diff.rearDecel)})} decimals={0}/>
-                </div>
-                <div style={{fontSize:10,color:'#94a3b8',letterSpacing:2,marginBottom:3}}>CENTER</div>
-                <Readout label="SPLIT" {...(isSport?na:{value:diff.center,unit:'% rear',ctx:diffCtx(diff.center)})} decimals={0}/>
+                <RowGroup>
+                  {lock('Front Accel',diff.frontAccel)}
+                  {lock('Front Decel',diff.frontDecel)}
+                </RowGroup>
+                <RowGroup>
+                  {lock('Rear Accel',diff.rearAccel)}
+                  {lock('Rear Decel',diff.rearDecel)}
+                </RowGroup>
+                <RowGroup style={{marginBottom:0}}>
+                  {lock('Center Split',diff.center,'% rear')}
+                </RowGroup>
               </>
             ):(
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
-                <Readout label="ACCEL LOCK" value={diff.accel} unit="%" decimals={0} ctx={diffCtx(diff.accel)}/>
-                <Readout label="DECEL LOCK" {...(isSport?na:{value:diff.decel,unit:'%',ctx:diffCtx(diff.decel)})} decimals={0}/>
-              </div>
+              <RowGroup style={{marginBottom:0}}>
+                {lock('Accel Lock',diff.accel)}
+                {lock('Decel Lock',diff.decel)}
+              </RowGroup>
             );})()}
-            {/* diff handling summary strip */}
+            {/* Recommendation call-outs. The per-axle US/OS bias strip that used to sit here
+                was removed: the same information is already in the footer's Handling Balance
+                contributions breakdown (SPR/ARB/DIFF/BRK), so it was duplicated, not lost. */}
             {(()=>{
-              const fmtBias=(v,label)=>{
-                const abs=Math.abs(v).toFixed(1);
-                const neutral=Math.abs(v)<=0.05;
-                const col=neutral?'#94a3b8':v>0?'#ef4444':'#3b82f6'; // positive=OS
-                const arrow=neutral?'±':v>0?'→OS':'→US';
-                return(
-                  <div style={{display:'flex',alignItems:'baseline',gap:4}}>
-                    <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>{label}</span>
-                    <span style={{fontFamily:'var(--font-mono)',fontSize:12,fontWeight:700,color:col}}>
-                      {arrow} {neutral?'0.0':abs}
-                    </span>
-                  </div>
-                );
-              };
-              const sep=<div style={{height:1,flex:1,background:'#1e293b',margin:'0 8px'}}/>;
-              const strip=(a,al,b,bl)=>(
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
-                             marginTop:6,padding:'5px 8px',background:'#0f172a',borderRadius:2,
-                             border:'1px solid #1e293b'}}>
-                  {fmtBias(a,al)}{sep}{fmtBias(b,bl)}
-                </div>
-              );
-              const biasStrip=diff.layout==='AWD'
-                ?strip(diff.bDiffFront,'F.AXLE',diff.bDiffRear,'R.AXLE')
-                :strip(diff.bDiffAccel,'ACCEL BIAS',diff.bDiffDecel,'DECEL BIAS');
               const curType=dr.diffType??'race';
               const recType=recommendedDiffType;
               const recMatch=curType===recType;
@@ -5531,7 +5583,6 @@ function App(){
               const centerMatch=curCenter===recommendedCenter;
               const centerReasons={street:'mild rear bias — comfortable AWD character',track:'rear-weighted for rotation and exit drive',drift:'very rear-heavy — maximises rotation and wheelspin',rally:'more neutral — front traction on mixed surfaces',offroad:'slight front bias — stability on loose and uneven ground',drag:'rear-heavy for straight-line launch traction'};
               return(<>
-                {biasStrip}
                 {uiMode!=='beginner'&&<div style={{marginTop:6,padding:'6px 8px',background:'#0f172a',borderRadius:2,border:'1px solid #1e293b'}}>
                   <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:recMatch?0:4}}>
                     <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>RECOMMENDED</span>
