@@ -968,7 +968,7 @@ const computeDiff=(ch,fe,dr,natMechBalOverride=null)=>{
     const natMechBal=natMechBalOverride!=null
       ?natMechBalOverride
       :(cm.rear*ch.trackR*ch.trackR)/(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
-    const tgt=resolveArbBalTarget(ch,fe);
+    const tgt=fe.arbBalTarget; // fe is feEffective here — already resolved for TARGET/GRIP mode
     const gap=tgt-natMechBal; // positive = user wants more rear/oversteer than natural
     // Cap correction so it can't dominate explicit user slider input
     const correction=Math.max(-25,Math.min(25,gap*150));
@@ -2366,6 +2366,13 @@ const CODEC_FIELDS=[
   // (57 is arbBasicMan, declared above out of numeric order.)
   {id:58,group:'ch',key:'motionRatioF'},
   {id:59,group:'ch',key:'motionRatioR'},
+  // 60/61: measured natural balance calibration. group:'ch' — travels with the chassis,
+  // same reasoning as motionRatioF/R. Unlike useRideHeightCG (whose resulting cgHeight
+  // already travels via id 4), arbBalTarget/arbBalDelta store DELTAS from
+  // naturalMechBalanceOf(ch), so the baseline itself must travel too or a shared build
+  // re-targets against the wrong (geometry-only) natural balance. See docs/CODEC.md.
+  {id:60,group:'ch',key:'useMeasuredNatBal',bool:true},
+  {id:61,group:'ch',key:'measuredNatBal'},
   // Retired ids — never reuse: none yet (dead fields removed pre-v1 never had an id).
 ];
 const codecFieldDefault=f=>f.tyre?f.def:DEF_GROUPS[f.group][f.key];
@@ -2419,8 +2426,7 @@ const decodeTune=(code)=>{
 const sanitizeTune=({ch,fe,dr})=>{
   const n=(v,def)=>(typeof v==='number'&&isFinite(v))?v:def;
   const cl=(v,lo,hi,def)=>Math.max(lo,Math.min(hi,n(v,def)));
-  return{
-    ch:{
+  const sch={
       weight:       cl(ch?.weight,        100,  18000, DEF_CH.weight),
       frontBias:    cl(ch?.frontBias,      30,   70,   DEF_CH.frontBias),
       wheelbase:    cl(ch?.wheelbase,      0.4,  4.0,  DEF_CH.wheelbase),
@@ -2430,15 +2436,26 @@ const sanitizeTune=({ch,fe,dr})=>{
       tyreF: parseTyre(ch?.tyreF)?ch.tyreF:DEF_CH.tyreF,
       tyreR: parseTyre(ch?.tyreR)?ch.tyreR:DEF_CH.tyreR,
       layout:       LAYOUT_DEC.includes(ch?.layout)?ch.layout:DEF_CH.layout,
+      // Travels with the chassis so a shared build's arbBalTarget/arbBalDelta (deltas from
+      // naturalMechBalanceOf(ch)) re-expand against the sender's actual calibrated baseline
+      // instead of silently falling back to geometry — see docs/CODEC.md id 60/61.
+      useMeasuredNatBal: !!(ch?.useMeasuredNatBal),
+      measuredNatBal:    ch?.useMeasuredNatBal&&ch?.measuredNatBal!=null?cl(ch.measuredNatBal,0.10,0.90,null):null,
       // Floor at 0.2 rather than 0: mrDiv squares this, so a near-zero ratio would
       // scale the displayed rate toward infinity.
       motionRatioF: cl(ch?.motionRatioF,    0.2,  1.5,  DEF_CH.motionRatioF),
       motionRatioR: cl(ch?.motionRatioR,    0.2,  1.5,  DEF_CH.motionRatioR),
-    },
+  };
+  // arbBalTarget is a delta from naturalMechBalanceOf(sch) (see id 40 in docs/CODEC.md) —
+  // clamp it to the same range the live Field allows (0.20-0.90 absolute), not a flat
+  // approximation, so a decoded delta can't silently get truncated differently than the UI.
+  const _snb=naturalMechBalanceOf(sch);
+  return{
+    ch: sch,
     fe:{
       rideStiffness:    (()=>{const rs=n(fe?.rideStiffness,DEF_FE.rideStiffness);const hz=rs>6?0.8+(rs/100)*2.7:rs;return Math.max(HZ_MIN,Math.min(HZ_MAX,Math.round(hz*100)/100));})(),
       arbBias:          cl(fe?.arbBias,          -50,   50,  DEF_FE.arbBias),
-      arbBalTarget:     fe?.arbBalTarget==null?null:cl(fe.arbBalTarget,-0.70,0.70,0),
+      arbBalTarget:     fe?.arbBalTarget==null?null:cl(fe.arbBalTarget,0.20-_snb,0.90-_snb,0),
       arbBalMode:       (()=>{
                           const bm=ARB_BAL_MODE_DEC.includes(fe?.arbBalMode)?fe.arbBalMode:DEF_FE.arbBalMode;
                           // MAN moved from Balance Mode to Stiffness Mode (arbMode) — old saves/share
@@ -3364,12 +3381,7 @@ function App(){
 
   const cm=useMemo(()=>cornerMasses(ch),[ch]);
   const dispMass=kg=>metricUnits?`${Math.round(kg)} kg`:`${Math.round(kg/KG_TO_LB)} lb`;
-  const natGripBalance=(()=>{
-    const nb=ch.useMeasuredNatBal&&ch.measuredNatBal!=null
-      ?Math.max(0.10,Math.min(0.90,ch.measuredNatBal))
-      :cm.rear*ch.trackR*ch.trackR/(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
-    return balanceFromRsBal(ch,nb);
-  })();
+  const natGripBalance=balanceFromRsBal(ch,naturalMechBalanceOf(ch));
   const gripBalTarget=Math.max(0.20,Math.min(0.90,1-natGripBalance+(fe.arbBalDelta??0)));
   // fe.arbBalTarget is stored as a delta from naturalMechBalanceOf(ch) (null = untouched,
   // falls back to MECH_BALANCE_TARGET) so a saved/shared build re-targets against whatever
@@ -3391,7 +3403,7 @@ function App(){
     if(alignMode==='manual')return{recCamberF:al.camberF,recCamberR:al.camberR,
       recToeF:al.toeF,recToeR:al.toeR,recCaster:al.caster};
     if(alignMode!=='mech'&&alignMode!=='grip')return autoAlign;
-    const mechGap=resolveArbBalTarget(ch,fe)-naturalMechBalanceOf(ch);
+    const mechGap=feEffective.arbBalTarget-naturalMechBalanceOf(ch);
     const gripGap=-(natGripBalance-0.5)*2;
     const rawGap=alignMode==='mech'?mechGap:gripGap;
     const normGap=Math.max(-1,Math.min(1,rawGap/0.30));
@@ -3404,8 +3416,8 @@ function App(){
       recCaster:autoAlign.recCaster,
     };
   })();
-  const _measuredNatForDiff=ch.useMeasuredNatBal&&ch.measuredNatBal!=null?Math.max(0.10,Math.min(0.90,ch.measuredNatBal)):null;
-  const diff=useMemo(()=>computeDiff(ch,fe,dr,_measuredNatForDiff),[ch,fe,dr,_measuredNatForDiff]);
+  const _measuredNatForDiff=ch.useMeasuredNatBal?naturalMechBalanceOf(ch):null;
+  const diff=useMemo(()=>computeDiff(ch,feEffective,dr,_measuredNatForDiff),[ch,feEffective,dr,_measuredNatForDiff]);
   const _brakeWtMod=ch.wheelbase>0?Math.round((ch.cgHeight/ch.wheelbase)*50):8;
   const _brakeBuildMod={street:0,track:3,drift:-5,rally:0,offroad:-3,drag:-8}[dr.buildType??'track']??3;
   const _brakeGripAdj=uiMode==='pro'?Math.round((natGripBalance-0.5)*15):0;
@@ -3513,9 +3525,7 @@ function App(){
   })();
   const _twF=parseTyre(ch.tyreF)?.width??265;
   const _twR=parseTyre(ch.tyreR)?.width??265;
-  const natMechBalance=ch.useMeasuredNatBal&&ch.measuredNatBal!=null
-    ?Math.max(0.10,Math.min(0.90,ch.measuredNatBal))
-    :chassisAnalysis.natBal;
+  const natMechBalance=naturalMechBalanceOf(ch);
   // Gap-dependent chassis recommendations — use natMechBalance so measured mode takes effect here too
   const _sgap=chassisAnalysis.targetBal-natMechBalance;
   const gap=Math.abs(_sgap);
@@ -4442,7 +4452,7 @@ function App(){
               const showGripGap=_isGripMode&&_ggGap>0.005;
               let _ggTyreF=null,_ggTyreR=null;
               if(showGripGap){
-                const _nb2=ch.useMeasuredNatBal&&ch.measuredNatBal!=null?Math.max(0.10,Math.min(0.90,ch.measuredNatBal)):cm.rear*ch.trackR*ch.trackR/(cm.front*ch.trackF*ch.trackF+cm.rear*ch.trackR*ch.trackR);
+                const _nb2=naturalMechBalanceOf(ch);
                 const _nr2=Math.max(1e-4,Math.min(1-1e-4,_nb2));
                 const _gnAt=(twF,twR)=>1-mechBalanceLLT({...ch,tyreF:`${Math.round(twF)}/35R18`,tyreR:`${Math.round(twR)}/35R18`},1,_nr2/(1-_nr2));
                 if(_ggNeutral>_ggHi){
@@ -4881,7 +4891,7 @@ function App(){
                   </div>
                   <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.4}}>
                     {isShared?'Both springs solved from average to reach':'Rear spring stiffness solved to reach'} mech balance target{' '}
-                    <span style={{color:'#9ca3af',fontFamily:'var(--font-mono)'}}>{resolveArbBalTarget(ch,fe).toFixed(2)}</span>.
+                    <span style={{color:'#9ca3af',fontFamily:'var(--font-mono)'}}>{feEffective.arbBalTarget.toFixed(2)}</span>.
                     {' '}{isShared?'Avg Stiffness slider shifts both together.':'Set target in ARB section above.'}
                   </div>
                 </div>
@@ -5172,7 +5182,7 @@ function App(){
                     dispF={arbOut(tune.arbF,lim,ch.trackF).value}
                     dispR={arbOut(tune.arbR,lim,ch.trackR).value}
                     rsAbF={tune.rsAbF} rsAbR={tune.rsAbR}
-                    natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
+                    natBal={natMechBalance} target={feEffective.arbBalTarget} rideRef={physics.rideRef}/>
                 </div>
                 <div style={{flex:1,minWidth:0,display:'flex',justifyContent:'center'}}>
                 <div style={{width:120,flexShrink:0,display:'flex',flexDirection:'column',gap:6}}>
@@ -5231,7 +5241,7 @@ function App(){
                   <SpringDial fHz={tune.fHz} rHz={tune.rHz}
                     rsSpF={tune.rsSpF} rsSpR={tune.rsSpR}
                     clamped={physics.rearHzClamped}
-                    natBal={natMechBalance} target={resolveArbBalTarget(ch,fe)} rideRef={physics.rideRef}/>
+                    natBal={natMechBalance} target={feEffective.arbBalTarget} rideRef={physics.rideRef}/>
                 </div>
                 <div style={{flex:1,minWidth:0,display:'flex',justifyContent:'center'}}>
                   <DampingDial rebound={(fe.dampCharMode??'zeta')==='settle'?Math.round(physics.zetaF):(fe.reboundZeta??70)} bump={(fe.dampCharMode??'zeta')==='settle'?Math.round(physics.bumpZetaF):physics.bumpZeta}/>
@@ -5409,7 +5419,7 @@ function App(){
             {tune.mechBalClamped&&<div style={{fontSize:11,color:'#f97316',lineHeight:1.6,
                  marginTop:8,padding:'6px 8px',background:'#020617',borderRadius:2,
                  border:'1px solid #f9731633'}}>
-              Mech balance target ({resolveArbBalTarget(ch,fe).toFixed(2)}) couldn't be reached —
+              Mech balance target ({feEffective.arbBalTarget.toFixed(2)}) couldn't be reached —
               achieved {tune.mechBalance.toFixed(2)}.{(fe.arbMode??'auto')==='share'
                 ?((fe.arbBalMode??'weight')==='coSolve'&&fe.springShareAuto!==false
                   ?' ARB Share % limits the total ARB budget — disable AUTO and increase Spring Share to let CO-SOLVE contribute more correction from springs.'
@@ -6025,7 +6035,7 @@ function App(){
                 const nat=natMechBalance;
                 const tgt=feEffective.arbBalTarget??MECH_BALANCE_TARGET;
                 const pct=v=>`${Math.max(0,Math.min(100,v*100)).toFixed(1)}%`;
-                const showTgt=(physics.arbMode!=='man'&&(physics.arbBalMode==='mech'||physics.arbBalMode==='coSolve'))||(physics.arbMode==='man'&&physics.rearHzMode==='mech');
+                const showTgt=(physics.arbMode!=='man'&&(physics.arbBalMode==='mech'||physics.arbBalMode==='coSolve'))||physics.rearHzMode==='mech';
                 const _d=cur-nat;
                 return(
                   <div style={{marginTop:8}}>

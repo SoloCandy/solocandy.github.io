@@ -78,14 +78,26 @@ future version might not carry.
 | 57 | fe | arbBasicMan | raw number |
 | 58 | ch | motionRatioF | raw number |
 | 59 | ch | motionRatioR | raw number |
+| 60 | ch | useMeasuredNatBal | bool |
+| 61 | ch | measuredNatBal | raw number |
 
-**Next available id: 60.**
+**Next available id: 62.**
 
 Ids 58/59 are `group:'ch'` because a motion ratio describes the car's suspension
 geometry, so it travels with a chassis entry rather than a tune — same reasoning
 as id 18 (`layout`). They are display-only (physical-unit game modes divide the
 shown rate by `mr²`) and inert in the Forza modes, but they still belong in the
 codec so a shared BeamNG tune reproduces the numbers the sender saw.
+
+Ids 60/61 (`useMeasuredNatBal`/`measuredNatBal`) are `group:'ch'` for the same
+reason. They used to be excluded from the codec entirely (see the removed note
+below) until it became clear that exclusion was actively wrong: `arbBalTarget`
+(id 40) and `arbBalDelta` (id 54) both store *deltas* from
+`naturalMechBalanceOf(ch)`, so if the measured-override baseline itself doesn't
+travel, a receiver decoding with `useMeasuredNatBal` defaulted to `false`
+silently re-expands the sender's delta against a different (geometry-only)
+baseline — producing a different absolute Mech Balance Target than the sender
+actually tuned toward. See the semantic-change note below.
 
 ## Retired — never reuse
 
@@ -149,23 +161,39 @@ reinterprets old codes under new rules. Two examples so far:
   a fraction of the *current* spring roll stiffness. Old codes are
   unaffected: `'basic'` is a brand-new enum index, not a reinterpretation of
   an existing one.
+- **ids 60/61 (`useMeasuredNatBal`/`measuredNatBal`) added** — previously
+  excluded entirely (see the removed section this replaced, below). id 40's
+  delta-from-natural semantics (above) turned out to depend on the baseline
+  travelling too: without it, a receiver always resolves
+  `naturalMechBalanceOf(ch)` from geometry, which can differ substantially
+  from what the sender measured in-game, silently reinterpreting the
+  delta against the wrong absolute value. Unlike `useRideHeightCG` (below,
+  still excluded), whose output `ch.cgHeight` is a self-contained absolute
+  value that already travels via id 4, `useMeasuredNatBal`'s output only ever
+  fed a *delta*-based target, so nothing carried its effect. Old codes
+  without ids 60/61 decode `useMeasuredNatBal:false` (the default) exactly as
+  before — no behavior change for codes that never had a measured reading.
 
 When making a change like this, note it here so future debugging of "why
 did my old share code load weird" has a paper trail.
 
 ## Fields deliberately excluded from the codec
 
-Not every `ch`/`fe`/`dr` field needs an id. `useMeasuredNatBal`/
-`measuredNatBal`, and — following the same pattern — `useRideHeightCG`/
-`rideHeightF`/`rideHeightR`, are all local-only: they're inputs to a
-computed value that already has its own id (`measuredNatBal` feeds
-`naturalMechBalanceOf`'s result used elsewhere; the ride-height fields feed
-`ch.cgHeight`, id 4). A share code carries the *resulting* physics value,
-not the calibration-toggle UI state used to arrive at it — `usePersist`
-still remembers the toggle/inputs locally across reloads on the same
-device, they just don't travel with a shared code. If a future field looks
-like it should have an id but doesn't, check here first before assuming
-it's an oversight.
+Not every `ch`/`fe`/`dr` field needs an id. `useRideHeightCG`/`rideHeightF`/
+`rideHeightR` are local-only: they're inputs to a computed value that already
+has its own id (they feed `ch.cgHeight`, id 4). A share code carries the
+*resulting* physics value, not the calibration-toggle UI state used to arrive
+at it — `usePersist` still remembers the toggle/inputs locally across reloads
+on the same device, they just don't travel with a shared code.
+
+`useMeasuredNatBal`/`measuredNatBal` used to follow this same pattern and were
+excluded here too, on the (incorrect, as it turned out) assumption that they
+were "computed-locally, shared-as-output" like ride-height CG. They're now
+codec ids 60/61 — see the semantic-changes note above for why. If a future
+field looks like it should have an id but doesn't, check here first before
+assuming it's an oversight, but note this list has been wrong once already:
+verify the field's output is genuinely self-contained (an absolute value, not
+a delta feeding into other fields) before excluding it.
 
 Garage entries' `notes` and `tags` are excluded for the same reason, one level up:
 they describe *your* relationship to a tune ("needs work", "Nordschleife"), not the

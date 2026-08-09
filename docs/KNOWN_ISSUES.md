@@ -42,6 +42,72 @@ resolving this needs to split "ARB-derived readouts" (stale under MAN)
 from "Hz-derived readouts" (still live) rather than one on/off flag —
 left as a follow-up, not fixed here.
 
+## Fixed — `showTgt` still used the pre-fix narrow gate (resolved)
+
+A follow-up review of the entry above found `showTgt` (the Balance Guide
+widget's own "is a target active" check, main output panel) never actually
+picked up the broadened gate the other three checks got. It still read
+`... || (arbMode==='man' && rearHzMode==='mech')` — the Hz-MECH clause
+restricted to MAN — while `hasMechTarget`/`_hasMechTarget` (and
+`feelToPhysics`'s actual spring-Hz solve) correctly treat `rearHzMode==='mech'`
+as unconditional, independent of Stiffness Mode. Concretely: with
+`arbMode='auto'` and `rearHzMode='mech'`, the spring-Hz solve was actively
+targeting Mech Balance and the BALANCE section showed the target controls as
+live, but the widget's own TGT marker stayed hidden — contradicting the
+sidebar one screen away. Fixed by dropping the `arbMode==='man'&&` restriction
+so `showTgt` matches `hasMechTarget`. Verified in-app: AUTO stiffness mode +
+MECH Hz mode now shows TARGET in the BALANCE GUIDE strip instead of CURRENT.
+
+## Fixed — GRIP mode's resolved target wasn't reaching several read sites (resolved)
+
+`feEffective.arbBalTarget` is documented as "the single funnel that resolves
+both TARGET and GRIP modes to an absolute value ... for every downstream
+display," but six call sites bypassed it and called `resolveArbBalTarget(ch,fe)`
+directly instead — a function that only understands TARGET-mode deltas and has
+no concept of GRIP mode. Whenever `arbBalTargetMode==='grip'`, all six instead
+showed/used a stale or default (`MECH_BALANCE_TARGET`, 0.55) value rather than
+the live grip-derived target the physics engine was actually solving toward:
+`computeDiff`'s MATCH CHASSIS correction, the alignment MECH-mode gap, the RIDE
+section's Hz-readout text, both SpringDial/ArbDial ghost rings, and the
+`mechBalClamped` warning text. Fixed by reading `feEffective.arbBalTarget`
+(already resolved, GRIP-aware) at all six sites instead; `computeDiff`'s call
+site now passes `feEffective` rather than raw `fe`. Verified in-app: switching
+Balance Target mode to GRIP now shows the same TARGET value in the BALANCE
+GUIDE strip, the ARB SPLIT readout, and the RIDE section's solved-Hz text —
+previously the RIDE/warning text lagged behind with the old TARGET-mode value.
+
+## Fixed — share codes reinterpreted the Balance Target against the wrong baseline (resolved)
+
+`arbBalTarget` (id 40) and `arbBalDelta` (id 54) are both stored as *deltas*
+from `naturalMechBalanceOf(ch)`, specifically so a shared build "re-targets
+correctly against whatever chassis it's applied to." But `useMeasuredNatBal`/
+`measuredNatBal` were excluded from the codec, on the assumption that this
+followed the same "computed-locally, shared-as-output" pattern as
+`useRideHeightCG`. It didn't: `ch.cgHeight` (ride-height CG's output) is a
+self-contained absolute value, but `naturalMechBalanceOf(ch)` is the *baseline*
+a delta gets re-expanded against on the receiving end. Since the measured
+override never travelled, a receiver always decoded with
+`useMeasuredNatBal=false`, so the baseline silently fell back to geometry —
+which can differ substantially from what the sender measured in-game (the
+MEASURE NAT BAL entry above cites a real 0.49-vs-0.42 case). The delta then
+re-expanded against a different baseline than the sender used, so the
+receiver's absolute Mech Balance Target silently diverged from what the sender
+actually tuned toward. The identical gap affected GRIP mode, since
+`gripBalTarget = 1 - natGripBalance + arbBalDelta` and `natGripBalance` has the
+same measured-or-geometry split.
+
+Fixed by adding `useMeasuredNatBal`/`measuredNatBal` to the codec as ids 60/61
+(`group:'ch'`, same reasoning as `motionRatioF/R`) — see
+[CODEC.md](CODEC.md) for the field table and semantic-change note. Also
+widened `sanitizeTune`'s decode clamp on `arbBalTarget` from a flat `±0.70` to
+`[0.20-natMechBalance, 0.90-natMechBalance]`, matching the live Field's actual
+reachable range (the flat clamp could silently truncate deltas beyond ±0.70 for
+chassis with a low natural balance). Verified in-app: with MEASURE NAT BAL set
+to 0.65 and Balance Target in GRIP mode, the generated share code decodes
+(`60:1|61:0.65`) to the same NAT/TARGET values (0.65/0.42) as the sender after
+loading it into a reset instance; an old-format code without ids 60/61 still
+decodes cleanly with `useMeasuredNatBal` falling back to its default.
+
 ## Fixed — NEUTRAL+AUTO ARB budget could blow up with ARB Bias + high Rear Multiplier (resolved)
 
 `computeTune`'s NEUTRAL ARB balance mode (AUTO stiffness only) expands
@@ -314,10 +380,15 @@ plausibility checks, not measured physics:
   intuitive spacing, not derived from any real bottoming-incident data.
 
 Both toggle state and its ride-height inputs (`useRideHeightCG`,
-`rideHeightF`, `rideHeightR`) deliberately follow the `useMeasuredNatBal`
-precedent and are excluded from `CODEC_FIELDS` — only the resulting
-`ch.cgHeight` value travels in share codes, so this is a computed-locally,
-shared-as-output pattern like the MEASURE NAT BAL flow, not an oversight.
+`rideHeightF`, `rideHeightR`) are excluded from `CODEC_FIELDS` — only the
+resulting `ch.cgHeight` value travels in share codes, since `cgHeight` is a
+self-contained absolute value nothing else needs to re-derive. (This used to
+be described as following the same pattern as `useMeasuredNatBal` — it no
+longer does, since `useMeasuredNatBal`/`measuredNatBal` are now codec ids
+60/61; see the "share codes reinterpret the Balance Target" entry below and
+[CODEC.md](CODEC.md) for why that exclusion turned out to be wrong for a
+value feeding a *delta*-based target. Ride-height CG's exclusion stands on
+its own merits, unaffected by that change.)
 
 ## Fixed — Dead-code audit (resolved)
 
