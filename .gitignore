@@ -1,2 +1,6 @@
 # Claude Code local settings — machine-specific, not for version control
 .claude/settings.local.json
+
+# Superseded planning docs — implementation reasoning kept locally, not in the repo
+docs/BEAMNG_PLAN.md
+docs/OUTPUT_RESTRUCTURE_PLAN.md
