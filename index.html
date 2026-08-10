@@ -799,7 +799,7 @@ const computeTune=(ch,phys,gameMode)=>{
     // SAME/OPPOSITE mirrors WEIGHT's own toggle — SAME tracks natural balance directly,
     // OPPOSITE mirrors around 50% so the bars counteract the chassis's natural tendency.
     const natPct=naturalMechBalanceOf(ch)*100;
-    rF=Math.max(0,Math.min(1,Math.max(20,Math.min(80,(arbSplitOpposite?natPct:(100-natPct))+arbBias*0.4))/100));
+    rF=Math.max(0,Math.min(1,Math.max(20,Math.min(80,(arbSplitOpposite?(100-natPct):natPct)+arbBias*0.4))/100));
   }
   //
   // In SHARE % mode the user explicitly controls the total ARB budget.
@@ -1026,14 +1026,14 @@ const computeDiff=(ch,fe,dr,natMechBalOverride=null)=>{
     const bFA=-vals.frontAccel*nf*(1-C)*DIFF_BIAS_SCALE;   // front accel → understeer (−)
     const bRA= vals.rearAccel*(1-nf)*C*DIFF_BIAS_SCALE;    // rear accel  → oversteer  (+)
     const bFD=-vals.frontDecel*nf*(1-C)*DIFF_BIAS_SCALE;   // front decel → understeer (−)
-    const bRD= vals.rearDecel*(1-nf)*C*DIFF_BIAS_SCALE;    // rear decel  → oversteer  (+)
+    const bRD=-vals.rearDecel*(1-nf)*C*DIFF_BIAS_SCALE;    // rear decel  → understeer (−) — resists lift-off oversteer
     bDiffFront=bFA+bFD;
     bDiffRear =bRA+bRD;
     bDiffAccel=bFA+bRA;
     bDiffDecel=bFD+bRD;
   } else if(vals.layout==='RWD'){
     bDiffAccel= vals.accel*(1-nf)*DIFF_BIAS_SCALE;  // rear accel → oversteer (+)
-    bDiffDecel= vals.decel*(1-nf)*DIFF_BIAS_SCALE;  // rear decel → oversteer (+)
+    bDiffDecel=-vals.decel*(1-nf)*DIFF_BIAS_SCALE;  // rear decel → understeer (−) — resists lift-off oversteer
   } else {
     bDiffAccel=-vals.accel*nf*DIFF_BIAS_SCALE;  // front accel → understeer (−)
     bDiffDecel=-vals.decel*nf*DIFF_BIAS_SCALE;  // front decel → understeer (−)
@@ -1990,7 +1990,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
     springs:   total>0?'Reduce the Mech Balance Target or use CO-SOLVE to balance spring stiffness.':'Raise the Mech Balance Target — springs are biased toward the front.',
     ARB:       total>0?'Reduce the Mech Balance Target or shift ARB Bias toward front-heavy.':'Raise the Mech Balance Target or shift ARB Bias toward rear-heavy.',
     'diff exit':  total>0?'Reduce rear exit lock in the Differential section.':'Increase rear exit lock to add rotation under power.',
-    'diff entry': total>0?'Reduce rear entry lock in the Differential section.':'Reduce front entry lock.',
+    'diff entry': total>0?`Increase ${diffLayout==='FWD'?'front':'rear'} entry lock — more decel lock resists oversteer.`:`Reduce ${diffLayout==='FWD'?'front':'rear'} entry lock to allow freer rotation on entry.`,
     'diff front': total>0?'Reduce front accel lock in the AWD Differential section.':'Raise front accel lock.',
     'diff rear':  total>0?'Reduce rear accel lock in the AWD Differential section.':'Raise rear accel lock.',
     ...(uiMode==='pro'?{brakes:total>0?'Add more front brake bias to reduce entry rotation.':'Reduce front brake bias to add entry rotation.'}:{}),
@@ -2005,9 +2005,9 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
     springs:'Spring roll-stiffness bias vs weight distribution. + = oversteer (rear springs relatively stiffer). − = understeer (front springs relatively stiffer).',
     ARB:'ARB roll-stiffness bias vs weight distribution. + = oversteer (rear ARBs relatively stiffer). − = understeer (front ARBs relatively stiffer).',
     'diff front':'AWD front diff net contribution (accel+decel). Front lock pushes understeer (−). Center split and front weight fraction are factored in.',
-    'diff rear':'AWD rear diff net contribution (accel+decel). Rear lock pushes oversteer (+). Center split and rear weight fraction are factored in.',
+    'diff rear':'AWD rear diff net contribution (accel+decel). Accel lock pushes oversteer (+); decel lock resists it, pushing understeer (−). Center split and rear weight fraction are factored in.',
     'diff exit':diffLayout==='FWD'?'Front accel lock on-throttle exit. Higher lock = more understeer (−).':'Rear accel lock on-throttle exit. Higher lock = more oversteer (+).',
-    'diff entry':diffLayout==='FWD'?'Front decel lock off-throttle entry. Higher lock = more entry understeer (−).':'Rear decel lock off-throttle entry. Higher lock = more oversteer on entry (+).',
+    'diff entry':diffLayout==='FWD'?'Front decel lock off-throttle entry. Higher lock = more entry understeer (−).':'Rear decel lock off-throttle entry. Higher lock resists lift-off oversteer, pushing understeer (−).',
     brakes:'Brake-balance contribution to entry. High front bias = understeer on entry (−). Low front bias (rear-biased) = oversteer tendency (+). Based on deviation from 50% neutral.',
     damping:'Damping bias contribution. More front rebound damping resists weight transfer off the front, producing understeer tendency (−). More rear damping does the opposite (+).',
   };

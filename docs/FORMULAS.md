@@ -65,7 +65,7 @@ const bBrakeEntry = -(brakeBias-50) * BRAKE_BIAS_SCALE; // BRAKE_BIAS_SCALE = 0.
 const nf = ch.frontBias/100;
 // RWD:
 bDiffAccel =  vals.accel * (1-nf) * DIFF_BIAS_SCALE;   // rear accel lock → oversteer (+)
-bDiffDecel =  vals.decel * (1-nf) * DIFF_BIAS_SCALE;   // rear decel lock → oversteer (+)
+bDiffDecel = -vals.decel * (1-nf) * DIFF_BIAS_SCALE;   // rear decel lock → understeer (−), resists lift-off oversteer
 // FWD:
 bDiffAccel = -vals.accel * nf     * DIFF_BIAS_SCALE;   // front accel lock → understeer (−)
 bDiffDecel = -vals.decel * nf     * DIFF_BIAS_SCALE;   // front decel lock → understeer (−)
@@ -73,7 +73,7 @@ bDiffDecel = -vals.decel * nf     * DIFF_BIAS_SCALE;   // front decel lock → u
 bFA = -vals.frontAccel * nf     * (1-C) * DIFF_BIAS_SCALE;  // front accel → understeer (−)
 bRA =  vals.rearAccel  * (1-nf) * C     * DIFF_BIAS_SCALE;  // rear accel  → oversteer (+)
 bFD = -vals.frontDecel * nf     * (1-C) * DIFF_BIAS_SCALE;  // front decel → understeer (−)
-bRD =  vals.rearDecel  * (1-nf) * C     * DIFF_BIAS_SCALE;  // rear decel  → oversteer (+)
+bRD = -vals.rearDecel  * (1-nf) * C     * DIFF_BIAS_SCALE;  // rear decel  → understeer (−), resists lift-off oversteer
 bDiffFront = bFA + bFD;
 bDiffRear  = bRA + bRD;
 bDiffAccel = bFA + bRA;
@@ -81,15 +81,15 @@ bDiffDecel = bFD + bRD;
 ```
 
 - `DIFF_BIAS_SCALE = 0.14`.
-- **Simplification to know about:** the model treats *any* lock magnitude
-  (accel or decel, on whichever axle is driven) as pushing the same
-  direction — it does not distinguish "decel lock resists rotation" from
-  "decel lock is rotation" the way real-world tuning intuition sometimes
-  does. The EXIT/ENTRY slider hint text follows the more nuanced tuning
-  intuition (e.g. "STABLE increases lock — resists lift-off oversteer"),
-  which can read as being in tension with this crude aggregate formula.
-  Trust the formula for the numeric Handling Balance total; trust the hint
-  text for what the lock physically does.
+- Decel lock always pushes **understeer**, regardless of which axle is
+  driven — it models "decel lock resists rotation" (matches the EXIT/ENTRY
+  slider hint text, e.g. "STABLE increases lock — resists lift-off
+  oversteer"). Accel lock, by contrast, always pushes toward oversteer on
+  the driven axle. Unlike accel lock, decel lock's sign does **not** flip
+  between RWD/AWD-rear and FWD-front — it's negative (understeer) in every
+  case. Previously the aggregate formula treated decel lock the same as
+  accel lock (rear decel lock → oversteer for RWD/AWD), which contradicted
+  the slider hint text; fixed so the formula and hint text agree.
 
 ## Total (`bTotFull`)
 
@@ -110,7 +110,8 @@ color-coded OS/US label). `tune.bTot` already includes `bSp + bAb`.
 | ARBs (`bAb`) | oversteer (+) | understeer (−) |
 | Damping (`bDampBias`) | oversteer (+) | understeer (−) |
 | Brakes (`bBrakeEntry`) | oversteer (+) (more rear brake) | understeer (−) (more front brake) |
-| Diff (`bDiffAccel/Decel/Front/Rear`) | oversteer (+) (rear lock, any phase) | understeer (−) (front lock, any phase) |
+| Diff accel lock (`bDiffAccel`) | oversteer (+) (rear accel lock) | understeer (−) (front accel lock) |
+| Diff decel lock (`bDiffDecel`) | understeer (−) — resists lift-off oversteer, regardless of which axle is driven | understeer (−) — resists lift-off oversteer, regardless of which axle is driven |
 
 See [SLIDERS.md](SLIDERS.md) for how each individual slider maps onto these
 contributors.

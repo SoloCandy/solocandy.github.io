@@ -127,14 +127,14 @@ const computeDiff = (ch, fe, dr, natMechBalOverride = null) => {
     const bFA = -vals.frontAccel * nf * (1 - C) * DIFF_BIAS_SCALE;
     const bRA = vals.rearAccel * (1 - nf) * C * DIFF_BIAS_SCALE;
     const bFD = -vals.frontDecel * nf * (1 - C) * DIFF_BIAS_SCALE;
-    const bRD = vals.rearDecel * (1 - nf) * C * DIFF_BIAS_SCALE;
+    const bRD = -vals.rearDecel * (1 - nf) * C * DIFF_BIAS_SCALE;
     bDiffFront = bFA + bFD;
     bDiffRear = bRA + bRD;
     bDiffAccel = bFA + bRA;
     bDiffDecel = bFD + bRD;
   } else if (vals.layout === 'RWD') {
     bDiffAccel = vals.accel * (1 - nf) * DIFF_BIAS_SCALE;
-    bDiffDecel = vals.decel * (1 - nf) * DIFF_BIAS_SCALE;
+    bDiffDecel = -vals.decel * (1 - nf) * DIFF_BIAS_SCALE;
   } else {
     bDiffAccel = -vals.accel * nf * DIFF_BIAS_SCALE;
     bDiffDecel = -vals.decel * nf * DIFF_BIAS_SCALE;
@@ -484,12 +484,12 @@ console.log('\ncomputeDiff — layout signs');
   const fe0 = {};
   const drBase = { buildType: 'track', diffType: 'race' };
 
-  // RWD: more accel/decel lock → oversteer (+)
+  // RWD: more accel lock → oversteer (+); more decel lock → understeer (−, resists lift-off oversteer)
   const rwdLo = computeDiff(chRWD, fe0, { ...drBase, diffBiasExit: -50, diffBiasEntry: -50 });
   const rwdHi = computeDiff(chRWD, fe0, { ...drBase, diffBiasExit: 50, diffBiasEntry: 50 });
   assertEq('RWD: higher EXIT/ENTRY → more accel lock', rwdHi.accel > rwdLo.accel, true);
   assertEq('RWD: bDiffAccel positive (oversteer) at high lock', rwdHi.bDiffAccel > 0, true);
-  assertEq('RWD: bDiffDecel positive (oversteer) at high lock', rwdHi.bDiffDecel > 0, true);
+  assertEq('RWD: bDiffDecel negative (understeer) at high lock', rwdHi.bDiffDecel < 0, true);
 
   // FWD: more front lock → understeer (−), regardless of EXIT/ENTRY slider direction
   const fwdLo = computeDiff(chFWD, fe0, { ...drBase, diffBiasExit: -50, diffBiasEntry: -50 });

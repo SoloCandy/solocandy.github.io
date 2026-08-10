@@ -238,23 +238,63 @@ also caught a real error in this file's own toe-front documentation (see
 written backwards; verifying against the formula while writing the test
 caught it).
 
-## Open — `bDiffAccel`/`bDiffDecel` don't distinguish accel-lock from decel-lock direction
+## Fixed — `bDiffDecel` pushed the same direction as `bDiffAccel` instead of resisting it (resolved)
 
-Per [FORMULAS.md](FORMULAS.md), the Handling Balance model treats *any*
+Per [FORMULAS.md](FORMULAS.md), the Handling Balance model treated *any*
 lock magnitude (accel or decel, on whichever axle is driven) as pushing
 the same oversteer/understeer direction. Real-world tuning intuition (and
 this app's own EXIT/ENTRY slider hint text) treats decel lock as more
 nuanced — e.g. "STABLE increases rear decel lock, which *resists*
 lift-off oversteer" implies decel lock reduces oversteer risk, not that it
-straightforwardly adds to an oversteer number the way accel lock does.
+straightforwardly adds to an oversteer number the way accel lock does. For
+RWD/AWD-rear, the old formula had `bDiffDecel` scaling *positive*
+(oversteer) with more rear decel lock — directly contradicting the ENTRY
+slider's own "resists lift-off oversteer" hint text.
 
-This is a known simplification in the aggregate Handling Balance total,
-not a bug — the EXIT/ENTRY sliders' individual labels/directions were
-verified against the actual formula and are correct for what they do
-locally; it's only the crude "more lock = more of the same total" framing
-of the aggregate `bDiffDecel` term that doesn't capture the nuance. Not
-fixed here since it would require reworking the aggregate model, which is
-out of scope for a documentation pass.
+Fixed by flipping `bDiffDecel`'s sign on the driven axle for RWD and
+AWD-rear so decel lock always contributes **understeer**, regardless of
+layout (`bDiffDecel = -vals.decel*(1-nf)*DIFF_BIAS_SCALE` for RWD; `bRD =
+-vals.rearDecel*(1-nf)*C*DIFF_BIAS_SCALE` for AWD). FWD's decel term was
+already correct (front decel lock → understeer, matching its own hint
+text: "more resistance to rotation on entry") and was left unchanged.
+Net effect: decel lock's direction no longer depends on layout the way
+accel lock's does — it's understeer-pushing everywhere, matching the
+"decel lock resists rotation" tuning intuition. Updated the balance-bar
+hint text and the `HandlingVerdict` dominant-contributor tip for "diff
+entry" (which previously assumed rear-decel-dominant meant oversteer, and
+inferred FWD vs RWD/AWD from the total's sign rather than checking
+`diffLayout` directly) to match. See [FORMULAS.md](FORMULAS.md) for the
+corrected formula. Verified via `tests.js`'s `computeDiff` layout-sign
+suite (`RWD: bDiffDecel negative (understeer) at high lock`).
+
+## Fixed — CHASSIS Balance Mode's SAME/OPPOSITE Split Direction was inverted (resolved)
+
+`computeTune`'s `arbBalMode==='chassis'` branch is meant to mirror WEIGHT's
+SAME/OPPOSITE split-direction toggle exactly, just anchored to
+`naturalMechBalanceOf(ch)` (a rear roll-stiffness fraction) instead of raw
+`ch.frontBias`. WEIGHT's formula is `(arbSplitOpposite ? ch.frontBias :
+(100-ch.frontBias)) + arbBias*0.4` — SAME uses the *rear* weight fraction
+(`100-frontBias`) directly as `rF` (the rear ARB fraction consumed
+downstream by `arbR=budget*rF`). CHASSIS used `(arbSplitOpposite ? natPct :
+(100-natPct))` — but `natPct` is already a rear fraction (same role as
+`100-ch.frontBias`, not `ch.frontBias`), so the two branches were swapped
+relative to WEIGHT's pattern.
+
+Effect: selecting **SAME** in CHASSIS mode actually mirrored the ARB split
+*away* from the chassis's natural balance (behaved like OPPOSITE), and
+**OPPOSITE** actually reinforced it (behaved like SAME) — contradicting
+both the function's own inline comment and the in-app Split Direction hint
+text ("SAME tracks the reference balance directly — a front-heavy car gets
+a front-heavy ARB split... this is how WEIGHT/CHASSIS behave by default").
+PRO-only (CHASSIS mode is PRO-gated) and untouched by `tests.js`, which has
+no CHASSIS-mode coverage — nothing caught it before a manual code review.
+
+Fixed by swapping the ternary branches to `(arbSplitOpposite ?
+(100-natPct) : natPct)`, matching WEIGHT's SAME/OPPOSITE mapping. Verified
+in-app: default chassis (`NAT 0.47`, i.e. front is naturally 53% of roll
+stiffness) now reads **F 53% / R 47%** under SAME (front-heavy chassis →
+front-heavy ARB split, correct) and **F 47% / R 53%** under OPPOSITE
+(mirrored around 50/50, correct) — previously these were swapped.
 
 ## Open — Handling Balance bar's five contributors aren't on a comparable scale
 
