@@ -47,6 +47,11 @@ const bDampBias = -(tune.zetaF - tune.zetaR) * 16 / effectiveAvgZeta;
 - `zetaR > zetaF` (rear damped harder than front) → **positive** → oversteer.
 - This is the formula that governs the Damping Bias slider: right
   (REAR bias, front stays firm) = oversteer; left (FRONT bias) = understeer.
+- `tune.zetaF`/`tune.zetaR` themselves come from whichever Damping Balance
+  Mode is active (STANDARD/SYNC/NEUTRAL — see [SLIDERS.md](SLIDERS.md)), but
+  this formula doesn't care how they were derived, only their final values —
+  same reasoning as `bSp`/`bAb` not caring which ARB Balance Mode produced
+  the roll-stiffness split feeding them.
 
 ## Brakes (`bBrakeEntry`)
 

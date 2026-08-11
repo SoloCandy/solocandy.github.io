@@ -267,6 +267,114 @@ inferred FWD vs RWD/AWD from the total's sign rather than checking
 corrected formula. Verified via `tests.js`'s `computeDiff` layout-sign
 suite (`RWD: bDiffDecel negative (understeer) at high lock`).
 
+## Fixed — Damping Balance Mode was hardcoded to SYNC-equivalent under SETTLE TIME (resolved)
+
+Shipped alongside the Damping Balance Mode feature and caught the same day, before release,
+after a user pointed out the flaw directly: REBOUND MODE (CHARACTER/SETTLE TIME) and Damping
+Balance Mode (STANDARD/SYNC/NEUTRAL) are two independent decisions — REBOUND MODE only decides
+how a single anchor ζ is obtained (typed directly, or back-solved from an absolute settle-time
+target); Damping Balance Mode decides how that one value becomes a front/rear split. The
+initial implementation conflated them: `feelToPhysics` special-cased `dampCharMode==='settle'`
+into always using the SYNC formula (`settleZetas`), and the UI hid the Balance Mode selector
+entirely under SETTLE TIME on the (wrong) assumption that STANDARD/NEUTRAL had no meaning
+there.
+
+Fixed by extracting a single `baseZeta` value (typed `reboundZeta` under CHARACTER, or the
+settle-target back-solve under SETTLE TIME) and running the *same* STANDARD/SYNC/NEUTRAL
+dispatch against it regardless of REBOUND MODE. Under SETTLE TIME, only SYNC now guarantees
+both axles hit the target time — STANDARD/NEUTRAL still anchor the reference axle to it
+exactly, but the other axle's real settle time is whatever that mode's split produces, reported
+honestly rather than forced equal. Verified live: STANDARD under SETTLE TIME shows the
+reference axle exactly at target with the other axle deviating; NEUTRAL produces a third,
+distinct split; SYNC still shows EQUAL — all three now behave distinctly under both REBOUND
+MODEs.
+
+## Fixed — SETTLE TIME's zeta and bump readouts fell back to the frozen CHARACTER default (resolved)
+
+Two further bugs found immediately after the above fix, while verifying it — both are the same
+root mistake in different call sites: reading `fe.reboundZeta`/`physics.reboundZeta`/
+`physics.bumpZeta` (the raw CHARACTER-mode inputs) instead of the actual computed
+`physics.zetaF`/`physics.bumpZetaF` (which correctly reflect whichever REBOUND MODE + Damping
+Balance Mode combination is active).
+
+1. **A DAMPERS-section readout box showed the frozen default instead of the live value.** Its
+   `biased` flag (whether to show a two-column F/R breakdown vs. a single combined number) was
+   `(fe.dampingBias??0)!==0` — true only when the bias slider is off-centre. But SYNC/NEUTRAL
+   can diverge front-to-rear *at bias 0 too* (Hz/mass differ even unbiased), and the "not
+   biased" branch displayed `physics.reboundZeta`/`physics.bumpZeta` — fields that are always
+   `fe.reboundZeta`/a `reboundZeta`-derived value, never updated for SETTLE TIME's back-solved
+   anchor. Reported as "some parts say the correct zeta value, where others report the default
+   70%." Fixed by deriving `biased` from actual `zetaF`/`zetaR` divergence
+   (`Math.abs(physics.zetaF-physics.zetaR)>0.5`) and using `physics.zetaF`/`physics.bumpZetaF`
+   in both branches — the single-number case is now just "the front value," which already
+   equals the rear value whenever they're not meaningfully biased, instead of a stale fallback.
+   The same stale-field pattern was also found and fixed in the DampingDial visual (VISUALS
+   card), the Bump Ratio slider's own preview readout, and the INDEPENDENT bump-mode toggle's
+   seed value (all three now read `physics.zetaF`/`physics.bumpZetaF` unconditionally, dropping
+   redundant `dampCharMode==='settle'` special cases entirely).
+
+2. **Bump output stayed frozen regardless of Hz.** `bumpZeta` (the RATIO-mode intermediate,
+   consumed by the STANDARD branch's %-split and by the INDEPENDENT-bump fallback) was computed
+   from the raw `reboundZeta` (`fe.reboundZeta`, the CHARACTER-mode default) rather than
+   `baseZeta` (the value REBOUND MODE actually anchors to). Under SETTLE TIME + STANDARD, this
+   meant Front Bump/Rear Bump — real output values, not just a display readout — never changed
+   when Ride Stiffness or the Settle Target moved, staying pinned at whatever
+   `70×bumpRatioVal/100` worked out to. Reported as "damping outputs don't change when the Hz
+   is altered, but the zeta is updated" (Rebound ζ *did* correctly track Hz via `baseZeta`;
+   Bump ζ silently didn't, because its own anchor computation ran before `baseZeta` existed and
+   was never updated to use it). Fixed by reordering `feelToPhysics` so `baseZeta` is computed
+   first and `bumpZeta`'s RATIO-mode branch reads it instead of `reboundZeta`. Verified live:
+   Front Bump moved from 39% (frozen) to 10% at Hz 3.00 and 26% at Hz 1.00, matching
+   `baseZeta×bumpRatioVal/100` exactly at each point. A regression test
+   (`tests.js`, "SETTLE TIME mode: bumpZeta anchors to baseZeta, not raw reboundZeta")
+   explicitly compares the fixed formula's Hz-sensitivity against the buggy formula's frozen
+   output.
+
+**Lesson:** when a feature introduces a new "real" source of truth for a value (`baseZeta`
+composing REBOUND MODE with Damping Balance Mode), every existing call site that read the old
+raw input directly (`fe.reboundZeta`, `physics.reboundZeta`, `physics.bumpZeta`) needs an
+explicit audit — grep for the retired field's every use, not just the primary computation path.
+Both of these were readout/display and derived-value sites well outside the formula that was
+the actual focus of the change, which is exactly why they were missed on the first pass.
+
+## Fixed — legacy Settle Sync migration silently dropped SYNC on GARAGE-loaded builds (resolved)
+
+Shipped alongside the Damping Balance Mode feature (STANDARD/SYNC/NEUTRAL replacing the old
+boolean "Settle Sync" toggle) and caught the same day, before release. `migrateDampBalMode`,
+the helper that converts a legacy `settleMode`/`settleBias` pair into the new `dampBalMode`/
+`dampingBias` fields, originally decided whether to migrate by checking
+`DAMP_BAL_MODE_DEC.includes(fe.dampBalMode)` — "does this object already have a valid balance
+mode?" That check is unreliable: `decodeTune` pre-fills *every* `CODEC_FIELD` (including
+`dampBalMode`) with its default before overlaying whatever ids a code actually carries, and
+`mergeDefaults`/`{...DEF_FE,...e.fe}` do the same for persisted state and GARAGE entry loads.
+So a legacy object that still carried `settleMode:true` also arrived with `dampBalMode`
+already sitting at `'standard'` — inherited from the spread, not actually chosen — and the
+naive check treated that as "already migrated," silently discarding the real
+`settleMode`/`settleBias` values.
+
+This was invisible in the two paths exercised during initial testing (a hand-rolled test
+object with no `dampBalMode` key at all, and the one-time persisted-state migration effect,
+whose *outer* `if(fe.settleMode!=null)` guard happened to make the inner bug unreachable) but
+broke the third: `garageLoadBuild`, which loads a saved GARAGE "build" entry into live state.
+Loading any build entry saved before this feature existed — with Settle Sync switched on —
+silently reverted it to STANDARD mode instead of the equivalent SYNC mode, with no warning.
+
+Fixed by making `fe.settleMode`'s mere *presence* (not `fe.dampBalMode`'s value) the migration
+trigger — `settleMode` is only ever present on a pre-migration object, since nothing in the
+app writes it anymore, making it the only reliable signal. Also routed `garageLoadBuild`
+through the same shared `migrateDampBalMode` helper as `sanitizeTune` and the persisted-state
+effect (it previously did a raw `{...DEF_FE,...e.fe}` merge with no migration at all — the
+proximate bug reported as "settle time isn't working"). Verified by seeding a legacy GARAGE
+entry (`settleMode:true, settleBias:-20`) directly into `localStorage` and loading it via LOAD
+BUILD: now correctly resolves to `dampBalMode:'sync', dampingBias:20`. Four regression tests
+added to `tests.js` (`migrateDampBalMode — legacy Settle Sync migration`), specifically
+including the "dampBalMode already default-filled" case that let this ship in the first place.
+
+**Lesson:** a field's mere presence/validity is not proof it was *chosen* — defaulting logic
+(`mergeDefaults`, `decodeTune`'s pre-fill) can populate a "new" field on an old object before
+migration code ever sees it. The reliable signal for "does this need migrating" is the
+presence of the *legacy* field being replaced, not the absence or validity of the new one.
+
 ## Fixed — CHASSIS Balance Mode's SAME/OPPOSITE Split Direction was inverted (resolved)
 
 `computeTune`'s `arbBalMode==='chassis'` branch is meant to mirror WEIGHT's

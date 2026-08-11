@@ -147,21 +147,61 @@ saturation on the spring side, which is why the constant is pinned to Horizon's
 value rather than being arbitrary. `tests-beamng.js` asserts the equivalence
 across a 21-point Mech Balance Target sweep.
 
-## Settle time ↔ ζ (`settleZetas`)
+## Damping Balance Mode: equal-metric ζ split (`balancedZetas`)
+
+`settleZetas` generalizes into `balancedZetas(rideRef, wF, wR, refZeta,
+biasMult)`, which holds `ζ·w` equal between axles at `biasMult=1` for
+whatever per-axle weight `wF`/`wR` the caller passes:
 
 ```js
-settleZetas(rideRef, fHz, rHz, refZeta, biasMult):
-  rideRef==='rear':   zR = refZeta;               zF = refZeta * (rHz/fHz) / biasMult
-  rideRef==='shared':  avg=(fHz+rHz)/2; b=sqrt(biasMult)
-                       zF = refZeta * (avg/fHz) / b;  zR = refZeta * (avg/rHz) * b
-  rideRef==='front' (default): zF = refZeta;      zR = refZeta * (fHz/rHz) * biasMult
+balancedZetas(rideRef, wF, wR, refZeta, biasMult):
+  rideRef==='rear':   zR = refZeta;               zF = refZeta * (wR/wF) / biasMult
+  rideRef==='shared':  avg=(wF+wR)/2; b=sqrt(biasMult)
+                       zF = refZeta * (avg/wF) / b;  zR = refZeta * (avg/wR) * b
+  rideRef==='front' (default): zF = refZeta;      zR = refZeta * (wF/wR) * biasMult
 ```
 
 The reference axle (whichever the Ride Stiffness slider anchors) holds
-`refZeta` exactly; the other axle's ζ is derived so both axles reach their
-settle time at the same moment (`ζ·Hz` held constant between them), then
-skewed by `biasMult = 2^(settleBias/50)` — `settleBias>0` makes the rear
-settle faster regardless of which axle is the reference.
+`refZeta` exactly; the other axle's ζ is derived so both axles reach the
+held-equal metric at `biasMult=1`, then skewed by `biasMult =
+2^(-dampingBias/50)` — moving the Damping Bias slider toward REAR (positive
+displayed value) shifts weight onto the rear regardless of which axle is
+the reference. The sign is inverted because the slider stores
+`-dampingBias` as its displayed value, matching every other bias slider's
+FRONT/REAR convention.
+
+`refZeta` itself is **REBOUND MODE's** job, independent of Damping Balance
+Mode: CHARACTER passes `reboundZeta` (typed directly); SETTLE TIME instead
+back-solves it from the Settle Target at the ride-reference axle's Hz (same
+`2.302/(settleTarget·refHz·2π)*100` derivation as before) — this combined
+value is `baseZeta` in `feelToPhysics`. Whichever REBOUND MODE is active,
+Damping Balance Mode then does the exact same split from that one number:
+
+- **`settleZetas(rideRef,fHz,rHz,refZeta,biasMult)`** — `wF,wR = fHz,rHz`.
+  Holds settle time equal (`ζ·Hz` constant). Used by SYNC, under either
+  REBOUND MODE. Ignores corner mass.
+- **`forceZetas(rideRef,mF,fHz,mR,rHz,refZeta,biasMult)`** — `wF,wR =
+  mF·fHz, mR·rHz`. Holds actual damping force equal (force ∝ `ζ·m·Hz`, see
+  `solveDampRaw` above). Used by NEUTRAL, under either REBOUND MODE.
+  Corrects for corner-mass asymmetry that SYNC ignores.
+- **STANDARD** doesn't call either — it biases `baseZeta` directly by
+  percentage (`dampingBias>0 ? baseZeta : baseZeta*(1+dampingBias/100)` on
+  one axle, the base value held on the other), independent of Hz or mass
+  entirely, under either REBOUND MODE.
+
+Under SETTLE TIME, only SYNC guarantees *both* axles hit the target time —
+STANDARD/NEUTRAL still anchor the reference axle to it exactly, but the
+other axle's real settle time is whatever that mode's split produces (`
+tune.settleF`/`settleR` report the honest achieved values either way, not
+a claim of equality).
+
+`computeTune` re-runs whichever of SYNC/NEUTRAL is active a second time
+after CO-SOLVE resolves `effectiveRHz`, so the settle-time or force split
+matches the *post*-CO-SOLVE rear Hz rather than the pre-solve value
+`feelToPhysics` saw. This re-run is skipped entirely under SETTLE TIME
+character mode (`baseZeta` itself was already derived from the pre-solve
+Hz there, unaffected by this pass either way — a pre-existing scope limit,
+not something this feature changed).
 
 ## Rear/secondary Hz modes
 

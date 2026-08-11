@@ -24,9 +24,9 @@ would ride along in every export and multiply on every restore.
 **Beginner mode** additionally forces `arbBalMode:'neutral'` and
 `arbMode:'auto'` on preset load (Beginner doesn't expose these mode
 toggles, and its Balance slider's own mechanism assumes NEUTRAL ARB mode —
-see the Balance row in [SLIDERS.md](SLIDERS.md)), plus `dampCharMode:'zeta'`
-and zeroed `settleBias`/`dampingBias` since Beginner's Character slider
-only understands the simple rebound-ζ/bump-ratio model.
+see the Balance row in [SLIDERS.md](SLIDERS.md)), plus `dampCharMode:'zeta'`,
+`dampBalMode:'standard'`, and zeroed `dampingBias` since Beginner's
+Character slider only understands the simple rebound-ζ/bump-ratio model.
 
 | # | Name | Build Type | Diff Type | Ride Stiffness | Rear Hz Mult | Damping Char | Notes |
 |---|---|---|---|---|---|---|---|
@@ -44,8 +44,12 @@ only understands the simple rebound-ζ/bump-ratio model.
 - **Rear Hz Mult** — `fe.rearHzMult` under `rearHzMode:'multiplier'`; ratio
   of rear to front spring frequency.
 - **Damping Char** — either `SETTLE` mode (`dampCharMode:'settle'`,
-  `settleTarget` in seconds, `settleBias` skew) or `CHARACTER` mode
-  (`dampCharMode:'zeta'`, explicit `reboundZeta`, optional `dampingBias`).
+  `settleTarget` in seconds, `dampingBias` skew) or `CHARACTER` mode
+  (`dampCharMode:'zeta'`, explicit `reboundZeta`, `dampBalMode` +
+  `dampingBias` — all six presets use the default `dampBalMode:'standard'`).
+  The displayed "bias" figure below is the Damping Bias slider's own
+  reading (`-dampingBias` for the STANDARD-mode presets, `dampingBias`
+  itself for the SETTLE-mode ones — see [SLIDERS.md](SLIDERS.md)).
 - **diffBiasExit / diffBiasEntry** — see [SLIDERS.md](SLIDERS.md)'s EXIT/
   ENTRY rows for what these values mean directionally (positive =
   oversteer-leaning per the convention documented there).

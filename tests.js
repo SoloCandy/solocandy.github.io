@@ -474,6 +474,156 @@ console.log('\nsettle mode ride-reference anchoring');
   assertEq('positive bias → rear settles faster', settle(biased.zR, rHz) < settle(biased.zF, fHz), true);
 }
 
+// ── Damping Balance Mode: STANDARD/SYNC/NEUTRAL (mirror of app's balancedZetas/forceZetas) ──
+
+console.log('\nDamping Balance Mode — balancedZetas / forceZetas');
+{
+  // Mirror of app's balancedZetas (index.html): generalizes settleZetas over an arbitrary
+  // per-axle weight wF/wR. zF·wF = zR·wR at biasMult=1.
+  const balancedZetas = (rideRef, wF, wR, refZeta, biasMult) => {
+    if (wF <= 0 || wR <= 0) return { zF: refZeta, zR: refZeta };
+    if (rideRef === 'rear')   return { zR: refZeta, zF: refZeta * (wR / wF) / biasMult };
+    if (rideRef === 'shared') { const avg = (wF + wR) / 2, b = Math.sqrt(biasMult);
+                                return { zF: refZeta * (avg / wF) / b, zR: refZeta * (avg / wR) * b }; }
+    return { zF: refZeta, zR: refZeta * (wF / wR) * biasMult };
+  };
+  // Force ∝ ζ·m·Hz (see solveDampRaw) — NEUTRAL holds this equal, not just settle time.
+  const forceZetas = (rideRef, mF, fHz, mR, rHz, refZeta, biasMult) =>
+    balancedZetas(rideRef, mF * fHz, mR * rHz, refZeta, biasMult);
+
+  const fHz = 1.75, rHz = 2.10, RZ = 70, NOBIAS = 1;
+  // Deliberately asymmetric masses so NEUTRAL and SYNC diverge — a rear-light, rear-stiffer car.
+  const mF = 480, mR = 350;
+
+  // At bias 0, SYNC only equalizes ζ·Hz — it does NOT equalize actual force when masses differ.
+  const sync0 = balancedZetas('front', fHz, rHz, RZ, NOBIAS);
+  const forceF_sync = sync0.zF * mF * fHz, forceR_sync = sync0.zR * mR * rHz;
+  assertEq('SYNC @ bias 0: equal settle time', Math.abs(fHz * sync0.zF - rHz * sync0.zR) < 1e-6, true);
+  assertEq('SYNC @ bias 0 with unequal mass: force is NOT equal', Math.abs(forceF_sync - forceR_sync) > 1, true);
+
+  // At bias 0, NEUTRAL equalizes actual force (Hz AND mass aware).
+  const neutral0 = forceZetas('front', mF, fHz, mR, rHz, RZ, NOBIAS);
+  const forceF_neu = neutral0.zF * mF * fHz, forceR_neu = neutral0.zR * mR * rHz;
+  assert('NEUTRAL @ bias 0: equal damping force', forceF_neu, forceR_neu, 1e-6);
+
+  // STANDARD (raw % split, mirrors the app's dampCharMode==='zeta'&&dampBalMode==='standard'
+  // branch) holds zetaF=zetaR at bias 0 regardless of Hz/mass — a third, distinct baseline.
+  assertEq('STANDARD @ bias 0: raw zeta stays equal regardless of Hz/mass', RZ, RZ);
+
+  // Bias direction is consistent between SYNC and NEUTRAL: positive bias (toward REAR) shifts
+  // more force/timing weight onto the rear in both modes.
+  const syncBiased = balancedZetas('front', fHz, rHz, RZ, 2);
+  const neutralBiased = forceZetas('front', mF, fHz, mR, rHz, RZ, 2);
+  assertEq('SYNC: positive bias increases rear ζ relative to bias-0', syncBiased.zR > sync0.zR, true);
+  assertEq('NEUTRAL: positive bias increases rear ζ relative to bias-0', neutralBiased.zR > neutral0.zR, true);
+}
+
+// ── migrateDampBalMode — legacy Settle Sync → dampBalMode/dampingBias migration ────────────
+//
+// Regression guard: decodeTune pre-fills EVERY CODEC_FIELD (including dampBalMode) with its
+// default before overlaying whatever ids a code/save actually carries, and mergeDefaults spreads
+// DEF_FE the same way for persisted state and GARAGE entry loads. So a legacy object that still
+// carries settleMode ALSO arrives with dampBalMode already sitting at 'standard' — inherited,
+// not chosen. A naive "is dampBalMode already valid?" check treats that as "already migrated"
+// and silently drops the real settleMode/settleBias values. This shipped broken once (GARAGE
+// LOAD BUILD on a pre-migration entry silently reverted SYNC to STANDARD) before being caught.
+
+console.log('\nmigrateDampBalMode — legacy Settle Sync migration');
+{
+  const DEF_FE_DAMPING_BIAS = 0;
+  const DAMP_BAL_MODE_DEC = ['standard', 'sync', 'neutral'];
+  // Mirror of app's migrateDampBalMode (index.html).
+  const migrateDampBalMode = fe => {
+    const clBias = v => Math.max(-50, Math.min(50, (typeof v === 'number' && isFinite(v)) ? v : DEF_FE_DAMPING_BIAS));
+    if (fe?.settleMode != null) {
+      const legacyActive = !!fe.settleMode && fe.settleBias != null;
+      return {
+        dampBalMode: fe.settleMode ? 'sync' : 'standard',
+        dampingBias: clBias(legacyActive ? -fe.settleBias : fe?.dampingBias),
+      };
+    }
+    return {
+      dampBalMode: DAMP_BAL_MODE_DEC.includes(fe?.dampBalMode) ? fe.dampBalMode : 'standard',
+      dampingBias: clBias(fe?.dampingBias),
+    };
+  };
+
+  // The exact bug: a legacy fe object merged with {...DEF_FE,...e.fe} (as garageLoadBuild and
+  // mergeDefaults both do) already has dampBalMode:'standard' inherited from DEF_FE, alongside
+  // the real settleMode:true/settleBias. Migration must still win.
+  const legacyMergedWithDefaults = { dampBalMode: 'standard', settleMode: true, settleBias: -20, dampingBias: 99 };
+  const r1 = migrateDampBalMode(legacyMergedWithDefaults);
+  assertEq('legacy settleMode:true survives dampBalMode already being default-filled', r1.dampBalMode, 'sync');
+  assertEq('settleBias sign-flips into the unified dampingBias field', r1.dampingBias, 20);
+
+  // Legacy settleMode:false (Settle Sync was off) migrates to STANDARD, keeping dampingBias.
+  const legacyOff = { dampBalMode: 'standard', settleMode: false, settleBias: 0, dampingBias: 15 };
+  const r2 = migrateDampBalMode(legacyOff);
+  assertEq('legacy settleMode:false migrates to standard', r2.dampBalMode, 'standard');
+  assertEq('legacy settleMode:false keeps its own dampingBias', r2.dampingBias, 15);
+
+  // A genuinely new object (no settleMode field at all — never written by this app anymore)
+  // must NOT be treated as legacy, and must respect an explicitly-chosen dampBalMode.
+  const fresh = { dampBalMode: 'neutral', dampingBias: 33 };
+  const r3 = migrateDampBalMode(fresh);
+  assertEq('fresh object with no settleMode keeps its explicit dampBalMode', r3.dampBalMode, 'neutral');
+  assertEq('fresh object keeps its own dampingBias', r3.dampingBias, 33);
+
+  // Empty/undefined input falls back to defaults cleanly.
+  const r4 = migrateDampBalMode({});
+  assertEq('empty object defaults to standard', r4.dampBalMode, 'standard');
+  assertEq('empty object defaults dampingBias to 0', r4.dampingBias, 0);
+}
+
+// ── SETTLE TIME + STANDARD/NEUTRAL: bump ζ must track Hz, not freeze at the CHARACTER default ──
+//
+// Regression guard: `bumpZeta` (the RATIO-mode intermediate consumed by the STANDARD branch,
+// and by the INDEPENDENT-bump fallback in SYNC/NEUTRAL) was computed from the raw `reboundZeta`
+// (fe.reboundZeta, the CHARACTER-mode default, e.g. 70%) instead of `baseZeta` (the value
+// REBOUND MODE actually anchors to — back-solved from the Settle Target under SETTLE TIME).
+// Result: under SETTLE TIME mode, changing Ride Stiffness correctly moved Rebound ζ but bump
+// output (Front Bump/Rear Bump, and the bottom "BUMP" readout) stayed frozen at whatever
+// `reboundZeta*bumpRatioVal/100` worked out to at the CHARACTER default — reported as "damping
+// outputs don't change when Hz is altered, but zeta is updated."
+
+console.log('\nSETTLE TIME mode: bumpZeta anchors to baseZeta, not raw reboundZeta');
+{
+  // Mirror of the relevant slice of feelToPhysics (index.html): baseZeta derivation +
+  // STANDARD's %-split, for dampCharMode==='settle'.
+  const deriveBaseZeta = (settleTarget, refHz) =>
+    Math.max(10, Math.min(115, refHz > 0 ? 2.302 / (settleTarget * refHz * 2 * Math.PI) * 100 : 70));
+  const standardSplit = (baseZeta, bumpZeta, dampingBias) => ({
+    zetaF: Math.max(10, Math.min(115, dampingBias > 0 ? baseZeta : baseZeta * (1 + dampingBias / 100))),
+    zetaR: Math.max(10, Math.min(115, dampingBias < 0 ? baseZeta : baseZeta * (1 - dampingBias / 100))),
+    bumpZetaF: Math.max(10, Math.min(115, dampingBias > 0 ? bumpZeta : bumpZeta * (1 + dampingBias / 100))),
+    bumpZetaR: Math.max(10, Math.min(115, dampingBias < 0 ? bumpZeta : bumpZeta * (1 - dampingBias / 100))),
+  });
+
+  const settleTarget = 0.80, bumpRatioVal = 56, dampingBias = 0;
+  const baseZetaLoHz = deriveBaseZeta(settleTarget, 1.75); // ~26%
+  const baseZetaHiHz = deriveBaseZeta(settleTarget, 3.00); // ~15%
+  assertEq('baseZeta drops as reference Hz rises (same settle target)', baseZetaHiHz < baseZetaLoHz, true);
+
+  // The FIXED formula: bumpZeta anchors to baseZeta.
+  const bumpZetaLoHz_fixed = Math.max(10, Math.min(baseZetaLoHz, baseZetaLoHz * bumpRatioVal / 100));
+  const bumpZetaHiHz_fixed = Math.max(10, Math.min(baseZetaHiHz, baseZetaHiHz * bumpRatioVal / 100));
+  const splitLo = standardSplit(baseZetaLoHz, bumpZetaLoHz_fixed, dampingBias);
+  const splitHi = standardSplit(baseZetaHiHz, bumpZetaHiHz_fixed, dampingBias);
+  assertEq('STANDARD bumpZetaF differs between Hz 1.75 and Hz 3.00 (fixed)', splitLo.bumpZetaF !== splitHi.bumpZetaF, true);
+
+  // The BUGGY formula: bumpZeta anchored to a fixed reboundZeta (70, the CHARACTER default),
+  // never reacting to the settle-time-derived baseZeta or the reference Hz at all.
+  const reboundZetaDefault = 70;
+  const bumpZeta_buggy = Math.max(10, Math.min(reboundZetaDefault, reboundZetaDefault * bumpRatioVal / 100));
+  const splitLo_buggy = standardSplit(baseZetaLoHz, bumpZeta_buggy, dampingBias);
+  const splitHi_buggy = standardSplit(baseZetaHiHz, bumpZeta_buggy, dampingBias);
+  assertEq('buggy formula would have frozen bumpZetaF across the same Hz change (documents the bug this guards against)', splitLo_buggy.bumpZetaF, splitHi_buggy.bumpZetaF);
+
+  // Sanity: the fixed bumpZetaF at Hz 3.00 must NOT equal the buggy frozen value (39%-ish) —
+  // this is the concrete symptom that was reported ("Front Bump" stuck at 39% regardless of Hz).
+  assertEq('fixed bumpZetaF at high Hz is not the stale CHARACTER-default value', Math.abs(splitHi.bumpZetaF - bumpZeta_buggy) > 5, true);
+}
+
 // ── computeDiff — layout-dependent lock and balance-contribution signs ─────────
 
 console.log('\ncomputeDiff — layout signs');

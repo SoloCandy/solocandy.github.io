@@ -289,17 +289,23 @@ const solveDampRaw=(hz,mass,z,calib=DAMPING_CALIBRATION)=>{
   const wr=Math.pow(hz*2*Math.PI,2)*mass,cc=2*Math.sqrt(wr*mass);
   return cc*(z/100)*calib; // truly unclamped — bounds applied after proportional scaling
 };
-// Equal-settle damping ratios anchored to the ride-reference axle.
-// The reference axle (the one the stiffness slider anchors) holds refZeta; the other axle's
-// zeta is derived for equal settle time (ζ·Hz constant). settleBias>0 = rear settles faster,
-// preserved across all refs. Returns unclamped {zF,zR}.
-const settleZetas=(rideRef,fHz,rHz,refZeta,biasMult)=>{
-  if(fHz<=0||rHz<=0) return {zF:refZeta,zR:refZeta};
-  if(rideRef==='rear')   return {zR:refZeta, zF:refZeta*(rHz/fHz)/biasMult};
-  if(rideRef==='shared'){const avg=(fHz+rHz)/2,b=Math.sqrt(biasMult);
-                         return {zF:refZeta*(avg/fHz)/b, zR:refZeta*(avg/rHz)*b};}
-  return {zF:refZeta, zR:refZeta*(fHz/rHz)*biasMult}; // front (default)
+// Equal-<metric> damping ratios anchored to the ride-reference axle, generalized over whatever
+// per-axle "weight" wF/wR the caller wants zeta·weight held equal against. The reference axle
+// (the one the stiffness slider anchors) holds refZeta; the other axle's zeta is derived so
+// zF·wF = zR·wR at biasMult=1. biasMult>1 shifts the balance toward the rear side, preserved
+// across all rideRefs. Returns unclamped {zF,zR}.
+const balancedZetas=(rideRef,wF,wR,refZeta,biasMult)=>{
+  if(wF<=0||wR<=0) return {zF:refZeta,zR:refZeta};
+  if(rideRef==='rear')   return {zR:refZeta, zF:refZeta*(wR/wF)/biasMult};
+  if(rideRef==='shared'){const avg=(wF+wR)/2,b=Math.sqrt(biasMult);
+                         return {zF:refZeta*(avg/wF)/b, zR:refZeta*(avg/wR)*b};}
+  return {zF:refZeta, zR:refZeta*(wF/wR)*biasMult}; // front (default)
 };
+// Equal settle TIME: weight is Hz alone (ζ·Hz constant — settle time ∝ 1/(ζ·Hz)).
+const settleZetas=(rideRef,fHz,rHz,refZeta,biasMult)=>balancedZetas(rideRef,fHz,rHz,refZeta,biasMult);
+// Equal damping FORCE: weight is mass·Hz (force ∝ ζ·m·Hz — see solveDampRaw), so this also
+// corrects for corner-mass asymmetry that settleZetas ignores.
+const forceZetas=(rideRef,mF,fHz,mR,rHz,refZeta,biasMult)=>balancedZetas(rideRef,mF*fHz,mR*rHz,refZeta,biasMult);
 
 // ── Mech balance — steady-state US/OS from physics ───────────────────────────
 // Derived from lateral-load-transfer distribution (set by the front/rear roll-
@@ -524,36 +530,47 @@ const feelToPhysics=(ch,fe)=>{
     }
   }
   const dampingMode=fe.dampingMode??'ratio';
-  const settleMode=!!(fe.settleMode);
+  // Damping Balance Mode — mirrors ARB Balance Mode's WEIGHT/NEUTRAL split. STANDARD biases
+  // the anchor ζ directly by percentage (Hz-agnostic). SYNC (formerly the "Settle Sync" toggle)
+  // solves so both axles finish settling at the same time (Hz-aware, ignores corner mass).
+  // NEUTRAL solves so both axles push the same actual damping FORCE (Hz- and mass-aware) —
+  // see forceZetas. One Damping Bias slider drives the F/R split in all three; only the
+  // formula interpreting it changes, so switching modes never resets or jumps the slider.
+  // This is independent of REBOUND MODE (below), which only decides how the anchor ζ itself
+  // is obtained — the two compose freely, not one dictating the other.
+  const dampBalMode=['standard','sync','neutral'].includes(fe.dampBalMode)?fe.dampBalMode:'standard';
+  // REBOUND MODE: CHARACTER types the anchor ζ directly (Rebound ζ slider). SETTLE TIME instead
+  // back-solves it from an absolute target time at the ride-reference axle's Hz — see baseZeta
+  // below. Whichever axle Damping Balance Mode treats as "the anchor" (rideRef for SYNC/NEUTRAL;
+  // whichever side the Damping Bias slider leaves unbiased for STANDARD) is the one guaranteed
+  // to actually hit that target; the other axle's real settle time is whatever falls out of the
+  // chosen Balance Mode, same as it would from a typed Rebound ζ.
   const dampCharMode=fe.dampCharMode??'zeta';
   const settleTarget=Math.max(0.10,Math.min(2.00,fe.settleTarget??0.80));
   const reboundZeta=Math.max(10,Math.min(115,fe.reboundZeta??70));
   const bumpRatioVal=Math.max(10,Math.min(100,fe.bumpRatio??56));
+  // sB recovers the *displayed* bias (positive = REAR, matching every other bias slider in
+  // the app) for the Sync/Neutral solvers below — the slider itself stores -(displayed).
+  const sB=Math.max(-50,Math.min(50,-(fe.dampingBias??0)));
+  const biasMult=Math.pow(2,sB/50);
+  const dampMasses=cornerMasses(ch);
   let zetaF,zetaR,bumpZetaF,bumpZetaR,bumpZeta;
-  // Bump zeta is always determined by dampingMode (ratio or independent)
+  const baseZeta=dampCharMode==='settle'
+    ? (()=>{
+        const refHz=uiRideRef==='rear'?rearHz:uiRideRef==='shared'?(frontHz+rearHz)/2:frontHz;
+        return Math.max(10,Math.min(115,refHz>0?2.302/(settleTarget*refHz*2*Math.PI)*100:70));
+      })()
+    : reboundZeta;
+  // Bump zeta is always determined by dampingMode (ratio or independent). In RATIO mode this
+  // must anchor to baseZeta (not the raw reboundZeta) — otherwise bump output stays frozen at
+  // the CHARACTER-mode default under SETTLE TIME, never tracking a Hz or Settle Target change.
   bumpZeta=dampingMode==='ratio'
-    ? Math.max(10,Math.min(reboundZeta,reboundZeta*bumpRatioVal/100))
+    ? Math.max(10,Math.min(baseZeta,baseZeta*bumpRatioVal/100))
     : Math.max(10,Math.min(115,fe.bumpZeta??39));
-  if(dampCharMode==='settle'){
-    // Derive zetaRef from settle target at the reference axle's Hz, then use settleZetas
-    // to distribute F/R — same path as settleMode=true but anchored to an absolute target
-    const sB=Math.max(-50,Math.min(50,fe.settleBias??0));
-    const biasMult=Math.pow(2,sB/50);
-    const refHz=uiRideRef==='rear'?rearHz:uiRideRef==='shared'?(frontHz+rearHz)/2:frontHz;
-    const zetaRef=Math.max(10,Math.min(115,refHz>0?2.302/(settleTarget*refHz*2*Math.PI)*100:70));
-    const{zF,zR}=settleZetas(uiRideRef,frontHz,rearHz,zetaRef,biasMult);
-    zetaF=Math.max(10,Math.min(115,zF));
-    zetaR=Math.max(10,Math.min(115,zR));
-    bumpZetaF=dampingMode==='ratio'
-      ? Math.max(10,Math.min(zetaF,zetaF*bumpRatioVal/100))
-      : Math.max(10,Math.min(zetaF,bumpZeta));
-    bumpZetaR=dampingMode==='ratio'
-      ? Math.max(10,Math.min(zetaR,zetaR*bumpRatioVal/100))
-      : Math.max(10,Math.min(zetaR,bumpZeta));
-  }else if(settleMode){
-    const sB=Math.max(-50,Math.min(50,fe.settleBias??0));
-    const biasMult=Math.pow(2,sB/50);
-    const{zF,zR}=settleZetas(uiRideRef,frontHz,rearHz,reboundZeta,biasMult);
+  if(dampBalMode==='sync'||dampBalMode==='neutral'){
+    const{zF,zR}=dampBalMode==='neutral'
+      ? forceZetas(uiRideRef,dampMasses.front,frontHz,dampMasses.rear,rearHz,baseZeta,biasMult)
+      : settleZetas(uiRideRef,frontHz,rearHz,baseZeta,biasMult);
     zetaF=Math.max(10,Math.min(115,zF));
     zetaR=Math.max(10,Math.min(115,zR));
     bumpZetaF=dampingMode==='ratio'
@@ -564,8 +581,8 @@ const feelToPhysics=(ch,fe)=>{
       : Math.max(10,Math.min(zetaR,bumpZeta));
   }else{
     const dampingBias=fe.dampingBias??0;
-    zetaF=Math.max(10,Math.min(115,dampingBias>0?reboundZeta:reboundZeta*(1+dampingBias/100)));
-    zetaR=Math.max(10,Math.min(115,dampingBias<0?reboundZeta:reboundZeta*(1-dampingBias/100)));
+    zetaF=Math.max(10,Math.min(115,dampingBias>0?baseZeta:baseZeta*(1+dampingBias/100)));
+    zetaR=Math.max(10,Math.min(115,dampingBias<0?baseZeta:baseZeta*(1-dampingBias/100)));
     bumpZetaF=Math.max(10,Math.min(115,dampingBias>0?bumpZeta:bumpZeta*(1+dampingBias/100)));
     bumpZetaR=Math.max(10,Math.min(115,dampingBias<0?bumpZeta:bumpZeta*(1-dampingBias/100)));
   }
@@ -588,7 +605,7 @@ const feelToPhysics=(ch,fe)=>{
   // coSolve overrides rearHz in computeTune via effectiveRHz; flat-ride fallthrough can
   // set rearHzClamped spuriously. mechBalClamped covers coSolve limits instead.
   if(arbBalModeEarly==='coSolve') rearHzClamped=false;
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,settleMode,dampCharMode,settleBias:fe.settleBias??0,bumpRatioVal,arbBalance,arbBias:fe.arbBias??0,arbTargetRoll,arbMode,arbShareMan,arbBasicMan,arbBalTarget,arbBalMode,arbSplitOpposite,springShare,springShareAuto:fe.springShareAuto!==false,arbManF:fe.arbManF,arbManR:fe.arbManR};
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,dampBalMode,dampCharMode,dampingBias:fe.dampingBias??0,bumpRatioVal,arbBalance,arbBias:fe.arbBias??0,arbTargetRoll,arbMode,arbShareMan,arbBasicMan,arbBalTarget,arbBalMode,arbSplitOpposite,springShare,springShareAuto:fe.springShareAuto!==false,arbManF:fe.arbManF,arbManR:fe.arbManR};
 };
 
 const computeTune=(ch,phys,gameMode)=>{
@@ -695,12 +712,14 @@ const computeTune=(ch,phys,gameMode)=>{
     const rsSpR_tgt=R_sp*rsSpF_cs/(1-R_sp);
     effectiveRHz=Math.max(HZ_MIN,Math.min(HZ_MAX,Math.sqrt(2*rsSpR_tgt/(m.rear*ch.trackR*ch.trackR))/(2*Math.PI)));
   }
-  // SETTLE mode: recompute zetas using final effectiveRHz so settle times match post-coSolve Hz.
-  // Anchor reboundZeta to the user's ride-reference axle; derive the other(s) for equal settle.
-  if(phys.settleMode&&phys.dampCharMode!=='settle'){
-    const biasMult=Math.pow(2,(phys.settleBias??0)/50);
+  // SYNC/NEUTRAL damping balance: recompute zetas using final effectiveRHz so the solve matches
+  // post-coSolve Hz. Anchor reboundZeta to the user's ride-reference axle; derive the other(s).
+  if((phys.dampBalMode==='sync'||phys.dampBalMode==='neutral')&&phys.dampCharMode!=='settle'){
+    const biasMult=Math.pow(2,-(phys.dampingBias??0)/50);
     const bumpRatioVal=phys.bumpRatioVal??56,bumpZ=phys.bumpZeta??39,ratio=phys.dampingMode==='ratio';
-    const{zF,zR}=settleZetas(phys.rideRef,fHz,effectiveRHz,phys.reboundZeta,biasMult);
+    const{zF,zR}=phys.dampBalMode==='neutral'
+      ? forceZetas(phys.rideRef,m.front,fHz,m.rear,effectiveRHz,phys.reboundZeta,biasMult)
+      : settleZetas(phys.rideRef,fHz,effectiveRHz,phys.reboundZeta,biasMult);
     zetaF=Math.max(10,Math.min(115,zF));
     zetaR=Math.max(10,Math.min(115,zR));
     bumpZetaF=ratio?Math.max(10,Math.min(zetaF,zetaF*bumpRatioVal/100)):Math.max(10,Math.min(zetaF,bumpZ));
@@ -1286,7 +1305,7 @@ const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               // physical-unit output (rate/mr²). They are display-only by design — nothing
               // in the physics reads them, see the note at springOut.
               motionRatioF:1.0,motionRatioR:1.0};
-const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,settleMode:false,settleBias:0,targetSpeed:70,gameMode:'horizon',
+const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,dampBalMode:'standard',targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,dampCharMode:'zeta',settleTarget:0.80,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,arbBasicMan:50,
               arbBalTarget:null,arbBalMode:'weight',springShare:50,springShareAuto:true,
@@ -1318,12 +1337,12 @@ const PRESET_SAVES=(()=>{
   return{
     1:{name:'STREET',
        fe:{...DEF_FE,rideStiffness:2.20,rearHzMode:'multiplier',rearHzMult:1.15,
-           dampCharMode:'settle',settleTarget:0.55,settleBias:0,
+           dampCharMode:'settle',settleTarget:0.55,
            bumpRatio:52,arbMode:'auto'},
        dr:{...DEF_DR,buildType:'street',diffType:'race',diffBiasExit:-10,diffBiasEntry:10}},
     2:{name:'TRACK',
        fe:{...DEF_FE,rideStiffness:2.50,rearHzMode:'multiplier',rearHzMult:1.05,
-           dampCharMode:'settle',settleTarget:0.40,settleBias:-5,
+           dampCharMode:'settle',settleTarget:0.40,dampingBias:5,
            bumpRatio:58,arbMode:'roll',arbTargetRollMan:1.5},
        dr:{...DEF_DR,buildType:'track',diffType:'race',diffBiasExit:5,diffBiasEntry:0}},
     3:{name:'RALLY',
@@ -1338,12 +1357,12 @@ const PRESET_SAVES=(()=>{
            diffBiasExit:22,diffBiasEntry:-18,diffRearAccel:65,diffRearDecel:15}},
     5:{name:'MOTORSPT',
        fe:{...DEF_FE,rideStiffness:3.20,rearHzMode:'multiplier',rearHzMult:0.92,
-           dampCharMode:'settle',settleTarget:0.25,settleBias:-10,
+           dampCharMode:'settle',settleTarget:0.25,dampingBias:10,
            bumpRatio:64,arbMode:'roll',arbTargetRollMan:0.8},
        dr:{...DEF_DR,buildType:'track',diffType:'race',diffBiasExit:10,diffBiasEntry:-5}},
     6:{name:'X COUNTRY',
        fe:{...DEF_FE,rideStiffness:0.90,rearHzMode:'multiplier',rearHzMult:1.00,
-           dampCharMode:'settle',settleTarget:1.00,settleBias:-5,
+           dampCharMode:'settle',settleTarget:1.00,dampingBias:5,
            bumpRatio:38,arbMode:'share',arbShareMan:5},
        dr:{...DEF_DR,buildType:'offroad',diffType:'offroad'}},
   };
@@ -1967,7 +1986,7 @@ const BiasSeg=({label,val,hint,primary,totalAbs})=>{
   );
 };
 
-const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bDampBias,gripBalance,uiMode,settleDamping})=>{
+const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear,diffLayout,bBrakeEntry,bDampBias,gripBalance,uiMode})=>{
   const abs=Math.abs(total);
   // positive = oversteer, negative = understeer
   const label=abs<3?'NEUTRAL':total>0?'OVERSTEER':'UNDERSTEER';
@@ -1994,9 +2013,7 @@ const HandlingVerdict=({total,bSp,bAb,bDiffAccel,bDiffDecel,bDiffFront,bDiffRear
     'diff front': total>0?'Reduce front accel lock in the AWD Differential section.':'Raise front accel lock.',
     'diff rear':  total>0?'Reduce rear accel lock in the AWD Differential section.':'Raise rear accel lock.',
     ...(uiMode==='pro'?{brakes:total>0?'Add more front brake bias to reduce entry rotation.':'Reduce front brake bias to add entry rotation.'}:{}),
-    damping:   settleDamping
-      ?(total>0?'Shift Settle Bias toward front to make the front settle faster, resisting forward weight transfer.':'Shift Settle Bias toward rear to reduce front damping dominance.')
-      :(total>0?'Increase front rebound (Damping Bias toward positive) to resist forward weight transfer.':'Reduce front rebound bias.'),
+    damping:   total>0?'Increase front rebound (Damping Bias toward positive) to resist forward weight transfer.':'Reduce front rebound bias.',
   };
   const tip=abs<3
     ? 'Setup is well balanced.'+(domBig?' Keep an eye on '+dom.name.toUpperCase()+' if the car feels inconsistent.':'')
@@ -2081,7 +2098,7 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
     setFe(p=>({...p,
       rideStiffness:Math.round(hzF*100)/100,
       rideRef:'front',rearHzMode:'multiplier',rearHzMult:mult,
-      dampingMode:'ratio',dampCharMode:'zeta',settleMode:false,
+      dampingMode:'ratio',dampCharMode:'zeta',dampBalMode:'standard',
       reboundZeta,bumpRatio,dampingBias,
       arbBalMode:'manual',
       arbMode:'man',
@@ -2289,6 +2306,37 @@ const ARB_BAL_MODE_DEC=['weight','mech','coSolve','man','neutral','chassis','man
 // button, so switching Stiffness Mode away from MAN doesn't look like the user chose WEIGHT.
 const RIDE_REF_ENC={'front':0,'rear':1,'shared':2};
 const RIDE_REF_DEC=['front','rear','shared'];
+const DAMP_BAL_MODE_ENC={'standard':0,'sync':1,'neutral':2};
+const DAMP_BAL_MODE_DEC=['standard','sync','neutral'];
+// Settle Sync (boolean settleMode + its own settleBias field) → dampBalMode + the unified
+// dampingBias. Shared by every path that can hand the app a raw, possibly-legacy fe object:
+// sanitizeTune (LOAD CODE), the one-time persisted-state migration effect, and garageLoadBuild
+// (a GARAGE entry saved before this feature existed carries the legacy fields verbatim, same
+// as a legacy localStorage blob — a plain `{...DEF_FE,...e.fe}` merge doesn't migrate them).
+// IMPORTANT: `fe.dampBalMode` being present/valid is NOT a reliable "already migrated" signal
+// on its own — decodeTune pre-fills every CODEC_FIELD (including id 62, dampBalMode) with its
+// default before overlaying whatever ids the code actually carries, and mergeDefaults spreads
+// DEF_FE the same way for persisted state. So a legacy fe object that still carries settleMode
+// ALSO arrives here with dampBalMode already sitting at 'standard' (inherited, not chosen) — a
+// naive `DAMP_BAL_MODE_DEC.includes(fe.dampBalMode)` check would treat that as "already
+// migrated" and silently ignore the real settleMode/settleBias values (this shipped broken
+// once already — see the git history for the fix). settleMode is only ever present on a
+// pre-migration object (nothing in this app writes it anymore), so its mere presence — not
+// dampBalMode's — is the only reliable "this needs migrating" signal.
+const migrateDampBalMode=fe=>{
+  const clBias=v=>Math.max(-50,Math.min(50,(typeof v==='number'&&isFinite(v))?v:DEF_FE.dampingBias));
+  if(fe?.settleMode!=null){
+    const legacyActive=!!fe.settleMode&&fe.settleBias!=null;
+    return{
+      dampBalMode:fe.settleMode?'sync':'standard',
+      dampingBias:clBias(legacyActive?-fe.settleBias:fe?.dampingBias),
+    };
+  }
+  return{
+    dampBalMode:DAMP_BAL_MODE_DEC.includes(fe?.dampBalMode)?fe.dampBalMode:'standard',
+    dampingBias:clBias(fe?.dampingBias),
+  };
+};
 const LAYOUT_ENC={'FWD':0,'RWD':1,'AWD':2};
 const LAYOUT_DEC=['FWD','RWD','AWD'];
 const BUILD_ENC={'street':0,'track':1,'drift':2,'rally':3,'offroad':4,'drag':5};
@@ -2352,6 +2400,9 @@ const CODEC_FIELDS=[
   {id:45,group:'dr',key:'diffComplement',bool:true},
   {id:46,group:'fe',key:'arbManF'},
   {id:47,group:'fe',key:'arbManR'},
+  // 48/49: retired — Settle Sync's boolean on/off + its own bias field, replaced by
+  // dampBalMode (id 62) + the unified dampingBias (id 33). Kept for old-code decode only —
+  // sanitizeTune migrates them into dampBalMode/dampingBias.
   {id:48,group:'fe',key:'settleBias'},
   {id:49,group:'fe',key:'settleMode',bool:true},
   {id:50,group:'fe',key:'settleTarget'},
@@ -2373,6 +2424,7 @@ const CODEC_FIELDS=[
   // re-targets against the wrong (geometry-only) natural balance. See docs/CODEC.md.
   {id:60,group:'ch',key:'useMeasuredNatBal',bool:true},
   {id:61,group:'ch',key:'measuredNatBal'},
+  {id:62,group:'fe',key:'dampBalMode',enc:DAMP_BAL_MODE_ENC,dec:DAMP_BAL_MODE_DEC},
   // Retired ids — never reuse: none yet (dead fields removed pre-v1 never had an id).
 ];
 const codecFieldDefault=f=>f.tyre?f.def:DEF_GROUPS[f.group][f.key];
@@ -2467,7 +2519,9 @@ const sanitizeTune=({ch,fe,dr})=>{
       springShare:      cl(fe?.springShare,         0,  100, DEF_FE.springShare),
       springShareAuto:  fe?.springShareAuto!==false,
       arbSplitOpposite: !!fe?.arbSplitOpposite,
-      dampingBias:      cl(fe?.dampingBias,      -50,   50,  DEF_FE.dampingBias),
+      // migrateDampBalMode covers the legacy Settle Sync boolean + its own settleBias field —
+      // see docs/CODEC.md ids 48/49/62.
+      ...migrateDampBalMode(fe),
       targetSpeed:      cl(fe?.targetSpeed,       60,  200,  DEF_FE.targetSpeed),
       gameMode:         GAME_MODE_DEC.includes(fe?.gameMode)?fe.gameMode:DEF_FE.gameMode,
       dampingMode:      DAMPING_MODE_DEC.includes(fe?.dampingMode)?fe.dampingMode:DEF_FE.dampingMode,
@@ -2488,8 +2542,6 @@ const sanitizeTune=({ch,fe,dr})=>{
       rideRef:          ['front','rear','shared'].includes(fe?.rideRef)?fe.rideRef:'front',
       arbManF:          cl(fe?.arbManF,             1,   65,   20),
       arbManR:          cl(fe?.arbManR,             1,   65,   20),
-      settleMode:       !!(fe?.settleMode),
-      settleBias:       cl(fe?.settleBias,        -50,   50,    0),
       settleTarget:     cl(fe?.settleTarget,      0.10,  2.00,  DEF_FE.settleTarget),
       dampCharMode:     fe?.dampCharMode==='settle'?'settle':'zeta',
       arbBalTargetMode: ['manual','grip'].includes(fe?.arbBalTargetMode)?fe.arbBalTargetMode:DEF_FE.arbBalTargetMode,
@@ -2825,6 +2877,7 @@ const GLOSSARY=[
     {term:'Rebound',def:'Damping resistance as the suspension extends — the wheel dropping back down after being compressed. Controls how fast the wheel returns to full extension after a bump or during weight transfer.'},
     {term:'Bump (Compression)',def:'Damping resistance as the suspension compresses — the wheel moving up into a bump or under load transfer. Usually softer than rebound; Bump Ratio expresses it as a percentage of the rebound value.'},
     {term:'Settle Time',def:'Seconds for the suspension to stop moving after a disturbance. Short settle time feels planted and controlled; long settle time is more compliant over rough surfaces but can leave the car still moving mid-corner.'},
+    {term:'Damping Balance Mode',def:'Sets how the Damping Bias slider splits rebound/bump ζ front to rear — independent of REBOUND MODE, which only decides how the anchor ζ is obtained (typed under CHARACTER, back-solved from a target time under SETTLE TIME). STANDARD biases the anchor directly by percentage. SYNC solves so both axles finish settling at the same time. NEUTRAL solves so both axles push the same actual damping force (accounts for corner mass as well as Hz) — mirrors ARB Balance Mode’s WEIGHT/NEUTRAL pattern. The slider itself never resets when you switch modes.'},
   ]},
   {group:'Roll & Anti-Roll Bars',terms:[
     {term:'Roll Stiffness',def:"Total resistance to body lean in a corner, supplied by springs and ARBs together. How it's split front-to-rear — not its total amount — is what determines understeer/oversteer tendency."},
@@ -3149,6 +3202,20 @@ function App(){
       setFe(p=>({...p,arbBalMode:'manual',arbMode:'man'}));
     }
   },[]); // eslint-disable-line
+  // One-time migration: Settle Sync (boolean settleMode + its own settleBias field) replaced
+  // by dampBalMode (STANDARD/SYNC/NEUTRAL) + the unified dampingBias. sanitizeTune carries the
+  // matching fix for LOAD CODE imports; this covers plain persisted state from before the move.
+  // mergeDefaults spreads DEF_FE under the persisted blob, so a legacy save still carries
+  // settleMode/settleBias verbatim (DEF_FE no longer defines those keys to override them) —
+  // self-guarding, since destructuring them out here means the condition never matches again.
+  useEffect(()=>{
+    if(fe.settleMode!=null){
+      setFe(p=>{
+        const{settleMode:_sm,settleBias:_sb,...rest}=p;
+        return{...rest,...migrateDampBalMode(p)};
+      });
+    }
+  },[]); // eslint-disable-line
   const[showComplexity,setShowComplexity]=useState(false);
   const closeOnboard=()=>{setOnboardSeen(true);setShowComplexity(false);};
   const[tutMode,setTutMode]=useState(null);
@@ -3305,7 +3372,7 @@ function App(){
       rearHzMode:'multiplier',
       rearHzMult:p.rearHzMult??1.0,
       dampCharMode:'zeta',
-      settleBias:0,
+      dampBalMode:'standard',
       dampingBias:0,
       arbMode:'auto',
     }));
@@ -3552,7 +3619,7 @@ function App(){
       adjustedFe.arbBalMode='neutral';
       adjustedFe.rearHzMode='multiplier';
       adjustedFe.dampCharMode='zeta';
-      adjustedFe.settleBias=0;
+      adjustedFe.dampBalMode='standard';
       adjustedFe.dampingBias=0;
       adjustedFe.arbMode='auto';
     }
@@ -3585,7 +3652,18 @@ function App(){
   const garageRemoveTag=(id,tag)=>mutEntry(id,e=>({...e,tags:(e.tags||[]).filter(t=>t!==tag)}));
   // Loading is undoable via the header ↩ for free — the undo effect snapshots {ch,fe,dr,al}.
   const garageLoadChassis=e=>{if(e.ch)setCh({...DEF_CH,...e.ch});};
-  const garageLoadBuild=e=>{if(e.fe)setFe({...DEF_FE,...e.fe});if(e.dr)setDr({...DEF_DR,...e.dr});};
+  // A build entry saved before dampBalMode existed still carries the legacy settleMode/
+  // settleBias fields verbatim (same reason sanitizeTune/the mount-effect migration exist) —
+  // a plain {...DEF_FE,...e.fe} spread doesn't migrate them, so route through the shared helper.
+  const garageLoadBuild=e=>{
+    if(e.fe){
+      const merged={...DEF_FE,...e.fe};
+      const dampBal=migrateDampBalMode(merged);
+      const{settleMode:_sm,settleBias:_sb,...rest}=merged;
+      setFe({...rest,...dampBal});
+    }
+    if(e.dr)setDr({...DEF_DR,...e.dr});
+  };
   const allTags=[...new Set(entries.flatMap(e=>e.tags||[]))].sort();
   // filter by kind -> filter by text -> sort. Filtering first keeps the sort stable with
   // respect to what's actually visible.
@@ -4967,13 +5045,14 @@ function App(){
               bumpRatio:DEF_FE.bumpRatio,
               bumpZeta:DEF_FE.bumpZeta,
               dampCharMode:DEF_FE.dampCharMode,
+              dampBalMode:DEF_FE.dampBalMode,
               settleTarget:DEF_FE.settleTarget}))}>
             {/* damping character mode toggle — INT/PRO only */}
             {uiMode!=='beginner'&&<>
               <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}>
                 <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>REBOUND MODE</span>
                 <Hint text={(fe.dampCharMode??'zeta')==='settle'
-                  ?"SETTLE TIME: set a target settle time in seconds. The app back-calculates the rebound ζ needed to hit that time for each axle individually — front and rear derive their own ζ from their own spring frequency."
+                  ?"SETTLE TIME: set a target settle time in seconds. The app back-calculates the rebound ζ needed to hit that time on the ride-reference axle. How that value reaches the other axle is set by DAMPING BALANCE MODE below — SYNC derives the other axle's own ζ from its own spring frequency to match the same time exactly; STANDARD/NEUTRAL split differently, so only the reference axle is guaranteed to hit the target."
                   :"CHARACTER: set rebound damping directly as a ζ (damping ratio) percentage. Full manual control — you pick the value, the app doesn't back-solve anything."}/>
               </div>
               <div style={{display:'flex',gap:3,marginBottom:8}}>
@@ -5025,7 +5104,7 @@ function App(){
                 onClick={()=>setFe(p=>({...p,dampingMode:'ratio'}))}>BUMP RATIO</button>
               <button className={`tog${(fe.dampingMode??'ratio')==='independent'?' on':''}`}
                 onClick={()=>setFe(p=>({...p,dampingMode:'independent',
-                  bumpZeta:Math.round(physics.bumpZeta)}))}>INDEPENDENT</button>
+                  bumpZeta:Math.round(physics.bumpZetaF)}))}>INDEPENDENT</button>
             </div>
             {(fe.dampingMode??'ratio')==='ratio'
               ? <FeelSlider label="Bump Ratio" value={fe.bumpRatio??56}
@@ -5035,7 +5114,7 @@ function App(){
                   markers={[{value:30,color:'#60a5fa',label:'UNDER',lessThan:true},{value:65,color:'#f59e0b',label:'FIRM'}]}
                   readout={(()=>{
                     const ratio=Math.min(100,fe.bumpRatio??56);
-                    const effReb=(fe.dampCharMode??'zeta')==='settle'?physics.zetaF:(fe.reboundZeta??70);
+                    const effReb=physics.zetaF;
                     const bz=Math.max(10,Math.min(effReb,effReb*ratio/100));
                     const zLabel=bz>100?`${Math.round(bz)}% ⚠ OVERDAMPED`:
                                  bz>70 ?`${Math.round(bz)}% · BUTTERWORTH`:
@@ -5059,33 +5138,55 @@ function App(){
                     if(z>70) return`${z}% · BUTTERWORTH${cross}`;
                     return`${z}%${cross}`;
                   })()}/>}
-            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
-              <span style={{fontSize:11,color:'#94a3b8',letterSpacing:1,flexShrink:0}}>SETTLE SYNC</span>
-              <Hint text="Syncs front and rear settle times so both axles finish their damping response together. The Settle Bias slider then skews the F/R timing ratio — left makes the front settle faster, right makes the rear settle faster."/>
-              <div style={{marginLeft:'auto'}}>
-                <button className={`tog${fe.settleMode?' on':''}`}
-                  onClick={()=>setFe(p=>({...p,settleMode:!p.settleMode}))}>
-                  {fe.settleMode?'ON':'OFF'}
-                </button>
-              </div>
+            <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3,marginTop:2}}>
+              <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>DAMPING BALANCE MODE</span>
+              <Hint text="Independent of REBOUND MODE above — REBOUND MODE decides how the anchor ζ is obtained (typed directly under CHARACTER, back-solved from a target time under SETTLE TIME); this decides how that single value becomes a front/rear split. STANDARD biases it directly by percentage — simplest, ignores any front/rear Hz difference. SYNC solves so front and rear finish settling at the same time (Hz-aware, ignores corner mass). NEUTRAL solves so both axles push the same actual damping force (Hz- and corner-mass-aware) — the most physically 'fair' baseline, useful when Sync's equal timing still leaves one end feeling harsher than the other. Under SETTLE TIME, only the axle REBOUND MODE anchors to is guaranteed to hit your target time exactly — the other axle's real time is whatever this mode's split produces, shown honestly in the readout below even when it isn't equal. The Damping Bias slider below works in all three modes and never resets when you switch between them — only the formula interpreting it changes."/>
             </div>
-            {(fe.settleMode||(fe.dampCharMode??'zeta')==='settle')
-              ? <FeelSlider label="Settle Bias" value={fe.settleBias??0}
-                  onChange={pFe('settleBias')} min={-50} max={50} step={1}
-                  leftLabel="FRONT" rightLabel="REAR"
-                  markers={[{value:0,color:'#94a3b8',label:'EQUAL'}]}
-                  readout={(()=>{
-                    return Math.abs(tune.settleF-tune.settleR)<0.01?'EQUAL':`F ${tune.settleF.toFixed(2)}s | ${tune.settleR.toFixed(2)}s R`;
-                  })()}
-                  hint="Biases settle time between front and rear. At centre (0), front and rear damp out in equal time. Left (FRONT) makes the front settle faster — sharper turn-in. Right (REAR) makes the rear settle faster — more rotation, looser rear end. The bias scales as 2× at ±50."/>
-              : <FeelSlider label="Damping Bias" value={-(fe.dampingBias??0)}
+            <div style={{display:'flex',gap:3,marginBottom:8}}>
+              <button className={`tog${(fe.dampBalMode??'standard')==='standard'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampBalMode:'standard'}))}>STANDARD</button>
+              <button className={`tog${(fe.dampBalMode??'standard')==='sync'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampBalMode:'sync'}))}>SYNC</button>
+              <button className={`tog${(fe.dampBalMode??'standard')==='neutral'?' on':''}`}
+                onClick={()=>setFe(p=>({...p,dampBalMode:'neutral'}))}>NEUTRAL</button>
+            </div>
+            {(()=>{
+              const charMode=fe.dampCharMode??'zeta';
+              const balMode=fe.dampBalMode??'standard';
+              const timeBased=charMode==='settle'||balMode==='sync';
+              const anchor=charMode==='settle'?'the Settle Target':'Rebound ζ';
+              const hint=balMode==='sync'
+                ?`SYNC: biases settle time between front and rear. At centre (0), front and rear damp out in equal time regardless of any Hz difference between them (anchored to ${anchor}). Left (FRONT) makes the front settle faster. Right (REAR) makes the rear settle faster. The bias scales as 2× at ±50.`
+                :balMode==='neutral'
+                ?`NEUTRAL: biases actual damping force between front and rear. At centre (0), both axles push the same physical force — accounts for Hz and corner mass, not just a raw ζ split (anchored to ${anchor}). Left (FRONT) shifts force toward the front. Right (REAR) shifts it toward the rear. The bias scales as 2× at ±50.`
+                :`Biases damping toward one axle by softening the opposite side. The biased axle stays at the base ζ (anchored to ${anchor}); the other drops up to 50% at ±50. Front bias: front stays firm, rear softens — understeer tendency, more stable overall. Rear bias: rear stays firm, front softens — oversteer tendency, looser rotation.`;
+              const readout=timeBased
+                ? (Math.abs(tune.settleF-tune.settleR)<0.01?'EQUAL':`F ${tune.settleF.toFixed(2)}s | ${tune.settleR.toFixed(2)}s R`)
+                : balMode==='neutral'
+                ? (()=>{
+                    const mF=(ch.weight/KG_TO_LB)*(ch.frontBias/100)/2,mR=(ch.weight/KG_TO_LB)*(1-ch.frontBias/100)/2;
+                    const fF=physics.zetaF*mF*tune.fHz,fR=physics.zetaR*mR*tune.rHz;
+                    const tot=fF+fR,fP=tot>0?Math.round(fF/tot*100):50;
+                    return Math.abs(fP-50)<1?'EQUAL':`F ${fP} | ${100-fP} R`;
+                  })()
+                : (()=>{const tot=physics.zetaF+physics.zetaR;const fP=tot>0?Math.round(physics.zetaF/tot*100):50;return`F ${fP} | ${100-fP} R`;})();
+              return(
+                <FeelSlider label="Damping Bias" value={-(fe.dampingBias??0)}
                   onChange={v=>pFe('dampingBias')(-v)} min={-50} max={50} step={1}
                   leftLabel="FRONT" rightLabel="REAR"
                   markers={[{value:0,color:'#94a3b8',label:'EQUAL'}]}
-                  readout={(()=>{const tot=physics.zetaF+physics.zetaR;const fP=tot>0?Math.round(physics.zetaF/tot*100):50;return`F ${fP} | ${100-fP} R`;})()}
-                  hint="Biases damping toward one axle by softening the opposite side. The biased axle stays at the base ζ; the other drops up to 50% at ±50. Front bias: front stays firm, rear softens — understeer tendency, more stable overall. Rear bias: rear stays firm, front softens — oversteer tendency, looser rotation."/>}
+                  readout={readout}
+                  hint={hint}/>
+              );
+            })()}
             {(()=>{
-              const biased=(fe.dampingBias??0)!==0||!!(fe.settleMode)||(fe.dampCharMode??'zeta')==='settle';
+              // Whether front/rear actually diverge — not just whether the bias slider is off
+              // centre. SYNC/NEUTRAL can diverge at bias 0 (Hz/mass differ even unbiased), and
+              // physics.zetaF/zetaR already reflect whichever REBOUND MODE + Damping Balance
+              // Mode combination is active, so checking them directly (rather than re-deriving
+              // "should differ" from fe.dampingBias) is the only condition that can't drift out
+              // of sync with the actual computed values.
+              const biased=Math.abs(physics.zetaF-physics.zetaR)>0.5;
               const worst=Math.max(tune.settleF,tune.settleR);
               const[cat,col]=worst<0.35?['PLANTED','#ef4444']:worst<0.60?['RACE','#f59e0b']:
                              worst<0.90?['SPORT','#9ca3af']:worst<1.30?['ROAD','#60a5fa']:['SOFT','#818cf8'];
@@ -5104,7 +5205,7 @@ function App(){
                   <div style={{display:'flex',alignItems:'center',marginBottom:biased?2:0}}>
                     {lbl('REB')}
                     {biased?<>{val(`${Math.round(physics.zetaF)}%`)}<div style={{flex:1}}/>{val(`${Math.round(physics.zetaR)}%`)}</>
-                           :<>{val(`${Math.round(physics.reboundZeta)}%`)}<div style={{flex:1,height:1,background:'#1e293b',margin:'0 6px'}}/><span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,marginRight:6}}>BUMP</span>{val(`${Math.round(physics.bumpZeta)}%`)}</>}
+                           :<>{val(`${Math.round(physics.zetaF)}%`)}<div style={{flex:1,height:1,background:'#1e293b',margin:'0 6px'}}/><span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,marginRight:6}}>BUMP</span>{val(`${Math.round(physics.bumpZetaF)}%`)}</>}
                   </div>
                   {biased&&(
                     <div style={{display:'flex',alignItems:'center',marginBottom:2}}>
@@ -5244,7 +5345,7 @@ function App(){
                     natBal={natMechBalance} target={feEffective.arbBalTarget} rideRef={physics.rideRef}/>
                 </div>
                 <div style={{flex:1,minWidth:0,display:'flex',justifyContent:'center'}}>
-                  <DampingDial rebound={(fe.dampCharMode??'zeta')==='settle'?Math.round(physics.zetaF):(fe.reboundZeta??70)} bump={(fe.dampCharMode??'zeta')==='settle'?Math.round(physics.bumpZetaF):physics.bumpZeta}/>
+                  <DampingDial rebound={Math.round(physics.zetaF)} bump={Math.round(physics.bumpZetaF)}/>
                 </div>
               </div>}
 
@@ -5478,7 +5579,8 @@ function App(){
           {/* headerRight: F/R bias is the front axle's share of total ζ, not the raw
               dampingBias input — 50% is balanced, above is front-biased. Same formula as
               the Damping Bias slider's own readout, and unlike the raw input it stays
-              truthful under SETTLE mode, where settleBias drives the split instead.
+              truthful under SYNC/NEUTRAL Damping Balance Mode or SETTLE TIME character mode,
+              where the Damping Bias slider drives a Hz/mass-aware split instead of a raw %.
               Bump Ratio is only actually applied in 'ratio' damping mode; under
               INDEPENDENT the bump ζ is set directly, so showing a ratio there would be a lie. */}
           <Card title="DAMPERS" accent
@@ -6150,8 +6252,7 @@ function App(){
                   bDiffFront={diff.bDiffFront} bDiffRear={diff.bDiffRear}
                   diffLayout={diff.layout}
                   bBrakeEntry={bBrakeEntry} bDampBias={bDampBias}
-                  gripBalance={tune.gripBalance} uiMode={uiMode}
-                  settleDamping={(fe.dampCharMode??'zeta')==='settle'||!!(fe.settleMode)}/>
+                  gripBalance={tune.gripBalance} uiMode={uiMode}/>
                 {/* RESPONSE factor breakdown */}
                 {(()=>{
                   const{score,fHzNorm,rHzNorm,dampFNorm,dampRNorm,toeNorm,casterNorm}=responseFactors;

@@ -66,8 +66,8 @@ future version might not carry.
 | 45 | dr | diffComplement | bool |
 | 46 | fe | arbManF | raw number |
 | 47 | fe | arbManR | raw number |
-| 48 | fe | settleBias | raw number |
-| 49 | fe | settleMode | bool |
+| 48 | fe | settleBias | raw number — **decode-only**, see semantic-change note below |
+| 49 | fe | settleMode | bool — **decode-only**, see semantic-change note below |
 | 50 | fe | settleTarget | raw number |
 | 51 | fe | dampCharMode | enum (`{zeta:0,settle:1}`) |
 | 52 | dr | diffType | enum (`DIFF_TYPE_ENC/DEC`) |
@@ -80,8 +80,9 @@ future version might not carry.
 | 59 | ch | motionRatioR | raw number |
 | 60 | ch | useMeasuredNatBal | bool |
 | 61 | ch | measuredNatBal | raw number |
+| 62 | fe | dampBalMode | enum (`DAMP_BAL_MODE_ENC/DEC`) |
 
-**Next available id: 62.**
+**Next available id: 63.**
 
 Ids 58/59 are `group:'ch'` because a motion ratio describes the car's suspension
 geometry, so it travels with a chassis entry rather than a tune — same reasoning
@@ -154,6 +155,21 @@ reinterprets old codes under new rules. Two examples so far:
   reading when set) instead of raw `ch.frontBias` — see
   [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for why WEIGHT itself was deliberately
   left on the simpler raw-weight formula rather than switched over.
+- **ids 48/49 (`settleBias`/`settleMode`) → id 62 (`dampBalMode`)** — the
+  boolean "Settle Sync" toggle (id 49) plus its own bias field (id 48) were
+  replaced by a 3-way Damping Balance Mode (STANDARD/SYNC/NEUTRAL, id 62)
+  that shares the existing `dampingBias` field (id 33) instead of a second
+  one. Both old ids stay in `CODEC_FIELDS` purely so old codes still decode
+  the raw values — `sanitizeTune` immediately migrates them: a decoded
+  `settleMode:true` becomes `dampBalMode:'sync'`, and its `settleBias` value
+  (sign-flipped to the unified field's storage convention — the slider
+  displays `-dampingBias`) overwrites whatever `dampingBias` (id 33) the code
+  also carried, since the Settle Bias value was the one actually driving the
+  car at save time. A matching one-time migration effect in `App()` does the
+  same for plain persisted state. New codes never emit ids 48/49 — `dampBalMode`/
+  `dampingBias` are the only fields written going forward. See
+  [SLIDERS.md](SLIDERS.md) for the three modes and [FORMULAS.md](FORMULAS.md)
+  for how `bDampBias` reads the result.
 - **id 15 (`arbMode`) `'basic'`** — new mode (index 5), added alongside new
   id 57 (`arbBasicMan`). Sets an ARB roll-stiffness budget directly as a
   0–100% level (0%≈1 click, 100%≈`lim.arb` clicks, at a neutral front/rear
