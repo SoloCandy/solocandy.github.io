@@ -52,6 +52,11 @@ const bDampBias = -(tune.zetaF - tune.zetaR) * 16 / effectiveAvgZeta;
   this formula doesn't care how they were derived, only their final values —
   same reasoning as `bSp`/`bAb` not caring which ARB Balance Mode produced
   the roll-stiffness split feeding them.
+- `tune.zetaF`/`tune.zetaR` are also back-calculated from the final, clamped
+  click values (`impliedZeta`, see [PHYSICS.md](PHYSICS.md)) rather than the
+  pre-clamp target, so `bDampBias` reflects the damping the displayed click
+  values will actually produce in-game — same treatment `rsAbF`/`rsAbR`
+  already get for ARB.
 
 ## Brakes (`bBrakeEntry`)
 

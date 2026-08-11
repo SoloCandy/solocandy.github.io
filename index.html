@@ -289,6 +289,16 @@ const solveDampRaw=(hz,mass,z,calib=DAMPING_CALIBRATION)=>{
   const wr=Math.pow(hz*2*Math.PI,2)*mass,cc=2*Math.sqrt(wr*mass);
   return cc*(z/100)*calib; // truly unclamped — bounds applied after proportional scaling
 };
+// Inverse of solveDampRaw: the ζ that a given click/coefficient value actually represents, at
+// this axle's Hz and mass. Used to back-calculate ζ from the final, clamped/rounded damper
+// value rather than trust the pre-clamp target — same reasoning as computeTune recomputing
+// rsAbF/rsAbR from the clamped ARB click values instead of the pre-clamp roll-stiffness target
+// (see docs/PHYSICS.md): the ζ% shown should describe what the displayed click value actually
+// does, not what was originally asked for before Forza's 1..lim.damping range clipped it.
+const impliedZeta=(v,hz,mass,calib=DAMPING_CALIBRATION)=>{
+  const wr=Math.pow(hz*2*Math.PI,2)*mass,cc=2*Math.sqrt(wr*mass);
+  return cc>0&&calib>0?v*100/(cc*calib):0;
+};
 // Equal-<metric> damping ratios anchored to the ride-reference axle, generalized over whatever
 // per-axle "weight" wF/wR the caller wants zeta·weight held equal against. The reference axle
 // (the one the stiffness slider anchors) holds refZeta; the other axle's zeta is derived so
@@ -753,6 +763,18 @@ const computeTune=(ch,phys,gameMode)=>{
   const bumpF=clampDamp(rawBmpF,bmpScale);
   const bumpR=clampDamp(rawBmpR,bmpScale);
   const dampingClamped=rebScale!==1||bmpScale!==1;
+  // Back-calculate ζ from the final, clamped/rounded click values rather than trust the
+  // pre-clamp target — same treatment computeTune already gives ARB (rsAbF/rsAbR are
+  // recomputed from the clamped click values, not the pre-clamp roll-stiffness target, "so the
+  // balance bar shows what the game will really do"). Everything downstream of this point
+  // (settleF/settleR, the output cards' ζ% sub-labels, bDampBias) now describes the damping the
+  // displayed click value actually produces, not what was asked for before the game's
+  // 1..lim.damping range (or the 0.1-click rounding) touched it. A no-op whenever
+  // dampingClamped is false beyond sub-0.1% rounding noise.
+  zetaF=impliedZeta(rebF,fHz,m.front,dampCalib);
+  zetaR=impliedZeta(rebR,effectiveRHz,m.rear,dampCalib);
+  bumpZetaF=impliedZeta(bumpF,fHz,m.front,dampCalib);
+  bumpZetaR=impliedZeta(bumpR,effectiveRHz,m.rear,dampCalib);
   const wrFN=Math.pow(fHz*2*Math.PI,2)*m.front,wrRN=Math.pow(effectiveRHz*2*Math.PI,2)*m.rear;
   const rsSpF=(wrFN*ch.trackF*ch.trackF)/2,rsSpR=(wrRN*ch.trackR*ch.trackR)/2;
   const rsSp=rsSpF+rsSpR;

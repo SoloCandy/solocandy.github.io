@@ -267,6 +267,33 @@ inferred FWD vs RWD/AWD from the total's sign rather than checking
 corrected formula. Verified via `tests.js`'s `computeDiff` layout-sign
 suite (`RWD: bDiffDecel negative (understeer) at high lock`).
 
+## Fixed — damping ζ% output showed the pre-clamp target, not what the click value actually does (resolved)
+
+Found immediately after the Damping Balance Mode work above, via a direct design question: ARB
+already has a deliberate, documented precedent for this (`rsAbF`/`rsAbR` are recomputed from
+the clamped, rounded ARB click values rather than the pre-clamp roll-stiffness target — "so the
+balance bar shows what the game will really do," see the BeamNG plan's correction #4 in git
+history and [PHYSICS.md](PHYSICS.md)). Damping never got the same treatment: `computeTune`
+solved `zetaF`/`zetaR`/`bumpZetaF`/`bumpZetaR` once, used them to compute the raw damper
+coefficient, scaled/clamped/rounded *that* into the final `rebF`/`rebR`/`bumpF`/`bumpR` click
+values — and then kept displaying the original pre-clamp ζ everywhere (output card sub-labels,
+`settleF`/`settleR`, and `bDampBias`'s Handling Balance contribution), even when clamping had
+silently pulled the real value far below it. A car requesting 115% ζ on a heavy build could
+clamp to 18.1/20.0 clicks (a real ζ of ~17%) while every ζ% readout in the app kept saying 115%.
+
+Fixed by adding `impliedZeta` (the exact inverse of `solveDampRaw`) and reassigning
+`zetaF`/`zetaR`/`bumpZetaF`/`bumpZetaR` from the final click values immediately after they're
+solved, so everything computed from them afterward — `settleF`/`settleR`, the output cards,
+`bDampBias` — describes the click value actually shown, not the target that produced it before
+clamping. Verified live: the 115%-target/heavy-car scenario above now correctly reads 17% ζ on
+both axles (front and rear converge on the *same* implied ζ despite different Hz/mass and
+different final click values, since `solveDampRaw` is linear in ζ — a proportional click
+scale-down is mathematically identical to scaling ζ by the same factor). An unclamped scenario
+is unaffected beyond ~0.1-click rounding noise. Four regression tests added to `tests.js`
+(`impliedZeta — inverse of solveDampRaw...`): a round-trip identity check, a clamped scenario
+confirming the implied ζ lands well below an unreachable target, and an unclamped scenario
+confirming near-exact agreement.
+
 ## Fixed — Damping Balance Mode was hardcoded to SYNC-equivalent under SETTLE TIME (resolved)
 
 Shipped alongside the Damping Balance Mode feature and caught the same day, before release,

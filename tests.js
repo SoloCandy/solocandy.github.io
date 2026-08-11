@@ -624,6 +624,57 @@ console.log('\nSETTLE TIME mode: bumpZeta anchors to baseZeta, not raw reboundZe
   assertEq('fixed bumpZetaF at high Hz is not the stale CHARACTER-default value', Math.abs(splitHi.bumpZetaF - bumpZeta_buggy) > 5, true);
 }
 
+// ── impliedZeta — ζ% output cards must describe the actual clamped click value ─────────────
+//
+// computeTune already recomputes rsAbF/rsAbR from the clamped ARB click values rather than the
+// pre-clamp roll-stiffness target, "so the balance bar shows what the game will really do" (see
+// docs/PHYSICS.md). Damping ζ% didn't get the same treatment — the output cards' "170% ζ"-style
+// sub-labels showed the pre-clamp target even when Forza's 1..lim.damping range (or 0.1-click
+// rounding) had already clipped the real value well below it. `impliedZeta` inverts
+// `solveDampRaw` so computeTune can back-calculate ζ from the final rebF/rebR/bumpF/bumpR
+// instead.
+
+console.log('\nimpliedZeta — inverse of solveDampRaw, back-calculates ζ from a clamped click value');
+{
+  // Mirror of app's solveDampRaw/impliedZeta (index.html).
+  const solveDampRaw = (hz, mass, z, calib) => {
+    const wr = Math.pow(hz * 2 * Math.PI, 2) * mass, cc = 2 * Math.sqrt(wr * mass);
+    return cc * (z / 100) * calib;
+  };
+  const impliedZeta = (v, hz, mass, calib) => {
+    const wr = Math.pow(hz * 2 * Math.PI, 2) * mass, cc = 2 * Math.sqrt(wr * mass);
+    return cc > 0 && calib > 0 ? v * 100 / (cc * calib) : 0;
+  };
+
+  const hz = 2.10, mass = 350, calib = DAMPING_CALIBRATION;
+  // Heavier corner mass for the clamping scenario below — needs a raw value that actually
+  // exceeds the click ceiling to exercise the scale-down path (350kg alone doesn't).
+  const heavyMass = 2000;
+
+  // Round-trip: solving forward then immediately inverting must recover the original ζ exactly
+  // (no clamping involved yet — this just proves the two functions are true inverses).
+  const zTarget = 70;
+  const raw = solveDampRaw(hz, mass, zTarget, calib);
+  assert('round-trip: impliedZeta(solveDampRaw(z)) recovers z exactly', impliedZeta(raw, hz, mass, calib), zTarget, 1e-9);
+
+  // The actual bug scenario: a target ζ that produces a raw value above the game's click
+  // ceiling gets scaled down before display. The ζ% shown must reflect that scaled-down value,
+  // not the original (unreachable) target.
+  const lim = 20;
+  const rawHigh = solveDampRaw(hz, heavyMass, 115, calib); // heavy corner + high ζ → exceeds lim
+  const scale = rawHigh > lim ? lim / rawHigh : 1;
+  const clickShown = Math.min(lim, Math.max(1, Math.round(rawHigh * scale * 10) / 10));
+  const impliedZ = impliedZeta(clickShown, hz, heavyMass, calib);
+  assertEq('clamped scenario: implied ζ is well below the unreachable 115% target', impliedZ < 100, true);
+  assert('clamped scenario: implied ζ matches target·scale (proportional scaling is linear in ζ)', impliedZ, 115 * scale, 0.5);
+
+  // Unclamped scenario: implied ζ matches the target almost exactly (only 0.1-click rounding
+  // noise, not a meaningful discrepancy).
+  const rawLow = solveDampRaw(hz, mass, 70, calib);
+  const clickLow = Math.round(rawLow * 10) / 10; // no scaling needed, well under lim
+  assert('unclamped scenario: implied ζ matches target within rounding noise', impliedZeta(clickLow, hz, mass, calib), 70, 0.5);
+}
+
 // ── computeDiff — layout-dependent lock and balance-contribution signs ─────────
 
 console.log('\ncomputeDiff — layout signs');

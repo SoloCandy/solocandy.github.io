@@ -60,6 +60,33 @@ clamping single-value helper — a `solveDamp` that did its own clamp existed
 once but had no callers left and was removed. `tests.js` still mirrors that
 older shape; see the note above its copy there.
 
+### `impliedZeta` — back-calculating ζ from the final click value
+
+```js
+impliedZeta(v, hz, mass, calib) = v * 100 / criticalDamping(hz, mass) / calib
+```
+
+The exact inverse of `solveDampRaw`. Once `rebF`/`rebR`/`bumpF`/`bumpR` are
+solved (scaled and clamped to `1..lim.damping`, then 0.1-click rounded),
+`computeTune` reassigns `zetaF`/`zetaR`/`bumpZetaF`/`bumpZetaR` by running
+each final click value back through `impliedZeta` — so everything
+downstream of that point (`settleF`/`settleR`, the output cards' ζ%
+sub-labels, `bDampBias`) describes the damping the *displayed* click value
+actually produces, not the pre-clamp target that was originally solved
+for. Same treatment `rsAbF`/`rsAbR` already get for ARB (recomputed from
+the clamped click values rather than the pre-clamp roll-stiffness target,
+"so the balance bar shows what the game will really do").
+
+Because `solveDampRaw` is linear in `z`, a uniform proportional scale-down
+(`dampScale`) applied to the raw value is mathematically identical to
+scaling ζ itself by the same factor — so front and rear converge on the
+*same* implied ζ when they were clamped from the same target, even though
+their Hz/mass differ and their final click values differ. A car requesting
+115% ζ on both axles but hitting the 1–20 click ceiling might show 18.1/20.0
+clicks and **17%** ζ on both — a large, meaningful gap from the nominal
+115% target, not rounding noise. In the unclamped case this is a no-op
+beyond ~0.1-click rounding.
+
 ## Physical-unit output (`beamng` game mode)
 
 Both Forza modes express springs, dampers and ARBs as abstract "clicks" on a
