@@ -80,8 +80,10 @@ computeAlignment(ch, tune, layout, …)  → camber/toe/caster, from the tune
 Supporting: `rsToHz`/`hzToRs`, `flatRideRearHz`, `flatRideSharedHz`,
 `solveSpring`, `solveDampRaw`, `settleZetas`, `cornerMasses`,
 `rollCenterHeight`, `parseTyre`, `mechBalanceLLT`, `balanceFromRsBal`,
-`naturalMechBalanceOf`, `resolveArbBalTarget`. `computeCheck` backs the TUNE
-CHECK reverse calculator.
+`naturalMechBalanceOf`, `resolveArbBalTarget`, `resolveCoSolveSpringShare`
+(CO-SOLVE's Auto Spring Share search — shared by `feelToPhysics`'s Kcs
+pre-inversion and `computeTune`'s `effectiveRHz` solve so both agree on the
+same spring share). `computeCheck` backs the TUNE CHECK reverse calculator.
 
 In `App()` the chain is `feelToPhysics` → `computeTune` → everything else,
 each in its own `useMemo`.

@@ -42,20 +42,16 @@ resolving this needs to split "ARB-derived readouts" (stale under MAN)
 from "Hz-derived readouts" (still live) rather than one on/off flag —
 left as a follow-up, not fixed here.
 
-## Fixed — `showTgt` still used the pre-fix narrow gate (resolved)
-
-A follow-up review of the entry above found `showTgt` (the Balance Guide
-widget's own "is a target active" check, main output panel) never actually
-picked up the broadened gate the other three checks got. It still read
-`... || (arbMode==='man' && rearHzMode==='mech')` — the Hz-MECH clause
-restricted to MAN — while `hasMechTarget`/`_hasMechTarget` (and
-`feelToPhysics`'s actual spring-Hz solve) correctly treat `rearHzMode==='mech'`
-as unconditional, independent of Stiffness Mode. Concretely: with
+**Follow-up review found a fifth site the fix above missed:** `showTgt`
+(the Balance Guide widget's own "is a target active" check, main output
+panel) still read `... || (arbMode==='man' && rearHzMode==='mech')` — the
+Hz-MECH clause restricted to MAN — while the four sites above correctly
+treat `rearHzMode==='mech'` as unconditional. Concretely: with
 `arbMode='auto'` and `rearHzMode='mech'`, the spring-Hz solve was actively
-targeting Mech Balance and the BALANCE section showed the target controls as
-live, but the widget's own TGT marker stayed hidden — contradicting the
-sidebar one screen away. Fixed by dropping the `arbMode==='man'&&` restriction
-so `showTgt` matches `hasMechTarget`. Verified in-app: AUTO stiffness mode +
+targeting Mech Balance and the BALANCE section showed live target controls,
+but the widget's own TGT marker stayed hidden — contradicting the sidebar
+one screen away. Fixed by dropping the `arbMode==='man'&&` restriction so
+`showTgt` matches `hasMechTarget`. Verified in-app: AUTO stiffness mode +
 MECH Hz mode now shows TARGET in the BALANCE GUIDE strip instead of CURRENT.
 
 ## Fixed — GRIP mode's resolved target wasn't reaching several read sites (resolved)
@@ -215,28 +211,22 @@ longer shows PUSH/ROTATION specifically — but the underlying sign-flip
 logic and this verification are unaffected, since only the label text
 changed, not the polarity.)
 
-## Fixed — Test coverage gap: `computeDiff` now covered (resolved)
+## Fixed — Test coverage gaps: `computeDiff` and `computeAlignment` now covered (resolved)
 
-`tests.js` now includes a `computeDiff` suite: layout-dependent lock/balance
-signs for RWD/FWD/AWD, diff type scaling (drift/offroad vs race), SPORT's
-decel lockout, MANUAL mode bypassing MATCH CHASSIS, and — critically — a
-regression guard for the MATCH CHASSIS FWD-polarity bug above (asserts
-"FWD + MATCH CHASSIS + oversteer-wanting target → lower front lock than
-baseline, not higher"). This is exactly the test that would have caught
-that bug immediately instead of it surviving until manual testing.
+`tests.js` gained suites for both, previously untested:
 
-## Fixed — Test coverage gap: `computeAlignment` now covered (resolved)
-
-`tests.js` now includes a `computeAlignment` suite: roll/CG-height
-compensation, layout-dependent camber gain ordering (FWD least reactive,
-RWD most), the front camber clamp floor, toe front/rear lookup-table
-sanity, caster's FWD flat reduction and front-bias scaling, and a
-regression guard for the Drift/Drag frozen-camber bug above (asserts both
-now vary with roll angle instead of staying frozen). Writing these tests
-also caught a real error in this file's own toe-front documentation (see
-[ALIGNMENT.md](ALIGNMENT.md) — the `(fHz-1.8)×0.010` term's direction was
-written backwards; verifying against the formula while writing the test
-caught it).
+- **`computeDiff`**: layout-dependent lock/balance signs for RWD/FWD/AWD,
+  diff type scaling (drift/offroad vs race), SPORT's decel lockout, MANUAL
+  mode bypassing MATCH CHASSIS, and a regression guard for the MATCH
+  CHASSIS FWD-polarity bug above — exactly the test that would have caught
+  it immediately instead of it surviving until manual testing.
+- **`computeAlignment`**: roll/CG-height compensation, layout-dependent
+  camber gain ordering (FWD least reactive, RWD most), the front camber
+  clamp floor, toe front/rear lookup-table sanity, caster's FWD flat
+  reduction, and a regression guard for the Drift/Drag frozen-camber bug
+  above. Writing it also caught a real error in this file's own toe-front
+  documentation (see [ALIGNMENT.md](ALIGNMENT.md) — the `(fHz-1.8)×0.010`
+  term's direction was written backwards).
 
 ## Fixed — `bDiffDecel` pushed the same direction as `bDiffAccel` instead of resisting it (resolved)
 
@@ -567,34 +557,18 @@ its own merits, unaffected by that change.)
 
 ## Fixed — Dead-code audit (resolved)
 
-A full pass over `index.html` removed code that no consumer referenced. The
-itemised inventory lives in the commit messages (`git log --grep "Dead-code
-cleanup"`), where `git log -S<identifier>` can find any individual removal.
-Summary by kind:
-
-- **Unreferenced scalars** — `HZ_RANGE`, `ALIGN_MODE_ENC`, the `useCallback`
-  React import, `solveDamp`, `gameLim`, `wheelStep`, `isCoSolve`, the
-  `lightShare`/`heavyShare`/`lightTrack`/`heavyTrack` quartet in
-  `computeTune`, a dead `secLabel`/`secHz` pair, and unused `riskOf` colour
-  bindings.
-- **Dead object keys** — `R` off `_dialBase`'s result, `refCornerMassF` and
-  `notes` on all six `PRESET_SAVES` entries, and `settleTarget` re-exported
-  from `feelToPhysics` (the local and `fe.settleTarget` are both still live).
-  *(Forward note: the `notes` removed here is unrelated to the `notes` field on
-  unified GARAGE entries added later — that one is live user data. Same name,
-  different thing; don't remove it on a future sweep.)*
-- **Dead component surface** — `Sec`'s `extra` prop, `FeelSlider`'s
-  `centered` prop and its unreachable gradient branch, `HandlingVerdict`'s
-  `mechBalance` panel (its only caller passed a literal `null`), and unused
-  bindings in the RESPONSE breakdown's destructuring.
-- **Dead props at call sites** — `frontBias` passed to `SpringDial` and
-  `ArbDial`, neither of which declares it.
-- **Two large blocks** — a tyre-width recommendation chain in
-  `chassisAnalysis` computed on every render and discarded, and the ~20-binding
-  prologue of the PRO TYRE SIZE IIFE, whose live twin now sits ~550 lines
-  further down. The latter also destructured a `gap` key that
-  `chassisAnalysis` does not return, so its `showRec` guard was permanently
-  false.
+A full pass over `index.html` removed code that no consumer referenced —
+unreferenced scalars and constants, dead object keys (including
+`PRESET_SAVES`' unused `notes` field — *not* the same `notes` field later
+added to unified GARAGE entries, which is live user data; same name,
+different thing, don't remove it on a future sweep), dead component props,
+and two large discarded blocks (a duplicate tyre-width recommendation chain,
+and a ~20-binding IIFE prologue whose live twin sat ~550 lines further
+down and had already drifted — it destructured a `gap` key
+`chassisAnalysis` doesn't return, so its guard was permanently false). The
+full itemised inventory lives in the commit messages, not here — `git log
+--grep "Dead-code cleanup"` for the pass, `git log -S<identifier>` for any
+individual removal.
 
 **Why this needed a custom verification method.** `tests.js` cannot detect
 breakage in `index.html` (it duplicates the physics rather than importing
@@ -848,23 +822,40 @@ in either `LB_IN_TO_NM` or the divisor is caught. The MET assertion in
 `springOut`'s test was also strengthened — it compared the function against the
 same constant the function uses, so it passed under any value and pinned nothing.
 
-## Fixed — MAN ARB fields accepted clicks MOTORSPORT would silently discard (resolved)
+## Fixed — MAN ARB fields didn't respect the per-game click ceiling (resolved)
 
-The Stiffness Mode MAN inputs hardcoded `max={65}` — `GAME_LIMITS.horizon.arb`.
-In MOTORSPORT the ceiling is 40, and `computeTune` clamps both bars to
-`lim.arb`, so anything typed between 41 and 65 was accepted by the field,
-stored in `fe.arbManF`/`arbManR`, and then quietly thrown away before it
-reached the output. The field's own hint ("Front ARB clicks (manual)") named
-no limit, so nothing on screen contradicted the wrong number.
+Two bugs, found months apart, in the same theme: the MAN-mode ARB click
+fields (`fe.arbManF`/`arbManR`) getting out of sync with the game's actual
+ceiling (`lim.arb`, 65 for HORIZON / 40 for MOTORSPORT).
 
-Fixed by binding `max` to `lim.arb` and stating the ceiling in the hint, the
-same way the BASIC mode hint already interpolates `${lim.arb}`. Switching game
-modes now visibly re-clamps the field instead of changing the answer silently.
+1. **The field accepted clicks MOTORSPORT would silently discard.** The
+   input hardcoded `max={65}` — `GAME_LIMITS.horizon.arb` — so in
+   MOTORSPORT (ceiling 40) anything typed between 41 and 65 was accepted,
+   stored, and then quietly thrown away by `computeTune`'s `lim.arb` clamp
+   before it reached the output; the field's hint named no limit, so
+   nothing on screen contradicted the wrong number. Fixed by binding `max`
+   to `lim.arb` and stating the ceiling in the hint, the same way BASIC
+   mode's hint already interpolates `${lim.arb}`.
+2. **Switching between the two Forza modes didn't reclamp an existing
+   value.** A React input's `max` attribute doesn't retroactively clamp a
+   value already sitting in state, and the migration effect that converts
+   these fields only fires on the *physical vs. click-scale* boundary
+   (e.g. BeamNG↔Forza, the only transition where what the field's units
+   *mean* changes) — not on a HORIZON↔MOTORSPORT switch. Concretely: set
+   MAN ARB F to 55 under HORIZON, switch to MOTORSPORT — the field kept
+   showing 55 while `computeTune` silently clamped the real output to 40,
+   displayed value and actual output disagreeing with no visible
+   indication. Fixed by adding a second effect, keyed on `fe.gameMode`
+   rather than the physical/click-scale boundary, that clamps
+   `arbManF`/`arbManR` to the new mode's `lim.arb` whenever the
+   destination is non-physical and Stiffness Mode is MAN.
 
-Found during the hints/glossary audit. The general lesson matches the
-`arbCtx`/`lim.arb` pattern used everywhere else: a game-mode-dependent limit
-should never be written as a literal, because only one of the two modes will
-be right.
+General lesson (part 1) matches the `arbCtx`/`lim.arb` pattern used
+everywhere else: a game-mode-dependent limit should never be written as a
+literal, because only one of the two modes will be right. Lesson (part 2):
+binding an input's `max` fixes new entry, not values already in state —
+a ceiling that can change at runtime needs its own reclamp effect, not just
+a tighter `max`.
 
 ## Fixed — GEOMETRY GAP readout could never show a negative sign (resolved)
 
@@ -991,25 +982,6 @@ own auto-share estimate. Guarantees both call sites converge on the same
 (`springShareAuto:false`) still solves the rear Hz to the exact slider
 target; the auto-share path now converges to within the 2-pass
 approximation instead of the previous ~4% miss.
-
-## Fixed — MAN ARB fields weren't reclamped when switching between two Forza modes with different ceilings (resolved)
-
-A gap in "MAN ARB fields accepted clicks MOTORSPORT would silently discard"
-above — that fix bound the field's `max` to `lim.arb`, but a React input's
-`max` attribute doesn't retroactively clamp a value already sitting in
-state, and nothing reclamped `fe.arbManF`/`arbManR` on a HORIZON↔MOTORSPORT
-switch specifically (the migration effect that converts these fields only
-fires on the *physical vs. click-scale* boundary, e.g. BeamNG↔Forza, since
-that's the only transition where what the field's units *mean* changes).
-Concretely: set MAN ARB F to 55 clicks under HORIZON (ceiling 65), switch to
-MOTORSPORT (ceiling 40) — the field kept showing 55 while `computeTune`
-silently clamped the real output to 40, so the displayed value and the
-actual tuning output disagreed with no visible indication.
-
-Fixed by adding a second effect, keyed on `fe.gameMode` rather than the
-physical/click-scale boundary, that clamps `arbManF`/`arbManR` to the new
-mode's `lim.arb` whenever the destination is a non-physical mode and
-Stiffness Mode is MAN.
 
 ## Fixed — LOAD CODE for CHASSIS reset the locally-calibrated ride-height CG fields (resolved)
 

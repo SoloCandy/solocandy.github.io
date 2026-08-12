@@ -32,3 +32,13 @@ Two habits worth keeping: record *why* something non-obvious stays (CODE_MAP's
 "intentionally-retained legacy" section exists so the next audit doesn't delete
 load-bearing code), and don't put line numbers in docs — they go stale within a
 commit or two. Reference identifiers instead.
+
+## Navigating `index.html`
+
+It's a single ~6,600-line file (all JS/JSX/styles inline, no build step —
+deliberate, for zero-friction static hosting). Prefer `Grep` for a specific
+symbol, constant, or string over reading large line ranges — the file already
+has unique function names and banner comments (`── section name ──`) meant to
+be grepped. `docs/CODE_MAP.md`'s "Region order" and "Pure physics entry
+points" sections are the anchor list; check there first for where something
+lives before searching blind.
