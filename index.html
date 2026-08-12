@@ -359,9 +359,13 @@ const feelToPhysics=(ch,fe)=>{
     // Match computeTune: subtract the same tyre-width correction so Kcs is consistent.
     const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
     const tireCorr=TIRE_MECH_SCALE*Math.log(twR/twF);
-    const rst=Math.max(0.001,Math.min(0.999,abt-tireCorr));
     const A=mc.rear*ch.trackR*ch.trackR/(mc.front*ch.trackF*ch.trackF); // natural rear/front roll-stiffness ratio (no width)
-    const Rbl=A/(1+A);
+    const Rbl=A/(1+A); // geometric equal-Hz, zero-ARB ratio — the real "no correction" spring state
+    // MEASURE NAT BAL calibrates naturalMechBalanceOf away from this geometric estimate — treat
+    // the gap as a constant offset (same treatment as tireCorr) so a target sitting exactly on
+    // NAT needs no correction. See resolveCoSolveSpringShare for the full rationale.
+    const natOffset=naturalMechBalanceOf(ch)-Rbl;
+    const rst=Math.max(0.001,Math.min(0.999,abt-tireCorr-natOffset));
     const springShareAuto=fe.springShareAuto!==false;
     const csArbMode=fe.arbMode??'auto';
     const csOpts={arbBalTarget:abt,arbMode:csArbMode,
@@ -644,9 +648,15 @@ const resolveCoSolveSpringShare=(ch,fHz,opts,gameMode)=>{
   const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
   const tireCorr=TIRE_MECH_SCALE*Math.log(twR/twF);
   const rsSpF_cs=Math.pow(fHz*2*Math.PI,2)*m.front*ch.trackF*ch.trackF/2;
-  const targetRsBalance=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr));
   const rsSpR_base=Math.pow(fHz*2*Math.PI,2)*m.rear*ch.trackR*ch.trackR/2;
-  const R_baseline=rsSpR_base/(rsSpF_cs+rsSpR_base);
+  const R_baseline=rsSpR_base/(rsSpF_cs+rsSpR_base); // geometric equal-Hz, zero-ARB ratio — the real "no correction" spring state
+  // MEASURE NAT BAL calibrates naturalMechBalanceOf away from the geometric estimate above (the
+  // real car's roll stiffness includes factors the track/mass formula can't see). Treat the gap
+  // as a constant offset — same treatment as tireCorr below — so a target sitting exactly on NAT
+  // (0 delta) collapses back to R_baseline and needs no correction, instead of CO-SOLVE "fixing"
+  // a gap between our geometry estimate and the measured reading that isn't a real tuning need.
+  const natOffset=naturalMechBalanceOf(ch)-R_baseline;
+  const targetRsBalance=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr-natOffset));
   let S;
   if(springShareAuto){
     // See computeTune's prior inline version (moved here unchanged) for the full derivation.
@@ -668,7 +678,7 @@ const resolveCoSolveSpringShare=(ch,fHz,opts,gameMode)=>{
         :arbMode==='basic'?_basicBudget
         :rsSp_s*(sh/(1-sh));
       if(budget_s<=0) return{spUtil,abUtil:0};
-      const _mTgt=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr));
+      const _mTgt=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr-natOffset));
       const _K=_mTgt/(1-_mTgt);
       const rF_s=Math.max(0,Math.min(1,(_K*(rsSpF_s+budget_s)-rsSpRs)/(budget_s*(1+_K))));
       const abF_s=budget_s*(1-rF_s)/(ARB_RS_SCALE*ch.trackF*ch.trackF);
@@ -704,6 +714,11 @@ const computeTune=(ch,phys,gameMode)=>{
   // Pre-compensate the solve target so Forza reads the desired value after tuning.
   const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
   const tireCorr=TIRE_MECH_SCALE*Math.log(twR/twF);
+  // MEASURE NAT BAL calibrates naturalMechBalanceOf away from the geometric equal-Hz/zero-ARB
+  // estimate below — treat the gap as a constant offset (same treatment as tireCorr) so a target
+  // sitting exactly on NAT needs no correction. See resolveCoSolveSpringShare for the rationale.
+  const _natGeom=(m.rear*ch.trackR*ch.trackR)/(m.front*ch.trackF*ch.trackF+m.rear*ch.trackR*ch.trackR);
+  const natOffset=naturalMechBalanceOf(ch)-_natGeom;
   // CO-SOLVE: solve rear Hz from spring share + mech balance target before anything else
   let effectiveRHz=rHz;
   let coSolveR_baseline=null; // spring-only balance at equal Hz (S=0 baseline), captured for contribution readout
@@ -793,7 +808,7 @@ const computeTune=(ch,phys,gameMode)=>{
   let rF=arbBalance/100;
   let _rsBalK=null;
   if((arbBalMode==='mech'||arbBalMode==='coSolve')&&rsAbBudget>0){
-    const _mechTgt=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr)); // pre-compensate for tyre-width offset
+    const _mechTgt=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr-natOffset)); // pre-compensate for tyre-width and NAT-BAL calibration offsets
     _rsBalK=_mechTgt/(1-_mechTgt); // convert rsBalance to Kr/Kf ratio
     rF=Math.max(0,Math.min(1,(_rsBalK*(rsSpF+rsAbBudget)-rsSpR)/(rsAbBudget*(1+_rsBalK))));
   } else if(arbBalMode==='neutral'){
@@ -889,7 +904,7 @@ const computeTune=(ch,phys,gameMode)=>{
   // Roll-stiffness rear fraction — matches what Forza displays as "Mech Balance".
   const rsKf=rsSpF+rsAbF,rsKr=rsSpR+rsAbR;
   const rsBalance=rsKf+rsKr>0?rsKr/(rsKf+rsKr):1-ch.frontBias/100;
-  const mechBalance=Math.max(0,Math.min(1,rsBalance+tireCorr));    // tyre-width corrected: matches Forza's displayed mech balance
+  const mechBalance=Math.max(0,Math.min(1,rsBalance+tireCorr+natOffset));    // tyre-width and NAT-BAL corrected: matches Forza's displayed mech balance
   const gripBalance=balanceFromRsBal(ch,rsBalance);                // physical at-limit balance from LLT model (informational)
   // MAN ARB stiffness bypasses the budget/split solve entirely (see arbMode==='man' branch
   // above), so a leftover arbBalMode of mech/coSolve from before switching to MAN must not

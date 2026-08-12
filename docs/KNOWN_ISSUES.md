@@ -153,6 +153,49 @@ formula would shift ARB output for every BEG/INT tune too, since
 `naturalMechBalanceOf`'s fallback is track-width-weighted even at default
 geometry, not just weight-fraction. CHASSIS scopes the fix to PRO only.
 
+## Fixed — MECH/CO-SOLVE solved a real correction against a MEASURE NAT BAL target that needed none (resolved)
+
+A deeper version of the bug above, found by a user with a 50/50-weight-distribution
+car whose measured natural balance (0.55) differs from what the track-width
+geometry formula predicts (~0.49, since the front track is wider than the
+rear). `resolveArbBalTarget` correctly resolves the MECH/CO-SOLVE **target**
+through `naturalMechBalanceOf(ch)` (the measured reading, when set). But the
+solvers that figure out *how much springs/ARBs need to move* to reach that
+target — `resolveCoSolveSpringShare`'s `R_baseline`, `feelToPhysics`'s CO-SOLVE
+Kcs pre-inversion `Rbl`, and `computeTune`'s ARB-split `_mechTgt`/final
+`mechBalance` — all independently recomputed the *geometric* equal-Hz,
+zero-ARB ratio from raw track width/mass, never consulting
+`naturalMechBalanceOf(ch)`. So even with the Mech Balance Target sitting at
+"0 from NAT" (target = the measured 0.55 exactly — the UI's own documented
+meaning: "no ARB correction needed"), CO-SOLVE saw a target of 0.55 against a
+baseline of 0.49 and "corrected" a 0.06 gap that wasn't real, biasing the rear
+spring Hz (~1.09–1.20× front) and skewing the ARB split (e.g. 40/60F/R)
+instead of leaving both alone. Confirmed live: user's share code
+`1|1:2021|2:50|...|60:1|61:0.55` (measured 0.55, weight distribution 50/50,
+CO-SOLVE, ROLL stiffness mode) read CUR 0.64 against TGT 0.55 with the rear
+spring pinned to REAR ×1.20 — nowhere near the "0 correction" state the 0-delta
+target promised.
+
+Fixed by treating the gap between `naturalMechBalanceOf(ch)` and the plain
+geometric formula as a constant offset — the same treatment `tireCorr`
+already gets — instead of substituting the measured value directly into the
+ratio-inversion math (an earlier attempt at this fix did exactly that and made
+things worse: it forced the Hz solve to fake-match the measured ratio through
+the geometry formula, distorting springs even further from equal). The
+offset is subtracted from the solve target going in and added back to the
+reported balance coming out, at all three sites, so it cancels in the final
+reported `mechBalance` (unchanged) while correctly zeroing the *work* the
+solver thinks it needs to do when target and NAT coincide. Verified live with
+the reported share code: springs now read REAR ×0.98 (matching the same
+small residual `tireCorr` offset the *unmeasured* geometric case shows at its
+own natural target — i.e. identical relative behavior, not a new distortion),
+ARB split reads 52/48F/R (vs 40/60 before), and MECH BALANCE reads
+`NAT 0.55 → CUR 0.55 → TGT 0.55`. `tests.js` (111) and `tests-beamng.js` (41)
+unaffected. **Not touched:** the `rearHzMode==='mech'` Hz-ratio solve in
+`feelToPhysics` (reached only when ARB Balance Mode is `weight`/`manual`/`man`
+and Ride Frequency mode is MECH, not CO-SOLVE) has the same latent gap — it
+wasn't exercised by the reported case and is left as a follow-up.
+
 ## Changed — ARB MAN moved from Balance Mode to Stiffness Mode
 
 MAN (direct front/rear ARB click entry) used to live under Balance Mode
