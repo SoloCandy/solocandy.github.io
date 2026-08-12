@@ -360,13 +360,27 @@ const feelToPhysics=(ch,fe)=>{
     const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
     const tireCorr=TIRE_MECH_SCALE*Math.log(twR/twF);
     const rst=Math.max(0.001,Math.min(0.999,abt-tireCorr));
-    const S=(fe.springShare??50)/100;
     const A=mc.rear*ch.trackR*ch.trackR/(mc.front*ch.trackF*ch.trackF); // natural rear/front roll-stiffness ratio (no width)
     const Rbl=A/(1+A);
-    const Rsp=Math.max(0.001,Math.min(0.999,Rbl+S*(rst-Rbl)));
-    const Kcs=Math.sqrt(Rsp*mc.front*ch.trackF*ch.trackF/((1-Rsp)*mc.rear*ch.trackR*ch.trackR)); // rear/front Hz ratio (no width)
-    if(uiRideRef==='rear')   frontHz=Math.max(HZ_MIN,frontHz/Kcs);
-    else if(uiRideRef==='shared') frontHz=Math.max(HZ_MIN,2*frontHz/(1+Kcs));
+    const springShareAuto=fe.springShareAuto!==false;
+    const csArbMode=fe.arbMode??'auto';
+    const csOpts={arbBalTarget:abt,arbMode:csArbMode,
+      arbShareMan:Math.max(0,Math.min(80,fe.arbShareMan??15)),
+      arbBasicMan:Math.max(0,Math.min(100,fe.arbBasicMan??50)),
+      arbTargetRoll:csArbMode==='roll'?Math.max(0.3,Math.min(5.0,fe.arbTargetRollMan)):0,
+      springShareAuto,springShareManual:fe.springShare??50};
+    // Kcs needs S, but Auto Spring Share's S depends on the front Hz Kcs itself produces
+    // (when the reference axle isn't front) — two-pass fixed point, same pattern the MECH
+    // solver above uses for its own auto-share estimate, so this converges to what
+    // computeTune's resolveCoSolveSpringShare call will settle on.
+    let est=frontHz,Kcs=1;
+    for(let _i=0;_i<(springShareAuto?2:1);_i++){
+      const{S}=resolveCoSolveSpringShare(ch,est,csOpts,fe.gameMode);
+      const Rsp=Math.max(0.001,Math.min(0.999,Rbl+S*(rst-Rbl)));
+      Kcs=Math.sqrt(Rsp*mc.front*ch.trackF*ch.trackF/((1-Rsp)*mc.rear*ch.trackR*ch.trackR)); // rear/front Hz ratio (no width)
+      est=uiRideRef==='rear'?Math.max(HZ_MIN,frontHz/Kcs):Math.max(HZ_MIN,2*frontHz/(1+Kcs));
+    }
+    frontHz=est;
   }
   let rearHz,rearHzClamped;
   if(rideRef==='shared'){
@@ -520,12 +534,13 @@ const feelToPhysics=(ch,fe)=>{
         const res=flatRideRearHz(primaryHz,ch.wheelbase,fe.targetSpeed);
         secondaryHz=res.hz;secondaryHzClamped=res.clamped;
       } else {
-        // Inverse flat ride: given rearHz, solve frontHz
+        // Inverse flat ride: given rearHz, solve frontHz. Single traverse-time offset —
+        // must mirror flatRideRearHz/flatRideSharedHz's `t`, not `2*t` (see the note above them).
         if(fe.targetSpeed>=200){
           secondaryHz=primaryHz;secondaryHzClamped=false;
         } else {
           const ms=Math.max(1,fe.targetSpeed*MPH_TO_MS);
-          const raw=1/(1/primaryHz+2*(ch.wheelbase/ms));
+          const raw=1/(1/primaryHz+(ch.wheelbase/ms));
           secondaryHz=Math.max(HZ_MIN,raw);
           secondaryHzClamped=raw<HZ_MIN;
         }
@@ -615,9 +630,64 @@ const feelToPhysics=(ch,fe)=>{
   // coSolve overrides rearHz in computeTune via effectiveRHz; flat-ride fallthrough can
   // set rearHzClamped spuriously. mechBalClamped covers coSolve limits instead.
   if(arbBalModeEarly==='coSolve') rearHzClamped=false;
-  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,dampBalMode,dampCharMode,dampingBias:fe.dampingBias??0,bumpRatioVal,arbBalance,arbBias:fe.arbBias??0,arbTargetRoll,arbMode,arbShareMan,arbBasicMan,arbBalTarget,arbBalMode,arbSplitOpposite,springShare,springShareAuto:fe.springShareAuto!==false,arbManF:fe.arbManF,arbManR:fe.arbManR};
+  return{frontHz,rearHz,rearHzClamped,rearHzMode,rideRef:uiRideRef,reboundZeta,baseZeta,bumpZeta,zetaF,zetaR,bumpZetaF,bumpZetaR,dampingMode,dampBalMode,dampCharMode,dampingBias:fe.dampingBias??0,bumpRatioVal,arbBalance,arbBias:fe.arbBias??0,arbTargetRoll,arbMode,arbShareMan,arbBasicMan,arbBalTarget,arbBalMode,arbSplitOpposite,springShare,springShareAuto:fe.springShareAuto!==false,arbManF:fe.arbManF,arbManR:fe.arbManR};
 };
 
+// CO-SOLVE spring-share (S) resolution — shared by feelToPhysics (Kcs slider pre-inversion)
+// and computeTune (effectiveRHz) so both agree on the same S. Auto Spring Share has no closed
+// form (it's a search), so feelToPhysics can't approximate it independently without the two
+// diverging — see docs/KNOWN_ISSUES.md.
+const resolveCoSolveSpringShare=(ch,fHz,opts,gameMode)=>{
+  const{arbBalTarget,arbMode,arbShareMan,arbBasicMan,arbTargetRoll,springShareAuto,springShareManual}=opts;
+  const lim=GAME_LIMITS[gameMode],utilRef=lim?.arb??ARB_UTIL_REF;
+  const m=cornerMasses(ch);
+  const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
+  const tireCorr=TIRE_MECH_SCALE*Math.log(twR/twF);
+  const rsSpF_cs=Math.pow(fHz*2*Math.PI,2)*m.front*ch.trackF*ch.trackF/2;
+  const targetRsBalance=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr));
+  const rsSpR_base=Math.pow(fHz*2*Math.PI,2)*m.rear*ch.trackR*ch.trackR/2;
+  const R_baseline=rsSpR_base/(rsSpF_cs+rsSpR_base);
+  let S;
+  if(springShareAuto){
+    // See computeTune's prior inline version (moved here unchanged) for the full derivation.
+    const _rm=(ch.weight/KG_TO_LB)*9.81*(ch.cgHeight-rollCenterHeight(ch));
+    const _rsTotTgt=_rm/(arbTargetRoll*(Math.PI/180));
+    const _basicBudget=ARB_RS_SCALE*(ch.trackF*ch.trackF+ch.trackR*ch.trackR)*(1+(utilRef-1)*arbBasicMan/100);
+    const simUtil=(sVal)=>{
+      const R_sp_s=Math.max(0.001,Math.min(0.999,R_baseline+sVal*(targetRsBalance-R_baseline)));
+      const rsSpR_s=R_sp_s*rsSpF_cs/(1-R_sp_s);
+      const eRHz=Math.max(HZ_MIN,Math.min(HZ_MAX,Math.sqrt(2*rsSpR_s/(m.rear*ch.trackR*ch.trackR))/(2*Math.PI)));
+      const spUtil=Math.min(1,Math.abs(rsSpR_s-rsSpR_base)/(ARB_RS_SCALE*ch.trackR*ch.trackR*utilRef));
+      const wrFN_s=Math.pow(fHz*2*Math.PI,2)*m.front, wrRN_s=Math.pow(eRHz*2*Math.PI,2)*m.rear;
+      const rsSpF_s=(wrFN_s*ch.trackF*ch.trackF)/2, rsSpRs=(wrRN_s*ch.trackR*ch.trackR)/2;
+      const rsSp_s=rsSpF_s+rsSpRs;
+      const nRoll=rsSp_s>0?(_rm/rsSp_s)*(180/Math.PI):5;
+      const autoSh=Math.max(5,Math.min(50,nRoll*7))/100;
+      const sh=arbMode==='share'?arbShareMan/100:autoSh;
+      const budget_s=arbMode==='roll'?Math.max(0,_rsTotTgt-rsSp_s)
+        :arbMode==='basic'?_basicBudget
+        :rsSp_s*(sh/(1-sh));
+      if(budget_s<=0) return{spUtil,abUtil:0};
+      const _mTgt=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr));
+      const _K=_mTgt/(1-_mTgt);
+      const rF_s=Math.max(0,Math.min(1,(_K*(rsSpF_s+budget_s)-rsSpRs)/(budget_s*(1+_K))));
+      const abF_s=budget_s*(1-rF_s)/(ARB_RS_SCALE*ch.trackF*ch.trackF);
+      const abR_s=budget_s*rF_s/(ARB_RS_SCALE*ch.trackR*ch.trackR);
+      const abUtil=Math.max(abF_s,abR_s)/utilRef;
+      return{spUtil,abUtil};
+    };
+    let lo=0,hi=1;
+    for(let i=0;i<12;i++){
+      const mid=(lo+hi)/2;
+      const{spUtil,abUtil}=simUtil(mid);
+      if(spUtil<abUtil) lo=mid; else hi=mid;
+    }
+    S=(lo+hi)/2;
+  } else {
+    S=springShareManual/100;
+  }
+  return{S,R_baseline,targetRsBalance,rsSpF_cs};
+};
 const computeTune=(ch,phys,gameMode)=>{
   const lim=GAME_LIMITS[gameMode],m=cornerMasses(ch);
   // Physical-unit modes (BeamNG) emit the values this solver already works in — springs
@@ -628,9 +698,6 @@ const computeTune=(ch,phys,gameMode)=>{
   // `dampCalib` of 1 and `physUnits` below are the only two switches here.
   const physUnits=isPhysical(gameMode);
   const dampCalib=physUnits?1:DAMPING_CALIBRATION;
-  // Full-scale reference for CO-SOLVE's utilisation comparison only. See the long note at
-  // the binary search below for why substituting a nominal value here is sound.
-  const utilRef=lim.arb??ARB_UTIL_REF;
   const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF:zetaF0,zetaR:zetaR0,bumpZetaF:bumpZetaF0,bumpZetaR:bumpZetaR0,arbBalance,arbBias,arbTargetRoll,arbMode,arbShareMan,arbBasicMan,arbBalTarget,arbBalMode,arbSplitOpposite,arbManF,arbManR}=phys;
   let zetaF=zetaF0,zetaR=zetaR0,bumpZetaF=bumpZetaF0,bumpZetaR=bumpZetaR0;
   // Tyre-width correction: Forza's mech balance display includes a small tyre-width contribution.
@@ -642,94 +709,26 @@ const computeTune=(ch,phys,gameMode)=>{
   let coSolveR_baseline=null; // spring-only balance at equal Hz (S=0 baseline), captured for contribution readout
   let coSolveAutoS=null;      // resolved Spring Share (0-100) when AUTO mode is active
   if(arbBalMode==='coSolve'){
-    const rsSpF_cs=Math.pow(fHz*2*Math.PI,2)*m.front*ch.trackF*ch.trackF/2;
-    const targetRsBalance=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr)); // pre-compensate for tyre-width offset
-    const rsSpR_base=Math.pow(fHz*2*Math.PI,2)*m.rear*ch.trackR*ch.trackR/2;
-    const R_baseline=rsSpR_base/(rsSpF_cs+rsSpR_base);   // spring-only roll-stiffness rear fraction at equal Hz
+    const{S,R_baseline,targetRsBalance,rsSpF_cs}=resolveCoSolveSpringShare(ch,fHz,
+      {arbBalTarget,arbMode,arbShareMan,arbBasicMan,arbTargetRoll,springShareAuto:phys.springShareAuto,springShareManual:phys.springShare??50},
+      gameMode);
     coSolveR_baseline=R_baseline;
-    let S;
-    if(phys.springShareAuto){
-      // Auto Spring Share: binary-search for S (0–1) that equalises spring utilisation vs ARB utilisation.
-      // Both sides are expressed in the SAME currency — ARB-click-equivalents — so they're
-      // genuinely comparable. Spring util = the incremental rear roll-stiffness the spring
-      // correction is carrying (rsSpR_s minus its S=0 baseline), converted through the same
-      // ARB_RS_SCALE·track² relationship real clicks use, then scaled 0..1 against utilRef —
-      // "how many ARB clicks would this same correction have cost, had it been done by bars
-      // instead." A prior version scaled Hz distance against the game's Hz range (or even the
-      // Rear/Front Multiplier's 0.50–3.00 band); both were still so much wider than what a
-      // typical Mech Balance Target delta needs that spring util could never approach ARB util,
-      // leaving the search pinned at S=100% regardless of target. Click-equivalents are exact —
-      // no reference band to miscalibrate — and naturally direction-aware, since a softer-rear
-      // correction (rsSpR_s < baseline) yields the same magnitude the other way.
-      // ARB util = how far the heavier ARB bar is toward utilRef.
-      //
-      // utilRef is lim.arb for the Forza modes and ARB_UTIL_REF for physical-unit modes,
-      // which have no ceiling. That substitution is sound because utilRef divides BOTH
-      // sides: the search only ever compares spUtil against abUtil, so the denominator
-      // cancels and the crossing point of S is unchanged by its value. The single
-      // exception is the Math.min(1, …) saturation on spUtil below — once the spring
-      // correction exceeds the reference, the comparison stops being scale-free. That
-      // only binds for corrections larger than roughly a third of the rear spring's own
-      // roll stiffness, i.e. extreme Mech Balance Targets, and keeping ARB_UTIL_REF at
-      // Horizon's 65 makes physical modes saturate at exactly the same point Horizon
-      // does. Do not "simplify" utilRef away — the clamp is what makes it load-bearing.
-      // Pre-compute roll moment (chassis only, Hz-independent) for roll-mode ARB budget estimate.
-      const _rm=(ch.weight/KG_TO_LB)*9.81*(ch.cgHeight-rollCenterHeight(ch));
-      const _rsTotTgt=_rm/(arbTargetRoll*(Math.PI/180));
-      // BASIC: budget is a direct click target, independent of spring roll stiffness — constant
-      // across the search, unlike SHARE's budget which scales with rsSp_s at each candidate S.
-      // Defined purely as a fraction of the click ceiling, so it has no meaning without one —
-      // physical-unit modes hide BASIC in the UI, and the ?? here is the belt-and-braces guard
-      // in case a persisted arbMode:'basic' survives a game-mode switch.
-      const _basicBudget=ARB_RS_SCALE*(ch.trackF*ch.trackF+ch.trackR*ch.trackR)*(1+((lim.arb??ARB_UTIL_REF)-1)*arbBasicMan/100);
-      const simUtil=(sVal)=>{
-        const R_sp_s=Math.max(0.001,Math.min(0.999,R_baseline+sVal*(targetRsBalance-R_baseline)));
-        const rsSpR_s=R_sp_s*rsSpF_cs/(1-R_sp_s);
-        const eRHz=Math.max(HZ_MIN,Math.min(HZ_MAX,Math.sqrt(2*rsSpR_s/(m.rear*ch.trackR*ch.trackR))/(2*Math.PI)));
-        const spUtil=Math.min(1,Math.abs(rsSpR_s-rsSpR_base)/(ARB_RS_SCALE*ch.trackR*ch.trackR*utilRef));
-        // Simulate ARB budget and split at this Hz state
-        const wrFN_s=Math.pow(fHz*2*Math.PI,2)*m.front, wrRN_s=Math.pow(eRHz*2*Math.PI,2)*m.rear;
-        const rsSpF_s=(wrFN_s*ch.trackF*ch.trackF)/2, rsSpRs=(wrRN_s*ch.trackR*ch.trackR)/2;
-        const rsSp_s=rsSpF_s+rsSpRs;
-        const nRoll=rsSp_s>0?(_rm/rsSp_s)*(180/Math.PI):5;
-        const autoSh=Math.max(5,Math.min(50,nRoll*7))/100;
-        const sh=arbMode==='share'?arbShareMan/100:autoSh;
-        const budget_s=arbMode==='roll'?Math.max(0,_rsTotTgt-rsSp_s)
-          :arbMode==='basic'?_basicBudget
-          :rsSp_s*(sh/(1-sh));
-        if(budget_s<=0) return{spUtil,abUtil:0};
-        const _mTgt=Math.max(0.001,Math.min(0.999,arbBalTarget-tireCorr));
-        const _K=_mTgt/(1-_mTgt);
-        const rF_s=Math.max(0,Math.min(1,(_K*(rsSpF_s+budget_s)-rsSpRs)/(budget_s*(1+_K))));
-        const abF_s=budget_s*(1-rF_s)/(ARB_RS_SCALE*ch.trackF*ch.trackF);
-        const abR_s=budget_s*rF_s/(ARB_RS_SCALE*ch.trackR*ch.trackR);
-        const abUtil=Math.max(abF_s,abR_s)/utilRef;
-        return{spUtil,abUtil};
-      };
-      // spUtil increases with S, abUtil decreases — binary search for the crossing point
-      let lo=0,hi=1;
-      for(let i=0;i<12;i++){
-        const mid=(lo+hi)/2;
-        const{spUtil,abUtil}=simUtil(mid);
-        if(spUtil<abUtil) lo=mid; else hi=mid;
-      }
-      S=(lo+hi)/2;
-    } else {
-      S=(phys.springShare??50)/100;
-    }
     coSolveAutoS=Math.round(S*100);
     const R_sp=Math.max(0.001,Math.min(0.999,R_baseline+S*(targetRsBalance-R_baseline)));
     const rsSpR_tgt=R_sp*rsSpF_cs/(1-R_sp);
     effectiveRHz=Math.max(HZ_MIN,Math.min(HZ_MAX,Math.sqrt(2*rsSpR_tgt/(m.rear*ch.trackR*ch.trackR))/(2*Math.PI)));
   }
   // SYNC/NEUTRAL damping balance: recompute zetas using final effectiveRHz so the solve matches
-  // post-coSolve Hz. Anchor reboundZeta to the user's ride-reference axle; derive the other(s).
-  if((phys.dampBalMode==='sync'||phys.dampBalMode==='neutral')&&phys.dampCharMode!=='settle'){
+  // post-coSolve Hz. Anchor to the user's ride-reference axle; derive the other(s). Must run
+  // under SETTLE TIME too (effectiveRHz can shift there just as it does in CHARACTER mode), and
+  // must anchor to baseZeta — the settle-target back-solved anchor — not the raw reboundZeta
+  // slider value, or the settle-time guarantee this recompute exists for breaks under SETTLE.
+  if(phys.dampBalMode==='sync'||phys.dampBalMode==='neutral'){
     const biasMult=Math.pow(2,-(phys.dampingBias??0)/50);
     const bumpRatioVal=phys.bumpRatioVal??56,bumpZ=phys.bumpZeta??39,ratio=phys.dampingMode==='ratio';
     const{zF,zR}=phys.dampBalMode==='neutral'
-      ? forceZetas(phys.rideRef,m.front,fHz,m.rear,effectiveRHz,phys.reboundZeta,biasMult)
-      : settleZetas(phys.rideRef,fHz,effectiveRHz,phys.reboundZeta,biasMult);
+      ? forceZetas(phys.rideRef,m.front,fHz,m.rear,effectiveRHz,phys.baseZeta,biasMult)
+      : settleZetas(phys.rideRef,fHz,effectiveRHz,phys.baseZeta,biasMult);
     zetaF=Math.max(10,Math.min(115,zF));
     zetaR=Math.max(10,Math.min(115,zR));
     bumpZetaF=ratio?Math.max(10,Math.min(zetaF,zetaF*bumpRatioVal/100)):Math.max(10,Math.min(zetaF,bumpZ));
@@ -1330,6 +1329,10 @@ const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
 const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,dampBalMode:'standard',targetSpeed:70,gameMode:'horizon',
               dampingMode:'ratio',reboundZeta:70,bumpRatio:56,bumpZeta:39,dampCharMode:'zeta',settleTarget:0.80,
               arbMode:'auto',arbTargetRollMan:1.8,arbShareMan:15,arbBasicMan:50,
+              // Must match sanitizeTune's cl(...,20) fallback — codecFieldDefault (ids 46/47)
+              // reads these off DEF_GROUPS.fe, and an absent key there resolves to undefined,
+              // which can never equal a real value, so encodeTune could never omit these at default.
+              arbManF:20,arbManR:20,
               arbBalTarget:null,arbBalMode:'weight',springShare:50,springShareAuto:true,
               arbBalTargetMode:'manual',arbBalDelta:0,arbSplitOpposite:false,
               // MULTIPLIER is the fresh-install default, not FLAT RIDE — flat ride is a
@@ -3405,12 +3408,19 @@ function App(){
     setFe(p=>{
       const arbOk=p.arbBalMode!=='mech'&&p.arbBalMode!=='coSolve'&&p.arbBalMode!=='man';
       const hzOk=p.rearHzMode!=='mech';
-      if(arbOk&&hzOk)return p;
+      // arbMode:'man' (direct ARB click entry) is its own PRO-only control, gated separately
+      // from arbBalMode above — without resetting it here it stays enabled after downgrade.
+      const arbManOk=p.arbMode!=='man';
+      if(arbOk&&hzOk&&arbManOk)return p;
       return{...p,
         ...(arbOk?{}:{arbBalMode:'weight'}),
         ...(hzOk?{}:{rearHzMode:'multiplier'}),
+        ...(arbManOk?{}:{arbMode:'auto'}),
       };
     });
+    // MANUAL diff mode and its toggle are both PRO-gated; leaving diffManual set with no
+    // toggle visible renders the whole DRIVETRAIN diff section blank at BEG/INT.
+    setDr(p=>p.diffManual?{...p,diffManual:false}:p);
   },[uiMode]); // eslint-disable-line
 
   // sidebar grows with the display: 300px baseline, up to 440px at very wide screens.
@@ -3560,6 +3570,18 @@ function App(){
       return next;
     });
   },[physMode]); // eslint-disable-line
+  // Switching between two click-scale modes with different ARB ceilings (e.g. HORIZON's 65 vs
+  // MOTORSPORT's 40) doesn't change what arbManF/arbManR mean, so the effect above skips it —
+  // but a value valid under the old ceiling can exceed the new one, and nothing else reclamps
+  // it (computeTune clamps the OUTPUT, leaving the displayed field stale). See docs/KNOWN_ISSUES.md.
+  useEffect(()=>{
+    if(physMode||lim?.arb==null||(fe.arbMode??'auto')!=='man')return;
+    setFe(p=>{
+      if((p.arbMode??'auto')!=='man')return p;
+      const cf=Math.min(p.arbManF??20,lim.arb),cr=Math.min(p.arbManR??20,lim.arb);
+      return cf===p.arbManF&&cr===p.arbManR?p:{...p,arbManF:cf,arbManR:cr};
+    });
+  },[fe.gameMode]); // eslint-disable-line
   const responseFactors=(()=>{
     // Agility = transient response character: how quickly and freely the car responds to steering inputs.
     // ARBs and weight bias are excluded — they govern roll moment distribution (Handling Balance bar),
@@ -3699,12 +3721,16 @@ function App(){
       const hay=[e.name,e.notes||'',...(e.tags||[]),...autoTagsOf(e).map(t=>t.label)].join(' ').toLowerCase();
       return hay.includes(q);
     });
+    // Precompute once per sort — stampOf falls back to Date.now() for timestamp-less entries,
+    // so calling it fresh inside the comparator would give the same entry a different value
+    // on each comparison, an inconsistent comparator that can produce unstable ordering.
+    const stamp=new Map(out.map(e=>[e,stampOf(e)]));
     const by={
-      recent:(a,b)=>stampOf(b)-stampOf(a),
-      oldest:(a,b)=>stampOf(a)-stampOf(b),
+      recent:(a,b)=>stamp.get(b)-stamp.get(a),
+      oldest:(a,b)=>stamp.get(a)-stamp.get(b),
       name:(a,b)=>(a.name||'').toLowerCase().localeCompare((b.name||'').toLowerCase()),
       kind:(a,b)=>{const o={chassis:0,build:1,car:2,empty:3};
-        return (o[kindOf(a)]-o[kindOf(b)])||(stampOf(b)-stampOf(a));},
+        return (o[kindOf(a)]-o[kindOf(b)])||(stamp.get(b)-stamp.get(a));},
     };
     return[...out].sort(by[garageUI.sort]||by.recent);
   })();
@@ -5927,7 +5953,11 @@ function App(){
                         const code=importCode.replace(/\s/g,'');
                         try{
                           const{ch:ic,fe:ife,dr:idr}=sanitizeTune(decodeTune(code));
-                          if(importSel.ch) setCh({...DEF_CH,...ic});
+                          // ic (sanitizeTune's ch) always has every codec-covered field filled in,
+                          // but fields the codec doesn't carry (e.g. useRideHeightCG/rideHeightF/R,
+                          // deliberately local-only per docs/CODEC.md) are absent from it — merge
+                          // over the CURRENT chassis, not DEF_CH, so those stay as the user set them.
+                          if(importSel.ch) setCh(prev=>({...DEF_CH,...prev,...ic}));
                           if(importSel.fe) setFe({...DEF_FE,...ife});
                           if(importSel.dr) setDr({...DEF_DR,...idr});
                           close();
@@ -6026,10 +6056,19 @@ function App(){
                           // a naive setEntries(fromFile) would silently delete the unselected
                           // kinds. Same spirit, now that "list" means "kind".
                           // One set call — usePersist's setter closes over the render-time value.
-                          setEntries([
-                            ...restoreData.filter(e=>restoreSel[kindOf(e)]),
-                            ...entries.filter(e=>!restoreSel[kindOf(e)]),
-                          ].sort((a,b)=>b.createdAt-a.createdAt));
+                          // Dedup incoming ids against what's being kept — same bump-on-collision
+                          // approach unifyLegacy uses for legacy imports, but here against the
+                          // live garage rather than a second legacy list. v2 entries carry explicit
+                          // createdAt/updatedAt (unlike legacy ones), so bumping id alone is safe.
+                          const kept=entries.filter(e=>!restoreSel[kindOf(e)]);
+                          const usedIds=new Set(kept.map(e=>e.id));
+                          const incoming=restoreData.filter(e=>restoreSel[kindOf(e)]).map(e=>{
+                            let nid=e.id;
+                            while(usedIds.has(nid))nid++;
+                            usedIds.add(nid);
+                            return nid===e.id?e:{...e,id:nid};
+                          });
+                          setEntries([...incoming,...kept].sort((a,b)=>b.createdAt-a.createdAt));
                           close();
                         }}>RESTORE</button>
                     </div>

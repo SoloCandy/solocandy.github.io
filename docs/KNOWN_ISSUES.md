@@ -927,3 +927,170 @@ range. Also insufficient — a typical target's Hz ratio shift (~35%) still
 only moved the metric to ~0.18 against that scale, short of ARB's floor.
 Recorded here so a future pass doesn't reach for the same fix and stop
 short of verifying it against a real target.
+
+## Fixed — SYNC/NEUTRAL Damping Balance recompute stayed skipped/mis-anchored under SETTLE TIME + CO-SOLVE (resolved)
+
+A recurrence of the same bug class as "Damping Balance Mode was hardcoded to
+SYNC-equivalent under SETTLE TIME" above, at a call site that fix didn't
+reach. `computeTune` re-derives `zetaF`/`zetaR` from `effectiveRHz` (the
+post-CO-SOLVE rear Hz) so SYNC/NEUTRAL's "both axles hit the same settle
+time/force" guarantee still holds after CO-SOLVE moves the rear Hz away from
+what `feelToPhysics` originally solved zetas against. The guard excluded
+`dampCharMode==='settle'` entirely, so with CO-SOLVE + SETTLE TIME + SYNC or
+NEUTRAL all active together (three independent, freely combinable toggles),
+the recompute never ran and the damper split stayed solved against the stale
+pre-CO-SOLVE rear Hz. Fixing just the guard wasn't enough on its own: the
+recompute anchors to `phys.reboundZeta`, the raw CHARACTER-mode slider value
+— under SETTLE TIME the real anchor is `baseZeta` (the settle-target
+back-solved value), which `feelToPhysics` computed internally but never
+returned.
+
+Fixed by dropping the `dampCharMode!=='settle'` exclusion and returning
+`baseZeta` from `feelToPhysics` so the recompute can anchor to it instead of
+`reboundZeta` (this is a no-op outside SETTLE TIME, where `baseZeta` already
+equals `reboundZeta`). Verified numerically in physical-unit mode (no click
+quantisation to obscure the result): with CO-SOLVE + SETTLE TIME + SYNC,
+front and rear settle times now match to floating-point precision after the
+fix, versus a ~25% mismatch before it.
+
+## Fixed — inverse FLAT RIDE (rear→front) kept the doubled traverse-time offset (resolved)
+
+A second, missed instance of "FLAT RIDE offset was doubled" above. That fix
+corrected `flatRideRearHz` and `flatRideSharedHz`, but `feelToPhysics` has a
+third, mirror-image path — Ride Reference = REAR under FLAT RIDE, which
+solves front Hz *from* the user's rear-Hz target — that still divided by
+`2*(wheelbase/speed)` instead of the single traverse time `t`. Anyone using
+Ride Reference REAR (rather than the default FRONT) got the same class of
+error the original fix was meant to eliminate everywhere: at the default
+chassis, rearHz=2.0 Hz, 70 mph, the buggy formula solved front Hz to 1.487
+instead of the correct 1.706 (~15% off).
+
+Fixed by removing the `2*` so this path mirrors the other two. Verified
+numerically against the corrected `flatRideRearHz`/`flatRideSharedHz` math.
+
+## Fixed — CO-SOLVE's Hz-slider pre-inversion ignored Auto Spring Share (resolved)
+
+A gap in the same feature as "CO-SOLVE Auto Spring Share pinned at 100%..."
+above. When Ride Reference is REAR or SHARED under CO-SOLVE, `feelToPhysics`
+has to pre-invert the Hz slider (the user is setting the rear/shared target,
+but the solver works front→rear) through a spring-share ratio `Kcs`. That
+inversion assumed a fixed `S=50%`, while `computeTune`'s Auto Spring Share
+(the default) resolves the real `S` via a 12-step binary search that
+generally lands elsewhere — so the Hz value that comes back out of the full
+solve didn't match what the user set on the slider (measured ~4%, ~0.08 Hz,
+in a representative case). The analogous MECH-mode solver already runs a
+2-pass fixed-point loop specifically to avoid this kind of mismatch; CO-SOLVE
+had no equivalent.
+
+Fixed by factoring the Auto Spring Share search out of `computeTune` into a
+shared `resolveCoSolveSpringShare` helper, called from both `computeTune`
+(unchanged behaviour) and `feelToPhysics`'s pre-inversion via a 2-pass fixed
+point on the estimated front Hz — the same pattern MECH mode uses for its
+own auto-share estimate. Guarantees both call sites converge on the same
+`S` instead of drifting independently. Verified: the manual-share path
+(`springShareAuto:false`) still solves the rear Hz to the exact slider
+target; the auto-share path now converges to within the 2-pass
+approximation instead of the previous ~4% miss.
+
+## Fixed — MAN ARB fields weren't reclamped when switching between two Forza modes with different ceilings (resolved)
+
+A gap in "MAN ARB fields accepted clicks MOTORSPORT would silently discard"
+above — that fix bound the field's `max` to `lim.arb`, but a React input's
+`max` attribute doesn't retroactively clamp a value already sitting in
+state, and nothing reclamped `fe.arbManF`/`arbManR` on a HORIZON↔MOTORSPORT
+switch specifically (the migration effect that converts these fields only
+fires on the *physical vs. click-scale* boundary, e.g. BeamNG↔Forza, since
+that's the only transition where what the field's units *mean* changes).
+Concretely: set MAN ARB F to 55 clicks under HORIZON (ceiling 65), switch to
+MOTORSPORT (ceiling 40) — the field kept showing 55 while `computeTune`
+silently clamped the real output to 40, so the displayed value and the
+actual tuning output disagreed with no visible indication.
+
+Fixed by adding a second effect, keyed on `fe.gameMode` rather than the
+physical/click-scale boundary, that clamps `arbManF`/`arbManR` to the new
+mode's `lim.arb` whenever the destination is a non-physical mode and
+Stiffness Mode is MAN.
+
+## Fixed — LOAD CODE for CHASSIS reset the locally-calibrated ride-height CG fields (resolved)
+
+`useRideHeightCG`/`rideHeightF`/`rideHeightR` are deliberately excluded from
+the share codec (see [CODEC.md](CODEC.md)) so they stay locally remembered
+per the note there. But the LOAD CODE handler applied the decoded chassis as
+`setCh({...DEF_CH,...ic})` — defaults overlaid only by the codec's fields —
+rather than merging over the *current* chassis state, so loading any share
+code that included CHASSIS data silently reset the user's ride-height CG
+calibration back to `DEF_CH`'s defaults (`useRideHeightCG:false`,
+`rideHeightF:0.13`, `rideHeightR:0.12`) with no warning.
+
+Fixed by merging over the current chassis instead of the defaults
+(`{...DEF_CH,...prev,...ic}`) — the decoded fields still win where the codec
+carries them, but anything absent from the codec (ride-height CG, and any
+future local-only chassis field) now survives a code load unchanged.
+
+## Fixed — restoring a v2 backup file could produce duplicate garage entry ids (resolved)
+
+`unifyLegacy` (the legacy v1 backup/migration path) explicitly dedups entry
+ids against a running `used` Set before they enter the garage list, with a
+comment noting duplicate ids are a "silent render corruption" hazard (the
+garage list keys `<EntryCard>` by `id`). The v2 restore path never got the
+same treatment — it applied `parseBackup`'s output straight into `entries`
+with no id check, so re-importing a previously-exported v2 file (or merging
+two export files) whose entries shared ids with entries already in the
+garage produced duplicate React keys.
+
+Fixed by dedup'ing incoming ids against the ids being kept at the RESTORE
+button handler, using the same bump-on-collision approach as
+`unifyLegacy`. v2 entries carry explicit `createdAt`/`updatedAt` (unlike
+legacy ones, which use `id` as a timestamp fallback), so bumping `id` alone
+is safe here and doesn't disturb sort order.
+
+## Fixed — PRO-only MAN ARB clicks and MANUAL diff mode survived a downgrade to BEG/INT (resolved)
+
+Two related tier-gating gaps found together, both missing from the
+"BEG/INT: fall back to simple modes if switching down from PRO" effect that
+already resets `arbBalMode`/`rearHzMode`:
+
+1. **ARB Stiffness Mode MAN** (direct front/rear click entry) is a separate
+   PRO-only control from `arbBalMode` — its fields render on
+   `fe.arbMode==='man'` alone, with no `uiMode==='pro'` check, and nothing
+   reset `arbMode` on downgrade. A user who enabled MAN mode on PRO kept
+   full editable access to it after dropping to INT.
+2. **MANUAL differential mode** (`dr.diffManual`) and its AUTO/MANUAL toggle
+   are both PRO-gated, but nothing reset `diffManual` on downgrade either —
+   so a user who set MANUAL on PRO and downgraded got a completely blank
+   DRIVETRAIN diff section: the AUTO block stayed hidden (`diffManual` still
+   true) and the MANUAL block plus the toggle to get back to AUTO were both
+   gated behind PRO, with no way back short of returning to PRO.
+
+Fixed by extending the same downgrade effect to also reset `arbMode` to
+`'auto'` and `dr.diffManual` to `false` when leaving PRO tier.
+
+## Fixed — garage sort comparator called `Date.now()` fresh on every comparison (resolved)
+
+`stampOf()` falls back to `Date.now()` for entries with no
+`updatedAt`/`createdAt` (hand-edited or corrupted entries), and the garage
+list's `recent`/`oldest`/`kind` sort comparators called it directly inside
+the comparator function rather than precomputing it once. Since
+`Date.now()` returns a different value on each call, two timestamp-less
+entries being compared could get different "now" values on different
+invocations during the same sort — an inconsistent comparator, which can
+produce unstable ordering.
+
+Fixed by precomputing a `stampOf` value per visible entry once, before
+sorting, and having the comparators read from that instead of calling
+`stampOf` themselves.
+
+## Fixed — ARB MAN fields could never be omitted from a share code once touched (resolved)
+
+`CODEC_FIELDS` resolves each field's "is this at default, and can it be
+omitted" check against `DEF_GROUPS.fe` (`=DEF_FE`), but `DEF_FE` never
+defined `arbManF`/`arbManR` (ids 46/47) — their real nominal default of 20
+lived only in `sanitizeTune`'s clamp calls. So the codec's default came out
+as `undefined`, which a real value can never equal, and `encodeTune` could
+never omit these two fields once a user's `fe.arbManF`/`arbManR` became a
+concrete number (i.e. the first time MAN mode was ever touched) — even after
+setting them back to 20, every future share code still carried them,
+bloating the code without changing what it decoded to.
+
+Fixed by adding `arbManF:20,arbManR:20` to `DEF_FE`, matching
+`sanitizeTune`'s fallback.
