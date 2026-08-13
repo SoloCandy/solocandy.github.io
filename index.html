@@ -398,13 +398,20 @@ const feelToPhysics=(ch,fe)=>{
     } else if(rearHzMode==='mech'&&arbBalModeEarly!=='coSolve'){
       const m_m=cornerMasses(ch);
       const arbBalTgt=Math.max(0.20,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
-      const rsBalTgt=Math.max(0.05,Math.min(0.95,arbBalTgt));         // arbBalTarget is the rsBalance target
       // Weight ARBs sit at the natural balance ratio and dilute the spring correction.
       // Solve springs to a higher ratio so combined (springs + weight ARBs) still hits rsBalTgt:
       //   combined = (1-p)*b_sp + p*rsBalNat = rsBalTgt  →  b_sp = (rsBalTgt - p*rsBalNat)/(1-p)
       // Roll-stiffness fractions are width-independent (width is a grip effect, not stiffness).
       const _V_m=m_m.front*ch.trackF*ch.trackF,_W_m=m_m.rear*ch.trackR*ch.trackR;
       const _rsBalNat_m=_W_m/(_V_m+_W_m);
+      // arbBalTgt is the absolute display target (same role as CO-SOLVE's abt) — convert it to
+      // a physical rsBalance target the same way: pre-compensate tyre-width and MEASURE NAT BAL
+      // calibration offsets so a target sitting exactly on NAT collapses back to _rsBalNat_m and
+      // needs no spring correction. See resolveCoSolveSpringShare for the full rationale.
+      const twF_m=parseTyre(ch.tyreF)?.width??265,twR_m=parseTyre(ch.tyreR)?.width??265;
+      const tireCorr_m=TIRE_MECH_SCALE*Math.log(twR_m/twF_m);
+      const natOffset_m=naturalMechBalanceOf(ch)-_rsBalNat_m;
+      const rsBalTgt=Math.max(0.05,Math.min(0.95,arbBalTgt-tireCorr_m-natOffset_m));         // arbBalTarget is the rsBalance target
       let _p_m=0;
       if(arbBalModeEarly==='weight'||arbBalModeEarly==='manual'){
         if((fe.arbMode??'auto')==='share') _p_m=Math.max(0,Math.min(0.99,(fe.arbShareMan??20)/100));
@@ -471,13 +478,20 @@ const feelToPhysics=(ch,fe)=>{
     } else if(rearHzMode==='mech'&&arbBalModeEarly!=='coSolve'){
       const m_m=cornerMasses(ch);
       const arbBalTgt=Math.max(0.20,Math.min(0.90,fe.arbBalTarget??MECH_BALANCE_TARGET));
-      const rsBalTgt=Math.max(0.05,Math.min(0.95,arbBalTgt));         // arbBalTarget is the rsBalance target
       // Weight ARBs sit at the natural balance ratio and dilute the spring correction.
       // Solve springs to a higher ratio so combined (springs + weight ARBs) still hits rsBalTgt:
       //   combined = (1-p)*b_sp + p*rsBalNat = rsBalTgt  →  b_sp = (rsBalTgt - p*rsBalNat)/(1-p)
       // Roll-stiffness fractions are width-independent (width is a grip effect, not stiffness).
       const _V_m=m_m.front*ch.trackF*ch.trackF,_W_m=m_m.rear*ch.trackR*ch.trackR;
       const _rsBalNat_m=_W_m/(_V_m+_W_m);
+      // arbBalTgt is the absolute display target (same role as CO-SOLVE's abt) — convert it to
+      // a physical rsBalance target the same way: pre-compensate tyre-width and MEASURE NAT BAL
+      // calibration offsets so a target sitting exactly on NAT collapses back to _rsBalNat_m and
+      // needs no spring correction. See resolveCoSolveSpringShare for the full rationale.
+      const twF_m=parseTyre(ch.tyreF)?.width??265,twR_m=parseTyre(ch.tyreR)?.width??265;
+      const tireCorr_m=TIRE_MECH_SCALE*Math.log(twR_m/twF_m);
+      const natOffset_m=naturalMechBalanceOf(ch)-_rsBalNat_m;
+      const rsBalTgt=Math.max(0.05,Math.min(0.95,arbBalTgt-tireCorr_m-natOffset_m));         // arbBalTarget is the rsBalance target
       let _p_m=0;
       if(arbBalModeEarly==='weight'||arbBalModeEarly==='manual'){
         if((fe.arbMode??'auto')==='share') _p_m=Math.max(0,Math.min(0.99,(fe.arbShareMan??20)/100));
@@ -684,7 +698,15 @@ const resolveCoSolveSpringShare=(ch,fHz,opts,gameMode)=>{
       const abF_s=budget_s*(1-rF_s)/(ARB_RS_SCALE*ch.trackF*ch.trackF);
       const abR_s=budget_s*rF_s/(ARB_RS_SCALE*ch.trackR*ch.trackR);
       const abUtil=Math.max(abF_s,abR_s)/utilRef;
-      return{spUtil,abUtil};
+      // abUtil only measures how close ARB sits to the CEILING. A lopsided split can also want
+      // an axle near zero, which clk() later floors up to the game's 1-click minimum — real,
+      // extra stiffness this split never asked for, that quietly steals back part of whatever
+      // correction ARB was supposed to deliver. Nothing above catches that, so the search can
+      // settle on an S that looks comfortable here but gets distorted once the real floor
+      // clamps it. Treat "wants below 1 click" the same as "wants above the ceiling" — both mean
+      // ARB can't cleanly express this split — so the search hands more to springs instead.
+      const floorStrain=1/Math.max(0.05,Math.min(abF_s,abR_s))-1; // unbounded, like a ceiling overshoot, as an axle nears 0
+      return{spUtil,abUtil:Math.max(abUtil,floorStrain)};
     };
     let lo=0,hi=1;
     for(let i=0;i<12;i++){

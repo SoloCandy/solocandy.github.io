@@ -191,10 +191,67 @@ small residual `tireCorr` offset the *unmeasured* geometric case shows at its
 own natural target — i.e. identical relative behavior, not a new distortion),
 ARB split reads 52/48F/R (vs 40/60 before), and MECH BALANCE reads
 `NAT 0.55 → CUR 0.55 → TGT 0.55`. `tests.js` (111) and `tests-beamng.js` (41)
-unaffected. **Not touched:** the `rearHzMode==='mech'` Hz-ratio solve in
-`feelToPhysics` (reached only when ARB Balance Mode is `weight`/`manual`/`man`
-and Ride Frequency mode is MECH, not CO-SOLVE) has the same latent gap — it
-wasn't exercised by the reported case and is left as a follow-up.
+unaffected.
+
+**Follow-up (now also fixed):** the `rearHzMode==='mech'` Hz-ratio solve in
+`feelToPhysics` (reached whenever Ride Frequency Mode is MECH, for ARB
+Balance Modes `weight`/`manual`/`mech` — everything except CO-SOLVE, which
+has its own pre-inversion above) had the identical gap: its `rsBalTgt` was
+`fe.arbBalTarget` clamped straight through with no tyre-width or NAT-BAL
+correction, then fed directly into the same raw track-width/mass ratio
+inversion used everywhere else. Confirmed with the same share code
+(RIDE HZ MODE = MECH, ARB BAL MODE = MECH): target sitting exactly on the
+measured NAT (0.55, 0-delta) still produced `rHz/fHz = 1.1274` instead of
+~1.00. Fixed with the same additive-offset treatment — `tireCorr_m` and
+`natOffset_m` (gap between `naturalMechBalanceOf(ch)` and the block's own
+geometric `_rsBalNat_m`) are now subtracted from `rsBalTgt` before it enters
+the ratio math, in both the `shared`-reference and `front`/`rear`-reference
+copies of this block. Verified live: `rHz/fHz` now reads 0.9809 (the same
+residual as the CO-SOLVE fix — parity, not a new distortion) and
+`mechBalance` reads 0.5500 against the 0.5500 target for both `rideRef`
+settings. `tests.js`/`tests-beamng.js` still 152/152.
+
+Also checked ARB BAL CHASSIS (`arbBalMode==='chassis'`) while auditing the
+other modes — it already anchors directly to `naturalMechBalanceOf(ch)`
+(`const natPct=naturalMechBalanceOf(ch)*100`) rather than inverting a ratio
+against a geometric baseline, so it was never affected by this bug class.
+
+## Fixed — CO-SOLVE Auto Spring Share fell far short of large Balance Target bias values
+
+Follow-up to the fix above, found on a rear-biased test car (40/60 weight
+distribution) whose measured NAT sat 0.08 below the geometric estimate —
+then a Balance Target bias was dialed ±0.05–0.15 away from that NAT on top.
+CO-SOLVE with **Auto Spring Share** (the default) undershot badly at the
+larger bias values — e.g. bias +0.15 (target 0.646) only achieved 0.535, an
+11% miss — while switching Spring Share to **manual** and pushing it to
+~100% reliably landed within 0.03% of every target in the same sweep. That
+gap meant Auto Spring Share was leaving the correction on the table it was
+capable of making.
+
+Root cause: `resolveCoSolveSpringShare`'s Auto Spring Share search
+(`simUtil`/bisection) picks `S` — how much of the correction springs take
+vs. ARBs — by searching for where a spring "utilization" measure crosses an
+ARB "utilization" measure. But `abUtil` (`Math.max(abF_s,abR_s)/utilRef`)
+only measured how close ARB sat to the **ceiling**. When a large correction
+drives one ARB axle toward zero, `abUtil` read as comfortably low — the
+search saw no problem and settled on a low `S`, handing most of the
+correction to a low-budget ARB. In reality that near-zero axle gets floored
+up to the game's 1-click minimum by `clk()` later in `computeTune` — real,
+extra stiffness the split never asked for, which steals back part of the
+correction ARB was supposed to deliver, and the search never saw it happen
+because `simUtil` doesn't model the floor.
+
+Fixed by adding a floor-strain term to `simUtil` — `1/max(0.05, min(abF_s,
+abR_s)) - 1`, unbounded the same way ceiling overshoot already is — so
+wanting an axle near zero is now treated exactly like wanting one past the
+ceiling: both mean "ARB can't cleanly express this split," and the search
+hands more of the correction to springs instead of stopping early. Verified
+live on the same rear-biased car across a full bias sweep (±0.15): the
+worst-case error dropped from ~11% to ~0.13%, and every other point in the
+sweep landed under 0.15%. `tests.js` (111) and `tests-beamng.js` (41) both
+still pass — the bias=0 / small-bias / default cases the existing test suite
+covers were already comfortably inside ARB's floor and ceiling, so `S`
+there is unchanged.
 
 ## Changed — ARB MAN moved from Balance Mode to Stiffness Mode
 

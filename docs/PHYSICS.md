@@ -324,21 +324,46 @@ frequency (dispatch lives in `feelToPhysics`):
   inverted through `Kcs` so the *other* axle's Hz stays correct regardless
   of which axle the user chose to anchor.
 
+  Both MECH and CO-SOLVE (and the CO-SOLVE `Kcs` pre-inversion) convert the
+  absolute `resolveArbBalTarget`/`arbBalTarget` reading into a *physical*
+  roll-stiffness target the same way: subtract `tireCorr` (tyre-width) and
+  `natOffset` — the gap between `naturalMechBalanceOf(ch)` and each site's
+  own plain track-width/mass geometric formula — before it enters any
+  ratio-inversion math, then add both back on the reported `mechBalance`.
+  Without this, a MEASURE NAT BAL reading that differs from the geometric
+  estimate made every one of these solvers "correct" a gap that wasn't
+  real, even when the Balance Target sat exactly on the measured NAT (0
+  bias). See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for the full incident and
+  all four sites this touched (`resolveCoSolveSpringShare`'s `R_baseline`,
+  the CO-SOLVE `Kcs` pre-inversion's `Rbl`, `computeTune`'s ARB-split
+  `_mechTgt`/`mechBalance`, and MECH's own `rsBalTgt`).
+
   **Auto Spring Share** (`fe.springShareAuto`, the default) picks `S`
-  itself instead of taking it from the slider: `computeTune` binary-searches
-  `S ∈ [0,1]` for the point where spring utilisation equals ARB utilisation.
-  Both are expressed in the same currency so the comparison is meaningful —
-  spring utilisation is the incremental rear roll-stiffness the spring
-  correction is carrying (relative to its `S=0` baseline), converted through
-  the same `ARB_RS_SCALE·track²` relationship real ARB clicks use, then
-  scaled 0..1 against `lim.arb`: "how many ARB clicks would this same
-  physical correction have cost, had bars done it instead." ARB utilisation
-  is simply the heavier bar's clicks against `lim.arb`. Whichever side is
-  cheaper for a given `S` absorbs more of the correction, and the search
-  converges on the split where neither is disproportionately stressed. A
-  prior version compared Hz distance against the game's Hz range instead —
-  see [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for why that mismatch left AUTO
-  pinned at 100% spring / 0% ARB in almost every real case.
+  itself instead of taking it from the slider: `resolveCoSolveSpringShare`
+  binary-searches `S ∈ [0,1]` for the point where spring utilisation equals
+  ARB utilisation. Both are expressed in the same currency so the
+  comparison is meaningful — spring utilisation is the incremental rear
+  roll-stiffness the spring correction is carrying (relative to its `S=0`
+  baseline), converted through the same `ARB_RS_SCALE·track²` relationship
+  real ARB clicks use, then scaled 0..1 against `lim.arb`: "how many ARB
+  clicks would this same physical correction have cost, had bars done it
+  instead." ARB utilisation is the heavier bar's clicks against `lim.arb`,
+  **or** — since a lopsided split can just as easily want an axle *near
+  zero*, which the game's 1-click floor then rounds up to real stiffness
+  the split never asked for — `1/max(0.05, lighter bar's clicks) - 1`,
+  whichever is larger. That floor term is unbounded the same way ceiling
+  overshoot already is, so wanting an axle below the floor counts as
+  "ARB is maxed" too, instead of reading as comfortable slack and leaving
+  the search parked on a small `S` that the real click floor then quietly
+  undermines. Whichever side is cheaper for a given `S` absorbs more of the
+  correction, and the search converges on the split where neither is
+  disproportionately stressed. A prior version compared Hz distance against
+  the game's Hz range instead — see [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for
+  why that mismatch left AUTO pinned at 100% spring / 0% ARB in almost
+  every real case; a later fix (also documented there) is the floor term
+  above, for the opposite failure — AUTO understating how much correction
+  springs needed to take on when the Balance Target sat far from a
+  MEASURE NAT BAL reading.
 
   Note that only spring Hz feeds the RESPONSE/transient breakdown
   (`responseFactors` — Hz F and Hz R together are 55% of that score); ARB
