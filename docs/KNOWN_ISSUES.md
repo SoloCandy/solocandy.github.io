@@ -553,7 +553,7 @@ tip can essentially never recommend adjusting diff/brakes unless
 spring/ARB sit at *exact* neutral defaults.
 
 Unlike `ARB_RS_SCALE`, `DAMPING_CALIBRATION`, `TIRE_LOAD_SENS`, and
-`TIRE_MECH_SCALE` — all tied in the README to SimHub telemetry and Stage 2
+`TIRE_MECH_SCALE` — all tied in [PHYSICS.md](PHYSICS.md) to SimHub telemetry and Stage 2
 testing across three real cars — `DIFF_BIAS_SCALE` and `BRAKE_BIAS_SCALE`
 have no documented calibration methodology at all. `tests.js` only asserts
 *sign* for `bDiffAccel`/`bDiffDecel`, never magnitude; `BRAKE_BIAS_SCALE`
@@ -625,7 +625,7 @@ The PRO CHASSIS section's RIDE HEIGHT → CG toggle estimates CG height as
 `tyreRadiusAvg + weight-weighted rideHeightAvg`, and the accompanying
 SAG vs LOAD chart derives static sag purely from ride Hz (`g/(2π·hz)²`),
 plotted linearly against a vertical load factor. Unlike `ARB_RS_SCALE`, `DAMPING_CALIBRATION`,
-`TIRE_LOAD_SENS`, and `TIRE_MECH_SCALE` — all tied in the README to real
+`TIRE_LOAD_SENS`, and `TIRE_MECH_SCALE` — all tied in [PHYSICS.md](PHYSICS.md) to real
 telemetry/testing — neither formula has been validated against actual
 Forza CG-height behaviour or real bottoming events. Both are geometric
 plausibility checks, not measured physics:
@@ -739,8 +739,8 @@ and agrees with `flatRideRearHz`.
 Two notes for future work:
 
 - `tests.js` kept passing after the app was fixed, because it **mirrors** the
-  formula rather than importing it — exactly the silent-drift hazard the README
-  warns about for that file. The mirror is now updated and four assertions pin the
+  formula rather than importing it — exactly the silent-drift hazard
+  [CODE_MAP.md](CODE_MAP.md) warns about for that file. The mirror is now updated and four assertions pin the
   resulting ratio, so a re-doubling fails immediately.
 - The two clamp/band assertions in that suite encoded the old formula's numbers
   rather than independent physics, so their fixtures had to be re-derived. Worth
