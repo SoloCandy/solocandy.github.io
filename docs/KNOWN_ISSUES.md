@@ -636,13 +636,21 @@ plausibility checks, not measured physics:
   typical sports car lands ≈450mm, in the middle of the 400–460mm
   guidance) but that's a single spot-check, not a validated model across
   vehicle classes.
-- Bottoming risk is deliberately static-only (sag vs. entered ride height)
-  and does not fold in dynamic load transfer from cornering, braking, or
-  bumps — a car flagged LOW could still bottom out under hard braking or
-  a big compression, and a car flagged HIGH/BOTTOMED may never actually
-  touch down if driven gently. The LOW/MED/HIGH/BOTTOMED thresholds
-  (0.5/0.8/1.0 sag-to-ride-height ratio) are round numbers chosen for
-  intuitive spacing, not derived from any real bottoming-incident data.
+- Bottoming risk (and the LOW/MED/HIGH/BOTTOMED badge specifically) is
+  still static-vertical-load-only — sag vs. entered ride height at a plain
+  g multiplier. The chart's second, fainter line adds *cornering* via the
+  same lateral-load-transfer model `mechBalanceLLT` uses (`latLoadTransfer`,
+  see [PHYSICS.md](PHYSICS.md#natural-sag-and-bottoming-risk-ride-height-chassis-toggle)),
+  so outside-wheel bottoming under a given lateral g is now covered — but
+  braking-induced (longitudinal) load transfer and dynamic bump loads are
+  still not modeled by either line. A car flagged LOW could still bottom
+  out under hard braking or a big compression, and a car flagged
+  HIGH/BOTTOMED may never actually touch down if driven gently. The
+  LOW/MED/HIGH/BOTTOMED thresholds (0.5/0.8/1.0 sag-to-ride-height ratio)
+  are round numbers chosen for intuitive spacing, not derived from any real
+  bottoming-incident data. The chart's "bump stop zone" shading (top 12% of
+  each axle's travel) is a visual reminder that real springs go progressive
+  before contact — it is not a modeled progressive-rate curve.
 
 Both toggle state and its ride-height inputs (`useRideHeightCG`,
 `rideHeightF`, `rideHeightR`) are excluded from `CODEC_FIELDS` — only the

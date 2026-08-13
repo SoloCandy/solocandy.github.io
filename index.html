@@ -323,14 +323,21 @@ const forceZetas=(rideRef,mF,fHz,mR,rHz,refZeta,biasMult)=>balancedZetas(rideRef
 // the mechanism by which roll stiffness shifts balance), and tyre width as a
 // sub-linear grip-capacity multiplier. 0.5 = neutral, >0.5 = oversteer.
 // Only Kf/Kr ratio matters for LLTD, so callers may pass relative stiffnesses.
-const mechBalanceLLT=(ch,Kf,Kr)=>{
+// Lateral load transfer per corner (N) at 1g lateral accel — shared by mechBalanceLLT
+// and the SAG vs LOAD outside-wheel line.
+const latLoadTransfer=(ch,Kf,Kr)=>{
   const g=9.81,a=1.0;
-  const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
   const m=cornerMasses(ch),Mf=m.front*2,Mr=m.rear*2,Mt=Mf+Mr,RC=rollCenterHeight(ch);
   const Mphi=Mt*g*a*(ch.cgHeight-RC),sF=Kf/(Kf+Kr);     // sprung roll couple; front elastic share
   const dWf=Mphi*sF/ch.trackF+Mf*g*a*RC/ch.trackF;       // front lateral load transfer (N): elastic + geometric
   const dWr=Mphi*(1-sF)/ch.trackR+Mr*g*a*RC/ch.trackR;   // rear
-  const FzRef=Mt*g/4;                                     // avg static wheel load
+  return{dWf,dWr,Mf,Mr};
+};
+const mechBalanceLLT=(ch,Kf,Kr)=>{
+  const g=9.81;
+  const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
+  const{dWf,dWr,Mf,Mr}=latLoadTransfer(ch,Kf,Kr);
+  const FzRef=(Mf+Mr)*g/4;                                // avg static wheel load
   const fy=Fz=>{const z=Math.max(0,Fz);return z*Math.max(0,1-TIRE_LOAD_SENS*(z/FzRef-1));};
   const wF=Mf*g/2,wR=Mr*g/2;                              // static wheel loads
   const FyF=Math.pow(twF/265,WIDTH_GRIP_EXP)*(fy(wF+dWf)+fy(wF-dWf));
@@ -5478,20 +5485,32 @@ function App(){
                 const[rF]=riskOf(sagF/rhF),[rR]=riskOf(sagR/rhR);
                 const COL_F='#60a5fa',COL_R='#fb923c';
                 const gBottomF=rhF/sagF,gBottomR=rhR/sagR;
-                const gMax=Math.max(1,Math.min(6,Math.max(gBottomF,gBottomR)*1.25));
-                const yMax=Math.max(rhF,rhR,sagF*gMax,sagR*gMax)*1.08;
+                // Outside-wheel line: adds lateral-load-transfer compression (same LLT model as
+                // MECH BAL / grip balance) on top of static sag, so cornering g — not just
+                // vertical g — shows up as its own bottoming risk.
+                const m_=cornerMasses(ch);
+                const Kf_=tune.rsSpF+tune.rsAbF,Kr_=tune.rsSpR+tune.rsAbR;
+                const{dWf,dWr}=latLoadTransfer(ch,Kf_,Kr_);
+                const kWheelF=m_.front*Math.pow(2*Math.PI*tune.fHz,2),kWheelR=m_.rear*Math.pow(2*Math.PI*tune.rHz,2);
+                const dSagF=kWheelF>0?dWf/kWheelF*1000:0,dSagR=kWheelR>0?dWr/kWheelR*1000:0;
+                const gBottomOutF=dSagF>0?(rhF-sagF)/dSagF:Infinity;
+                const gBottomOutR=dSagR>0?(rhR-sagR)/dSagR:Infinity;
+                const gMax=Math.max(1,Math.min(6,Math.max(gBottomF,gBottomR,gBottomOutF,gBottomOutR,1)*1.25));
+                const yMax=Math.max(rhF,rhR,sagF*gMax,sagR*gMax,sagF+dSagF*gMax,sagR+dSagR*gMax)*1.08;
                 const W=280,H=115,padL=36,padB=20,padT=10,padR=10;
                 const plotW=W-padL-padR,plotH=H-padT-padB;
                 const xS=g_=>padL+(g_/gMax)*plotW;
                 const yS=mm=>padT+plotH-(mm/yMax)*plotH;
                 const toDisp=mm=>metricUnits?mm/10:mm/IN_TO_MM;
                 const gEndF=Math.min(gMax,yMax/sagF),gEndR=Math.min(gMax,yMax/sagR);
+                const gEndOutF=Math.min(gMax,sagF+dSagF*gMax<=yMax||dSagF<=0?gMax:(yMax-sagF)/dSagF);
+                const gEndOutR=Math.min(gMax,sagR+dSagR*gMax<=yMax||dSagR<=0?gMax:(yMax-sagR)/dSagR);
                 const xTicks=Array.from({length:Math.floor(gMax)+1},(_,i)=>i).filter(g_=>g_<=gMax);
                 return(<>
                   <div className="collapsible-hdr" onClick={()=>setOpen(p=>({...p,visSag:!p.visSag}))}
                     style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:3,marginTop:6,userSelect:'none',padding:'3px 4px'}}>
                     <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>SAG vs LOAD</span>
-                    <Hint text="Suspension compression scales linearly with vertical wheel load (mass cancels out of the spring/frequency relation), so this line is just static 1g sag × load factor. Dashed lines mark the ride height you entered per axle — where a diagonal crosses its dashed line is the load (in g) at which that axle bottoms out. Doesn't distinguish cornering/braking/bump load — treat it as 'how many g before contact', not a precise dynamic simulation."/>
+                    <Hint text="Solid line: suspension compression scales linearly with vertical wheel load (mass cancels out of the spring/frequency relation), so it's just static 1g sag × load factor. The small ring on it marks the static 1g operating point. Dashed line: ride height you entered per axle — where the solid diagonal crosses it is the load (in g) at which that axle bottoms out under pure vertical load. Faint short-dashed line: the OUTSIDE wheel's extra compression from lateral load transfer during cornering (same LLT model as MECH BAL), added on top of static sag — its own hollow-ring marker shows the lateral g at which that wheel bottoms from roll alone, independent of the vertical-g line. Shaded band at the top of each axle's travel is a reminder that real springs go progressive near the bump stop, softer than this linear model shows. Still simplified — doesn't combine cornering with braking or bump load, and treats front/rear independently."/>
                     {open.visSag&&<span style={{marginLeft:'auto',display:'flex',gap:8,fontSize:9}}>
                       <span style={{color:COL_F}}>● FRONT {rF}</span>
                       <span style={{color:COL_R}}>● REAR {rR}</span>
@@ -5512,19 +5531,35 @@ function App(){
                       ))}
                       <text x={2} y={padT+4} fontSize={8} fill="#475569" fontFamily="var(--font-mono)">{Math.round(toDisp(yMax))}{metricUnits?'cm':'in'}</text>
                       <text x={2} y={H-padB} fontSize={8} fill="#475569" fontFamily="var(--font-mono)">0</text>
+                      {/* bump-stop zone: real springs go progressive well before metal-to-metal
+                          contact — shade the top 12% of each axle's travel as a reminder that
+                          the diagonal below is a linear-rate approximation, softest right where
+                          it matters most. */}
+                      <rect x={padL} y={yS(rhF)} width={plotW} height={yS(rhF*0.88)-yS(rhF)} fill={COL_F} opacity={0.08}/>
+                      <rect x={padL} y={yS(rhR)} width={plotW} height={yS(rhR*0.88)-yS(rhR)} fill={COL_R} opacity={0.08}/>
                       {/* ride-height (bottom-out) reference lines */}
                       <line x1={padL} y1={yS(rhF)} x2={W-padR} y2={yS(rhF)} stroke={COL_F} strokeWidth={1} strokeDasharray="3,2" opacity={0.6}/>
                       <line x1={padL} y1={yS(rhR)} x2={W-padR} y2={yS(rhR)} stroke={COL_R} strokeWidth={1} strokeDasharray="3,2" opacity={0.6}/>
-                      {/* sag-vs-load diagonals */}
+                      {/* outside-wheel-under-cornering-load diagonals (LLT model) */}
+                      <line x1={xS(0)} y1={yS(sagF)} x2={xS(gEndOutF)} y2={yS(sagF+dSagF*gEndOutF)} stroke={COL_F} strokeWidth={1} strokeDasharray="2,2" opacity={0.65}/>
+                      <line x1={xS(0)} y1={yS(sagR)} x2={xS(gEndOutR)} y2={yS(sagR+dSagR*gEndOutR)} stroke={COL_R} strokeWidth={1} strokeDasharray="2,2" opacity={0.65}/>
+                      {isFinite(gBottomOutF)&&gBottomOutF<=gMax&&<circle cx={xS(gBottomOutF)} cy={yS(rhF)} r={2} fill="none" stroke={COL_F} strokeWidth={1.3}/>}
+                      {isFinite(gBottomOutR)&&gBottomOutR<=gMax&&<circle cx={xS(gBottomOutR)} cy={yS(rhR)} r={2} fill="none" stroke={COL_R} strokeWidth={1.3}/>}
+                      {/* sag-vs-load diagonals (uniform vertical g) */}
                       <line x1={xS(0)} y1={yS(0)} x2={xS(gEndF)} y2={yS(sagF*gEndF)} stroke={COL_F} strokeWidth={2}/>
                       <line x1={xS(0)} y1={yS(0)} x2={xS(gEndR)} y2={yS(sagR*gEndR)} stroke={COL_R} strokeWidth={2}/>
+                      {/* static 1g operating point */}
+                      {gMax>=1&&<circle cx={xS(1)} cy={yS(sagF)} r={1.8} fill="#0a0f1a" stroke={COL_F} strokeWidth={1.3}/>}
+                      {gMax>=1&&<circle cx={xS(1)} cy={yS(sagR)} r={1.8} fill="#0a0f1a" stroke={COL_R} strokeWidth={1.3}/>}
                       {/* bottom-out markers, only if reached within the plotted range */}
                       {gBottomF<=gMax&&<circle cx={xS(gBottomF)} cy={yS(rhF)} r={2.5} fill={COL_F}/>}
                       {gBottomR<=gMax&&<circle cx={xS(gBottomR)} cy={yS(rhR)} r={2.5} fill={COL_R}/>}
                     </svg>
-                    <div style={{display:'flex',gap:12,fontFamily:'var(--font-mono)'}}>
+                    <div style={{display:'flex',gap:12,fontFamily:'var(--font-mono)',flexWrap:'wrap'}}>
                       <span style={{fontSize:9,color:COL_F}}>{gBottomF<=gMax?`bottoms ≈${gBottomF.toFixed(1)}g`:`no bottom ≤${gMax.toFixed(1)}g`}</span>
                       <span style={{fontSize:9,color:COL_R}}>{gBottomR<=gMax?`bottoms ≈${gBottomR.toFixed(1)}g`:`no bottom ≤${gMax.toFixed(1)}g`}</span>
+                      <span style={{fontSize:9,color:COL_F,opacity:0.75}}>{isFinite(gBottomOutF)&&gBottomOutF<=gMax?`outside ≈${gBottomOutF.toFixed(1)}g lat`:'outside: no bottom'}</span>
+                      <span style={{fontSize:9,color:COL_R,opacity:0.75}}>{isFinite(gBottomOutR)&&gBottomOutR<=gMax?`outside ≈${gBottomOutR.toFixed(1)}g lat`:'outside: no bottom'}</span>
                     </div>
                   </div>}
                 </>);

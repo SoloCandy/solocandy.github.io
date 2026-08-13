@@ -474,13 +474,45 @@ against load (g) on the x-axis, with a dashed reference line at that axle's
 entered ride height — where the diagonal crosses the dashed line is the
 load (in g) at which that axle bottoms out, also given as a plain number
 and an at-a-glance LOW/MED/HIGH/BOTTOMED badge (`sag_1g/rideHeight`: <0.5
-LOW, <0.8 MED, <1.0 HIGH, ≥1.0 BOTTOMED AT REST). This is intentionally
-static-only — it does not include dynamic load transfer from cornering,
-braking, or bumps (the LOAD TRANSFER readout
-elsewhere estimates that separately, at 1g) — so treat HIGH/BOTTOMED as a
-prompt to double-check, not a certainty. See the Calibration constants
-section above and [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for the same caveat as it applies to
-the CG-height estimate this toggle also drives.
+LOW, <0.8 MED, <1.0 HIGH, ≥1.0 BOTTOMED AT REST). A solid ring on the main
+diagonal marks the static 1g operating point (`g=1`).
+
+The main diagonal is still uniform-vertical-load-only — it does not include
+dynamic load transfer from cornering or braking, or bump loads. The chart
+now adds a second, fainter dashed line per axle that folds in *cornering*:
+the outside wheel's extra compression from lateral load transfer, reusing
+the same `latLoadTransfer` model as [`mechBalanceLLT`](#mech-balance-grip-model-mechbalancelltbalancefromrsbal):
+
+```js
+Kf, Kr = tune.rsSpF+tune.rsAbF, tune.rsSpR+tune.rsAbR   // total roll stiffness per axle
+dWf, dWr = latLoadTransfer(ch, Kf, Kr)                  // outside-wheel load transfer (N) at 1g lateral
+kWheel = cornerMass * (2π·hz)²                          // wheel-rate spring constant, N/m
+dSag_mm = dWf / kWheelF * 1000                          // extra compression per g of lateral accel
+outside_line(g) = sag_1g + dSag_mm * g                  // starts at static sag, not the origin
+```
+
+`latLoadTransfer` was factored out of `mechBalanceLLT` so both consumers
+share one lateral-load-transfer implementation rather than duplicating it.
+Because it takes the *same* `Kf`/`Kr` split the ARB/spring solve already
+produced, the outside-wheel line reflects the car's actual current roll
+stiffness balance, not a generic assumption. Its own hollow-ring marker and
+"outside ≈Ng lat" readout show the lateral g at which the outside wheel
+bottoms from roll transfer alone — independent of, and typically reached at
+a lower g than, the vertical-g bottom-out on the main diagonal, since it's
+added on top of static sag rather than starting from zero.
+
+The top 12% of each axle's dashed ride-height line is shaded as a "bump
+stop zone" reminder — a real spring goes progressive well before metal-to-
+metal contact, softer than either line's linear-rate assumption shows near
+the top. This is a visual cue only; no progressive-rate curve is modeled or
+plotted.
+
+Braking-induced (longitudinal) load transfer and dynamic bump loads are
+still not modeled by either line — treat HIGH/BOTTOMED, and any bottom-out
+g figure here, as a prompt to double-check, not a certainty. See the
+Calibration constants section above and [KNOWN_ISSUES.md](KNOWN_ISSUES.md)
+for the same caveat as it applies to the CG-height estimate this toggle
+also drives.
 
 ---
 
