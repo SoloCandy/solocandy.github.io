@@ -453,6 +453,29 @@ UI needs "what grip balance would this roll-stiffness split produce."
 `TIRE_LOAD_SENS`, `MECH_BAL_GAIN`, `WIDTH_GRIP_EXP` are in the Calibration
 constants table above.
 
+**Balance Guide RANGE.** The PRO Balance Guide's recommended mech-balance
+band is a fraction of the gap between `natMechBalance` (NATURAL) and
+`1 - balanceFromRsBal(ch, natMechBalance)` (GRIP TARGET — the mech balance
+that would fully cancel the chassis's natural grip tendency), not a flat
+offset:
+
+```js
+gap = (1 - natGripBalance) - natMechBalance
+lo, hi = natMechBalance + fracLo*gap, natMechBalance + fracHi*gap  // clamped to 0.20-0.90
+```
+
+`fracLo`/`fracHi` come from a per-layout/build table (`_fracMap` in the
+RANGE block, `index.html`) generally in the 0.3-1.0 range, so the band
+scales with how understeer/oversteer-prone the specific chassis actually
+is instead of recommending a constant push regardless of gap size.
+Fractions can exceed 1.0 (DRIFT) to intentionally recommend overshooting
+past full grip-neutral for sustained rotation. `gap`'s sign flips for the
+rare chassis whose natural balance already sits past its own grip target,
+and the fraction math handles that automatically — no separate branch
+needed. The GRIP GAP sub-widget (tyre-width suggestions to bring GRIP
+TARGET into range) mirrors the same fraction table so the two widgets
+agree on what "in range" means.
+
 ---
 
 ## Natural sag and bottoming risk (ride-height CHASSIS toggle)

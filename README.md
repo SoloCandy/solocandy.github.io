@@ -30,7 +30,7 @@ A single-file suspension tuning calculator for **Forza Horizon**, **Forza Motors
 Forza's suspension tuning menus expose raw numbers — spring rate lb/in, damper clicks, ARB clicks — with no guidance on what those numbers mean physically. SUSP.OS bridges that gap:
 
 1. **You describe your car** — weight, front weight bias, drivetrain layout, build type, and tyre sizes. In PRO mode: wheelbase, track widths, and CG height for full chassis geometry.
-2. **You set a handling target** — ride stiffness, mech balance target (how rear-biased the roll stiffness should be for your drivetrain and build), damping character, and differential intent. The balance guide shows recommended ranges for your layout and build type, and flags how far your chassis natural balance sits from the target.
+2. **You set a handling target** — ride stiffness, mech balance target (how rear-biased the roll stiffness should be for your drivetrain and build), damping character, and differential intent. The balance guide shows a recommended range for your layout and build type — scaled between your chassis's natural balance and its grip-neutral point rather than a flat offset — and flags how far your chassis natural balance sits from the target.
 3. **SUSP.OS computes the physics** — spring rates from natural frequency targets, damper clicks from critical damping coefficients, ARB split solved to hit your mech balance target, alignment geometry, brake bias, and differential lock percentages.
 4. **You enter the output values into your game's tuning menu** — springs, dampers, ARBs, alignment, brakes, and differential: exact clicks for the two Forza titles, real physical units for BeamNG.
 
