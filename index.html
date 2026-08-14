@@ -1348,7 +1348,32 @@ const entrySummary=(e,metric)=>{
     bits.push(`${e.ch.frontBias}% F`);
     bits.push(`${e.ch.wheelbase}m wb`);
   }
-  if(e?.fe)bits.push(`${rsToHz(e.fe.rideStiffness??1.75).toFixed(2)} Hz`);
+  if(e?.fe){
+    const hz=rsToHz(e.fe.rideStiffness??1.75);
+    bits.push(`${hz.toFixed(2)} Hz`);
+    if(e.ch){
+      // Car entries carry their own chassis, so the actual bottom-out g (not just the
+      // stored target) can be computed on THIS entry's ride height — same sag model as
+      // the SAG vs LOAD chart / BOTTOM G's stiffness mode. Shown regardless of which
+      // stiffness mode was active when saved, since the chassis context makes it a real
+      // reading either way, not just an aspiration.
+      const rRef=e.fe.rideRef??'front';
+      const rhPrimary_mm=rRef==='rear'?(e.ch.rideHeightR??0.12)*1000
+        :rRef==='shared'?((e.ch.rideHeightF??0.13)+(e.ch.rideHeightR??0.12))/2*1000
+        :(e.ch.rideHeightF??0.13)*1000;
+      const g=rhPrimary_mm*Math.pow(2*Math.PI*hz,2)/9810;
+      bits.push(`${g.toFixed(2)} g`);
+    }else if(e.fe.rideStiffMode==='bottomG'&&e.fe.rideBottomG!=null){
+      // Build entries have no chassis, so there's no ride height to compute a real bottom-out
+      // g from — but if BOTTOM G's mode was selected, the stored target itself is still
+      // meaningful (it's what re-solves Hz on whatever chassis the build gets applied to).
+      bits.push(`${e.fe.rideBottomG.toFixed(2)} g target`);
+    }
+    bits.push(`${e.fe.reboundZeta??70}% ζ`);
+    bits.push((e.fe.dampingMode??'ratio')==='independent'
+      ?`${e.fe.bumpZeta??39}% bump ζ`
+      :`${e.fe.bumpRatio??56}% bump`);
+  }
   if(e?.dr)bits.push((e.dr.diffType??'race').toUpperCase());
   return bits.join(' · ');
 };
@@ -1383,7 +1408,8 @@ const DEF_FE={rideStiffness:1.75,arbBias:0,dampingBias:0,dampBalMode:'standard',
               // comfort/road philosophy (many racecars don't use it) and its ratio only
               // stays inside the practitioner 10–20% band at moderate stiffness; it remains
               // fully available as a Hz Mode choice. 1.20 sits at the upper end of that band.
-              rearHzMode:'multiplier',rearHzMan:1.5,rearHzMult:1.20,rideRef:'front'};
+              rearHzMode:'multiplier',rearHzMan:1.5,rearHzMult:1.20,rideRef:'front',
+              rideStiffMode:'hz',rideBottomG:null};
 // buildType:'street' pairs with diffType:'sport' — recommendedDiffType maps
 // street→sport, track→race (index.html, search recommendedDiffType), so these two
 // must move together or a fresh INT/PRO install shows a spurious RECOMMENDED
@@ -2494,6 +2520,12 @@ const CODEC_FIELDS=[
   {id:60,group:'ch',key:'useMeasuredNatBal',bool:true},
   {id:61,group:'ch',key:'measuredNatBal'},
   {id:62,group:'fe',key:'dampBalMode',enc:DAMP_BAL_MODE_ENC,dec:DAMP_BAL_MODE_DEC},
+  // 63/64: BOTTOM G's stiffness-input mode. Unlike rideHeightF/R (excluded — see the
+  // "Fields deliberately excluded" section), rideBottomG is a stored TARGET, not a
+  // calibration input to a value that already travels — it's meant to actively re-solve
+  // rideStiffness (id 7) against whatever chassis it's applied to. See docs/CODEC.md.
+  {id:63,group:'fe',key:'rideStiffMode',enc:{'hz':0,'bottomG':1},dec:['hz','bottomG']},
+  {id:64,group:'fe',key:'rideBottomG'},
   // Retired ids — never reuse: none yet (dead fields removed pre-v1 never had an id).
 ];
 const codecFieldDefault=f=>f.tyre?f.def:DEF_GROUPS[f.group][f.key];
@@ -2609,6 +2641,8 @@ const sanitizeTune=({ch,fe,dr})=>{
       rearHzMan:        cl(fe?.rearHzMan,          HZ_MIN, HZ_MAX, DEF_FE.rearHzMan),
       rearHzMult:       cl(fe?.rearHzMult,         0.5,  3.0, DEF_FE.rearHzMult),
       rideRef:          ['front','rear','shared'].includes(fe?.rideRef)?fe.rideRef:'front',
+      rideStiffMode:    ['hz','bottomG'].includes(fe?.rideStiffMode)?fe.rideStiffMode:'hz',
+      rideBottomG:      (typeof fe?.rideBottomG==='number'&&isFinite(fe.rideBottomG)&&fe.rideBottomG>0)?fe.rideBottomG:null,
       arbManF:          cl(fe?.arbManF,             1,   65,   20),
       arbManR:          cl(fe?.arbManR,             1,   65,   20),
       settleTarget:     cl(fe?.settleTarget,      0.10,  2.00,  DEF_FE.settleTarget),
@@ -3390,6 +3424,7 @@ function App(){
   const[resetOpts,setResetOpts]=useState({tune:true,tutorials:false});
   const[hzDraft,setHzDraft]=useState(null);     // transient: direct front Hz entry
   const[rearHzDraft,setRearHzDraft]=useState(null); // transient: direct rear Hz entry (independent mode)
+  const[gDraft,setGDraft]=useState(null);        // transient: direct bottom-out g entry
 
   const[sidebarOpen,setSidebarOpen]=useState(false);
   const[isMobile,setIsMobile]=useState(false);
@@ -3535,6 +3570,41 @@ function App(){
     :{...fe,arbBalTarget:resolveArbBalTarget(ch,fe)};
   const physics=useMemo(()=>feelToPhysics(ch,feEffective),[ch,feEffective]);
   const tune=useMemo(()=>computeTune(ch,physics,fe.gameMode),[ch,physics,fe.gameMode]);
+  // BOTTOM G's stiffness mode: fe.rideBottomG is a stored TARGET load factor (not a Hz), so it
+  // must keep resolving to a fresh Hz whenever the chassis it applies to changes — ride height
+  // edits, or a build/share-code load landing a new target on the current chassis. Switching
+  // RIDE REF. is the one exception: it must NEVER itself change the actual front/rear Hz (see
+  // the RIDE REF. hint text), so on an axle switch this mirrors the target to the new axle's
+  // already-current g instead of resolving Hz from the old axle's target.
+  //
+  // This used to be two separate effects (a "resolve" one and a "mirror" one). Splitting them
+  // caused a real bug: a single fe update that changes rideStiffness AND rideBottomG together
+  // (e.g. LOAD BUILD) makes BOTH effects' dependencies fire in the SAME commit, both reading the
+  // SAME pre-resolve tune snapshot — the mirror effect would stomp the freshly-loaded target with
+  // a value derived from the not-yet-resolved Hz, fighting the resolve effect into converging on
+  // the wrong number (or oscillating). One effect making one atomic decision per fire — using a
+  // ref to remember only whether RIDE REF. itself just changed, since that's the sole case that
+  // should mirror instead of resolve — avoids the race entirely.
+  const bottomGPrevRef=useRef({rh:null,rRef:null});
+  useEffect(()=>{
+    if((fe.rideStiffMode??'hz')!=='bottomG'){bottomGPrevRef.current={rh:null,rRef:null};return;}
+    const rRef=physics.rideRef??'front';
+    const rhPrimary_mm=rRef==='rear'?ch.rideHeightR*1000:rRef==='shared'?(ch.rideHeightF+ch.rideHeightR)/2*1000:ch.rideHeightF*1000;
+    if(!(rhPrimary_mm>0))return;
+    const prev=bottomGPrevRef.current;
+    const refSwitched=prev.rRef!==null&&prev.rRef!==rRef;
+    bottomGPrevRef.current={rh:rhPrimary_mm,rRef};
+    const hzNow=rRef==='rear'?tune.rHz:rRef==='shared'?(tune.fHz+tune.rHz)/2:tune.fHz;
+    if(refSwitched){
+      const curG=Math.round(rhPrimary_mm*Math.pow(2*Math.PI*hzNow,2)/9810*100)/100;
+      if(fe.rideBottomG==null||Math.abs(curG-fe.rideBottomG)>0.001)setFe(p=>({...p,rideBottomG:curG}));
+      return;
+    }
+    if(fe.rideBottomG==null)return;
+    const hz=Math.max(HZ_MIN,Math.min(HZ_MAX,Math.sqrt(9810*fe.rideBottomG/rhPrimary_mm)/(2*Math.PI)));
+    const rs=hzToRs(hz);
+    if(Math.abs(rs-fe.rideStiffness)>0.001)setFe(p=>({...p,rideStiffness:rs}));
+  },[ch.rideHeightF,ch.rideHeightR,fe.rideStiffMode,fe.rideBottomG,physics.rideRef,tune.fHz,tune.rHz]); // eslint-disable-line
   const autoAlign=useMemo(()=>computeAlignment(ch,tune,ch.layout,dr.buildType),[ch,tune,ch.layout,dr.buildType]);
   // alignMode: 'build' (default, computeAlignment only) | 'mech' (nudge toward the resolved
   // Mech Balance Target's gap from natural — reinforces deliberate tuning intent, same signal
@@ -4901,7 +4971,9 @@ function App(){
               rearHzMode:DEF_FE.rearHzMode,
               rearHzMan:DEF_FE.rearHzMan,
               rearHzMult:DEF_FE.rearHzMult,
-              rideRef:DEF_FE.rideRef}))}>
+              rideRef:DEF_FE.rideRef,
+              rideStiffMode:DEF_FE.rideStiffMode,
+              rideBottomG:DEF_FE.rideBottomG}))}>
             <div style={dim('feel')}>
             {(()=>{
               const rRef=physics.rideRef??'front'; // 'front', 'rear', or 'shared'
@@ -4909,6 +4981,12 @@ function App(){
               // physics.rearHz is the pre-CO-SOLVE flatRide value; tune.rHz is the actual solved Hz.
               const avgHz=(tune.fHz+tune.rHz)/2;
               const primaryHz=rRef==='rear'?tune.rHz:rRef==='shared'?avgHz:tune.fHz;
+              // Bottom-out g <-> Hz, same sag model as the SAG vs LOAD chart (gConst=9810mm/s^2).
+              const rhPrimary_mm=rRef==='rear'?ch.rideHeightR*1000:rRef==='shared'?(ch.rideHeightF+ch.rideHeightR)/2*1000:ch.rideHeightF*1000;
+              const hzToBottomG=hz=>rhPrimary_mm*Math.pow(2*Math.PI*hz,2)/9810;
+              const bottomGToHz=g=>Math.sqrt(9810*Math.max(0,g)/rhPrimary_mm)/(2*Math.PI);
+              const bottomGLo=hzToBottomG(HZ_MIN), bottomGHi=hzToBottomG(HZ_MAX);
+              const primaryBottomG=hzToBottomG(primaryHz);
               return(<>
                 {/* Ride reference toggle — always visible, works in CO-SOLVE via Hz inversion */}
                 <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
@@ -4929,6 +5007,41 @@ function App(){
                       rideStiffness:hzToRs(tune.rHz),
                       ...(p.rearHzMode==='independent'?{rearHzMan:Math.round(tune.fHz*100)/100}:{})}))}>REAR</button>
                 </div>
+                {(()=>{
+                  const effStiffMode=(fe.rideStiffMode??'hz')==='bottomG'&&ch.useRideHeightCG?'bottomG':'hz';
+                  return ch.useRideHeightCG&&<div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
+                  <span style={{flex:1,fontSize:10,color:'#94a3b8',letterSpacing:1}}>STIFFNESS<Hint text="What the Ride Stiffness slider below sets. HZ: spring frequency directly. BOTTOM G's: the vertical load factor at which the active RIDE REF. axle bottoms out (same model as the SAG vs LOAD chart) — the slider back-solves the Hz that produces it, and keeps re-solving it if ride height changes or a build/share-code lands a different target on this chassis. Switching RIDE REF. never changes the actual Hz values, only which axle's number is shown. Only available with RIDE HEIGHT → CG enabled (CHASSIS section)."/></span>
+                  <button className={`tog${effStiffMode==='hz'?' on':''}`} onClick={()=>setFe(p=>({...p,rideStiffMode:'hz'}))}>HZ</button>
+                  <button className={`tog${effStiffMode==='bottomG'?' on':''}`} onClick={()=>setFe(p=>({...p,rideStiffMode:'bottomG',rideBottomG:primaryBottomG}))}>BOTTOM G's</button>
+                </div>;
+                })()}
+                {(fe.rideStiffMode??'hz')==='bottomG'&&ch.useRideHeightCG?
+                <FeelSlider
+                  label={rRef==='rear'?'Rear Bottom-Out':rRef==='shared'?'Avg Bottom-Out':'Front Bottom-Out'}
+                  value={primaryBottomG}
+                  onChange={v=>setFe(p=>({...p,rideStiffness:hzToRs(bottomGToHz(v)),rideBottomG:v}))}
+                  min={bottomGLo} max={bottomGHi} step={0.01} leftLabel={bottomGLo.toFixed(2)} rightLabel={bottomGHi.toFixed(2)}
+                  markers={null}
+                  readout={<span style={{display:'flex',alignItems:'center',gap:3}}>
+                    <input type="number" className="num"
+                      style={{width:44,fontSize:11,fontWeight:700,color:'#94a3b8',
+                              background:'transparent',fontFamily:'var(--font-mono)',
+                              borderRadius:2,textAlign:'right',padding:'0 2px',
+                              border:gDraft!==null?'1px solid #334155':'1px solid transparent'}}
+                      min={bottomGLo} max={bottomGHi} step={0.01}
+                      value={gDraft??primaryBottomG.toFixed(2)}
+                      onFocus={()=>setGDraft(primaryBottomG.toFixed(2))}
+                      onChange={e=>setGDraft(e.target.value)}
+                      onBlur={()=>{
+                        const v=parseFloat(gDraft);
+                        if(!isNaN(v)) setFe(p=>({...p,rideStiffness:hzToRs(bottomGToHz(v)),rideBottomG:v}));
+                        setGDraft(null);
+                      }}
+                      onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}/>
+                    <span style={{fontSize:11,color:'#94a3b8',fontFamily:'var(--font-mono)'}}>g</span>
+                  </span>}
+                  hint={`Vertical-g load factor at which the ${rRef==='rear'?'rear':rRef==='shared'?'average':'front'} axle bottoms out, from static ride height and 1g sag — same model as the SAG vs LOAD chart. This target is saved with the build/share code and re-solves Hz on whatever chassis it's applied to. Click the value to type directly.`}/>
+                :
                 <FeelSlider
                   label={rRef==='rear'?'Rear Stiffness':rRef==='shared'?'Avg Stiffness':'Ride Stiffness'}
                   value={primaryHz}
@@ -4957,7 +5070,7 @@ function App(){
                     ?'Rear spring frequency — the fixed reference. The mode below derives front Hz from it. Click the Hz value to type directly. Typical range: 1.0–1.8 Hz for street, 1.8–2.6 Hz for track.'
                     :rRef==='shared'
                     ?'Average of front and rear spring frequency. Moving the slider scales both axles together while the mode below holds the front/rear ratio. Click the Hz value to type directly.'
-                    :'Front spring frequency — the fixed reference. The mode below derives rear Hz from it. Click the Hz value to type directly. Typical range: 1.0–1.8 Hz for street, 1.8–2.6 Hz for track.'}/>
+                    :'Front spring frequency — the fixed reference. The mode below derives rear Hz from it. Click the Hz value to type directly. Typical range: 1.0–1.8 Hz for street, 1.8–2.6 Hz for track.'}/>}
               </>);
             })()}
             {/* secondary Hz mode toggle — hidden in CO-SOLVE (rear Hz solved automatically) */}

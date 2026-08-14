@@ -81,8 +81,18 @@ future version might not carry.
 | 60 | ch | useMeasuredNatBal | bool |
 | 61 | ch | measuredNatBal | raw number |
 | 62 | fe | dampBalMode | enum (`DAMP_BAL_MODE_ENC/DEC`) |
+| 63 | fe | rideStiffMode | enum (`'hz'`:0, `'bottomG'`:1) |
+| 64 | fe | rideBottomG | raw number |
 
-**Next available id: 63.**
+**Next available id: 65.**
+
+Ids 63/64 are the Ride Stiffness slider's BOTTOM G's mode (a target
+vertical-g bottom-out load factor, alternative to entering Hz directly — see
+[PHYSICS.md](PHYSICS.md#bottom-gs-stiffness-mode)). Unlike `rideHeightF/R`
+(excluded below — a calibration input to a value, `cgHeight`, that already
+has its own id), `rideBottomG` is intentionally a *stored target*: it's
+meant to actively re-solve `rideStiffness` (id 7) against whatever chassis
+it's applied to, not just describe how the sender arrived at their number.
 
 Ids 58/59 are `group:'ch'` because a motion ratio describes the car's suspension
 geometry, so it travels with a chassis entry rather than a tune — same reasoning

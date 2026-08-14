@@ -514,6 +514,60 @@ Calibration constants section above and [KNOWN_ISSUES.md](KNOWN_ISSUES.md)
 for the same caveat as it applies to the CG-height estimate this toggle
 also drives.
 
+### BOTTOM G's stiffness mode
+
+The INT/PRO RIDE panel's Ride Stiffness slider can also be driven in the
+other direction — set a target vertical-g bottom-out and back-solve the Hz
+that produces it — via a HZ / BOTTOM G's mode toggle next to RIDE REF.
+(`index.html`, RIDE panel IIFE, only shown with RIDE HEIGHT → CG on). It
+inverts the same `sag_mm` formula above for whichever axle RIDE REF.
+currently anchors:
+
+```js
+bottomG = rideHeight_mm * (2π*hz)² / 9810        // forward, same as sag_1g/rideHeight above (inverted)
+hz      = √(9810 * bottomG / rideHeight_mm) / 2π  // inverse — what the slider solves for
+```
+
+The slider's own min/max in g-space are just this formula evaluated at
+`HZ_MIN`/`HZ_MAX` for the active axle's ride height, so the bounds shift per
+axle and per chassis. It reads `ch.rideHeightF/R` directly (defaults 130mm
+front / 120mm rear) regardless of whether the RIDE HEIGHT → CG toggle is on
+— it doesn't require the SAG vs LOAD chart to be visible to work, though the
+two are the same underlying model and should always agree.
+
+Unlike RIDE REF., this is **not** a display-only toggle — `fe.rideStiffMode`
+and the target `fe.rideBottomG` are real persisted fields (codec ids 63/64;
+see [CODEC.md](CODEC.md)), because the target is meant to survive being
+applied to a different chassis: copying a build/share-code tuned in BOTTOM
+G's mode onto a chassis with a different ride height re-solves Hz to hit the
+same target g, rather than carrying the raw Hz forward and letting the g
+reading silently drift.
+
+A single `useEffect` (`index.html`, directly after `tune`/`physics` are
+computed) keeps this resolved, live — on ride-height edits, on a
+build/share-code load landing a different target on the current chassis, and
+on mount. It also handles the one case that must go the *other* direction:
+switching RIDE REF. (FRONT/SHARED/REAR) must never itself change the actual
+front/rear Hz (see the RIDE REF. hint text) — so on an axle switch, the
+effect mirrors the stored target to the newly-active axle's already-current
+g instead of resolving Hz from the old axle's target. It distinguishes these
+two cases with a `useRef` that remembers only the previous RIDE REF. value
+(not a float, so no rounding-drift false positives) — everything else (ride
+height, the target itself) is a genuine "resolve" trigger.
+
+This started as two separate effects (a resolve effect and a mirror effect)
+and shipped with a real bug: a single `fe` update that changes
+`rideStiffness` *and* `rideBottomG` together (loading a build) made both
+effects' dependencies fire in the same commit, both reading the same
+pre-resolve `tune` snapshot — the mirror effect stomped the freshly-loaded
+target with a value derived from the not-yet-resolved Hz, fighting the
+resolve effect into converging on the wrong number instead of the loaded
+target. One effect making one atomic decision per fire, using the ref above
+to disambiguate, closed that race. If this logic is touched again, re-verify
+by loading a build with a known target onto a chassis with a different ride
+height and confirming the resolved Hz matches the target exactly (not a
+value quietly re-derived from whatever Hz happened to be loaded).
+
 ---
 
 ## Test coverage
