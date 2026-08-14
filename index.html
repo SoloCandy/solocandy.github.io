@@ -2690,6 +2690,17 @@ const OverwriteBtn=({onConfirm})=>{
   );
 };
 
+const copyToClipboard=(text,onDone)=>{
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(onDone).catch(()=>{});
+  } else {
+    const ta=document.createElement('textarea');
+    ta.value=text;document.body.appendChild(ta);ta.select();
+    document.execCommand('copy');document.body.removeChild(ta);
+    onDone();
+  }
+};
+
 // One garage entry. Takes a props object rather than positional args — the old inline
 // card() helper had 7 positionals and this needs roughly twice that.
 const EntryCard=({entry,metricUnits,onLoadChassis,onLoadBuild,onRewrite,onDelete,onRename,onNotes,onAddTag,onRemoveTag,allTags})=>{
@@ -2699,6 +2710,7 @@ const EntryCard=({entry,metricUnits,onLoadChassis,onLoadBuild,onRewrite,onDelete
   const[draft,setDraft]=useState(entry.name);
   const[openNotes,setOpenNotes]=useState(false);
   const[rwOpen,setRwOpen]=useState(false);
+  const[codeCopied,setCodeCopied]=useState(false);
   const[tagDraft,setTagDraft]=useState('');
   const[delPending,delHandle]=useTwoTap(()=>onDelete(entry.id));
   const auto=autoTagsOf(entry);
@@ -2791,6 +2803,11 @@ const EntryCard=({entry,metricUnits,onLoadChassis,onLoadBuild,onRewrite,onDelete
           onClick={()=>onLoadChassis(entry)}>LOAD CHASSIS</button>}
         {(entry.fe||entry.dr)&&<button className="tbtn" style={{flex:1,fontSize:9}}
           onClick={()=>onLoadBuild(entry)}>LOAD BUILD</button>}
+        <button className={`tbtn${codeCopied?' saved':''}`} style={{flex:1,fontSize:9}}
+          onClick={()=>copyToClipboard(
+            encodeTune(entry.ch||DEF_CH,entry.fe||DEF_FE,entry.dr||DEF_DR),
+            ()=>{setCodeCopied(true);setTimeout(()=>setCodeCopied(false),1500);}
+          )}>{codeCopied?'COPIED':'COPY CODE'}</button>
       </div>}
     </div>
   );
@@ -3797,6 +3814,17 @@ function App(){
       createdAt:now,updatedAt:now,
     }),...list]);
     setEntryName('');
+  };
+  // Imported straight into the garage as a new entry, leaving the live ch/fe/dr untouched —
+  // the counterpart to OVERWRITE in the LOAD CODE tab, which applies to the live tune instead.
+  const garageImport=(ic,ife,idr,sel)=>{
+    const now=Date.now();
+    setEntries(list=>[normalizeEntry({
+      id:now,name:'Imported '+new Date(now).toLocaleDateString(),
+      ...(sel.ch?{ch:{...DEF_CH,...ic}}:{}),
+      ...((sel.fe||sel.dr)?{fe:{...DEF_FE,...ife},dr:{...DEF_DR,...idr}}:{}),
+      createdAt:now,updatedAt:now,
+    }),...list]);
   };
   const garageRewrite=(id,which)=>mutEntry(id,e=>({...e,
     ...(which==='chassis'||which==='both'?{ch:{...ch}}:{}),
@@ -6034,16 +6062,7 @@ function App(){
               shareSel.fe?fe:DEF_FE,
               shareSel.dr?dr:DEF_DR
             );
-            const doCopy=()=>{
-              if(navigator.clipboard&&navigator.clipboard.writeText){
-                navigator.clipboard.writeText(sharePayload).then(()=>setShareCopied(true)).catch(()=>{});
-              } else {
-                const ta=document.createElement('textarea');
-                ta.value=sharePayload;document.body.appendChild(ta);ta.select();
-                document.execCommand('copy');document.body.removeChild(ta);
-                setShareCopied(true);
-              }
-            };
+            const doCopy=()=>copyToClipboard(sharePayload,()=>setShareCopied(true));
             const selectStyle={width:'100%',background:'#020617',border:'1px solid #1e293b',
               borderRadius:2,padding:'5px 8px',fontSize:11,color:'#e2e8f0',outline:'none',
               fontFamily:'var(--font-mono)',letterSpacing:1,marginBottom:14,cursor:'pointer',
@@ -6085,7 +6104,7 @@ function App(){
                 {(()=>{
                   const hints={
                     share:'Generates a compact code for the current tune — chassis, springs, dampers, ARBs, and all feel settings. Share it with any SUSP.OS user. Does not include your garage entries.',
-                    load:'Paste a code from another device or user to load their tune. This overwrites your current setup — save your current tune to the garage first if you want to keep it.',
+                    load:'Paste a code from another device or user. OVERWRITE replaces your current setup — TO GARAGE saves it as a new garage entry instead, without touching your current tune.',
                     backup:'Downloads a JSON file of your garage entries. Use this to move your collection to another device or keep a local copy. Does not include the current unsaved tune.',
                     restore:'Loads garage entries from a backup file — older backups from before the garage was unified are read too. Pick which kinds to restore; the kinds you leave unticked are kept as they are. Does not affect the current unsaved tune.',
                   };
@@ -6131,8 +6150,8 @@ function App(){
                   ].map(({key,label,sub})=>chkRow(key,label,sub,importSel[key],
                     e=>setImportSel(s=>({...s,[key]:e.target.checked}))))}
                   <div style={{display:'flex',gap:6,marginTop:14}}>
-                    <button className="tbtn" style={{flex:1,fontSize:11}} onClick={close}>CANCEL</button>
-                    <button className="tbtn on" style={{flex:1,fontSize:11}}
+                    <button className="tbtn" style={{flex:1,fontSize:10}} onClick={close}>CANCEL</button>
+                    <button className="tbtn on" style={{flex:1,fontSize:10}}
                       disabled={!importCode.trim()||(!importSel.ch&&!importSel.fe&&!importSel.dr)}
                       onClick={()=>{
                         const code=importCode.replace(/\s/g,'');
@@ -6150,7 +6169,20 @@ function App(){
                           console.error('Import failed:',e,code);
                           setImportErr('Invalid code — make sure you pasted the full string.');
                         }
-                      }}>LOAD</button>
+                      }}>OVERWRITE</button>
+                    <button className="tbtn" style={{flex:1,fontSize:10}}
+                      disabled={!importCode.trim()||(!importSel.ch&&!importSel.fe&&!importSel.dr)}
+                      onClick={()=>{
+                        const code=importCode.replace(/\s/g,'');
+                        try{
+                          const{ch:ic,fe:ife,dr:idr}=sanitizeTune(decodeTune(code));
+                          garageImport(ic,ife,idr,importSel);
+                          close();
+                        }catch(e){
+                          console.error('Import failed:',e,code);
+                          setImportErr('Invalid code — make sure you pasted the full string.');
+                        }
+                      }}>TO GARAGE</button>
                   </div>
                 </>)}
 
