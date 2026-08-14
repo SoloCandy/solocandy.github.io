@@ -51,6 +51,11 @@ roll-compensated formula as every other build (see
 recToeF = clamp(-0.20, 0.15, toeFByBuild + (frontBias-50)×-0.003 + (fHz-1.8)×0.010)
 ```
 
+Rounded to the nearest 0.1° — Forza's toe input only accepts one decimal
+place, so anything finer isn't actually enterable in-game. `toeFByBuild`'s
+own 0.05° table increments already get rounded down to this same 0.1° grid
+in the final recommendation.
+
 | Build | toeFByBuild (FWD / other layouts) |
 |---|---|
 | Street | 0.05 / 0.0 |
@@ -71,6 +76,8 @@ direction backwards).
 ```js
 recToeR = clamp(0.0, 0.25, toeRBase + (rearBiasFraction-0.5)×0.20 + max(0, rHz-fHz)×-0.03)
 ```
+
+Same 0.1° rounding as `recToeF`.
 
 `toeRBase` by build/layout (`toeRByBuild[build][layout]`, a lookup table
 matching `toeFByBuild`'s style):
@@ -119,17 +126,37 @@ caster only special-cases FWD vs everything else).
 
 ## Alignment Mode (PRO)
 
-PRO mode adds an ALIGNMENT sidebar section (`zone-alignment`) with a
-4-way mode toggle (`al.mode`, `ALIGN_MODE_DEC`).
-INT and Beginner always get BUILD — the whole section (and thus MECH/GRIP/
-MANUAL) is PRO-only, since there's nothing to configure without it.
+PRO mode adds an ALIGNMENT sidebar section (`zone-alignment`) storing four
+possible values in `al.mode` (`ALIGN_MODE_DEC`: BUILD/MECH/GRIP/MANUAL), but
+the UI presents them as a two-tier hierarchy rather than four flat peer
+buttons, since they aren't actually peers — BUILD is the baseline every
+other value is a small perturbation of (or a full bypass, for MANUAL):
 
-| Mode | What it does |
+- **Top tier — AUTO / MANUAL.** AUTO covers BUILD/MECH/GRIP (`computeAlignment`,
+  optionally nudged); MANUAL is a full bypass. Picking AUTO here sets
+  `al.mode='build'` (any previous MECH/GRIP nudge selection resets to OFF —
+  there's no separate memory of it).
+- **Second tier — Nudge: OFF / MECH / GRIP** (shown only under AUTO). Sets
+  `al.mode` directly to `'build'`/`'mech'`/`'grip'` — the second tier is just
+  a different arrangement of the same stored values, not additional state.
+
+INT and Beginner always get BUILD — the whole section (and thus the Nudge
+sub-tier/MANUAL) is PRO-only, since there's nothing to configure without it.
+
+| `al.mode` | What it does |
 |---|---|
-| **BUILD** (default) | `computeAlignment`'s output, unchanged — see the rest of this file |
-| **MECH** | Nudges camber and toe toward `gap = resolveArbBalTarget(ch,fe) − naturalMechBalanceOf(ch)` — the same signal `computeDiff`'s MATCH CHASSIS uses (see [FORMULAS.md](FORMULAS.md)). Reinforces whatever oversteer/understeer intent you've explicitly dialed into the Mech Balance Target |
-| **GRIP** | Nudges using `gripGap = -(natGripBalance-0.5)*2` instead — counteracts the chassis's own natural at-limit tendency (understeer-prone chassis gets pushed toward more aggressive/oversteer-leaning alignment, and vice versa), independent of whatever ARB balance mode is active |
-| **MANUAL** | Direct entry — wires up `al.camberF/camberR/toeF/toeR/caster` (these fields, plus `al.alignManual`, predate this feature and were previously unused dead state with no UI) |
+| **build** (AUTO / Nudge OFF, default) | `computeAlignment`'s output, unchanged — see the rest of this file |
+| **mech** (AUTO / Nudge MECH) | Nudges camber and toe toward `gap = resolveArbBalTarget(ch,fe) − naturalMechBalanceOf(ch)` — the same signal `computeDiff`'s MATCH CHASSIS uses (see [FORMULAS.md](FORMULAS.md)). Reinforces whatever oversteer/understeer intent you've explicitly dialed into the Mech Balance Target |
+| **grip** (AUTO / Nudge GRIP) | Nudges using `gripGap = -(natGripBalance-0.5)` instead — counteracts the chassis's own natural at-limit tendency (understeer-prone chassis gets pushed toward more aggressive/oversteer-leaning alignment, and vice versa), independent of whatever ARB balance mode is active |
+| **manual** | Direct entry — wires up `al.camberF/camberR/toeF/toeR/caster` (these fields, plus `al.alignManual`, predate this feature and were previously unused dead state with no UI) |
+
+`mechGap` and `gripGap` are both differences of ~0.5-centered 0–1 fractions
+(`arbBalTarget`, `naturalMechBalanceOf`, and `natGripBalance` are all
+balance-fraction values on the same scale), so the two nudge sources
+saturate the shared `normGap` clamp below at comparable real-world
+magnitudes. `gripGap` used to be pre-multiplied by `2` before that clamp,
+which made GRIP saturate to full nudge strength for almost any chassis while
+MECH rarely did — despite both being presented as equal-strength options.
 
 **MECH/GRIP nudge formula:**
 
@@ -137,12 +164,21 @@ MANUAL) is PRO-only, since there's nothing to configure without it.
 normGap = clamp(-1, 1, rawGap / 0.30)       // rawGap = mechGap or gripGap depending on mode
 k = normGap * (nudgeStrength / 100)          // nudgeStrength: 0-100 slider, 0 = identical to BUILD
 
-recCamberF = clamp(-4.0, 0.0, buildCamberF - 0.5*k)   // more oversteer-leaning (k>0) → more front bite
-recCamberR = clamp(-3.5, 0.0, buildCamberR + 0.3*k)   // more oversteer-leaning (k>0) → less rear grip, freer rotation
-recToeF    = clamp(-0.20, 0.15, buildToeF - 0.05*k)   // more oversteer-leaning (k>0) → more toe-out, sharper turn-in
-recToeR    = clamp(0.0, 0.25, buildToeR - 0.05*k)     // more oversteer-leaning (k>0) → less toe-in, freer rear
-recCaster  = buildCaster                              // never adjusted — not an oversteer/understeer lever
+recCamberF = clamp(-4.0, 0.0, buildCamberF - 0.5*k)    // more oversteer-leaning (k>0) → more front bite
+recCamberR = clamp(-3.5, 0.0, buildCamberR + 0.3*k)    // more oversteer-leaning (k>0) → less rear grip, freer rotation
+recToeF    = clamp(-0.20, 0.15, buildToeF - 0.10*k)    // more oversteer-leaning (k>0) → more toe-out, sharper turn-in
+recToeR    = clamp(0.0, 0.25, buildToeR - 0.10*k)      // more oversteer-leaning (k>0) → less toe-in, freer rear
+recCaster  = buildCaster                               // never adjusted — not an oversteer/understeer lever
 ```
+
+`recToeF`/`recToeR` still round to the nearest 0.1° — same as BUILD's own
+toe rounding, matching Forza's toe input precision (one decimal place, so
+anything finer isn't actually enterable in-game). The toe coefficient is
+`0.10` here (not `0.05`, camber/toe's other coefficients are unchanged) so
+that a fully-saturated nudge (`k=±1`) can cross one whole 0.1° step reliably
+instead of landing under the rounding threshold every time. At more typical
+gaps/strengths the toe nudge still often rounds back to BUILD's value — that
+reflects the real precision ceiling, not a bug.
 
 The **Nudge Strength** slider (0-100%, default 50%) controls `k`'s
 magnitude only — direction always comes from `rawGap`'s sign. At 0% every

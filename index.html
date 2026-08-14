@@ -3634,15 +3634,15 @@ function App(){
       recToeF:al.toeF,recToeR:al.toeR,recCaster:al.caster};
     if(alignMode!=='mech'&&alignMode!=='grip')return autoAlign;
     const mechGap=feEffective.arbBalTarget-naturalMechBalanceOf(ch);
-    const gripGap=-(natGripBalance-0.5)*2;
+    const gripGap=-(natGripBalance-0.5);
     const rawGap=alignMode==='mech'?mechGap:gripGap;
     const normGap=Math.max(-1,Math.min(1,rawGap/0.30));
     const k=normGap*((al.nudgeStrength??50)/100);
     return{
       recCamberF:Math.round(Math.max(-4.0,Math.min(0.0,autoAlign.recCamberF-0.5*k))*10)/10,
       recCamberR:Math.round(Math.max(-3.5,Math.min(0.0,autoAlign.recCamberR+0.3*k))*10)/10,
-      recToeF:Math.round(Math.max(-0.20,Math.min(0.15,autoAlign.recToeF-0.05*k))*10)/10,
-      recToeR:Math.round(Math.max(0.0,Math.min(0.25,autoAlign.recToeR-0.05*k))*10)/10,
+      recToeF:Math.round(Math.max(-0.20,Math.min(0.15,autoAlign.recToeF-0.10*k))*10)/10,
+      recToeR:Math.round(Math.max(0.0,Math.min(0.25,autoAlign.recToeR-0.10*k))*10)/10,
       recCaster:autoAlign.recCaster,
     };
   })();
@@ -5475,29 +5475,43 @@ function App(){
             onReset={()=>setAl({...DEF_AL})}>
             <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:6}}>
               <span style={{fontSize:10,color:'#94a3b8',letterSpacing:2}}>ALIGNMENT MODE</span>
-              <Hint text="BUILD (default): camber/toe/caster recommended from build type, layout, weight bias, and roll angle only. MECH: nudges camber and toe toward your resolved Mech Balance Target's gap from natural — reinforces whatever oversteer/understeer intent you've already dialed in via the ARB/Mech Balance Target. GRIP: nudges to counteract the chassis's own natural grip tendency instead, independent of ARB mode. MANUAL: type in exact values."/>
+              <Hint text="AUTO: camber/toe/caster recommended from build type, layout, weight bias, and roll angle — optionally nudged toward your Mech Balance Target or the chassis's natural grip tendency (see Nudge below). MANUAL: type in exact values, bypassing all of this."/>
             </div>
             <div style={{display:'flex',gap:3,marginBottom:10,flexWrap:'wrap'}}>
-              {['build','mech','grip','manual'].map(m=>(
-                <button key={m} className={`tog${alignMode===m?' on':''}`}
-                  onClick={()=>setAl(p=>({...p,mode:m}))}>{m.toUpperCase()}</button>
-              ))}
+              <button className={`tog${alignMode!=='manual'?' on':''}`}
+                onClick={()=>setAl(p=>({...p,mode:'build'}))}>AUTO</button>
+              <button className={`tog${alignMode==='manual'?' on':''}`}
+                onClick={()=>setAl(p=>({...p,mode:'manual'}))}>MANUAL</button>
             </div>
-            {(alignMode==='mech'||alignMode==='grip')&&
-              <FeelSlider label="Nudge Strength" value={al.nudgeStrength??50}
-                onChange={pAl('nudgeStrength')} min={0} max={100} step={1}
-                leftLabel="SUBTLE" rightLabel="STRONG"
-                readout={`${al.nudgeStrength??50}%`}
-                hint="How strongly camber and toe are nudged away from the BUILD baseline. 0% = identical to BUILD mode. 100% = full nudge toward the MECH/GRIP gap. Caster is never adjusted by this — it isn't an oversteer/understeer lever."/>}
+            {alignMode!=='manual'&&<div style={{marginBottom:10}}>
+              <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
+                <span style={{fontSize:12,color:'#94a3b8'}}>Nudge</span>
+                <Hint text="OFF: BUILD's numbers, unchanged. MECH: nudges camber and toe toward your resolved Mech Balance Target's gap from natural — reinforces whatever oversteer/understeer intent you've already dialed in via the ARB/Mech Balance Target. GRIP: nudges to counteract the chassis's own natural grip tendency instead, independent of ARB mode. Caster is never nudged — it isn't an oversteer/understeer lever."/>
+              </div>
+              <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
+                {['build','mech','grip'].map(m=>(
+                  <button key={m} className={`tog${alignMode===m?' on':''}`}
+                    onClick={()=>setAl(p=>({...p,mode:m}))}>{m==='build'?'OFF':m.toUpperCase()}</button>
+                ))}
+              </div>
+              {(alignMode==='mech'||alignMode==='grip')&&
+                <div style={{marginTop:8}}>
+                <FeelSlider label="Nudge Strength" value={al.nudgeStrength??50}
+                  onChange={pAl('nudgeStrength')} min={0} max={100} step={1}
+                  leftLabel="SUBTLE" rightLabel="STRONG"
+                  readout={`${al.nudgeStrength??50}%`}
+                  hint="How strongly camber and toe are nudged away from the BUILD baseline. 0% = identical to BUILD mode. 100% = full nudge toward the MECH/GRIP gap. Caster is never adjusted by this — it isn't an oversteer/understeer lever."/>
+                </div>}
+            </div>}
             {alignMode==='manual'&&<>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 10px'}}>
                 <Field label="Camber F" value={al.camberF} onChange={pAl('camberF')} min={-4.0} max={0.0} step={0.1} unit="°"
                   hint="Front camber, entered directly."/>
                 <Field label="Camber R" value={al.camberR} onChange={pAl('camberR')} min={-3.5} max={0.0} step={0.1} unit="°"
                   hint="Rear camber, entered directly."/>
-                <Field label="Toe F" value={al.toeF} onChange={pAl('toeF')} min={-0.20} max={0.15} step={0.01} unit="°"
+                <Field label="Toe F" value={al.toeF} onChange={pAl('toeF')} min={-0.20} max={0.15} step={0.1} unit="°"
                   hint="Front toe, entered directly. Negative = toe-out, positive = toe-in."/>
-                <Field label="Toe R" value={al.toeR} onChange={pAl('toeR')} min={0.0} max={0.25} step={0.01} unit="°"
+                <Field label="Toe R" value={al.toeR} onChange={pAl('toeR')} min={0.0} max={0.25} step={0.1} unit="°"
                   hint="Rear toe, entered directly."/>
               </div>
               <Field label="Caster" value={al.caster} onChange={pAl('caster')} min={4.0} max={7.5} step={0.1} unit="°"

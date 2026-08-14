@@ -589,6 +589,34 @@ structured test SUSP.OS already has a protocol for. Not fixed here since
 it's a calibration question, not a code bug — out of scope for a
 documentation pass.
 
+## Fixed — Alignment Mode's MECH/GRIP nudge was nearly invisible (resolved)
+
+The ALIGNMENT sidebar presented BUILD/MECH/GRIP/MANUAL as four co-equal
+buttons, but comparing their output showed the differences were hardly
+noticeable. Two compounding causes: (1) the MECH/GRIP toe nudge
+(`±0.05×k`) was smaller than `computeAlignment`'s 0.1° toe rounding step for
+most realistic gaps/strengths, so it got rounded away to nothing — toe
+essentially never visibly changed between modes; (2) GRIP's gap
+(`gripGap = -(natGripBalance-0.5)*2`) was pre-scaled `×2` relative to MECH's
+gap before both hit the same `/0.30` saturation clamp, so GRIP reliably
+nudged at full strength while MECH rarely did, despite the two being shown
+as equivalent options.
+
+The 0.1° toe rounding itself is correct and was kept — Forza's toe input
+only accepts one decimal place, so a finer grid would recommend values that
+aren't actually enterable in-game (an earlier pass at this fix tried
+rounding to 0.05° instead, which had to be reverted for that reason). Fixed
+instead by doubling the toe nudge coefficient (`0.05`→`0.10`, see
+[ALIGNMENT.md](ALIGNMENT.md)) so a fully-saturated nudge can cross one whole
+0.1° step, dropping GRIP's `×2` pre-scale so both nudge sources sit on the
+same raw scale, and restructuring the sidebar into an AUTO (→ Nudge:
+OFF/MECH/GRIP) / MANUAL hierarchy instead of four flat peer buttons, since
+BUILD/MECH/GRIP were never actually equal alternatives — MECH/GRIP are small
+nudges layered on the BUILD baseline, and MANUAL is a full bypass. At
+typical (non-saturated) gaps/strengths, toe still often rounds back to
+BUILD's value — that now reflects the real precision ceiling rather than a
+formula bug.
+
 ## Fixed — `computeAlignment` was blind to the car's actual balance tuning (resolved)
 
 `computeAlignment` only reacted to build type, drivetrain layout, front
