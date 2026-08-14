@@ -5666,7 +5666,7 @@ function App(){
                 const gBottomOutR=dSagR>0?(rhR-sagR)/dSagR:Infinity;
                 const gMax=Math.max(1,Math.min(6,Math.max(gBottomF,gBottomR,gBottomOutF,gBottomOutR,1)*1.25));
                 const yMax=Math.max(rhF,rhR,sagF*gMax,sagR*gMax,sagF+dSagF*gMax,sagR+dSagR*gMax)*1.08;
-                const W=280,H=115,padL=36,padB=20,padT=10,padR=10;
+                const W=280,H=115,padL=44,padB=20,padT=10,padR=10;
                 const plotW=W-padL-padR,plotH=H-padT-padB;
                 const xS=g_=>padL+(g_/gMax)*plotW;
                 const yS=mm=>padT+plotH-(mm/yMax)*plotH;
@@ -5709,6 +5709,12 @@ function App(){
                       {/* ride-height (bottom-out) reference lines */}
                       <line x1={padL} y1={yS(rhF)} x2={W-padR} y2={yS(rhF)} stroke={COL_F} strokeWidth={1} strokeDasharray="3,2" opacity={0.6}/>
                       <line x1={padL} y1={yS(rhR)} x2={W-padR} y2={yS(rhR)} stroke={COL_R} strokeWidth={1} strokeDasharray="3,2" opacity={0.6}/>
+                      {/* left-side value labels: bottom-out ride height and 1g sag point, front in
+                          column 1 and rear in column 2, so front/rear never overlap each other */}
+                      <text x={1} y={yS(rhF)+2.5} fontSize={7} fill={COL_F} fontFamily="var(--font-mono)">{toDisp(rhF).toFixed(metricUnits?1:2)}</text>
+                      <text x={22} y={yS(rhR)+2.5} fontSize={7} fill={COL_R} fontFamily="var(--font-mono)">{toDisp(rhR).toFixed(metricUnits?1:2)}</text>
+                      {gMax>=1&&<text x={1} y={yS(sagF)+2.5} fontSize={7} fill={COL_F} fontFamily="var(--font-mono)">{toDisp(sagF).toFixed(metricUnits?1:2)}</text>}
+                      {gMax>=1&&<text x={22} y={yS(sagR)+2.5} fontSize={7} fill={COL_R} fontFamily="var(--font-mono)">{toDisp(sagR).toFixed(metricUnits?1:2)}</text>}
                       {/* outside-wheel-under-cornering-load diagonals (LLT model) */}
                       <line x1={xS(0)} y1={yS(sagF)} x2={xS(gEndOutF)} y2={yS(sagF+dSagF*gEndOutF)} stroke={COL_F} strokeWidth={1} strokeDasharray="2,2" opacity={0.65}/>
                       <line x1={xS(0)} y1={yS(sagR)} x2={xS(gEndOutR)} y2={yS(sagR+dSagR*gEndOutR)} stroke={COL_R} strokeWidth={1} strokeDasharray="2,2" opacity={0.65}/>
@@ -5724,11 +5730,15 @@ function App(){
                       {gBottomF<=gMax&&<circle cx={xS(gBottomF)} cy={yS(rhF)} r={2.5} fill={COL_F}/>}
                       {gBottomR<=gMax&&<circle cx={xS(gBottomR)} cy={yS(rhR)} r={2.5} fill={COL_R}/>}
                     </svg>
-                    <div style={{display:'flex',gap:12,fontFamily:'var(--font-mono)',flexWrap:'wrap'}}>
-                      <span style={{fontSize:9,color:COL_F}}>{gBottomF<=gMax?`bottoms ≈${gBottomF.toFixed(1)}g`:`no bottom ≤${gMax.toFixed(1)}g`}</span>
-                      <span style={{fontSize:9,color:COL_R}}>{gBottomR<=gMax?`bottoms ≈${gBottomR.toFixed(1)}g`:`no bottom ≤${gMax.toFixed(1)}g`}</span>
-                      <span style={{fontSize:9,color:COL_F,opacity:0.75}}>{isFinite(gBottomOutF)&&gBottomOutF<=gMax?`outside ≈${gBottomOutF.toFixed(1)}g lat`:'outside: no bottom'}</span>
-                      <span style={{fontSize:9,color:COL_R,opacity:0.75}}>{isFinite(gBottomOutR)&&gBottomOutR<=gMax?`outside ≈${gBottomOutR.toFixed(1)}g lat`:'outside: no bottom'}</span>
+                    <div style={{display:'flex',flexDirection:'column',gap:2,fontFamily:'var(--font-mono)'}}>
+                      <div style={{display:'flex',gap:12}}>
+                        <span style={{fontSize:9,color:COL_F}}>{gBottomF<=gMax?`bottoms ≈${gBottomF.toFixed(1)}g`:`no bottom ≤${gMax.toFixed(1)}g`}</span>
+                        <span style={{fontSize:9,color:COL_R}}>{gBottomR<=gMax?`bottoms ≈${gBottomR.toFixed(1)}g`:`no bottom ≤${gMax.toFixed(1)}g`}</span>
+                      </div>
+                      <div style={{display:'flex',gap:12}}>
+                        <span style={{fontSize:9,color:COL_F,opacity:0.75}}>{isFinite(gBottomOutF)&&gBottomOutF<=gMax?`outside ≈${gBottomOutF.toFixed(1)}g lat`:'outside: no bottom'}</span>
+                        <span style={{fontSize:9,color:COL_R,opacity:0.75}}>{isFinite(gBottomOutR)&&gBottomOutR<=gMax?`outside ≈${gBottomOutR.toFixed(1)}g lat`:'outside: no bottom'}</span>
+                      </div>
                     </div>
                   </div>}
                 </>);
