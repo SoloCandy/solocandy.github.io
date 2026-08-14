@@ -4580,12 +4580,21 @@ function App(){
               if(uiMode!=='pro')return null;
               const _layout=ch.layout??'RWD';
               const _build=dr.buildType??'track';
-              const _deltaMap={
-                FWD:{street:[0.06,0.17],track:[0.11,0.24],drift:[0.18,0.32],rally:[0.05,0.15],offroad:[0.02,0.12],drag:[0.10,0.22]},
-                RWD:{street:[0.05,0.16],track:[0.10,0.21],drift:[0.18,0.32],rally:[0.05,0.14],offroad:[0.01,0.10],drag:[0.15,0.28]},
-                AWD:{street:[0.03,0.12],track:[0.07,0.18],drift:[0.14,0.26],rally:[0.03,0.10],offroad:[0.01,0.08],drag:[0.08,0.20]},
+              // RANGE is expressed as a fraction of the NATURAL→GRIP TARGET gap (not a flat
+              // delta) so it scales with how understeer/oversteer-prone this specific chassis
+              // actually is: a near-neutral car gets a tight band close to NATURAL, a strongly
+              // biased one gets a proportionally wider push toward GRIP TARGET. Fractions >1
+              // (DRIFT) intentionally recommend overshooting past grip-neutral for sustained
+              // rotation. _gap's sign flips for the rare chassis whose natural balance already
+              // sits past its own grip target — the fraction math handles that automatically.
+              const _fracMap={
+                FWD:{street:[0.35,0.65],track:[0.55,0.95],drift:[0.90,1.55],rally:[0.30,0.55],offroad:[0.15,0.35],drag:[0.45,0.80]},
+                RWD:{street:[0.35,0.65],track:[0.55,0.95],drift:[0.90,1.55],rally:[0.30,0.55],offroad:[0.15,0.35],drag:[0.60,1.05]},
+                AWD:{street:[0.30,0.55],track:[0.45,0.80],drift:[0.75,1.30],rally:[0.25,0.45],offroad:[0.12,0.28],drag:[0.35,0.65]},
               };
-              const[_dlo,_dhi]=((_deltaMap[_layout]??_deltaMap.RWD)[_build])??[0.10,0.21];
+              const[_fracLo,_fracHi]=((_fracMap[_layout]??_fracMap.RWD)[_build])??[0.55,0.95];
+              const _gap=(1-natGripBalance)-natMechBalance;
+              const _dlo=_fracLo*_gap,_dhi=_fracHi*_gap;
               const _lo=Math.max(0.20,Math.min(0.87,natMechBalance+_dlo));
               const _hi=Math.max(_lo+0.03,Math.min(0.90,natMechBalance+_dhi));
               const _MIN=0.20,_RNG=0.70;
@@ -4659,7 +4668,7 @@ function App(){
                     <span style={{textAlign:'right',fontFamily:'var(--font-mono)',fontSize:11,color:'#2dd4bf'}}>{(1-natGripBalance).toFixed(2)}</span>
                     <span style={{fontSize:11,color:'#94a3b8',display:'flex',alignItems:'center',gap:5}}>
                       <span style={{display:'inline-block',width:12,height:4,background:'#14532d',borderRadius:1,flexShrink:0}}/> RANGE
-                      <Hint text="Recommended target range for your layout and build, as deltas from natural."/>
+                      <Hint text="Recommended target range for your layout and build, scaled between natural balance and the grip-neutral point (GRIP TARGET) — not a flat offset."/>
                     </span>
                     <span style={{textAlign:'right',display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1}}>
                       <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'#16a34a'}}>{_lo.toFixed(2)} – {_hi.toFixed(2)}</span>
@@ -4705,16 +4714,21 @@ function App(){
               const{targetBal,dTrackF,dTrackR,trackFfeas,trackRfeas}=chassisAnalysis;
               const nm=natMechBalance;
               const showGeoGap=gap>0.015;
-              // GRIP GAP — how much tyre width change brings GRIP neutral into range
-              const _ggBalMap={
-                FWD:{street:[0.06,0.17],track:[0.11,0.24],drift:[0.18,0.32],rally:[0.05,0.15],offroad:[0.02,0.12],drag:[0.10,0.22]},
-                RWD:{street:[0.05,0.16],track:[0.10,0.21],drift:[0.18,0.32],rally:[0.05,0.14],offroad:[0.01,0.10],drag:[0.15,0.28]},
-                AWD:{street:[0.03,0.12],track:[0.07,0.18],drift:[0.14,0.26],rally:[0.03,0.10],offroad:[0.01,0.08],drag:[0.08,0.20]},
+              // GRIP GAP — how much tyre width change brings GRIP neutral into range.
+              // Mirrors the RANGE band above: same fraction-of-(NATURAL→GRIP TARGET-gap) math,
+              // so the two widgets agree on what "in range" means. See the RANGE block for the
+              // rationale on gap-scaling instead of a flat delta.
+              const _ggFracMap={
+                FWD:{street:[0.35,0.65],track:[0.55,0.95],drift:[0.90,1.55],rally:[0.30,0.55],offroad:[0.15,0.35],drag:[0.45,0.80]},
+                RWD:{street:[0.35,0.65],track:[0.55,0.95],drift:[0.90,1.55],rally:[0.30,0.55],offroad:[0.15,0.35],drag:[0.60,1.05]},
+                AWD:{street:[0.30,0.55],track:[0.45,0.80],drift:[0.75,1.30],rally:[0.25,0.45],offroad:[0.12,0.28],drag:[0.35,0.65]},
               };
-              const[_ggDlo,_ggDhi]=((_ggBalMap[ch.layout??'RWD']??_ggBalMap.RWD)[dr.buildType??'track'])??[0.10,0.21];
+              const[_ggFracLo,_ggFracHi]=((_ggFracMap[ch.layout??'RWD']??_ggFracMap.RWD)[dr.buildType??'track'])??[0.55,0.95];
+              const _ggNeutral=1-natGripBalance;
+              const _ggBaseGap=_ggNeutral-nm;
+              const _ggDlo=_ggFracLo*_ggBaseGap,_ggDhi=_ggFracHi*_ggBaseGap;
               const _ggLo=Math.max(0.20,Math.min(0.87,nm+_ggDlo));
               const _ggHi=Math.max(_ggLo+0.03,Math.min(0.90,nm+_ggDhi));
-              const _ggNeutral=1-natGripBalance;
               const _ggGap=_ggNeutral>_ggHi?_ggNeutral-_ggHi:_ggNeutral<_ggLo?_ggLo-_ggNeutral:0;
               const _isGripMode=(fe.arbBalTargetMode??'manual')==='grip';
               const showGripGap=_isGripMode&&_ggGap>0.005;
