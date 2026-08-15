@@ -63,7 +63,7 @@ The entire app is a single HTML file: a pure-JS physics engine
 UI transpiled in-browser via `@babel/standalone`, `localStorage` persistence,
 and a sparse Base64 share codec. No build step, no server.
 
-A **HORIZON / MOTORSPORT / BEAMNG** toggle in the header picks which game's
+A **HORIZON / MOTORSPORT / BEAMNG** dropdown in the header picks which game's
 tuning menu the output is written for. It only changes *units and ceilings* —
 the underlying physics solve (spring/damper/ARB targets, handling balance,
 alignment) is identical across all three.
