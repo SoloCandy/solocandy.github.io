@@ -196,6 +196,18 @@ unknown and are not guessed at: the exact coefficient (`k·arm²` vs `2·k·arm�
 any given vehicle's arm length. See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for the full
 derivation, the eliminated hypotheses, and the deferred fix.
 
+**Display-only rounding to BeamNG's actual slider snap increments.** Confirmed
+in-game (not guessed): Spring Rate snaps to the nearest 500, Anti-Roll Spring
+Rate to the nearest 1000, Bump/Rebound Damping to the nearest 100. `roundTo(v,
+step)` applies this inside `springOut`/`dampOut`/`arbOut`'s `isPhysical`
+branch only — the Forza branch of each function is untouched. It rounds the
+`.value` field these functions return for display, nothing upstream:
+`warnOver`/`arbCtx` are called with the raw pre-conversion `v` at every call
+site, not `o.value`, so ceiling warnings and `arbCtx`'s LOW/MED/HIGH/MAX badge
+still key off the unrounded number. At spring/ARB/damper magnitudes in this
+app's range, the rounding error is well under 0.2% — inside the noise of the
+ARB lever-arm approximation above.
+
 ### Motion ratio
 
 Forza's tuning screen displays **wheel rate**, which is what `solveSpring` produces

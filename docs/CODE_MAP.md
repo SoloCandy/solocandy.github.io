@@ -100,7 +100,8 @@ each in its own `useMemo`.
 | `Toggle` | mode switches |
 | `Sec` | the nine collapsible sidebar sections (`div.stog` header) |
 | `Card` | section wrapper in the output panel (title, ⓘ hint, `headerRight`) |
-| `OutRow`, `RowGroup` | the output panel's full-width value rows and their bordered groups |
+| `OutRow`, `RowGroup` | the output panel's value rows and their bordered groups — full-width single column for Forza (`horizon`/`motorsport`); assembled into the BeamNG two-column layout's cards below when `physMode` |
+| `SuspensionCard`, `AlignCard`, `DiffCard` | BeamNG-only (`physMode`) output cards — per-axle shells built from `OutRow`/`RowGroup`/`Card`. `SuspensionCard` merges the Forza ARB+SPRINGS+DAMPERS cards into one card per axle; `AlignCard` omits Caster on the rear side (no rear caster slider in BeamNG); `DiffCard` is a generic per-axle differential card. The BeamNG layout itself (summary strip, CENTER SPLIT card, the fixed 2-column `.beamng-grid`) is inline JSX in `App`, not a separate component — see the `physMode` branch in the output panel |
 | `Readout`, `Stat` | Tune Check and sidebar readouts — **not** the output panel any more (it moved to `OutRow` so each value is one scannable line to transcribe into a tuning menu) |
 | `BiasSeg` | balance-bar segments |
 | `SpringDial`, `ArbDial`, `DampingDial` | the pinned VISUALS card |
