@@ -88,6 +88,13 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .tbtn.on{border-color:#e2e8f044;background:#0f172a;color:#e2e8f0}
 .tbtn.saved{border-color:#e2e8f022;color:#9ca3af}
 .tbtn.undo-btn:disabled{opacity:0.28;cursor:default}
+.gmsel{padding:4px 8px;border:1px solid #1e293b;background:#0a0f1a;color:#e2e8f0;
+      border-radius:2px;cursor:pointer;font-family:var(--font-mono);font-size:11px;
+      letter-spacing:1px;transition:all .12s;-webkit-tap-highlight-color:transparent;
+      outline:none;appearance:auto}
+.gmsel:hover{border-color:#e2e8f044}
+.gmsel option{background:#0a0f1a;color:#e2e8f0}
+@media(max-width:768px){.gmsel{padding:11px 8px;min-height:40px}}
 .collapsible-hdr{transition:background .12s;-webkit-tap-highlight-color:transparent}
 .collapsible-hdr:hover{background:#0a0f1a}
 .stog{width:100%;display:flex;align-items:center;justify-content:space-between;
@@ -180,12 +187,9 @@ const isPhysical=gm=>!!GAME_LIMITS[gm]?.physical;
 // has no click ceiling. It is NOT a reintroduced limit and nothing is clamped to it —
 // see the derivation at the Auto Spring Share binary search for why the value cancels.
 const ARB_UTIL_REF=65;
-// Display labels for the game-mode buttons. Both the desktop header and the mobile
-// sidebar read this; the mobile copy used to hardcode a two-way ternary, which would
-// have silently labelled a third mode as "MS".
-const GAME_MODE_LABEL={horizon:{full:'HORIZON',short:'HZ'},
-                       motorsport:{full:'MOTORSPORT',short:'MS'},
-                       beamng:{full:'BEAMNG',short:'BNG'}};
+// Display labels for the game-mode dropdown. Both the desktop header and the mobile
+// sidebar read this.
+const GAME_MODE_LABEL={horizon:'HORIZON',motorsport:'MOTORSPORT',beamng:'BEAMNG'};
 
 const cornerMasses=ch=>{
   const kg=ch.weight/KG_TO_LB;
@@ -4002,12 +4006,12 @@ function App(){
               <button className={`tbtn${metricUnits?' on':''}`}
                 onClick={()=>setMetricUnits(true)} style={{fontSize:11}}>MET</button>
               <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
-              {GAME_MODE_DEC.map(m=>(
-                <button key={m} className={`tbtn${fe.gameMode===m?' on':''}`}
-                  onClick={()=>pFe('gameMode')(m)} style={{fontSize:11}}>
-                  {GAME_MODE_LABEL[m].full}
-                </button>
-              ))}
+              <select className="gmsel" value={fe.gameMode}
+                onChange={e=>pFe('gameMode')(e.target.value)}>
+                {GAME_MODE_DEC.map(m=>(
+                  <option key={m} value={m}>{GAME_MODE_LABEL[m]}</option>
+                ))}
+              </select>
               <div style={{width:1,height:16,background:'#1e293b',margin:'0 4px'}}/>
               {[['beginner','BEG'],['intermediate','INT'],['pro','PRO']].map(([mode,label])=>(
                 <button key={mode} className={`tbtn${uiMode===mode?' on':''}`}
@@ -4074,12 +4078,12 @@ function App(){
               <button className={`tbtn${metricUnits?' on':''}`}
                 onClick={()=>setMetricUnits(true)} style={{fontSize:11}}>MET</button>
               <div style={{width:1,height:14,background:'#1e293b',margin:'0 2px'}}/>
-              {GAME_MODE_DEC.map(m=>(
-                <button key={m} className={`tbtn${fe.gameMode===m?' on':''}`}
-                  onClick={()=>pFe('gameMode')(m)} style={{fontSize:11}}>
-                  {GAME_MODE_LABEL[m].short}
-                </button>
-              ))}
+              <select className="gmsel" value={fe.gameMode}
+                onChange={e=>pFe('gameMode')(e.target.value)}>
+                {GAME_MODE_DEC.map(m=>(
+                  <option key={m} value={m}>{GAME_MODE_LABEL[m]}</option>
+                ))}
+              </select>
             </div>
           )}
 
