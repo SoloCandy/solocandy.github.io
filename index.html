@@ -1411,7 +1411,7 @@ const DEF_CH={weight:3200,frontBias:52,wheelbase:2.7,cgHeight:0.45,
               trackF:1.55,trackR:1.52,
               tyreF:'265/35R18',tyreR:'265/35R18',
               useMeasuredNatBal:false,measuredNatBal:null,layout:'RWD',
-              useRideHeightCG:false,rideHeightF:0.13,rideHeightR:0.12,
+              useRideHeightCG:true,rideHeightF:0.13,rideHeightR:0.12,
               // Spring/damper travel per unit wheel travel. 1.0 = direct-acting, which is
               // what Forza displays, so these are inert in the Forza modes and only affect
               // physical-unit output (rate/mr²). They are display-only by design — nothing
@@ -4357,10 +4357,16 @@ function App(){
                   hint={`How far the ${side.toLowerCase()} spring and damper move per unit of wheel travel. 1.0 = direct-acting (strut on the hub). Lower means the spring sits inboard on a control arm and must be stiffer to give the same wheel rate — the output is divided by the ratio squared, so 0.7 raises it by about double. BeamNG's sliders act at the spring, so this is what makes the numbers match; it does not change Hz, roll stiffness, or handling balance. Leave at 1.0 unless you know the car's geometry.`}/>
               ))}
             </div>}
-            <div style={{background:'#060c17',border:'1px solid #1e293b',borderRadius:2,padding:'5px 10px',margin:'2px 0 8px',display:'flex',alignItems:'center',gap:6}}>
-              <button className="tbtn" style={{fontSize:11,color:ch.useRideHeightCG?'#60a5fa':'#475569',flexShrink:0}}
-                onClick={()=>setCh(p=>({...p,useRideHeightCG:!p.useRideHeightCG}))}>RIDE HEIGHT → CG</button>
-              <Hint text="An alternative to entering CG height directly — uses the front/rear ride height Forza shows on the car's stat screen, plus tyre radius, to estimate CG height. This is a rough heuristic (real CG height also depends on engine position, body height, and mass distribution, none of which are available inputs) — treat it as a starting point, not a precise reading."/>
+            </>}
+            <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4,marginBottom:8,flexWrap:'wrap'}}>
+              <span style={{fontSize:12,color:'#94a3b8'}}>CG Height Source</span>
+              <Hint text="RIDE HEIGHT estimates CG height from the front/rear ride height Forza shows on the car's stat screen, plus tyre radius — a rough heuristic (real CG height also depends on engine position, body height, and mass distribution, none of which are available inputs), but a better starting point than a guess. MANUAL lets you enter CG height directly if you have a better source."/>
+              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
+                <button className={`tog${ch.useRideHeightCG?' on':''}`}
+                  onClick={()=>setCh(p=>({...p,useRideHeightCG:true}))}>RIDE HEIGHT</button>
+                <button className={`tog${!ch.useRideHeightCG?' on':''}`}
+                  onClick={()=>setCh(p=>({...p,useRideHeightCG:false}))}>MANUAL</button>
+              </div>
             </div>
             {ch.useRideHeightCG?(()=>{
               const pF=parseTyre(ch.tyreF),pR=parseTyre(ch.tyreR);
@@ -4381,17 +4387,14 @@ function App(){
                 <div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,padding:'6px 8px',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
                   <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>CG HEIGHT (EST.)</span>
                   <span style={{marginLeft:'auto',fontFamily:'var(--font-mono)',fontSize:13,color:'#60a5fa'}}>{Math.round(ch.cgHeight*1000)} mm</span>
-                  <button className="tbtn" style={{fontSize:11,color:'#6b7280',flexShrink:0,padding:'2px 6px'}}
-                    onClick={()=>setCh(p=>({...p,useRideHeightCG:false}))}>✕</button>
                 </div>
-                {!tyresOk&&<div style={{fontSize:9,color:'#f59e0b',padding:'2px 0 8px'}}>Enter valid tyre sizes above to compute CG height from ride height.</div>}
+                {!tyresOk&&<div style={{fontSize:9,color:'#f59e0b',padding:'2px 0 8px'}}>{uiMode==='pro'?'Enter valid tyre sizes above to compute CG height from ride height.':'Invalid tyre size on this chassis — switch to PRO to fix it, or use MANUAL CG entry.'}</div>}
                 <div style={{fontSize:9,color:'#475569',padding:'0 0 4px'}}>SAG vs LOAD is in the pinned VISUALS card below ↓</div>
               </>);
             })():
               <Field label="CG Height" value={Math.round(ch.cgHeight*1000)} onChange={v=>pCh('cgHeight')(v/1000)} min={200} max={900} step={5} unit="mm"
                 hint="Estimated height of the centre of gravity above ground. The game doesn't expose this — use 400–460 mm for sports cars, 480–550 mm for sedans, 580–700 mm for SUVs. Affects roll moment and ARB stiffness."/>
             }
-            </> }
           </Sec></div>
 
           <div id="zone-drivetrain" style={dim('drivetrain')}><Sec title="DRIVETRAIN" open={open.drivetrain} onToggle={tog('drivetrain')}
@@ -5714,8 +5717,8 @@ function App(){
                 const{dWf,dWr}=latLoadTransfer(ch,Kf_,Kr_);
                 const kWheelF=m_.front*Math.pow(2*Math.PI*tune.fHz,2),kWheelR=m_.rear*Math.pow(2*Math.PI*tune.rHz,2);
                 const dSagF=kWheelF>0?dWf/kWheelF*1000:0,dSagR=kWheelR>0?dWr/kWheelR*1000:0;
-                const gBottomOutF=dSagF>0?(rhF-sagF)/dSagF:Infinity;
-                const gBottomOutR=dSagR>0?(rhR-sagR)/dSagR:Infinity;
+                const gBottomOutF=sagF>=rhF?0:(dSagF>0?(rhF-sagF)/dSagF:Infinity);
+                const gBottomOutR=sagR>=rhR?0:(dSagR>0?(rhR-sagR)/dSagR:Infinity);
                 const gMax=Math.max(1,Math.min(6,Math.max(gBottomF,gBottomR,gBottomOutF,gBottomOutR,1)*1.25));
                 const yMax=Math.max(rhF,rhR,sagF*gMax,sagR*gMax,sagF+dSagF*gMax,sagR+dSagR*gMax)*1.08;
                 const W=280,H=115,padL=44,padB=20,padT=10,padR=10;

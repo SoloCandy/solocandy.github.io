@@ -649,7 +649,8 @@ the same car, where it used to stay frozen at −3.0° regardless.
 
 ## Open — Ride-height-derived CG height and bottoming risk are unvalidated heuristics
 
-The PRO CHASSIS section's RIDE HEIGHT → CG toggle estimates CG height as
+The INT/PRO CHASSIS section's CG Height Source toggle (RIDE HEIGHT, the
+default, vs MANUAL) estimates CG height as
 `tyreRadiusAvg + weight-weighted rideHeightAvg`, and the accompanying
 SAG vs LOAD chart derives static sag purely from ride Hz (`g/(2π·hz)²`),
 plotted linearly against a vertical load factor. Unlike `ARB_RS_SCALE`, `DAMPING_CALIBRATION`,

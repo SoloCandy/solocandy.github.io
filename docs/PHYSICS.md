@@ -40,9 +40,10 @@ the solver already works in — see [Physical-unit output](#physical-unit-output
 below — so it introduces no new calibration constant and needs no validation
 protocol.
 
-**Ride-height-derived CG height** (PRO CHASSIS section, RIDE HEIGHT → CG
-toggle) is a plain geometric heuristic, not a measured/validated constant —
-see [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for the full caveat.
+**Ride-height-derived CG height** (INT/PRO CHASSIS section, CG Height Source
+toggle, defaults to RIDE HEIGHT) is a plain geometric heuristic, not a
+measured/validated constant — see [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for the
+full caveat.
 
 **Game limits:** Horizon — ARB 65 clicks, damper 20 clicks. Motorsport — ARB
 40 clicks, damper 40 clicks. BeamNG — none (see Physical-unit output below).
@@ -503,8 +504,8 @@ Hz) sag more; no separate spring-rate solve is needed since `solveSpring`
 already folds mass into Hz. Since compression scales linearly with vertical
 wheel load (mass cancels out the same way at any load factor, not just 1g),
 sag at load factor `n` is simply `n × sag_1g` — a straight line through the
-origin. This feeds the CHASSIS section's SAG vs LOAD chart (PRO mode, RIDE
-HEIGHT → CG toggle): an inline SVG plotting each axle's compression line
+origin. This feeds the CHASSIS section's SAG vs LOAD chart (INT/PRO mode,
+CG Height Source set to RIDE HEIGHT): an inline SVG plotting each axle's compression line
 against load (g) on the x-axis, with a dashed reference line at that axle's
 entered ride height — where the diagonal crosses the dashed line is the
 load (in g) at which that axle bottoms out, also given as a plain number
