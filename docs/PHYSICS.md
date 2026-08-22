@@ -107,8 +107,9 @@ criticalDamping(hz, mass) = 2 * sqrt((hz*2π)² * mass * mass)   // cc, the ζ=1
 solveDampRaw(hz, mass, z) = criticalDamping(hz, mass) * (z/100) * DAMPING_CALIBRATION
 ```
 
-`z` is the damping ratio (ζ) as a 0-115% value (>100% = overdamped, allowed
-because some Forza dampers support it). `DAMPING_CALIBRATION = 0.00135` is
+`z` is the damping ratio (ζ) as a percentage (>100% = overdamped, allowed
+because some Forza dampers support it) — 10-200% for Rebound ζ, 10-115% for
+Bump ζ. `DAMPING_CALIBRATION = 0.00135` is
 the empirically-validated N/mm/s → lbf/ft/s conversion (see the Calibration
 constants table above).
 

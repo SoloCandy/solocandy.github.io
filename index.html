@@ -613,7 +613,7 @@ const feelToPhysics=(ch,fe)=>{
   // chosen Balance Mode, same as it would from a typed Rebound ζ.
   const dampCharMode=fe.dampCharMode??'zeta';
   const settleTarget=Math.max(0.10,Math.min(2.00,fe.settleTarget??0.80));
-  const reboundZeta=Math.max(10,Math.min(115,fe.reboundZeta??70));
+  const reboundZeta=Math.max(10,Math.min(200,fe.reboundZeta??70));
   const bumpRatioVal=Math.max(10,Math.min(100,fe.bumpRatio??56));
   // sB recovers the *displayed* bias (positive = REAR, matching every other bias slider in
   // the app) for the Sync/Neutral solvers below — the slider itself stores -(displayed).
@@ -624,7 +624,7 @@ const feelToPhysics=(ch,fe)=>{
   const baseZeta=dampCharMode==='settle'
     ? (()=>{
         const refHz=uiRideRef==='rear'?rearHz:uiRideRef==='shared'?(frontHz+rearHz)/2:frontHz;
-        return Math.max(10,Math.min(115,refHz>0?2.302/(settleTarget*refHz*2*Math.PI)*100:70));
+        return Math.max(10,Math.min(200,refHz>0?2.302/(settleTarget*refHz*2*Math.PI)*100:70));
       })()
     : reboundZeta;
   // Bump zeta is always determined by dampingMode (ratio or independent). In RATIO mode this
@@ -637,8 +637,8 @@ const feelToPhysics=(ch,fe)=>{
     const{zF,zR}=dampBalMode==='neutral'
       ? forceZetas(uiRideRef,dampMasses.front,frontHz,dampMasses.rear,rearHz,baseZeta,biasMult)
       : settleZetas(uiRideRef,frontHz,rearHz,baseZeta,biasMult);
-    zetaF=Math.max(10,Math.min(115,zF));
-    zetaR=Math.max(10,Math.min(115,zR));
+    zetaF=Math.max(10,Math.min(200,zF));
+    zetaR=Math.max(10,Math.min(200,zR));
     bumpZetaF=dampingMode==='ratio'
       ? Math.max(10,Math.min(zetaF,zetaF*bumpRatioVal/100))
       : Math.max(10,Math.min(zetaF,bumpZeta));
@@ -647,10 +647,10 @@ const feelToPhysics=(ch,fe)=>{
       : Math.max(10,Math.min(zetaR,bumpZeta));
   }else{
     const dampingBias=fe.dampingBias??0;
-    zetaF=Math.max(10,Math.min(115,dampingBias>0?baseZeta:baseZeta*(1+dampingBias/100)));
-    zetaR=Math.max(10,Math.min(115,dampingBias<0?baseZeta:baseZeta*(1-dampingBias/100)));
-    bumpZetaF=Math.max(10,Math.min(115,dampingBias>0?bumpZeta:bumpZeta*(1+dampingBias/100)));
-    bumpZetaR=Math.max(10,Math.min(115,dampingBias<0?bumpZeta:bumpZeta*(1-dampingBias/100)));
+    zetaF=Math.max(10,Math.min(200,dampingBias>0?baseZeta:baseZeta*(1+dampingBias/100)));
+    zetaR=Math.max(10,Math.min(200,dampingBias<0?baseZeta:baseZeta*(1-dampingBias/100)));
+    bumpZetaF=Math.max(10,Math.min(200,dampingBias>0?bumpZeta:bumpZeta*(1+dampingBias/100)));
+    bumpZetaR=Math.max(10,Math.min(200,dampingBias<0?bumpZeta:bumpZeta*(1-dampingBias/100)));
   }
   // SAME (default): ARB split tracks front weight % directly — a front-heavy car gets a
   // front-heavy ARB split, reinforcing its natural tendency. OPPOSITE mirrors around 50%
@@ -789,8 +789,8 @@ const computeTune=(ch,phys,gameMode)=>{
     const{zF,zR}=phys.dampBalMode==='neutral'
       ? forceZetas(phys.rideRef,m.front,fHz,m.rear,effectiveRHz,phys.baseZeta,biasMult)
       : settleZetas(phys.rideRef,fHz,effectiveRHz,phys.baseZeta,biasMult);
-    zetaF=Math.max(10,Math.min(115,zF));
-    zetaR=Math.max(10,Math.min(115,zR));
+    zetaF=Math.max(10,Math.min(200,zF));
+    zetaR=Math.max(10,Math.min(200,zR));
     bumpZetaF=ratio?Math.max(10,Math.min(zetaF,zetaF*bumpRatioVal/100)):Math.max(10,Math.min(zetaF,bumpZ));
     bumpZetaR=ratio?Math.max(10,Math.min(zetaR,zetaR*bumpRatioVal/100)):Math.max(10,Math.min(zetaR,bumpZ));
   }
@@ -1723,7 +1723,7 @@ const DampingDial=({rebound,bump})=>{
   const GAP_DEG=60; // gap at bottom
   const START=180+GAP_DEG/2;  // 210° from top-clockwise = lower-left
   const SWEEP=360-GAP_DEG;
-  const MIN_Z=10,MAX_Z=115;
+  const MIN_Z=10,MAX_Z=200;
   const zetaToAngle=z=>START+((z-MIN_Z)/(MAX_Z-MIN_Z))*SWEEP;
   const polar=(deg,r=R)=>{
     const rad=((deg-90)*Math.PI)/180; // SVG: 0deg = top, clockwise
@@ -1788,7 +1788,7 @@ const DampingDial=({rebound,bump})=>{
             fontSize={8} fontFamily="sans-serif" letterSpacing={2}>DAMPERS</text>
         </svg>
         <span style={{position:'absolute',top:2,right:2,lineHeight:1}}>
-          <Hint text="Red dot = rebound damping %, blue dot = bump damping %, both on a 10–115 range. Hover or tap a dot to read its value. Center shows the bump-to-rebound ratio. The fill between them turns amber if bump exceeds rebound — bump should generally be softer (lower %) than rebound for a compliant, predictable ride. The background ring is tinted by zone: blue = under-damped (bouncy), green = approaching Butterworth, amber = at/past the Butterworth sweet spot, red = overdamped (sluggish) — same thresholds as the Rebound ζ/Bump ζ sliders."/>
+          <Hint text="Red dot = rebound damping %, blue dot = bump damping %, both on a 10–200 range. Hover or tap a dot to read its value. Center shows the bump-to-rebound ratio. The fill between them turns amber if bump exceeds rebound — bump should generally be softer (lower %) than rebound for a compliant, predictable ride. The background ring is tinted by zone: blue = under-damped (bouncy), green = approaching Butterworth, amber = at/past the Butterworth sweet spot, red = overdamped (sluggish) — same thresholds as the Rebound ζ/Bump ζ sliders."/>
         </span>
       </div>
     </div>
@@ -2237,7 +2237,7 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
     const mult=Math.max(0.5,Math.min(3.0,Math.round((hzR/hzF)*100)/100));
     const domF=ck.zRebF>=ck.zRebR;
     const domZ=domF?ck.zRebF:ck.zRebR,otherZ=domF?ck.zRebR:ck.zRebF;
-    const reboundZeta=Math.max(10,Math.min(115,Math.round(domZ)));
+    const reboundZeta=Math.max(10,Math.min(200,Math.round(domZ)));
     const ratio=domZ>0?otherZ/domZ:1;
     const dampingBias=Math.max(-50,Math.min(50,Math.round(domF?200*(1-ratio):-200*(1-ratio))));
     const domBumpZ=domF?ck.zBmpF:ck.zBmpR;
@@ -2678,7 +2678,7 @@ const sanitizeTune=({ch,fe,dr})=>{
       targetSpeed:      cl(fe?.targetSpeed,       60,  200,  DEF_FE.targetSpeed),
       gameMode:         GAME_MODE_DEC.includes(fe?.gameMode)?fe.gameMode:DEF_FE.gameMode,
       dampingMode:      DAMPING_MODE_DEC.includes(fe?.dampingMode)?fe.dampingMode:DEF_FE.dampingMode,
-      reboundZeta:      cl(fe?.reboundZeta,       10,  115,  DEF_FE.reboundZeta),
+      reboundZeta:      cl(fe?.reboundZeta,       10,  200,  DEF_FE.reboundZeta),
       bumpRatio:        cl(fe?.bumpRatio,         10,  100,  DEF_FE.bumpRatio),
       bumpZeta:         cl(fe?.bumpZeta,          10,  115,  DEF_FE.bumpZeta),
       arbMode:          (()=>{
@@ -5380,8 +5380,8 @@ function App(){
                     return`${t.toFixed(2)}s → F ${Math.round(physics.zetaF)}% R ${Math.round(physics.zetaR)}%`;
                   })()}/>
               : <FeelSlider label="Rebound ζ" value={fe.reboundZeta??70}
-                  onChange={pFe('reboundZeta')} min={10} max={115} step={1}
-                  leftLabel="10%" rightLabel="115%"
+                  onChange={pFe('reboundZeta')} min={10} max={200} step={1}
+                  leftLabel="10%" rightLabel="200%"
                   hint="Damping ratio for the rebound (extension) stroke — how quickly the suspension returns after compression. 55–70% is typical. Above 70% (Butterworth) the car feels planted but stiff. Above 100% (overdamped) the suspension moves sluggishly."
                   markers={[
                     {value:40, color:'#60a5fa',label:'UNDER',lessThan:true},
