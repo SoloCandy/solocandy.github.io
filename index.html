@@ -646,11 +646,27 @@ const feelToPhysics=(ch,fe)=>{
       ? Math.max(10,Math.min(zetaR,zetaR*bumpRatioVal/100))
       : Math.max(10,Math.min(zetaR,bumpZeta));
   }else{
+    // STANDARD's exact-anchor axle now follows Ride Reference (not the Damping Bias slider's
+    // sign): FRONT ref holds zetaF at baseZeta for both bias directions and swings zetaR; REAR
+    // ref mirrors that onto zetaF; SHARED splits the swing across both axles (half-magnitude
+    // each) so neither is a fixed anchor, matching balancedZetas' shared-ref symmetry.
     const dampingBias=fe.dampingBias??0;
-    zetaF=Math.max(10,Math.min(200,dampingBias>0?baseZeta:baseZeta*(1+dampingBias/100)));
-    zetaR=Math.max(10,Math.min(200,dampingBias<0?baseZeta:baseZeta*(1-dampingBias/100)));
-    bumpZetaF=Math.max(10,Math.min(200,dampingBias>0?bumpZeta:bumpZeta*(1+dampingBias/100)));
-    bumpZetaR=Math.max(10,Math.min(200,dampingBias<0?bumpZeta:bumpZeta*(1-dampingBias/100)));
+    if(uiRideRef==='rear'){
+      zetaF=Math.max(10,Math.min(200,baseZeta*(1+dampingBias/100)));
+      zetaR=baseZeta;
+      bumpZetaF=Math.max(10,Math.min(200,bumpZeta*(1+dampingBias/100)));
+      bumpZetaR=bumpZeta;
+    }else if(uiRideRef==='shared'){
+      zetaF=Math.max(10,Math.min(200,baseZeta*(1+dampingBias/200)));
+      zetaR=Math.max(10,Math.min(200,baseZeta*(1-dampingBias/200)));
+      bumpZetaF=Math.max(10,Math.min(200,bumpZeta*(1+dampingBias/200)));
+      bumpZetaR=Math.max(10,Math.min(200,bumpZeta*(1-dampingBias/200)));
+    }else{
+      zetaF=baseZeta;
+      zetaR=Math.max(10,Math.min(200,baseZeta*(1-dampingBias/100)));
+      bumpZetaF=bumpZeta;
+      bumpZetaR=Math.max(10,Math.min(200,bumpZeta*(1-dampingBias/100)));
+    }
   }
   // SAME (default): ARB split tracks front weight % directly — a front-heavy car gets a
   // front-heavy ARB split, reinforcing its natural tendency. OPPOSITE mirrors around 50%

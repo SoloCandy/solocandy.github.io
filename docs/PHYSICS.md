@@ -286,9 +286,12 @@ Damping Balance Mode then does the exact same split from that one number:
   `solveDampRaw` above). Used by NEUTRAL, under either REBOUND MODE.
   Corrects for corner-mass asymmetry that SYNC ignores.
 - **STANDARD** doesn't call either — it biases `baseZeta` directly by
-  percentage (`dampingBias>0 ? baseZeta : baseZeta*(1+dampingBias/100)` on
-  one axle, the base value held on the other), independent of Hz or mass
-  entirely, under either REBOUND MODE.
+  percentage, independent of Hz or mass entirely, under either REBOUND MODE.
+  The ride-reference axle (`rideRef`) holds `baseZeta` exactly regardless of
+  Damping Bias direction; the other axle swings by `dampingBias/100` (halved
+  to `dampingBias/200` per side under `rideRef==='shared'`, so neither axle
+  is a fixed anchor). Before this, the exact-anchor axle flipped with the
+  Damping Bias slider's sign rather than following Ride Reference at all.
 
 Under SETTLE TIME, only SYNC guarantees *both* axles hit the target time —
 STANDARD/NEUTRAL still anchor the reference axle to it exactly, but the

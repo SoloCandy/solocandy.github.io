@@ -589,14 +589,17 @@ console.log('\nmigrateDampBalMode — legacy Settle Sync migration');
 console.log('\nSETTLE TIME mode: bumpZeta anchors to baseZeta, not raw reboundZeta');
 {
   // Mirror of the relevant slice of feelToPhysics (index.html): baseZeta derivation +
-  // STANDARD's %-split, for dampCharMode==='settle'.
+  // STANDARD's %-split, for dampCharMode==='settle'. STANDARD's exact-anchor axle follows
+  // Ride Reference (uiRideRef), not the Damping Bias slider's sign — this test only exercises
+  // dampingBias=0, where front-ref/rear-ref/shared all collapse to the same result, so a fixed
+  // 'front' ref is used here rather than mirroring all three branches.
   const deriveBaseZeta = (settleTarget, refHz) =>
     Math.max(10, Math.min(115, refHz > 0 ? 2.302 / (settleTarget * refHz * 2 * Math.PI) * 100 : 70));
   const standardSplit = (baseZeta, bumpZeta, dampingBias) => ({
-    zetaF: Math.max(10, Math.min(115, dampingBias > 0 ? baseZeta : baseZeta * (1 + dampingBias / 100))),
-    zetaR: Math.max(10, Math.min(115, dampingBias < 0 ? baseZeta : baseZeta * (1 - dampingBias / 100))),
-    bumpZetaF: Math.max(10, Math.min(115, dampingBias > 0 ? bumpZeta : bumpZeta * (1 + dampingBias / 100))),
-    bumpZetaR: Math.max(10, Math.min(115, dampingBias < 0 ? bumpZeta : bumpZeta * (1 - dampingBias / 100))),
+    zetaF: Math.max(10, Math.min(115, baseZeta)),
+    zetaR: Math.max(10, Math.min(115, baseZeta * (1 - dampingBias / 100))),
+    bumpZetaF: Math.max(10, Math.min(115, bumpZeta)),
+    bumpZetaR: Math.max(10, Math.min(115, bumpZeta * (1 - dampingBias / 100))),
   });
 
   const settleTarget = 0.80, bumpRatioVal = 56, dampingBias = 0;
