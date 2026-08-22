@@ -3011,7 +3011,7 @@ const TUTORIALS={
      ]},
     {title:'Chassis',
      focus:['chassis'],
-     body:'Layout, Weight, and Front Weight Bias have moved out of the Beginner panel into the CHASSIS section at the top of the sidebar — same three inputs, same meaning, just somewhere you can collapse them once they\'re set. Take Weight and Front Weight Bias from the car selection screen, not the tuning menu. PRO adds tyre sizes, wheelbase, track widths, and CG height to this section.'},
+     body:'Layout, Weight, and Front Weight Bias have moved out of the Beginner panel into the CHASSIS section at the top of the sidebar — same three inputs, same meaning, just somewhere you can collapse them once they\'re set. CG Height Source (with a RIDE HEIGHT → CG toggle) lives here too. Take Weight and Front Weight Bias from the car selection screen, not the tuning menu. PRO adds tyre sizes, wheelbase, and track widths to this section.'},
     {title:'Drivetrain Sliders',
      focus:['drivetrain'],
      body:'DIFF TYPE selects the differential installed on the car — Race, Sport, Rally, Offroad, or Drift. Each type has a different lock curve, so the same slider % produces different effective lock. Sport is accel-only (no decel control). Sliders are grouped under FRONT AXLE / REAR AXLE headers on AWD (single-axle layouts just get one group). Corner Exit controls on-throttle aggression. Corner Entry controls trail-braking rotation. AWD adds a Power Split (center diff) slider — the recommended split is calculated from your build type, weight distribution, natural mechanical balance, and front/rear tyre diameter ratio. A Front Exit Push slider is also unlocked for AWD. All DIFF rows in the Handling Balance bar update live.'},
@@ -3043,10 +3043,10 @@ const TUTORIALS={
   pro:[
     {title:'Welcome — Pro Mode',
      focus:null,
-     body:'Pro mode adds the full physics surface on top of Intermediate: a Mech Balance Target with CHASSIS, MECH and CO-SOLVE ARB balance modes, a MAN stiffness mode for entering ARB clicks directly, Hz MECH mode, chassis geometry (wheelbase, track widths, CG height), and manual differential control. Alignment and brakes are always computed automatically. This guide only covers what\'s new.'},
+     body:'Pro mode adds the full physics surface on top of Intermediate: a Mech Balance Target with CHASSIS, MECH and CO-SOLVE ARB balance modes, a MAN stiffness mode for entering ARB clicks directly, Hz MECH mode, chassis geometry (wheelbase, track widths), and manual differential control. Alignment and brakes are always computed automatically. This guide only covers what\'s new.'},
     {title:'Chassis Geometry',
      focus:['chassis'],
-     body:'Tyre sizes, wheelbase, track widths, and CG height are all now available in the CHASSIS section — CG height also has a RIDE HEIGHT → CG toggle to derive it from front/rear ride height and tyre radius instead of entering it manually. Tyre width sets each axle\'s grip capacity at the limit and drives the CHASSIS BAL. (natural mechanical balance), GRIP BIAS (at-limit handling tendency), and STABILITY readouts below. Chassis geometry defaults suit most cars — enter exact values if you have them. The GEOMETRY GAP panel in the BALANCE section shows whether track or tyre width changes could help close the gap between your chassis natural balance and your target.'},
+     body:'Tyre sizes, wheelbase, and track widths are all now available in the CHASSIS section. Tyre width sets each axle\'s grip capacity at the limit and drives the CHASSIS BAL. (natural mechanical balance), GRIP BIAS (at-limit handling tendency), and STABILITY readouts below. Chassis geometry defaults suit most cars — enter exact values if you have them. The GEOMETRY GAP panel in the BALANCE section shows whether track or tyre width changes could help close the gap between your chassis natural balance and your target.'},
     {title:'Manual Differential',
      focus:['drivetrain'],
      body:'MANUAL diff exposes individual accel and decel lock percentages per axle, grouped under FRONT AXLE / REAR AXLE / CENTER headers on AWD. Range hints below each field show typical values for your selected diff type — Rally and Offroad diffs need higher % than Race to achieve equivalent lock because their curves are less aggressive. MATCH CHASSIS (AUTO mode only, sits directly above the EXIT/ENTRY sliders it affects) biases the diff solver toward your Mech Balance Target so the differential reinforces the balance set by your springs and ARBs. The AWD center split recommendation factors in build type, weight distribution, natural mechanical balance, and front/rear tyre diameter — PRO mode shows a factor breakdown below the recommended value.'},
@@ -3055,7 +3055,7 @@ const TUTORIALS={
      body:'MEASURE NAT BAL (below the Balance Guide) opens Tune Check\'s MEASURE tab — it walks you through applying specific spring/ARB values in Forza, then you dial in the Mech Balance the game reports. Once set, the calculator uses your reading everywhere — Balance Guide, GRIP BIAS, natural balance — instead of the geometry prediction. Track width fields hide while active since they\'re no longer needed; wheelbase stays visible for flat-ride Hz and brake balance.'},
     {title:'Mech Balance Target',
      focus:['balance-target'],
-     body:'Mech Balance Target (0.20–0.90) is the rear fraction of total roll stiffness you want to achieve — the main dial for mechanical handling balance. Higher = more rear roll resistance = more rotation tendency. Lower = more front resistance = more stable, understeery feel.\n\nRWD track: 0.60–0.70. AWD: 0.55–0.65. FWD: 0.45–0.55. The BALANCE GUIDE shows your natural balance and the recommended range — use it as a reference, not a hard rule.\n\nSet this before choosing an ARB solving mode — all three modes solve toward this target.'},
+     body:'Mech Balance Target (0.20–0.90) is the rear fraction of total roll stiffness you want to achieve — the main dial for mechanical handling balance. Higher = more rear roll resistance = more rotation tendency. Lower = more front resistance = more stable, understeery feel.\n\nThe BALANCE GUIDE below shows your car\'s natural balance and a recommended range built from its own geometry and build type — start there rather than a generic number, since the right target varies a lot by chassis.\n\nSet this before choosing an ARB solving mode — all three modes solve toward this target.'},
     {title:'Balance Target Mode',
      focus:['balance-target'],
      body:'Balance Target mode controls how the Mech Balance Target is derived.\n\nTARGET: set manually with the slider — use the Balance Guide range as a start.\n\nGRIP: auto-derives the target as 1 − natGripBalance, counteracting the car\'s natural grip tendency. Balance Offset shifts it toward oversteer (+) or understeer (−).\n\nGEOMETRY GAP shows whether track/tyre width changes could close the gap with softer ARBs.'},
@@ -5440,7 +5440,7 @@ function App(){
               ? <FeelSlider label="Settle Target" value={fe.settleTarget??0.80}
                   onChange={pFe('settleTarget')} min={0.10} max={1.50} step={0.01}
                   leftLabel="0.10s" rightLabel="1.50s"
-                  hint="Target settle time — how quickly oscillations die out after a bump. The app back-calculates rebound ζ for each axle from its spring frequency. Lower = tighter, more controlled. Higher = softer, more comfortable. Settle Bias skews the F/R timing ratio."
+                  hint="Target settle time — how quickly oscillations die out after a bump. The app back-calculates rebound ζ for each axle from its spring frequency. Lower = tighter, more controlled. Higher = softer, more comfortable. Damping Bias skews the F/R timing ratio."
                   markers={[
                     {value:0.35,color:'#ef4444',label:'PLANTED'},
                     {value:0.60,color:'#f59e0b',label:'RACE'},
@@ -5533,7 +5533,7 @@ function App(){
                 ?`SYNC: biases settle time between front and rear. At centre (0), front and rear damp out in equal time regardless of any Hz difference between them (anchored to ${anchor}). Left (FRONT) makes the front settle faster. Right (REAR) makes the rear settle faster. The bias scales as 2× at ±50.`
                 :balMode==='neutral'
                 ?`NEUTRAL: biases actual damping force between front and rear. At centre (0), both axles push the same physical force — accounts for Hz and corner mass, not just a raw ζ split (anchored to ${anchor}). Left (FRONT) shifts force toward the front. Right (REAR) shifts it toward the rear. The bias scales as 2× at ±50.`
-                :`Biases damping toward one axle by softening the opposite side. The biased axle stays at the base ζ (anchored to ${anchor}); the other drops up to 50% at ±50. Front bias: front stays firm, rear softens — understeer tendency, more stable overall. Rear bias: rear stays firm, front softens — oversteer tendency, looser rotation.`;
+                :`Biases damping around whichever axle is your Ride Reference — that axle holds the base ζ (anchored to ${anchor}); the other axle swings up to 50% at ±50, firmer one way and softer the other. Whichever axle ends up relatively firmer keeps more grip: firmer front leans understeer/stable, firmer rear leans oversteer/loose. SHARED splits the swing across both axles instead of pinning one.`;
               const readout=timeBased
                 ? (Math.abs(tune.settleF-tune.settleR)<0.01?'EQUAL':`F ${tune.settleF.toFixed(2)}s | ${tune.settleR.toFixed(2)}s R`)
                 : balMode==='neutral'

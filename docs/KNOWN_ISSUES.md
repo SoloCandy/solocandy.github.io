@@ -1284,3 +1284,40 @@ bloating the code without changing what it decoded to.
 
 Fixed by adding `arbManF:20,arbManR:20` to `DEF_FE`, matching
 `sanitizeTune`'s fallback.
+
+## Fixed — four in-app hint/tutorial strings lagged behind recent behavior changes (resolved)
+
+A full audit of every hint and tutorial step against the live formulas turned
+up four places where UI copy still described pre-fix or pre-refactor
+behavior:
+
+1. **STANDARD Damping Balance Mode's hint** still described the pre-`daad350`
+   mechanism, where the bias slider's own sign picked which axle stayed
+   pinned at the base ζ ("front bias: front stays firm, rear softens; rear
+   bias: rear stays firm, front softens"). Since `daad350` made the pinned
+   axle follow Ride Reference instead, that description is only correct for
+   one of the two bias directions under the default (FRONT) Ride Reference,
+   and wrong outright under REAR. Fixed by rewriting the hint to describe the
+   Ride-Reference-anchored mechanism generically instead of naming a fixed
+   front/rear direction.
+2. **Three tutorial steps** (PRO's "Welcome — Pro Mode", INT's "Chassis", and
+   PRO's "Chassis Geometry") described CG Height Source as something PRO adds
+   on top of Intermediate. `23791d3` moved it to INT tier months ago; the
+   README's tier table was updated at the time, but these three tutorial
+   strings were missed. Fixed by dropping "CG height" from the two "what PRO
+   adds" lists (Welcome and Chassis Geometry) and moving the mention into the
+   INT step instead, where it's actually new.
+3. **The Settle Target hint** referenced "Settle Bias" — the pre-rename name
+   for what's now the Damping Bias slider. `settleBias` only exists in
+   migration/legacy-read code, so the hint pointed at a control name that no
+   longer appears anywhere in the UI. Fixed by updating the hint to say
+   "Damping Bias."
+
+Also, PRO's "Mech Balance Target" tutorial step quoted static per-layout
+target ranges (e.g. "RWD track: 0.60–0.70") that were never derived from the
+app's own math — the actual Balance Guide range comes from a per-chassis,
+per-build-type calculation (`_fracMap`, see `docs/PHYSICS.md`) that can land
+well outside those numbers for a given car. Not a regression from a specific
+commit, just guidance that was never grounded in the calculation it sat next
+to. Replaced with a pointer to the Balance Guide itself rather than numbers
+that could mislead more than they helped.
