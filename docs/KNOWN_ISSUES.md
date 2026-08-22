@@ -5,6 +5,33 @@ of without a written trail. Not a general bug tracker — just things that
 either can't be trivially fixed, or were fixed here and are worth
 remembering *why* they broke in the first place.
 
+## Fixed — settle-time formula treated overdamped ζ as faster, not slower (resolved)
+
+Both the displayed settle time (`tune.settleF`/`settleR`) and the SETTLE
+TIME Rebound Mode's back-solve for `baseZeta` used a single-branch formula,
+`t = 2.302/(ζ·ωn)` (`rate=ζ` throughout), across the *entire* ζ range
+including overdamped (ζ>100%, up to the slider's 200% max). That formula is
+exact for underdamped ζ (≤100%) — the response envelope really does decay
+as `e^-ζωn·t` there — but wrong for overdamped ζ, where the real decay is
+governed by the *slower* of two poles, `rate=ζ-√(ζ²-1)`, which *falls* as ζ
+rises past 100%. Critical damping (ζ=100%) is the fastest possible settle;
+pushing ζ higher makes it settle more slowly (correctly described elsewhere
+in the UI as "sluggish"), not faster.
+
+Two consequences before the fix: (1) the settle-time readout kept reporting
+*shorter* settle times as a user cranked ζ past 100%, the opposite of the
+real behavior; (2) SETTLE TIME mode's back-solve, chasing an aggressive
+(short) target time at a low Hz, could push `baseZeta` past 100% up toward
+its 200% clamp — which in reality made the axle settle *slower*, silently
+defeating the point of the target.
+
+Fixed by extracting a shared `settleTimeFromZeta(zetaPct,hz)` (used for both
+the forward readout and, inverted, the back-solve) that branches on ζ vs.
+100%, and by lowering the back-solve's clamp ceiling from 200% to 100% —
+an unreachable target now stops at critical damping (the true fastest
+achievable) instead of overshooting into overdamped territory. See
+`docs/PHYSICS.md`'s `settleTimeFromZeta` section.
+
 ## Fixed — MAN ARB stiffness still registered as MECH/CO-SOLVE balance mode enabled (resolved)
 
 Stiffness Mode MAN (direct front/rear ARB clicks) is supposed to bypass the

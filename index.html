@@ -329,6 +329,16 @@ const balancedZetas=(rideRef,wF,wR,refZeta,biasMult)=>{
 };
 // Equal settle TIME: weight is Hz alone (ζ·Hz constant — settle time ∝ 1/(ζ·Hz)).
 const settleZetas=(rideRef,fHz,rHz,refZeta,biasMult)=>balancedZetas(rideRef,fHz,rHz,refZeta,biasMult);
+// Settle time (10%-envelope) from ζ (%) and Hz. Underdamped (ζ≤100%): envelope decays exactly
+// as e^-ζωn·t, so rate=ζ. Overdamped (ζ>100%): response is governed by the SLOWER of two real
+// poles, rate=ζ-√(ζ²-1), which *falls* as ζ climbs past 100% — critical damping (ζ=100%) is the
+// fastest possible settle, and pushing zeta higher makes it slower (sluggish), not faster. Using
+// rate=ζ unconditionally (the old single-branch formula) got this backwards above 100%.
+const settleTimeFromZeta=(zetaPct,hz)=>{
+  if(zetaPct<=0||hz<=0) return 99;
+  const z=zetaPct/100,rate=z<=1?z:(z-Math.sqrt(z*z-1));
+  return 2.302/(rate*hz*2*Math.PI); // ln(10)/(rate·ωn)
+};
 // Equal damping FORCE: weight is mass·Hz (force ∝ ζ·m·Hz — see solveDampRaw), so this also
 // corrects for corner-mass asymmetry that settleZetas ignores.
 const forceZetas=(rideRef,mF,fHz,mR,rHz,refZeta,biasMult)=>balancedZetas(rideRef,mF*fHz,mR*rHz,refZeta,biasMult);
@@ -612,7 +622,7 @@ const feelToPhysics=(ch,fe)=>{
   // to actually hit that target; the other axle's real settle time is whatever falls out of the
   // chosen Balance Mode, same as it would from a typed Rebound ζ.
   const dampCharMode=fe.dampCharMode??'zeta';
-  const settleTarget=Math.max(0.10,Math.min(2.00,fe.settleTarget??0.80));
+  const settleTarget=Math.max(0.10,Math.min(1.50,fe.settleTarget??0.80));
   const reboundZeta=Math.max(10,Math.min(200,fe.reboundZeta??70));
   const bumpRatioVal=Math.max(10,Math.min(100,fe.bumpRatio??56));
   // sB recovers the *displayed* bias (positive = REAR, matching every other bias slider in
@@ -624,7 +634,10 @@ const feelToPhysics=(ch,fe)=>{
   const baseZeta=dampCharMode==='settle'
     ? (()=>{
         const refHz=uiRideRef==='rear'?rearHz:uiRideRef==='shared'?(frontHz+rearHz)/2:frontHz;
-        return Math.max(10,Math.min(200,refHz>0?2.302/(settleTarget*refHz*2*Math.PI)*100:70));
+        // Clamp at 100% (critical damping), not 200% — critical damping is the fastest possible
+        // settle (see settleTimeFromZeta above), so an unreachable target should stop there, not
+        // overshoot into overdamped territory where zeta climbing higher makes it settle SLOWER.
+        return Math.max(10,Math.min(100,refHz>0?2.302/(settleTarget*refHz*2*Math.PI)*100:70));
       })()
     : reboundZeta;
   // Bump zeta is always determined by dampingMode (ratio or independent). In RATIO mode this
@@ -974,8 +987,8 @@ const computeTune=(ch,phys,gameMode)=>{
   // "ARB maxed, can't fully cancel" only means something against a ceiling. Physical modes
   // can always supply whatever roll stiffness NEUTRAL asks for, so the warning never fires.
   const neutralClamped=!physUnits&&arbBalMode==='neutral'&&(arbF<=1||arbF>=lim.arb||arbR<=1||arbR>=lim.arb);
-  const settleF=zetaF>0?2.302/((zetaF/100)*fHz*2*Math.PI):99; // ln(10)/(ζ·ωn)
-  const settleR=zetaR>0?2.302/((zetaR/100)*effectiveRHz*2*Math.PI):99;
+  const settleF=settleTimeFromZeta(zetaF,fHz);
+  const settleR=settleTimeFromZeta(zetaR,effectiveRHz);
   // CO-SOLVE contribution breakdown: how much of balance correction came from springs vs ARBs
   const rsBalSp=rsSpF+rsSpR>0?rsSpR/(rsSpF+rsSpR):0; // spring-only roll balance (after CO-SOLVE Hz adjustment)
   const coSolveSpCorr=arbBalMode==='coSolve'&&coSolveR_baseline!=null?rsBalSp-coSolveR_baseline:null;
@@ -2713,7 +2726,7 @@ const sanitizeTune=({ch,fe,dr})=>{
       rideBottomG:      (typeof fe?.rideBottomG==='number'&&isFinite(fe.rideBottomG)&&fe.rideBottomG>0)?fe.rideBottomG:null,
       arbManF:          cl(fe?.arbManF,             1,   65,   20),
       arbManR:          cl(fe?.arbManR,             1,   65,   20),
-      settleTarget:     cl(fe?.settleTarget,      0.10,  2.00,  DEF_FE.settleTarget),
+      settleTarget:     cl(fe?.settleTarget,      0.10,  1.50,  DEF_FE.settleTarget),
       dampCharMode:     fe?.dampCharMode==='settle'?'settle':'zeta',
       arbBalTargetMode: ['manual','grip'].includes(fe?.arbBalTargetMode)?fe.arbBalTargetMode:DEF_FE.arbBalTargetMode,
       arbBalDelta:      cl(fe?.arbBalDelta,       -0.20, 0.20, DEF_FE.arbBalDelta),
@@ -5382,8 +5395,8 @@ function App(){
             </>}
             {(fe.dampCharMode??'zeta')==='settle'
               ? <FeelSlider label="Settle Target" value={fe.settleTarget??0.80}
-                  onChange={pFe('settleTarget')} min={0.10} max={2.00} step={0.01}
-                  leftLabel="0.10s" rightLabel="2.0s"
+                  onChange={pFe('settleTarget')} min={0.10} max={1.50} step={0.01}
+                  leftLabel="0.10s" rightLabel="1.50s"
                   hint="Target settle time — how quickly oscillations die out after a bump. The app back-calculates rebound ζ for each axle from its spring frequency. Lower = tighter, more controlled. Higher = softer, more comfortable. Settle Bias skews the F/R timing ratio."
                   markers={[
                     {value:0.35,color:'#ef4444',label:'PLANTED'},

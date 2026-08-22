@@ -273,9 +273,13 @@ FRONT/REAR convention.
 
 `refZeta` itself is **REBOUND MODE's** job, independent of Damping Balance
 Mode: CHARACTER passes `reboundZeta` (typed directly); SETTLE TIME instead
-back-solves it from the Settle Target at the ride-reference axle's Hz (same
-`2.302/(settleTarget·refHz·2π)*100` derivation as before) — this combined
-value is `baseZeta` in `feelToPhysics`. Whichever REBOUND MODE is active,
+back-solves it from the Settle Target at the ride-reference axle's Hz via
+`2.302/(settleTarget·refHz·2π)*100`, clamped to **100%** (critical damping)
+rather than the slider's full 200% ceiling — critical damping is the fastest
+possible settle (see `settleTimeFromZeta` below), so an unreachable target
+stops there instead of overshooting into overdamped territory where a higher
+ζ actually settles *slower*. This combined value is `baseZeta` in
+`feelToPhysics`. Whichever REBOUND MODE is active,
 Damping Balance Mode then does the exact same split from that one number:
 
 - **`settleZetas(rideRef,fHz,rHz,refZeta,biasMult)`** — `wF,wR = fHz,rHz`.
@@ -298,6 +302,24 @@ STANDARD/NEUTRAL still anchor the reference axle to it exactly, but the
 other axle's real settle time is whatever that mode's split produces (`
 tune.settleF`/`settleR` report the honest achieved values either way, not
 a claim of equality).
+
+**`settleTimeFromZeta(zetaPct,hz)`** computes the displayed `settleF`/
+`settleR` (and, inverted, the SETTLE TIME back-solve above) from ζ and Hz.
+It's piecewise on ζ because the 10%-envelope decay rate isn't `ζ` once ζ
+passes 100%:
+
+- **Underdamped (ζ≤100%)**: the envelope decays exactly as `e^-ζωn·t`, so
+  `rate=ζ` and `t=2.302/(ζ·ωn)` (`2.302=ln10`) is exact, not an
+  approximation.
+- **Overdamped (ζ>100%, reachable up to the 200% slider max)**: response is
+  governed by the *slower* of two real poles, `rate=ζ-√(ζ²-1)`, which falls
+  as ζ climbs past 100%. Critical damping (ζ=100%) is the fastest possible
+  settle in this model; pushing ζ higher makes it settle more slowly
+  (sluggish), not faster. The single-branch `rate=ζ` formula used before
+  this got that backwards — it kept reporting shorter settle times as ζ
+  rose past 100%, and the SETTLE TIME back-solve would chase a fast target
+  by pushing ζ past 100% (up to the old 200% clamp), which actually made
+  the real settle time *worse*. Both are now piecewise-correct.
 
 `computeTune` re-runs whichever of SYNC/NEUTRAL is active a second time
 after CO-SOLVE resolves `effectiveRHz`, so the settle-time or force split
