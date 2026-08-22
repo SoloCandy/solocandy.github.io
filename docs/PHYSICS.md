@@ -282,9 +282,19 @@ stops there instead of overshooting into overdamped territory where a higher
 `feelToPhysics`. Whichever REBOUND MODE is active,
 Damping Balance Mode then does the exact same split from that one number:
 
-- **`settleZetas(rideRef,fHz,rHz,refZeta,biasMult)`** — `wF,wR = fHz,rHz`.
-  Holds settle time equal (`ζ·Hz` constant). Used by SYNC, under either
-  REBOUND MODE. Ignores corner mass.
+- **`settleZetas(rideRef,fHz,rHz,refZeta,biasMult)`** — holds *real* settle
+  time equal between axles. Used by SYNC, under either REBOUND MODE. Ignores
+  corner mass. Solves in rate-space via `dampRate`/`rateToZeta` (the same
+  piecewise rate `settleTimeFromZeta` uses below), not a naive `ζ·Hz`
+  constant — that naive version is only correct while both axles stay
+  underdamped, and quietly stops meaning "equal settle time" the moment a Hz
+  mismatch, a Damping Bias skew, or a high Rebound ζ/Settle Target anchor
+  pushes either axle past 100% ζ. Falls back to critical damping (100%) on
+  the derived axle when its Hz is too low to ever reach the reference's real
+  settle time no matter how hard it's damped. Reduces to the exact old
+  linear formula whenever both axles stay underdamped, which is true of
+  most tunes — this is a from-scratch physical fix, not a behavior change,
+  for the range where it actually diverges.
 - **`forceZetas(rideRef,mF,fHz,mR,rHz,refZeta,biasMult)`** — `wF,wR =
   mF·fHz, mR·rHz`. Holds actual damping force equal (force ∝ `ζ·m·Hz`, see
   `solveDampRaw` above). Used by NEUTRAL, under either REBOUND MODE.
@@ -500,7 +510,8 @@ offset:
 
 ```js
 gap = (1 - natGripBalance) - natMechBalance
-lo, hi = natMechBalance + fracLo*gap, natMechBalance + fracHi*gap  // clamped to 0.20-0.90
+d1, d2 = fracLo*gap, fracHi*gap
+lo, hi = natMechBalance + min(d1,d2), natMechBalance + max(d1,d2)  // clamped to 0.20-0.90
 ```
 
 `fracLo`/`fracHi` come from a per-layout/build table (`_fracMap` in the
@@ -508,12 +519,20 @@ RANGE block, `index.html`) generally in the 0.3-1.0 range, so the band
 scales with how understeer/oversteer-prone the specific chassis actually
 is instead of recommending a constant push regardless of gap size.
 Fractions can exceed 1.0 (DRIFT) to intentionally recommend overshooting
-past full grip-neutral for sustained rotation. `gap`'s sign flips for the
-rare chassis whose natural balance already sits past its own grip target,
-and the fraction math handles that automatically — no separate branch
-needed. The GRIP GAP sub-widget (tyre-width suggestions to bring GRIP
-TARGET into range) mirrors the same fraction table so the two widgets
-agree on what "in range" means.
+past full grip-neutral for sustained rotation.
+
+The `min`/`max` (rather than a fixed `lo=natMechBalance+fracLo*gap`
+assignment) matters for the rare chassis whose natural balance already
+sits past its own grip target, where `gap` goes negative: multiplying a
+negative gap by the *larger* fraction (`fracHi`) gives the more-negative
+delta, so a fixed assignment put `lo` above `hi` in that case — caught by
+the `hi≥lo+0.03` floor, but that collapsed the whole band to a fixed
+0.03-wide sliver instead of properly widening on the correct (downward)
+side of natural. `min`/`max` picks the right delta for each bound
+regardless of `gap`'s sign, so the band keeps scaling correctly there too.
+The GRIP GAP sub-widget (tyre-width suggestions to bring GRIP TARGET into
+range) mirrors the same fraction table and `min`/`max` treatment so the
+two widgets agree on what "in range" means.
 
 ---
 

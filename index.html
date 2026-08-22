@@ -319,7 +319,9 @@ const impliedZeta=(v,hz,mass,calib=DAMPING_CALIBRATION)=>{
 // per-axle "weight" wF/wR the caller wants zeta·weight held equal against. The reference axle
 // (the one the stiffness slider anchors) holds refZeta; the other axle's zeta is derived so
 // zF·wF = zR·wR at biasMult=1. biasMult>1 shifts the balance toward the rear side, preserved
-// across all rideRefs. Returns unclamped {zF,zR}.
+// across all rideRefs. Returns unclamped {zF,zR}. Linear in zeta throughout — correct for any
+// weight that's genuinely proportional to zeta itself (see forceZetas below), but NOT for
+// settle time past critical damping — see settleZetas, which needs its own rate-aware version.
 const balancedZetas=(rideRef,wF,wR,refZeta,biasMult)=>{
   if(wF<=0||wR<=0) return {zF:refZeta,zR:refZeta};
   if(rideRef==='rear')   return {zR:refZeta, zF:refZeta*(wR/wF)/biasMult};
@@ -327,8 +329,39 @@ const balancedZetas=(rideRef,wF,wR,refZeta,biasMult)=>{
                          return {zF:refZeta*(avg/wF)/b, zR:refZeta*(avg/wR)*b};}
   return {zF:refZeta, zR:refZeta*(wF/wR)*biasMult}; // front (default)
 };
-// Equal settle TIME: weight is Hz alone (ζ·Hz constant — settle time ∝ 1/(ζ·Hz)).
-const settleZetas=(rideRef,fHz,rHz,refZeta,biasMult)=>balancedZetas(rideRef,fHz,rHz,refZeta,biasMult);
+// Settle-time decay rate from ζ% — see settleTimeFromZeta below for the physical reasoning.
+// Always in (0,1]: rate=ζ for ζ≤100%, rate=ζ-√(ζ²-1) (the slow pole) for ζ>100%.
+const dampRate=zPct=>{const z=zPct/100;return z<=1?z:z-Math.sqrt(z*z-1);};
+// Inverse of dampRate. The same rate is reachable at two zetas (one underdamped, one overdamped
+// — see settleTimeFromZeta) but this always returns the underdamped (≤100%) root: it's the less
+// extreme choice and matches the app's own preference for staying out of overdamped territory.
+// rate≥1 has no solution at all (critical damping's rate=1 is the fastest anything can decay),
+// so that end just clamps at 100%.
+const rateToZeta=rate=>rate>=1?100:Math.max(0,rate)*100;
+// Equal settle TIME, ζ- and Hz-aware. Naively holding ζ·Hz constant (the old approach) only
+// means equal settle time while both axles stay underdamped — past critical damping the real
+// decay rate is ζ-√(ζ²-1), not ζ, so that naive rule quietly stops matching real settle time the
+// moment it pushes an axle over 100% (a Hz mismatch, a Damping Bias skew, or simply a high
+// Rebound ζ/Settle Target anchor can all do this). This solves in rate-space instead: the
+// reference axle's real rate·Hz product becomes the shared target, and the other axle's rate
+// (hence zeta) is derived to match it exactly, skewed by biasMult the same way balancedZetas
+// skews a linear ratio. Falls back to critical damping (100%) when the other axle's Hz is too
+// low to ever physically reach the reference's real settle time. Reduces to the exact old
+// linear-ζ formula whenever both axles stay underdamped (refZeta≤100% and the result ≤100%).
+const settleZetas=(rideRef,fHz,rHz,refZeta,biasMult)=>{
+  if(fHz<=0||rHz<=0) return {zF:refZeta,zR:refZeta};
+  const refRate=dampRate(refZeta);
+  if(rideRef==='rear'){
+    const target=refRate*rHz;
+    return {zR:refZeta, zF:rateToZeta(target/(fHz*biasMult))};
+  }
+  if(rideRef==='shared'){
+    const avg=(fHz+rHz)/2,b=Math.sqrt(biasMult),target=refRate*avg;
+    return {zF:rateToZeta(target/(fHz*b)), zR:rateToZeta(target*b/rHz)};
+  }
+  const target=refRate*fHz; // front (default)
+  return {zF:refZeta, zR:rateToZeta(target*biasMult/rHz)};
+};
 // Settle time (10%-envelope) from ζ (%) and Hz. Underdamped (ζ≤100%): envelope decays exactly
 // as e^-ζωn·t, so rate=ζ. Overdamped (ζ>100%): response is governed by the SLOWER of two real
 // poles, rate=ζ-√(ζ²-1), which *falls* as ζ climbs past 100% — critical damping (ζ=100%) is the
@@ -336,11 +369,12 @@ const settleZetas=(rideRef,fHz,rHz,refZeta,biasMult)=>balancedZetas(rideRef,fHz,
 // rate=ζ unconditionally (the old single-branch formula) got this backwards above 100%.
 const settleTimeFromZeta=(zetaPct,hz)=>{
   if(zetaPct<=0||hz<=0) return 99;
-  const z=zetaPct/100,rate=z<=1?z:(z-Math.sqrt(z*z-1));
-  return 2.302/(rate*hz*2*Math.PI); // ln(10)/(rate·ωn)
+  return 2.302/(dampRate(zetaPct)*hz*2*Math.PI); // ln(10)/(rate·ωn)
 };
 // Equal damping FORCE: weight is mass·Hz (force ∝ ζ·m·Hz — see solveDampRaw), so this also
-// corrects for corner-mass asymmetry that settleZetas ignores.
+// corrects for corner-mass asymmetry that settleZetas ignores. Unlike settle time, damping force
+// at a given velocity is linear in ζ regardless of over/underdamped, so the plain linear solve
+// (balancedZetas) is correct here as-is — no rate-space treatment needed.
 const forceZetas=(rideRef,mF,fHz,mR,rHz,refZeta,biasMult)=>balancedZetas(rideRef,mF*fHz,mR*rHz,refZeta,biasMult);
 
 // ── Mech balance — steady-state US/OS from physics ───────────────────────────
@@ -4678,7 +4712,13 @@ function App(){
               };
               const[_fracLo,_fracHi]=((_fracMap[_layout]??_fracMap.RWD)[_build])??[0.55,0.95];
               const _gap=(1-natGripBalance)-natMechBalance;
-              const _dlo=_fracLo*_gap,_dhi=_fracHi*_gap;
+              // min/max (not a fixed lo/hi assignment) because a negative _gap — the rare chassis
+              // whose natural balance already sits past its own grip target — flips which
+              // fraction produces the smaller delta; assigning fracLo→dlo/fracHi→dhi unconditionally
+              // put lo above hi in that case, and the +0.03 floor below collapsed the band to a
+              // near-fixed sliver instead of properly scaling on the correct side of natural.
+              const _d1=_fracLo*_gap,_d2=_fracHi*_gap;
+              const _dlo=Math.min(_d1,_d2),_dhi=Math.max(_d1,_d2);
               const _lo=Math.max(0.20,Math.min(0.87,natMechBalance+_dlo));
               const _hi=Math.max(_lo+0.03,Math.min(0.90,natMechBalance+_dhi));
               const _MIN=0.20,_RNG=0.70;
@@ -4810,7 +4850,10 @@ function App(){
               const[_ggFracLo,_ggFracHi]=((_ggFracMap[ch.layout??'RWD']??_ggFracMap.RWD)[dr.buildType??'track'])??[0.55,0.95];
               const _ggNeutral=1-natGripBalance;
               const _ggBaseGap=_ggNeutral-nm;
-              const _ggDlo=_ggFracLo*_ggBaseGap,_ggDhi=_ggFracHi*_ggBaseGap;
+              // min/max for the same reason as the RANGE block above — a negative _ggBaseGap
+              // flips which fraction gives the smaller delta.
+              const _gg1=_ggFracLo*_ggBaseGap,_gg2=_ggFracHi*_ggBaseGap;
+              const _ggDlo=Math.min(_gg1,_gg2),_ggDhi=Math.max(_gg1,_gg2);
               const _ggLo=Math.max(0.20,Math.min(0.87,nm+_ggDlo));
               const _ggHi=Math.max(_ggLo+0.03,Math.min(0.90,nm+_ggDhi));
               const _ggGap=_ggNeutral>_ggHi?_ggNeutral-_ggHi:_ggNeutral<_ggLo?_ggLo-_ggNeutral:0;

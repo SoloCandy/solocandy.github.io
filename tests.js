@@ -381,6 +381,37 @@ console.log('\nsettle (ln(10)/(ζ·ωn))');
   assert('settle at 2Hz 70%ζ ≈ 0.26s', settle, 0.261, 0.01);
 }
 
+// ── settle time is piecewise past critical damping (mirror of app's settleTimeFromZeta) ──
+//
+// Regression guard: the formula above (rate=ζ) is only exact for ζ≤100% — the envelope really
+// does decay as e^-ζωn·t there. Past critical damping the real decay is governed by the SLOWER
+// of two real poles, rate=ζ-√(ζ²-1), which *falls* as ζ climbs past 100%. The single-branch
+// formula got this backwards: it kept reporting shorter settle times as ζ rose past 100%, when
+// critical damping (ζ=100%) is actually the fastest possible settle and further overdamping is
+// slower (sluggish), not faster. See docs/KNOWN_ISSUES.md.
+
+console.log('\nsettle time is piecewise past critical damping');
+{
+  const dampRate = zPct => { const z = zPct / 100; return z <= 1 ? z : z - Math.sqrt(z * z - 1); };
+  const settleTimeFromZeta = (zetaPct, hz) => 2.302 / (dampRate(zetaPct) * hz * 2 * Math.PI);
+  const hz = 2.0;
+
+  assert('rate=ζ for underdamped (ζ=70%)', dampRate(70), 0.70, 1e-9);
+  assert('rate=1 exactly at critical damping (ζ=100%)', dampRate(100), 1.0, 1e-9);
+  assertEq('rate falls below 1 once ζ exceeds 100%', dampRate(150) < 1, true);
+
+  // Critical damping (100%) settles fastest; 150% and 200% are progressively slower (sluggish),
+  // not faster — the buggy single-branch formula produced the opposite ordering.
+  const t100 = settleTimeFromZeta(100, hz), t150 = settleTimeFromZeta(150, hz), t200 = settleTimeFromZeta(200, hz);
+  assertEq('100% ζ settles faster than 150%', t100 < t150, true);
+  assertEq('150% ζ settles faster than 200%', t150 < t200, true);
+
+  // 100% is the fastest possible settle at a given Hz — even 10% (heavily underdamped, "bouncy")
+  // can't beat it, since rate never exceeds 1.
+  const t10 = settleTimeFromZeta(10, hz);
+  assertEq('critical damping beats a deeply underdamped ζ too', t100 < t10, true);
+}
+
 // ── integration: known vehicle (Lexus LC500 proxy) ───────────────────────────
 
 console.log('\nintegration — LC500-like vehicle');
@@ -436,17 +467,27 @@ console.log('\nmechBalanceLLT');
 
 console.log('\nsettle mode ride-reference anchoring');
 {
-  // Mirror of app's settleZetas (index.html). Reference axle holds refZeta;
-  // the other is derived for equal settle time (ζ·Hz constant).
+  // Mirror of app's dampRate/rateToZeta/settleZetas (index.html). Reference axle holds refZeta
+  // exactly; the other axle's zeta is derived so real settle time matches, solved in rate-space
+  // (not naive ζ·Hz) so the match holds even when either axle ends up overdamped (ζ>100%).
+  const dampRate = zPct => { const z = zPct / 100; return z <= 1 ? z : z - Math.sqrt(z * z - 1); };
+  const rateToZeta = rate => rate >= 1 ? 100 : Math.max(0, rate) * 100;
   const settleZetas = (rideRef, fHz, rHz, refZeta, biasMult) => {
     if (fHz <= 0 || rHz <= 0) return { zF: refZeta, zR: refZeta };
-    if (rideRef === 'rear')   return { zR: refZeta, zF: refZeta * (rHz / fHz) / biasMult };
-    if (rideRef === 'shared') { const avg = (fHz + rHz) / 2, b = Math.sqrt(biasMult);
-                                return { zF: refZeta * (avg / fHz) / b, zR: refZeta * (avg / rHz) * b }; }
-    return { zF: refZeta, zR: refZeta * (fHz / rHz) * biasMult };
+    const refRate = dampRate(refZeta);
+    if (rideRef === 'rear') {
+      const target = refRate * rHz;
+      return { zR: refZeta, zF: rateToZeta(target / (fHz * biasMult)) };
+    }
+    if (rideRef === 'shared') {
+      const avg = (fHz + rHz) / 2, b = Math.sqrt(biasMult), target = refRate * avg;
+      return { zF: rateToZeta(target / (fHz * b)), zR: rateToZeta(target * b / rHz) };
+    }
+    const target = refRate * fHz;
+    return { zF: refZeta, zR: rateToZeta(target * biasMult / rHz) };
   };
-  // settle time = ln(10)/(ζ·ωn); equal when ζ·Hz matches front vs rear.
-  const settle = (zeta, hz) => 2.302 / ((zeta / 100) * hz * 2 * Math.PI);
+  // settle time = ln(10)/(rate·ωn) — piecewise rate, matching app's settleTimeFromZeta.
+  const settle = (zeta, hz) => 2.302 / (dampRate(zeta) * hz * 2 * Math.PI);
   const fHz = 2.0, rHz = 2.6, RZ = 70, NOBIAS = 1;
 
   // front ref: front holds reboundZeta, rear derived
@@ -472,9 +513,36 @@ console.log('\nsettle mode ride-reference anchoring');
   // bias direction: settleBias>0 (biasMult>1) → rear settles faster (shorter rear settle time)
   const biased = settleZetas('front', fHz, rHz, RZ, 2);
   assertEq('positive bias → rear settles faster', settle(biased.zR, rHz) < settle(biased.zF, fHz), true);
+
+  // Regression guard: SYNC must still hold equal real settle time when the anchor is heavily
+  // overdamped (ζ=200%, reachable via Rebound ζ's slider max) and axle Hz differ meaningfully.
+  // The naive ζ·Hz-constant rule (what this function used to be, before it got its own rate-aware
+  // implementation) gets this wrong — it's included below purely to prove the two now diverge.
+  const overFHz = 1.15, overRHz = 1.31, overRZ = 200;
+  const shOver = settleZetas('shared', overFHz, overRHz, overRZ, NOBIAS);
+  assert('SYNC holds equal settle time even with an overdamped (200%) anchor',
+    settle(shOver.zF, overFHz), settle(shOver.zR, overRHz), 1e-6);
+
+  const legacySharedZetas = (fHz, rHz, refZeta, biasMult) => {
+    const avg = (fHz + rHz) / 2, b = Math.sqrt(biasMult);
+    return { zF: refZeta * (avg / fHz) / b, zR: refZeta * (avg / rHz) * b };
+  };
+  const legacyOver = legacySharedZetas(overFHz, overRHz, overRZ, NOBIAS);
+  const legacyGapPct = Math.abs(settle(legacyOver.zF, overFHz) - settle(legacyOver.zR, overRHz))
+    / settle(legacyOver.zF, overFHz) * 100;
+  assertEq('the naive ζ·Hz-constant rule this replaced was off by >15% in the same scenario',
+    legacyGapPct > 15, true);
 }
 
 // ── Damping Balance Mode: STANDARD/SYNC/NEUTRAL (mirror of app's balancedZetas/forceZetas) ──
+//
+// balancedZetas is a plain linear ζ·weight solver — correct for forceZetas (NEUTRAL), where
+// damping force really is linear in ζ regardless of over/underdamped. It's used here to test
+// that shape and the SYNC-vs-NEUTRAL divergence, both of which only care about the linear
+// relationship. Real SYNC (settleZetas) is its OWN rate-aware function now, tested separately
+// above — this block's local "balancedZetas" is a stand-in for its pre-fix behavior, not what
+// SYNC actually runs today. (The two coincide whenever both axles stay underdamped, which is
+// true of every case in this block, so the assertions below are still valid on their own terms.)
 
 console.log('\nDamping Balance Mode — balancedZetas / forceZetas');
 {
@@ -593,13 +661,17 @@ console.log('\nSETTLE TIME mode: bumpZeta anchors to baseZeta, not raw reboundZe
   // Ride Reference (uiRideRef), not the Damping Bias slider's sign — this test only exercises
   // dampingBias=0, where front-ref/rear-ref/shared all collapse to the same result, so a fixed
   // 'front' ref is used here rather than mirroring all three branches.
+  // deriveBaseZeta's 100% ceiling (not Rebound ζ's own 200% slider max) is deliberate: past
+  // critical damping the back-solve would be chasing a target that's gotten *slower* to reach,
+  // not faster — see the piecewise settle-time tests above — so it stops at the fastest
+  // physically achievable point instead of overshooting into overdamped territory.
   const deriveBaseZeta = (settleTarget, refHz) =>
-    Math.max(10, Math.min(115, refHz > 0 ? 2.302 / (settleTarget * refHz * 2 * Math.PI) * 100 : 70));
+    Math.max(10, Math.min(100, refHz > 0 ? 2.302 / (settleTarget * refHz * 2 * Math.PI) * 100 : 70));
   const standardSplit = (baseZeta, bumpZeta, dampingBias) => ({
-    zetaF: Math.max(10, Math.min(115, baseZeta)),
-    zetaR: Math.max(10, Math.min(115, baseZeta * (1 - dampingBias / 100))),
-    bumpZetaF: Math.max(10, Math.min(115, bumpZeta)),
-    bumpZetaR: Math.max(10, Math.min(115, bumpZeta * (1 - dampingBias / 100))),
+    zetaF: Math.max(10, Math.min(200, baseZeta)),
+    zetaR: Math.max(10, Math.min(200, baseZeta * (1 - dampingBias / 100))),
+    bumpZetaF: Math.max(10, Math.min(200, bumpZeta)),
+    bumpZetaR: Math.max(10, Math.min(200, bumpZeta * (1 - dampingBias / 100))),
   });
 
   const settleTarget = 0.80, bumpRatioVal = 56, dampingBias = 0;

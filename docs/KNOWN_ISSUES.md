@@ -5,6 +5,29 @@ of without a written trail. Not a general bug tracker — just things that
 either can't be trivially fixed, or were fixed here and are worth
 remembering *why* they broke in the first place.
 
+## Fixed — Balance Guide RANGE band collapsed to a sliver when natural balance already passed grip target (resolved)
+
+The RANGE band (`lo, hi = natMechBalance + fracLo*gap, natMechBalance +
+fracHi*gap`, see `docs/PHYSICS.md`'s Balance Guide RANGE section) assigned
+`fracLo`'s delta to `lo` and `fracHi`'s delta to `hi` unconditionally. That's
+correct while `gap` (NATURAL→GRIP TARGET) is positive, but for the rare
+chassis whose natural mech balance already sits past its own grip-neutral
+point — `gap` negative — multiplying by the larger fraction (`fracHi`)
+produces the *more negative* delta, so the fixed assignment put `lo` above
+`hi`. The existing `hi=Math.max(lo+0.03,...)` floor caught the inversion and
+kept the widget from rendering nonsense, but it also collapsed the
+recommended band to a fixed 0.03-wide sliver near natural instead of
+properly widening on the correct (downward) side, same as it does for the
+positive-gap case.
+
+Verified with a constructed chassis (30% front bias, narrow rear tyre,
+equal tracks) where `gap≈-0.67`: the old formula gave a 0.30-wide sliver
+(0.332–0.362); the fix gives a properly-scaled 0.20–0.332 band (clamped by
+the 0.20 absolute floor, not the bug). Fixed by taking `min`/`max` of the
+two fraction-scaled deltas before assigning them to `lo`/`hi`, in both the
+RANGE block and its mirrored GRIP GAP sub-widget. The direction was never
+wrong — only the band's width in this one edge case.
+
 ## Fixed — settle-time formula treated overdamped ζ as faster, not slower (resolved)
 
 Both the displayed settle time (`tune.settleF`/`settleR`) and the SETTLE
@@ -31,6 +54,37 @@ the forward readout and, inverted, the back-solve) that branches on ζ vs.
 an unreachable target now stops at critical damping (the true fastest
 achievable) instead of overshooting into overdamped territory. See
 `docs/PHYSICS.md`'s `settleTimeFromZeta` section.
+
+## Fixed — SYNC Damping Balance Mode's "equal settle time" broke the same way past critical damping (resolved)
+
+`settleZetas` (SYNC's implementation) held `ζ·Hz` constant between axles —
+the same naive assumption the settle-time formula above had, and broken for
+the identical reason: "equal `ζ·Hz`" only means "equal real settle time"
+while both axles stay underdamped (ζ≤100%). A Hz mismatch between axles, a
+Damping Bias skew, or simply a high Rebound ζ/Settle Target anchor (up to
+the 200%/critical-damping-and-beyond range) could push the derived axle
+past 100% ζ, at which point SYNC's core promise — both axles finish
+settling at the same time — silently stopped holding, even though the
+(already-fixed) `settleF`/`settleR` readout would show the resulting
+mismatch honestly.
+
+Concrete case: Rebound ζ=200% (heavily overdamped) anchoring a SHARED ride
+reference at front/rear Hz of 1.15/1.31 — the old formula produced settle
+times of ~1.19s front vs ~0.97s rear (a 22% mismatch) despite SYNC being
+active. The whole point of SYNC failed exactly when a user pushed damping
+hard enough to need it least gracefully.
+
+Fixed by giving `settleZetas` its own rate-aware solve: it derives the
+other axle's zeta by matching real decay rate (via `dampRate`/`rateToZeta`,
+the same rate function `settleTimeFromZeta` uses), not raw ζ, falling back
+to critical damping (100%) when the target axle's Hz is too low to ever
+physically match the reference's settle time. `balancedZetas` (the plain
+linear solver) is unchanged and still correct for `forceZetas`/NEUTRAL,
+since damping force is linear in ζ regardless of over/underdamped — only
+settle time needed the nonlinear treatment. Verified in-browser: the case
+above now settles at ~1.11s on both axles. See `docs/PHYSICS.md`'s
+`settleZetas` section and the "settle mode ride-reference anchoring" tests
+in `tests.js`.
 
 ## Fixed — MAN ARB stiffness still registered as MECH/CO-SOLVE balance mode enabled (resolved)
 
