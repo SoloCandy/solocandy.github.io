@@ -2966,18 +2966,21 @@ const TUTORIALS={
     {title:'Weight & Front Bias',
      focus:['weight'],
      body:'Enter your car\'s total weight and front weight bias from the car stat screen — use the selection screen, not the tuning menu. These two numbers drive almost every calculation in the app, including the factory presets.'},
-    {title:'Garage & Factory Presets',
+    {title:'Factory Presets',
      focus:['garage'],sidebar:'close',
-     body:'Tap GARAGE at the top right to slide out your garage. FACTORY, at the top of the list, has six presets — STREET, TRACK, RALLY, DRIFT, MOTORSPT, X COUNTRY — each setting a stiffness level, rear spring ratio, and damping character tuned for that build style. The one marked ★ matches your build type. Load the closest one after entering your car\'s weight and bias, then adjust from there. Loading is undoable with the ↩ button, so try as many as you like.\n\nThe row above the list is for saving your own. Name the entry, then SAVE CHASSIS keeps the car itself (weight, bias, layout), SAVE BUILD keeps the tune, and SAVE CAR keeps both — so you never have to retype a car\'s stats again. Your saved entries appear under FACTORY, and loading one is undoable with ↩ as well.'},
+     body:'Tap GARAGE at the top right to slide out your garage. FACTORY, at the top of the list, has six presets — STREET, TRACK, RALLY, DRIFT, MOTORSPT, X COUNTRY — each setting a stiffness level, rear spring ratio, and damping character tuned for that build style. The one marked ★ matches your build type. Load the closest one after entering your car\'s weight and bias, then adjust from there. Loading is undoable with the ↩ button, so try as many as you like.'},
+    {title:'Saving Your Own',
+     focus:['garage'],sidebar:'close',
+     body:'The row above the preset list is for saving your own. Name the entry, then SAVE CHASSIS keeps the car itself (weight, bias, layout), SAVE BUILD keeps the tune, and SAVE CAR keeps both — so you never have to retype a car\'s stats again. Your saved entries appear under FACTORY, and loading one is undoable with ↩ as well.'},
     {title:'Ride Stiffness',
      focus:['ride-stiffness'],
-     body:'Controls overall suspension stiffness. FIRM is a better starting point — sharper response with good body control for most builds. SOFT for rough surfaces or maximum comfort. ROAD for a softer, more comfort-leaning setup. RACE for smooth circuits only — too stiff for anything else. The Hz readout and badge update as you move the slider.'},
+     body:'Controls overall suspension stiffness. FIRM is the best starting point — sharp response with good body control for most builds. SOFT and ROAD suit comfort or rough surfaces; RACE suits smooth circuits only.'},
     {title:'Balance',
      focus:['balance'],
      body:'Shifts the handling balance toward your intended character. Right (OVERSTEER) increases rear roll stiffness — more rotation and rear-end freedom. Left (UNDERSTEER) increases front roll stiffness — more stability and confidence at corner entry. Centre is the neutral point for your weight distribution. Where you set this depends on your goal: drift and rotation-heavy builds want more right, confidence-focused street and GT builds want mild left, track builds vary by layout and driver preference.'},
     {title:'Character',
      focus:['character'],
-     body:'Controls damping feel — how quickly the suspension settles after a bump or weight transfer. STABLE means more damped: planted and predictable, suits builds where confidence and consistency matter. AGILE means lighter damping: livelier and more reactive, suits builds where feel and response matter more than composure. Match this to your driving style and what the car is built for. The RESET button under the sliders puts every input back to defaults — tap once to arm it, again to CONFIRM. Your garage saves are not affected.'},
+     body:'Controls damping feel — how quickly the suspension settles after a bump or weight transfer. STABLE means more damped: planted and predictable, suits builds where confidence and consistency matter. AGILE means lighter damping: livelier and more reactive, suits builds where feel and response matter more than composure. Match this to your driving style and what the car is built for.'},
     {title:'Handling Balance Bar',
      focus:['balance-bar'],sidebar:'close',
      body:'The Handling Balance bar is pinned at the bottom of the results panel. It shows your total oversteer or understeer tendency as a number and a bar. The bar is colour-zoned — the centre band is neutral, the mild zone is typical for intentional OS/US bias, and the outer zone is aggressive. Tap to expand a full breakdown of every contributor.'},
@@ -2986,7 +2989,7 @@ const TUTORIALS={
      body:'The right panel shows exact values to enter in the tuning menu, as six cards: Alignment, Anti-Roll Bars, Springs, Dampers, Brakes, and Differential. Alignment, brakes, and the differential are always computed automatically from your other inputs. Amber values mean you\'re near a game limit — soften your inputs slightly if that happens.'},
     {title:'Output Toolbar',
      focus:['output'],
-     body:'Three buttons sit under the results. RESET clears the tune or the tutorials back to defaults — your garage saves are never touched. CHECK opens Tune Check, a reverse calculator: type in spring and damper values from a tune you already have and it reads back the frequencies and damping ratios behind them. SHARE handles moving tunes between devices with a code, and makes or restores a JSON backup of your whole garage.'},
+     body:'Three buttons sit under the results. RESET clears the tune or the tutorials back to defaults — tap once to arm it, again to CONFIRM; your garage saves are never touched. CHECK opens Tune Check, a reverse calculator: type in spring and damper values from a tune you already have and it reads back the frequencies and damping ratios behind them. SHARE handles moving tunes between devices with a code, and makes or restores a JSON backup of your whole garage.'},
   ],
   intermediate:[
     {title:'Welcome — Intermediate Mode',
@@ -3012,15 +3015,24 @@ const TUTORIALS={
     {title:'Chassis',
      focus:['chassis'],
      body:'Layout, Weight, and Front Weight Bias have moved out of the Beginner panel into the CHASSIS section at the top of the sidebar — same three inputs, same meaning, just somewhere you can collapse them once they\'re set. CG Height Source (with a RIDE HEIGHT → CG toggle) lives here too. Take Weight and Front Weight Bias from the car selection screen, not the tuning menu. PRO adds tyre sizes, wheelbase, and track widths to this section.'},
-    {title:'Drivetrain Sliders',
+    {title:'Diff Type',
      focus:['drivetrain'],
-     body:'DIFF TYPE selects the differential installed on the car — Race, Sport, Rally, Offroad, or Drift. Each type has a different lock curve, so the same slider % produces different effective lock. Sport is accel-only (no decel control). Sliders are grouped under FRONT AXLE / REAR AXLE headers on AWD (single-axle layouts just get one group). Corner Exit controls on-throttle aggression. Corner Entry controls trail-braking rotation. AWD adds a Power Split (center diff) slider — the recommended split is calculated from your build type, weight distribution, natural mechanical balance, and front/rear tyre diameter ratio. A Front Exit Push slider is also unlocked for AWD. All DIFF rows in the Handling Balance bar update live.'},
+     body:'DIFF TYPE selects the differential installed on the car — Race, Sport, Rally, Offroad, or Drift. Each type has a different lock curve, so the same slider % produces different effective lock. Sport is accel-only (no decel control).'},
+    {title:'Corner Exit & Entry',
+     focus:['drivetrain'],
+     body:'Sliders are grouped under FRONT AXLE / REAR AXLE headers on AWD (single-axle layouts just get one group). Corner Exit controls on-throttle aggression. Corner Entry controls trail-braking rotation. All DIFF rows in the Handling Balance bar update live as you move these.'},
+    {title:'AWD Center Diff',
+     focus:['drivetrain'],
+     body:'AWD adds a Power Split (center diff) slider — the recommended split is calculated from your build type, weight distribution, natural mechanical balance, and front/rear tyre diameter ratio. A Front Exit Push slider is also unlocked for AWD.'},
     {title:'Build Type',
      focus:['build'],
      body:'The BUILD section shows Build Type (STREET / TRACK / DRIFT / RALLY / OFFROAD / DRAG) — this sets your intended use and determines the recommended balance range, diff AUTO behaviour, diff type recommendation, and alignment targets.'},
-    {title:'Anti-Roll Bars',
+    {title:'ARB Stiffness & Balance Mode',
+     focus:['arb'],
+     body:'Two separate controls. Stiffness Mode sets how much total ARB you get: AUTO derives it from the car\'s natural roll tendency, BASIC sets an overall stiffness level directly, ROLL ° solves for a target body roll angle, and SHARE % sets ARBs as a fraction of total roll stiffness. Balance Mode then splits that total front to rear: WEIGHT uses the car\'s weight distribution, NEUTRAL solves the split so it exactly cancels the springs\' contribution to the balance bar.'},
+    {title:'ARB Bias & Visuals',
      focus:['arb','visuals'],
-     body:'Two separate controls. Stiffness Mode sets how much total ARB you get: AUTO derives it from the car\'s natural roll tendency, BASIC sets an overall stiffness level directly, ROLL ° solves for a target body roll angle, and SHARE % sets ARBs as a fraction of total roll stiffness. Balance Mode then splits that total front to rear: WEIGHT uses the car\'s weight distribution, NEUTRAL solves the split so it exactly cancels the springs\' contribution to the balance bar.\n\nThe ARB Bias slider fine-tunes the split either way — push toward front for more understeer resistance, toward rear for more rotation. PRO adds CHASSIS, MECH and CO-SOLVE balance modes, plus a MAN stiffness mode for entering ARB clicks directly. The ARB dial, ROLL/ARB SHARE readout, and SPRINGS/ARBs split bar live in the pinned VISUALS card at the bottom of the sidebar — check there for the live visual.'},
+     body:'The ARB Bias slider fine-tunes the split either way — push toward front for more understeer resistance, toward rear for more rotation. PRO adds CHASSIS, MECH and CO-SOLVE balance modes, plus a MAN stiffness mode for entering ARB clicks directly. The ARB dial, ROLL/ARB SHARE readout, and SPRINGS/ARBs split bar live in the pinned VISUALS card at the bottom of the sidebar — check there for the live visual.'},
     {title:'Ride Ref & Rear Hz',
      focus:['feel'],
      body:'RIDE REF. sets which axle the stiffness slider anchors — FRONT, SHARED, or REAR. The secondary axle frequency is derived by the Hz mode: MULTIPLIER (a fixed ratio of the anchored axle, the default), FLAT RIDE (the mathematically ideal pitch-cancelling ratio for a target speed), or INDEPENDENT (set manually, free of the other axle).'},
@@ -3029,7 +3041,7 @@ const TUTORIALS={
      body:'REBOUND MODE and BUMP MODE toggles sit above their sliders. Rebound ζ at 70% (Butterworth) is the sweet spot — settles cleanly without oscillating; below 40% is bouncy, above 100% is sluggish. Bump Ratio sets compression as a fraction of rebound (40–65% typical). Damping Bias splits front/rear: FRONT keeps the front firm while the rear softens (planted entry); REAR softens the front (easier direction changes) — shown in the DAMP row of Handling Balance.'},
     {title:'VISUALS Card',
      focus:['visuals'],
-     body:'VISUALS is pinned to the bottom of the sidebar so it never scrolls away, and holds four collapsible readouts. ARB has the front/rear dial, the roll seesaw, and the SPRINGS/ARBs split bar. RIDE/DAMPERS summarises the frequencies and damping ratios you\'ve set. DYNAMICS plots your car\'s step response — how fast it settles, whether it overshoots, and how ride stiffness and damping interact. SAG charts suspension travel against load. Tap any header to collapse it and give the others more room.'},
+     body:'VISUALS is pinned to the bottom of the sidebar so it never scrolls away, and holds four collapsible readouts: ARB (front/rear dial, roll seesaw, SPRINGS/ARBs split bar), RIDE/DAMPERS (your frequencies and damping ratios), DYNAMICS (step response — settle speed, overshoot, ride/damping interaction), and SAG (suspension travel vs. load). Tap any header to collapse it and give the others more room.'},
     {title:'Handling Balance Bar',
      focus:['balance-bar'],sidebar:'close',
      body:'The Handling Balance bar is pinned at the bottom of the results panel. It shows your total oversteer or understeer tendency as a number and a bar, colour-zoned neutral / mild / aggressive. Tap it to expand a full per-contributor breakdown — every input you\'ve touched in the sidebar shows up here as a row, including the DIFF rows from the drivetrain sliders and the DAMP row from Damping Bias, so you can see which change actually moved the balance.'},
@@ -3038,7 +3050,13 @@ const TUTORIALS={
      body:'The right panel shows exact values to enter in the tuning menu, as six cards: Alignment, Anti-Roll Bars, Springs, Dampers, Brakes, and Differential. Amber values mean you\'re near a game limit — soften your inputs slightly if that happens. Under the cards, RESET clears the tune back to defaults (saves untouched), CHECK opens Tune Check to reverse a tune you already have, and SHARE handles codes and garage backups.'},
     {title:'Garage',
      focus:['garage'],sidebar:'close',
-     body:'GARAGE (top right) is one place for everything you save. Each entry is a CHASSIS (weight, bias, layout), a BUILD (feel settings and diff tune), or a CAR holding both — save whichever you want with the three buttons at the top. A car gives you separate LOAD CHASSIS and LOAD BUILD buttons, so you can mix one car\'s chassis with another\'s tune. Every load is undoable with ↩.\n\nEntries carry notes and your own tags, plus automatic ones (drivetrain, weight balance, stiffness band, build type) that you can search on directly. Filter by kind, sort, and search from the row under the save buttons. ↺ rewrites an entry from your current setup — pick CHASSIS, BUILD, or BOTH, and BOTH is how you turn a chassis entry into a full car.\n\nThe SHARE button handles codes between devices (COPY CODE / LOAD CODE), a JSON backup of your garage (BACKUP), and restoring one (RESTORE) — including backups made before the garage was unified.'},
+     body:'GARAGE (top right) is one place for everything you save. Each entry is a CHASSIS (weight, bias, layout), a BUILD (feel settings and diff tune), or a CAR holding both — save whichever you want with the three buttons at the top. A car gives you separate LOAD CHASSIS and LOAD BUILD buttons, so you can mix one car\'s chassis with another\'s tune. Every load is undoable with ↩.'},
+    {title:'Organizing & Searching',
+     focus:['garage'],sidebar:'close',
+     body:'Entries carry notes and your own tags, plus automatic ones (drivetrain, weight balance, stiffness band, build type) that you can search on directly. Filter by kind, sort, and search from the row under the save buttons. ↺ rewrites an entry from your current setup — pick CHASSIS, BUILD, or BOTH, and BOTH is how you turn a chassis entry into a full car.'},
+    {title:'Sharing & Backup',
+     focus:['garage'],sidebar:'close',
+     body:'The SHARE button handles codes between devices (COPY CODE / LOAD CODE), a JSON backup of your garage (BACKUP), and restoring one (RESTORE) — including backups made before the garage was unified.'},
   ],
   pro:[
     {title:'Welcome — Pro Mode',
@@ -3059,9 +3077,12 @@ const TUTORIALS={
     {title:'Balance Target Mode',
      focus:['balance-target'],
      body:'Balance Target mode controls how the Mech Balance Target is derived.\n\nTARGET: set manually with the slider — use the Balance Guide range as a start.\n\nGRIP: auto-derives the target as 1 − natGripBalance, counteracting the car\'s natural grip tendency. Balance Offset shifts it toward oversteer (+) or understeer (−).\n\nGEOMETRY GAP shows whether track/tyre width changes could close the gap with softer ARBs.'},
-    {title:'ARB Solving Modes',
+    {title:'PRO ARB Balance Modes',
+     focus:['arb'],
+     body:'PRO unlocks CHASSIS, MECH, and CO-SOLVE balance modes, plus a MAN stiffness mode for direct ARB clicks. CHASSIS is WEIGHT\'s formula anchored to your real natural balance instead of raw weight %. MECH solves the ARB split alone to hit your Mech Balance Target exactly. CO-SOLVE adjusts rear spring Hz and ARB split together — Spring Share controls the mix.'},
+    {title:'Hz MECH & Balance Target Mode',
      focus:['arb','visuals'],
-     body:'PRO unlocks CHASSIS, MECH, and CO-SOLVE balance modes, plus a MAN stiffness mode for direct ARB clicks. CHASSIS is WEIGHT\'s formula anchored to your real natural balance instead of raw weight %. MECH solves the ARB split alone to hit your Mech Balance Target exactly. CO-SOLVE adjusts rear spring Hz and ARB split together — Spring Share controls the mix. Hz MECH mode derives rear Hz from the target directly. Balance Target mode (TARGET or GRIP) applies to all three solving modes. The ARB dial itself lives in the pinned VISUALS card at the bottom of the sidebar.'},
+     body:'Hz MECH mode derives rear Hz from the target directly. Balance Target mode (TARGET or GRIP) applies to all three solving modes above. The ARB dial itself lives in the pinned VISUALS card at the bottom of the sidebar.'},
     {title:'Alignment Mode',
      focus:['alignment'],
      body:'BUILD (default) computes camber, toe, and caster from build type, layout, weight bias, and roll angle only. MECH nudges camber and toe toward your Mech Balance Target\'s gap from natural — reinforcing whatever oversteer/understeer intent you\'ve dialed in. GRIP nudges to counteract the chassis\'s own natural grip tendency instead, independent of ARB mode. Nudge Strength (shown for MECH/GRIP) scales how far the nudge goes — 0% matches BUILD exactly. MANUAL lets you type exact camber, toe, and caster values, bypassing the solver entirely.'},
@@ -3078,7 +3099,10 @@ const TUTORIALS={
   balance:[
     {title:'Handling Balance',
      focus:null,
-     body:'This breakdown shows how every tuning force combines into a single US/OS total. Positive (+) means oversteer tendency, negative (−) means understeer tendency. Each row is one contributor. The colour zones show neutral, mild, and aggressive ranges — but the right number depends entirely on your goal. Rotation-heavy and drift builds typically run +15 to +35. Track builds often sit +5 to +20 for feel under power. Street and GT builds may prefer mild understeer for stability. Use the bar to understand where your balance is coming from, not as a target to hit zero.'},
+     body:'This breakdown shows how every tuning force combines into a single US/OS total. Positive (+) means oversteer tendency, negative (−) means understeer tendency. Each row is one contributor. The colour zones show neutral, mild, and aggressive ranges — but the right number depends entirely on your goal.'},
+    {title:'Typical Targets by Build',
+     focus:null,
+     body:'Rotation-heavy and drift builds typically run +15 to +35. Track builds often sit +5 to +20 for feel under power. Street and GT builds may prefer mild understeer for stability. Use the bar to understand where your balance is coming from, not as a target to hit zero.'},
     {title:'Reading Each Row',
      focus:null,
      body:'Contributors are split into two groups. MECHANICAL (springs and ARBs) are your primary intentional forces — controlled by stiffness and balance settings. DYNAMIC (diff, brakes, damping) are phase and behaviour contributors. Each row shows its value and percentage of the total so you can see at a glance which is dominant. On the compact bar, each contributor appears as a colour-coded segment stacking outward from neutral.'},
@@ -3087,7 +3111,7 @@ const TUTORIALS={
      body:'The tip appears at the top of the expanded panel — above the contributor rows — and names the dominant contributor with a concrete adjustment suggestion. If your balance is further from your intended target than you want, the tip tells you which input to reach for first. For large shifts, your primary balance control has the most leverage — the Balance slider in BEG, or ARB Bias and balance settings in INT and PRO. For small residual adjustments, ARB Bias or Damping Bias give finer control.'},
     {title:'Response Bar',
      focus:null,
-     body:'The RESPONSE bar rates transient character — how quickly and freely the car reacts to steering inputs. PLANTED (left) means settled and damped: predictable but slow to change direction. REACTIVE (right) means quick to respond: sharp turn-in but can feel nervous. Driven by front Hz (35%), front damping (12%), rear Hz (20%), rear damping (8%), front toe (15%), and caster (10%). Independent of the US/OS balance — a car can be neutral and still feel very planted or very reactive.'},
+     body:'The RESPONSE bar rates transient character — how quickly and freely the car reacts to steering inputs. PLANTED (left) means settled and damped: predictable but slow to change direction. REACTIVE (right) means quick to respond: sharp turn-in but can feel nervous. It\'s weighted mostly by front and rear Hz, with smaller contributions from damping, toe, and caster — see the RESPONSE entry in TERMS for the exact breakdown. Independent of the US/OS balance — a car can be neutral and still feel very planted or very reactive.'},
   ],
 };
 
@@ -3136,7 +3160,7 @@ const GLOSSARY=[
     {term:'Grip Bias',def:"The car's physical at-the-limit handling tendency — derived from tyre load sensitivity and lateral load transfer, not just roll stiffness split. Distinct from Mech Balance: two cars with identical mech balance can have different grip bias if their tyre widths or load transfer differ."},
     {term:'Load Transfer',def:'Weight shifting onto the outside tyres as a car corners. More transfer on an axle reduces that axle\'s total available grip (since tyres lose grip faster than they gain load). Wider track and lower CG height both reduce it.'},
     {term:'Grip-Neutral',def:"The mech balance target that exactly opposes the car's natural grip tendency, shown as a row in the Balance Guide. Targeting it cancels the chassis's built-in push or looseness rather than reinforcing it — GRIP target mode aims here automatically."},
-    {term:'Response (Planted / Reactive)',def:'A separate bar from US/OS, rating transient character — how quickly the car reacts to steering rather than which end lets go. PLANTED is settled and damped: predictable, slower to change direction. REACTIVE is quick to turn in but can feel nervous. A car can be perfectly neutral and still sit at either extreme.'},
+    {term:'Response (Planted / Reactive)',def:'A separate bar from US/OS, rating transient character — how quickly the car reacts to steering rather than which end lets go. PLANTED is settled and damped: predictable, slower to change direction. REACTIVE is quick to turn in but can feel nervous. A car can be perfectly neutral and still sit at either extreme. Weighted from front Hz (35%), rear Hz (20%), front toe (15%), caster (10%), front damping (12%), and rear damping (8%).'},
   ]},
   {group:'Differential',terms:[
     {term:'Accel Lock',def:"How much the differential locks the driven wheels together under throttle. More lock forces both wheels to spin at closer to the same speed — more traction putting power down, but can add understeer (RWD/AWD) or resist rotation (FWD)."},
@@ -4282,7 +4306,7 @@ function App(){
                   leftLabel="UNDERSTEER" rightLabel="OVERSTEER"
                   markers={[{value:0,color:'#94a3b8',label:'NEUTRAL'}]}
                   readout={balVal<-10?'UNDERSTEER':balVal>10?'OVERSTEER':'NEUTRAL'}
-                  hint="Blends two mechanisms: ARB Bias in NEUTRAL mode (nudges the ARB split away from the point that exactly cancels the springs' balance-bar bias) with a slight rear/front spring frequency ratio nudge — applied on top of whatever ratio a loaded factory preset or saved build already set, not a reset. Right (OVERSTEER) = more rotation, freer rear end. Left (UNDERSTEER) = more stability. Start at centre for most builds."/>
+                  hint="Shifts overall handling balance. Right (OVERSTEER) = more rotation, freer rear end. Left (UNDERSTEER) = more stability. Start at centre for most builds — this nudges your ARB split and spring ratio rather than resetting them."/>
                 </div>
                 <div id="zone-character" style={dim('character')}>
                 <FeelSlider label="Character" value={stAgVal}
@@ -4687,7 +4711,7 @@ function App(){
                   ?<Field label="Mech Balance Target" value={fe.arbBalTarget??Math.round((MECH_BALANCE_TARGET-natMechBalance)*100)/100}
                       onChange={v=>pFe('arbBalTarget')(Math.round(v*100)/100)}
                       min={Math.round((0.20-natMechBalance)*100)/100} max={Math.round((0.90-natMechBalance)*100)/100} step={0.01} unit="from NAT"
-                      hint="Deviation from the chassis natural roll balance. 0 = target the natural balance exactly — no ARB correction needed. Positive = rear-biased from natural (oversteer tendency). Negative = front-biased from natural (understeer tendency). The BALANCE GUIDE shows the recommended range for your drivetrain and build type as deltas from NAT — use those as your reference. MECH and CO-SOLVE modes solve springs and ARBs to hit this target exactly. The game surfaces Mech Balance on its own tuning screen, so you can verify the result directly."/>
+                      hint="Deviation from the chassis natural roll balance. 0 = target the natural balance exactly — no ARB correction needed. Positive = rear-biased from natural (oversteer tendency), negative = front-biased (understeer tendency). The BALANCE GUIDE below shows the recommended range for your drivetrain and build type as deltas from NAT — use those as your reference."/>
                   :<Field label="Balance Offset" value={fe.arbBalDelta??0} onChange={pFe('arbBalDelta')}
                       min={-0.20} max={0.20} step={0.01}
                       hint="Offset from the grip-neutralising target. 0 = mech balance exactly opposes the car's natural grip tendency for neutral at-limit handling. Positive = more rear bias (oversteer tendency). Negative = more front bias (understeer tendency). The derived target is shown in the balance guide below."/>
@@ -6998,7 +7022,7 @@ function App(){
                     <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid #0f172a'}}>
                       <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
                         <span style={{fontSize:9,color:'#334155',letterSpacing:2}}>LOAD TRANSFER</span>
-                        <Hint text="Corner weights and lateral load transfer at 1g cornering. CORNER WT: static per-corner mass from weight and bias. XFER: total axle load transfer per g — how much weight shifts to the outer tyre under cornering. OUT/IN: outer and inner wheel loads at 1g. Wider track and lower CG reduce transfer. High XFER calls for stiffer ARBs and more outer camber to compensate."/>
+                        <Hint text="Corner weights and lateral load transfer at 1g cornering — see the LOAD TRANSFER entry in TERMS for what drives it. CORNER WT: static per-corner mass. XFER: total axle load transfer per g. OUT/IN: outer and inner wheel loads at 1g."/>
                       </div>
                       <div style={{border:'1px solid #0f172a',borderRadius:2,overflow:'hidden'}}>
                         <Row la="F CORNER" lv={dispMass(cm.front)} ra="R CORNER" rv={dispMass(cm.rear)} dim/>
