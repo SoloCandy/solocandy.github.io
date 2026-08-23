@@ -1321,3 +1321,53 @@ well outside those numbers for a given car. Not a regression from a specific
 commit, just guidance that was never grounded in the calculation it sat next
 to. Replaced with a pointer to the Balance Guide itself rather than numbers
 that could mislead more than they helped.
+
+## Fixed — TutorialPanel forced "SCROLL FOR MORE" on short steps because the card was too narrow (resolved)
+
+`TutorialPanel`'s card width (`CARD_W`) was a flat 264px on every screen
+size, in the app's monospace font. On a wide desktop viewport that's a lot of
+unused horizontal room next to the card, but the card itself still wrapped
+body text into as many short lines as it would on a phone — so even a
+brief, brevity-audited 4-sentence step (e.g. PRO's "Chassis Geometry") could
+still overflow its `maxHeight` and trigger the "▼ SCROLL FOR MORE" fade,
+purely from wrap count rather than actual length. Fixed by scaling `CARD_W`
+with viewport width — `min(380, max(264, innerWidth/zoom * 0.24))` — so it
+stays at 264px on mobile (unchanged) but widens on desktop, cutting the
+wrapped-line count enough that the same audited-brief copy fits without a
+scrollbar.
+
+Separately, the RIGHT-panel branch of `measure()` (targets like the
+balance-bar or `zone-output`) always floated the card *above* the target,
+sized to whatever room existed above it — even when the target sat high in
+the viewport with most of the screen empty below it. Fixed by comparing
+`availAbove` vs `availBelow` and floating the card on whichever side has
+more room, flipping the arrow to point up when the card lands below its
+target. `TutorialPanel`'s arrow renderer gained an `'up'` case alongside the
+existing `'left'`/`'down'` ones.
+
+A follow-up screenshot (PRO's "Calibrating Natural Balance" step, with the
+BALANCE sidebar section expanded) showed the same symptom survived on the
+LEFT-panel branch for a different reason: `top` was pinned to a fixed
+`midY-80` offset from the focused zone's vertical centre, not to the card's
+actual content height. A tall focused section (spanning from the section
+header down through the Balance Guide widget) has its midpoint sitting low
+in the viewport, so the card got pinned low too — starved to a short box
+even though the rest of the screen above it had nothing in the card's way.
+Fixed to match the RIGHT-panel branch's approach: measure the card's real
+rendered height (`cardRef`) and centre the card on the target's midpoint
+using that actual height, clamped to stay fully on-screen, instead of
+deriving position from a fixed offset that had no relationship to how tall
+the content actually was.
+
+A second follow-up screenshot (PRO's last step, "Output Panel & Tune Check",
+`focus:['output']`) showed the RIGHT-panel branch still had a version of the
+same bug: `zone-output` spans nearly the full panel height on that step (the
+sidebar is closed for it), so both `availAbove` and `availBelow` are small —
+the fix above just made it pick whichever cramped sliver was *larger*, which
+still wasn't enough room for that step's five-sentence body and still forced
+a scrollbar, while the actual open space (available by centring, same as the
+`MIN_USABLE` fallback already did for the fully-symmetric case) sat unused.
+Fixed by comparing both sides against the card's own measured natural height
+instead of a flat 180px minimum — if neither side can actually fit the
+content, centre it (full near-viewport-height budget) rather than hug a side
+that's merely the less-cramped of two bad options.

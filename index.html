@@ -3185,7 +3185,11 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone,zoom=1})=>{
   const t=steps[step];
   // balance mode always anchors to the balance bar zone even though its steps have focus:null
   const focusKey=mode==='balance'?'balance-bar':(t?.focus?.[0]??null);
-  const CARD_W=264;
+  // Widen on desktop: at the mobile width this stays 264 (unchanged), but a fixed
+  // 264px card in a monospace font forces heavy line-wrapping on wide screens even
+  // when the surrounding panel has plenty of room — a 4-sentence step can end up
+  // needing a scrollbar purely from wrap count, not from actually being too long.
+  const CARD_W=Math.round(Math.min(380,Math.max(264,(window.innerWidth/zoom)*0.24)));
   // pos: {top,left?,right?,arrowDir,arrowOff} or null = centred
   const[pos,setPos]=useState(null);
   const cardRef=useRef(null);
@@ -3228,40 +3232,60 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone,zoom=1})=>{
       const midY=(r.top+r.bottom)/2;
       const midX=(r.left+r.right)/2;
       if(midX<vw/2){
-        // LEFT panel: float card just past the sidebar's right edge
+        // LEFT panel: float card just past the sidebar's right edge, sized to its
+        // actual content rather than a fixed offset from the target's midpoint —
+        // a target sitting low in a long sidebar section (e.g. a tall BALANCE
+        // section) shouldn't pin the card low too and starve it of height the
+        // (mostly empty, since it's just dimmed background above) rest of the
+        // screen has plenty of. Ceiling is near-full viewport height; the card
+        // then only takes what its own content actually needs, centred on the
+        // target and clamped to stay fully on-screen.
         const sidebar=document.querySelector('.sidebar-scroll');
         const sbRight=sidebar?sidebar.getBoundingClientRect().right/zoom:r.right;
         const left=Math.min(sbRight+10,vw-CARD_W-8);
-        // Anchor higher when the target sits near the bottom so the card keeps usable height.
-        const top=Math.max(8,Math.min(vh-260,midY-80));
-        const maxH=Math.max(140,vh-top-16);
-        const arrowOff=Math.max(16,Math.min(maxH-16,midY-top));
+        const maxH=Math.max(140,vh-16);
+        const rawCardH=cardRef.current?.getBoundingClientRect().height;
+        const cardH=Math.min(rawCardH?rawCardH/zoom:maxH,maxH);
+        const top=Math.max(8,Math.min(vh-cardH-8,midY-cardH/2));
+        const arrowOff=Math.max(16,Math.min(cardH-16,midY-top));
         setPos({top,left,arrowDir:'left',arrowOff,maxH});
       } else {
-        // RIGHT panel (output, balance-bar): float card just above the element,
-        // hugging its actual rendered height rather than filling all available
-        // space above the target — otherwise a short card ends up pinned to the
-        // top of the screen with a large gap to whatever it's meant to point at.
+        // RIGHT panel (output, balance-bar): float the card above or below the
+        // element, whichever side has more room — hugging its actual rendered
+        // height rather than filling all available space on that side, but a
+        // target sitting near the top of the viewport (little room above, most
+        // of the screen free below it) shouldn't get starved into a short box
+        // above it when the space below goes unused.
         const GAP=10;
-        const availH=r.top-8-GAP;
-        // Some right-panel targets (zone-output) span nearly the full panel height,
-        // starting almost at the very top — leaving no real room to float a card
-        // above them. Forcing a floor of 140px there produces a box too short for
-        // real body text, with the "more below" fade covering the only visible line.
-        // Centre instead once there isn't enough room to hug the target usefully.
-        const MIN_USABLE=180;
-        if(availH<MIN_USABLE){ setPos(null); return; }
-        const maxH=Math.max(140,Math.min(availH,vh-24));
+        const availAbove=r.top-8-GAP;
+        const availBelow=vh-r.bottom-GAP-8;
+        const below=availBelow>availAbove;
+        const availH=below?availBelow:availAbove;
         // cardRef's rect is raw (post-zoom) viewport pixels, but everything else in this
         // branch (r.top, maxH, vh) is pre-zoom — must divide by zoom before mixing them,
         // or the card renders too tall/low and can push off the bottom of the viewport
         // at any zoom level other than 100% (the default is 110%, so this hit everyone).
+        // Reads the card's *unconstrained* height from its last render — steps always
+        // render once via the centred fallback (generous ~100dvh cap) before this first
+        // measure() runs, so this reflects what the content actually needs, not last
+        // step's clamped leftovers.
         const rawCardH=cardRef.current?.getBoundingClientRect().height;
-        const cardH=Math.min(rawCardH?rawCardH/zoom:maxH,maxH);
-        const top=Math.max(8,r.top-cardH-GAP);
+        const naturalH=rawCardH?rawCardH/zoom:null;
+        // Some right-panel targets (zone-output) span nearly the full panel height,
+        // starting almost at the very top — leaving no real room to float a card
+        // above OR below them. Picking whichever sliver is merely the *larger* of
+        // two bad options still forces a scrollbar on content that would fit fine
+        // centred with the ~full-viewport room that fallback gets. Centre instead
+        // whenever neither side can actually fit what the card needs.
+        const MIN_USABLE=180;
+        const need=naturalH?Math.min(naturalH,vh-24):MIN_USABLE;
+        if(availH<MIN_USABLE||availH<need){ setPos(null); return; }
+        const maxH=Math.max(140,Math.min(availH,vh-24));
+        const cardH=Math.min(naturalH??maxH,maxH);
+        const top=below?Math.min(vh-cardH-8,r.bottom+GAP):Math.max(8,r.top-cardH-GAP);
         const left=Math.max(8,Math.min(vw-CARD_W-8,midX-CARD_W/2));
         const arrowOff=Math.max(12,Math.min(CARD_W-24,midX-left));
-        setPos({top,left,arrowDir:'down',arrowOff,maxH});
+        setPos({top,left,arrowDir:below?'up':'down',arrowOff,maxH});
       }
     };
     // Slight delay lets the accordion open/collapse reflow settle before we measure
@@ -3310,6 +3334,12 @@ const TutorialPanel=({mode,step,onNext,onPrev,onClose,onDone,zoom=1})=>{
         borderTop:'8px solid transparent',borderBottom:'8px solid transparent',borderRight:'8px solid #334155'}}/>
       <div style={{...base,left:-6,top:pos.arrowOff-7,
         borderTop:'7px solid transparent',borderBottom:'7px solid transparent',borderRight:'7px solid #0f172a'}}/>
+    </>);
+    if(pos.arrowDir==='up') return(<>
+      <div style={{...base,top:-8,left:pos.arrowOff-8,
+        borderLeft:'8px solid transparent',borderRight:'8px solid transparent',borderBottom:'8px solid #334155'}}/>
+      <div style={{...base,top:-6,left:pos.arrowOff-7,
+        borderLeft:'7px solid transparent',borderRight:'7px solid transparent',borderBottom:'7px solid #0f172a'}}/>
     </>);
     return(<>
       <div style={{...base,bottom:-8,left:pos.arrowOff-8,
