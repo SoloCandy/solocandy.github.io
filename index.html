@@ -2988,8 +2988,8 @@ const TUTORIALS={
      focus:['output'],
      body:'The right panel shows exact values to enter in the tuning menu, as six cards: Alignment, Anti-Roll Bars, Springs, Dampers, Brakes, and Differential. Alignment, brakes, and the differential are always computed automatically from your other inputs. Amber values mean you\'re near a game limit — soften your inputs slightly if that happens.'},
     {title:'Output Toolbar',
-     focus:['output'],
-     body:'Three buttons sit under the results. RESET clears the tune or the tutorials back to defaults — tap once to arm it, again to CONFIRM; your garage saves are never touched. CHECK opens Tune Check, a reverse calculator: type in spring and damper values from a tune you already have and it reads back the frequencies and damping ratios behind them. SHARE handles moving tunes between devices with a code, and makes or restores a JSON backup of your whole garage.'},
+     focus:['toolbar'],
+     body:'Three buttons are pinned at the top of the sidebar. RESET opens a confirm dialog to clear the tune, the tutorials, or both back to defaults; your garage saves are never touched. CHECK opens Tune Check, a reverse calculator: type in spring and damper values from a tune you already have and it reads back the frequencies and damping ratios behind them. SHARE handles moving tunes between devices with a code, and makes or restores a JSON backup of your whole garage.'},
   ],
   intermediate:[
     {title:'Welcome — Intermediate Mode',
@@ -3047,7 +3047,10 @@ const TUTORIALS={
      body:'The Handling Balance bar is pinned at the bottom of the results panel. It shows your total oversteer or understeer tendency as a number and a bar, colour-zoned neutral / mild / aggressive. Tap it to expand a full per-contributor breakdown — every input you\'ve touched in the sidebar shows up here as a row, including the DIFF rows from the drivetrain sliders and the DAMP row from Damping Bias, so you can see which change actually moved the balance.'},
     {title:'Reading the Results',
      focus:['output'],sidebar:'close',
-     body:'The right panel shows exact values to enter in the tuning menu, as six cards: Alignment, Anti-Roll Bars, Springs, Dampers, Brakes, and Differential. Amber values mean you\'re near a game limit — soften your inputs slightly if that happens. Under the cards, RESET clears the tune back to defaults (saves untouched), CHECK opens Tune Check to reverse a tune you already have, and SHARE handles codes and garage backups.'},
+     body:'The right panel shows exact values to enter in the tuning menu, as six cards: Alignment, Anti-Roll Bars, Springs, Dampers, Brakes, and Differential. Amber values mean you\'re near a game limit — soften your inputs slightly if that happens.'},
+    {title:'Output Toolbar',
+     focus:['toolbar'],
+     body:'Pinned at the top of the sidebar: RESET clears the tune back to defaults (saves untouched), CHECK opens Tune Check to reverse a tune you already have, and SHARE handles codes and garage backups.'},
     {title:'Garage',
      focus:['garage'],sidebar:'close',
      body:'GARAGE (top right) is one place for everything you save. Each entry is a CHASSIS (weight, bias, layout), a BUILD (feel settings and diff tune), or a CAR holding both — save whichever you want with the three buttons at the top. A car gives you separate LOAD CHASSIS and LOAD BUILD buttons, so you can mix one car\'s chassis with another\'s tune. Every load is undoable with ↩.'},
@@ -3093,8 +3096,8 @@ const TUTORIALS={
      focus:['balance-bar'],
      body:'Scroll down in the expanded panel for LOAD TRANSFER — corner weights and lateral load transfer at 1g cornering. XFER F/R shows how much weight shifts to the outer tyre per axle per g of cornering. OUT/IN show outer and inner wheel loads at 1g. Wider track and lower CG both reduce transfer. These inform ARB aggressiveness and how much camber the outer tyre needs under load.'},
     {title:'Output Panel & Tune Check',
-     focus:['output'],sidebar:'close',
-     body:'The results panel is unchanged from the lower tiers — six cards of exact values, amber where you\'re close to a game limit — but PRO leans on the toolbar underneath it more. CHECK opens Tune Check, a reverse calculator: enter existing in-game spring and damper values to read back their natural frequency and damping ratios, useful for analysing a shared tune or verifying a manual setup. Its MEASURE tab is also where MEASURE NAT BAL sends you. SHARE moves tunes between devices as a code and backs up or restores your garage as JSON, and RESET returns the tune or the tutorials to defaults without touching your saves.'},
+     focus:['toolbar'],
+     body:'The results panel is unchanged from the lower tiers — six cards of exact values, amber where you\'re close to a game limit — but PRO leans on the toolbar pinned above the sidebar more. CHECK opens Tune Check, a reverse calculator: enter existing in-game spring and damper values to read back their natural frequency and damping ratios, useful for analysing a shared tune or verifying a manual setup. Its MEASURE tab is also where MEASURE NAT BAL sends you. SHARE moves tunes between devices as a code and backs up or restores your garage as JSON, and RESET returns the tune or the tutorials to defaults without touching your saves.'},
   ],
   balance:[
     {title:'Handling Balance',
@@ -3594,7 +3597,6 @@ function App(){
   const[checkerInitMode,setCheckerInitMode]=useState('decode');
   const[showGlossary,setShowGlossary]=useState(false);
   const[showResetModal,setShowResetModal]=useState(false);
-  const[begResetArmed,setBegResetArmed]=useState(false);
 
   const[showDataModal,setShowDataModal]=useState(false);
   const[dataMode,setDataMode]=useState('share'); // 'share'|'load'|'backup'|'restore'
@@ -4218,8 +4220,9 @@ function App(){
           <div onClick={()=>setSidebarOpen(false)}
                style={{position:'absolute',inset:0,background:'#00000088',zIndex:150}}/>}
 
-        {/* SIDEBAR — outer wrapper handles width/positioning; scrollable content and the
-            pinned VISUALS footer are separate children so the footer never scrolls away. */}
+        {/* SIDEBAR — outer wrapper handles width/positioning; the pinned TOOLBAR header,
+            scrollable content, and the pinned VISUALS footer are separate children so the
+            header/footer never scroll away. */}
         <div style={{width:sidebarWidth,flexShrink:0,transition:'width .2s ease',
           borderRight:'1px solid #0f172a',background:'#020617',
           display:sidebarOpen?'flex':'none',flexDirection:'column',
@@ -4230,6 +4233,23 @@ function App(){
             boxShadow:sidebarOpen?'4px 0 24px #000000cc':'none',
           }:{})
         }}>
+
+        {/* PINNED — TOOLBAR (reset, check, share) */}
+        <div id="zone-toolbar" style={{flexShrink:0,borderBottom:'1px solid #0f172a',background:'#020617',...dim('toolbar')}}>
+          <div style={{display:'flex',gap:3,alignItems:'center',flexWrap:'wrap',padding:'6px 12px'}}>
+            <button className="tbtn" onClick={()=>setShowResetModal(true)} style={{fontSize:11,color:'#fca5a5'}}
+              title="Reset tune or tutorials to defaults (saves not affected)">RESET</button>
+            <div style={{flex:1}}/>
+            <button className="tbtn" onClick={()=>setShowChecker(true)} style={{fontSize:11}}>CHECK</button>
+            <button className="tbtn" style={{fontSize:11}} onClick={()=>{
+              setDataMode('share');setShareSel({ch:true,fe:true,dr:true});
+              setShareCopied(false);setImportCode('');setImportErr('');
+              setImportSel({ch:true,fe:true,dr:true});
+              setExportSel({chassis:true,build:true,car:true});setShowDataModal(true);
+            }}>SHARE</button>
+          </div>
+        </div>
+
         <div className="sidebar-scroll" style={{WebkitOverflowScrolling:'touch',overscrollBehavior:'contain',
           flex:1,minHeight:0,overflowY:'auto'
         }}>
@@ -4349,18 +4369,6 @@ function App(){
                   markers={[{value:0,color:'#94a3b8',label:'NEUTRAL'}]}
                   readout={stAgVal===0?'NEUTRAL':stAgVal>0?'AGILE':'STABLE'}
                   hint="Controls damping character. Stable (left) = higher damping, settles quickly, more predictable. Agile (right) = lighter damping, more lively and responsive, quicker direction changes. Start at centre."/>
-                </div>
-                <div style={{display:'flex',justifyContent:'flex-end',marginTop:18,...dim('ride-stiffness','balance','character')}}>
-                  <button className="tbtn" style={{fontSize:10,color:begResetArmed?'#ffffff':'#fca5a5',
-                    background:begResetArmed?'#7f1d1d':'',transition:'background 0.15s,color 0.15s'}}
-                    onClick={()=>{
-                      if(!begResetArmed){setBegResetArmed(true);setTimeout(()=>setBegResetArmed(false),2000);return;}
-                      setBegResetArmed(false);
-                      setCh({...DEF_CH});
-                      setDr({...DEF_DR});
-                      // DEF_FE is already Hz Mode MULTIPLIER at 1.20 — no need to override.
-                      setFe({...DEF_FE,springShare:50});
-                    }}>{begResetArmed?'CONFIRM':'RESET'}</button>
                 </div>
               </div>
             );
@@ -6464,24 +6472,6 @@ function App(){
                  style={{color:'#475569'}}>Tip jar</a>
             </p>
           </div>
-
-          {/* TOOLBAR — reset, check, share */}
-          <div style={{flexShrink:0,borderTop:'1px solid #0f172a',background:'#020617',...dim('output')}}>
-            {/* action row — always visible */}
-            <div style={{display:'flex',gap:3,alignItems:'center',flexWrap:'wrap',padding:'0 12px 6px'}}>
-              <button className="tbtn" onClick={()=>setShowResetModal(true)} style={{fontSize:11,color:'#fca5a5'}}
-                title="Reset tune or tutorials to defaults (saves not affected)">RESET</button>
-              <div style={{flex:1}}/>
-              <button className="tbtn" onClick={()=>setShowChecker(true)} style={{fontSize:11}}>CHECK</button>
-              <button className="tbtn" style={{fontSize:11}} onClick={()=>{
-                setDataMode('share');setShareSel({ch:true,fe:true,dr:true});
-                setShareCopied(false);setImportCode('');setImportErr('');
-                setImportSel({ch:true,fe:true,dr:true});
-                setExportSel({chassis:true,build:true,car:true});setShowDataModal(true);
-              }}>SHARE</button>
-            </div>
-          </div>
-
 
 
           {/* DATA MODAL — share / import / export */}

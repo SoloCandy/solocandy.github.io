@@ -129,12 +129,16 @@ testing.
 ## Sidebar zones and tier gating
 
 Every spotlightable region carries an `id="zone-…"`, used by the tutorial
-system for focus/dimming. There are 18 in the source; which exist in the DOM
+system for focus/dimming. There are 19 in the source; which exist in the DOM
 depends on the tier.
 
 - **All tiers**: `zone-garage` — the right-side GARAGE drawer. It is *not* part
   of the sidebar, so it sits outside the per-tier lists below and is the only
   zone present at every tier regardless of panel.
+- **All tiers, inside the sidebar**: `zone-toolbar` — the RESET/CHECK/SHARE row,
+  pinned at the top of the sidebar's outer wrapper (a sibling of the scrollable
+  content and the pinned VISUALS footer), outside the `uiMode` branching that
+  splits BEG from INT/PRO below it.
 - **BEG** renders its own flat panel: `zone-layout-build`, `zone-build-type`,
   `zone-weight`, `zone-ride-stiffness`, `zone-balance`, `zone-character`, plus
   `zone-output` and `zone-balance-bar`. No `Sec` sections at all, and no VISUALS.
