@@ -5,6 +5,30 @@ of without a written trail. Not a general bug tracker — just things that
 either can't be trivially fixed, or were fixed here and are worth
 remembering *why* they broke in the first place.
 
+## Fixed — TUNE CHECK import silently froze ARB balance when already on BEG/INT (resolved)
+
+`importDecoded` (TUNE CHECK's DECODE tab) always sets `arbMode:'man'` to hold
+the exact imported ARB clicks, but MAN was PRO-only — its toggle button was
+hidden below PRO, and a downgrade `useEffect` (keyed on `[uiMode]`) reset it
+back to `'auto'` whenever *leaving* PRO. That effect only fires on a tier
+*change*, so a user already on BEG or INT who opened TUNE CHECK and hit
+IMPORT? never triggered it: `arbMode` stuck on `'man'` with no visible
+indicator, no editing UI at BEG (its ANTI-ROLL BARS card is read-only), and —
+since MAN bypasses the budget/split solve entirely — the FEEL section's
+Balance slider silently stopped moving ARB balance at all, despite its own
+hint text still claiming it does.
+
+First fix attempt promoted `uiMode` to `'pro'` as a side effect of import, so
+the exact ARB split always had a tier that could hold it; rejected as too
+surprising a side effect for what should be a "convert these numbers" button.
+Fixed instead by ungating MAN itself: it's no longer `uiMode==='pro'`-gated
+in the Stiffness Mode button row, and the downgrade effect no longer resets
+`arbMode` away from `'man'` on leaving PRO. MAN is a stable value at every
+tier now, selectable directly at INT; BEG still has no raw-value ARB editing
+UI (same as it has none for springs or dampers), so it stays import-only
+there, but the imported value now sticks correctly instead of being silently
+orphaned.
+
 ## Fixed — Balance Guide RANGE band collapsed to a sliver when natural balance already passed grip target (resolved)
 
 The RANGE band (`lo, hi = natMechBalance + fracLo*gap, natMechBalance +

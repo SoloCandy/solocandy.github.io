@@ -2343,6 +2343,16 @@ const CheckerModal=({onClose,lim,metricUnits,ch,setCh,setFe,initialMode})=>{
         </div>
         <div style={{padding:14}}>
           {ckMode==='decode'&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:10,marginBottom:10}}>
+            <Card title="HOW TO USE">
+              <div style={{fontSize:11,color:'#94a3b8',lineHeight:1.6}}>
+                <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>PURPOSE</div>
+                <div style={{marginBottom:8}}>Bring in a tune you don't have a share code for — copied off a screenshot, a forum post, or read straight from the game's values — by matching its raw spring/damper/ARB numbers here.</div>
+                <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>ENTER</div>
+                <div style={{marginBottom:8}}>Fill in the cards below with those raw values. Vehicle Mass stays synced with the sidebar; the rest are the tune's numbers as-is.</div>
+                <div style={{color:'#e2e8f0',letterSpacing:1,fontSize:9,marginBottom:2}}>IMPORT</div>
+                <div>DECODED TUNE shows the closest match in this app's own Hz + ζ model. IMPORT? overwrites your current RIDE, DAMPERS, and ANTI-ROLL BARS settings — review them afterward, since the conversion is a best-effort approximation, not exact.</div>
+              </div>
+            </Card>
             <Card title="VEHICLE MASS" hint="Synced with the CHASSIS Weight and Front Weight Bias fields in the sidebar — editing either place updates both.">
               <Field label="Weight"
                 value={metricUnits?ch.weight/KG_TO_LB:ch.weight}
@@ -3029,10 +3039,10 @@ const TUTORIALS={
      body:'The BUILD section shows Build Type (STREET / TRACK / DRIFT / RALLY / OFFROAD / DRAG) — this sets your intended use and determines the recommended balance range, diff AUTO behaviour, diff type recommendation, and alignment targets.'},
     {title:'ARB Stiffness & Balance Mode',
      focus:['arb'],
-     body:'Two separate controls. Stiffness Mode sets how much total ARB you get: AUTO derives it from the car\'s natural roll tendency, BASIC sets an overall stiffness level directly, ROLL ° solves for a target body roll angle, and SHARE % sets ARBs as a fraction of total roll stiffness. Balance Mode then splits that total front to rear: WEIGHT uses the car\'s weight distribution, NEUTRAL solves the split so it exactly cancels the springs\' contribution to the balance bar.'},
+     body:'Two separate controls. Stiffness Mode sets how much total ARB you get: AUTO derives it from the car\'s natural roll tendency, BASIC sets an overall stiffness level directly, ROLL ° solves for a target body roll angle, SHARE % sets ARBs as a fraction of total roll stiffness, and MAN sets front/rear ARB directly for calibration testing. Balance Mode then splits that total front to rear: WEIGHT uses the car\'s weight distribution, NEUTRAL solves the split so it exactly cancels the springs\' contribution to the balance bar.'},
     {title:'ARB Bias & Visuals',
      focus:['arb','visuals'],
-     body:'The ARB Bias slider fine-tunes the split either way — push toward front for more understeer resistance, toward rear for more rotation. PRO adds CHASSIS, MECH and CO-SOLVE balance modes, plus a MAN stiffness mode for entering ARB clicks directly. The ARB dial, ROLL/ARB SHARE readout, and SPRINGS/ARBs split bar live in the pinned VISUALS card at the bottom of the sidebar — check there for the live visual.'},
+     body:'The ARB Bias slider fine-tunes the split either way — push toward front for more understeer resistance, toward rear for more rotation. PRO adds CHASSIS, MECH and CO-SOLVE balance modes. The ARB dial, ROLL/ARB SHARE readout, and SPRINGS/ARBs split bar live in the pinned VISUALS card at the bottom of the sidebar — check there for the live visual.'},
     {title:'Ride Ref & Rear Hz',
      focus:['feel'],
      body:'RIDE REF. sets which axle the stiffness slider anchors — FRONT, SHARED, or REAR. The secondary axle frequency is derived by the Hz mode: MULTIPLIER (a fixed ratio of the anchored axle, the default), FLAT RIDE (the mathematically ideal pitch-cancelling ratio for a target speed), or INDEPENDENT (set manually, free of the other axle).'},
@@ -3064,7 +3074,7 @@ const TUTORIALS={
   pro:[
     {title:'Welcome — Pro Mode',
      focus:null,
-     body:'Pro mode adds the full physics surface on top of Intermediate: a Mech Balance Target with CHASSIS, MECH and CO-SOLVE ARB balance modes, a MAN stiffness mode for entering ARB clicks directly, Hz MECH mode, chassis geometry (wheelbase, track widths), and manual differential control. Alignment and brakes are always computed automatically. This guide only covers what\'s new.'},
+     body:'Pro mode adds the full physics surface on top of Intermediate: a Mech Balance Target with CHASSIS, MECH and CO-SOLVE ARB balance modes, Hz MECH mode, chassis geometry (wheelbase, track widths), and manual differential control. Alignment and brakes are always computed automatically. This guide only covers what\'s new.'},
     {title:'Chassis Geometry',
      focus:['chassis'],
      body:'Tyre sizes, wheelbase, and track widths are all now available in the CHASSIS section. Tyre width sets each axle\'s grip capacity at the limit and drives the CHASSIS BAL. (natural mechanical balance), GRIP BIAS (at-limit handling tendency), and STABILITY readouts below. Chassis geometry defaults suit most cars — enter exact values if you have them. The GEOMETRY GAP panel in the BALANCE section shows whether track or tyre width changes could help close the gap between your chassis natural balance and your target.'},
@@ -3082,7 +3092,7 @@ const TUTORIALS={
      body:'Balance Target mode controls how the Mech Balance Target is derived.\n\nTARGET: set manually with the slider — use the Balance Guide range as a start.\n\nGRIP: auto-derives the target as 1 − natGripBalance, counteracting the car\'s natural grip tendency. Balance Offset shifts it toward oversteer (+) or understeer (−).\n\nGEOMETRY GAP shows whether track/tyre width changes could close the gap with softer ARBs.'},
     {title:'PRO ARB Balance Modes',
      focus:['arb'],
-     body:'PRO unlocks CHASSIS, MECH, and CO-SOLVE balance modes, plus a MAN stiffness mode for direct ARB clicks. CHASSIS is WEIGHT\'s formula anchored to your real natural balance instead of raw weight %. MECH solves the ARB split alone to hit your Mech Balance Target exactly. CO-SOLVE adjusts rear spring Hz and ARB split together — Spring Share controls the mix.'},
+     body:'PRO unlocks CHASSIS, MECH, and CO-SOLVE balance modes. CHASSIS is WEIGHT\'s formula anchored to your real natural balance instead of raw weight %. MECH solves the ARB split alone to hit your Mech Balance Target exactly. CO-SOLVE adjusts rear spring Hz and ARB split together — Spring Share controls the mix.'},
     {title:'Hz MECH & Balance Target Mode',
      focus:['arb','visuals'],
      body:'Hz MECH mode derives rear Hz from the target directly. Balance Target mode (TARGET or GRIP) applies to all three solving modes above. The ARB dial itself lives in the pinned VISUALS card at the bottom of the sidebar.'},
@@ -3666,23 +3676,20 @@ function App(){
       dampCharMode:'zeta',
       dampBalMode:'standard',
       dampingBias:0,
-      arbMode:'auto',
     }));
   },[uiMode]); // eslint-disable-line
   // BEG/INT: fall back to simple modes if switching down from PRO
   useEffect(()=>{
     if(uiMode==='pro')return;
     setFe(p=>{
+      // arbMode:'man' (direct ARB click entry) is ungated at every tier — BEG/INT can hold
+      // and (INT) edit it same as AUTO/ROLL/SHARE, so it's deliberately left out of this reset.
       const arbOk=p.arbBalMode!=='mech'&&p.arbBalMode!=='coSolve'&&p.arbBalMode!=='man';
       const hzOk=p.rearHzMode!=='mech';
-      // arbMode:'man' (direct ARB click entry) is its own PRO-only control, gated separately
-      // from arbBalMode above — without resetting it here it stays enabled after downgrade.
-      const arbManOk=p.arbMode!=='man';
-      if(arbOk&&hzOk&&arbManOk)return p;
+      if(arbOk&&hzOk)return p;
       return{...p,
         ...(arbOk?{}:{arbBalMode:'weight'}),
         ...(hzOk?{}:{rearHzMode:'multiplier'}),
-        ...(arbManOk?{}:{arbMode:'auto'}),
       };
     });
     // MANUAL diff mode and its toggle are both PRO-gated; leaving diffManual set with no
@@ -5037,7 +5044,7 @@ function App(){
 
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
               <span style={{fontSize:12,color:'#94a3b8'}}>Stiffness Mode</span>
-              <Hint text={`AUTO derives ARB stiffness from the car's natural roll tendency — heavier, taller, softer cars get more ARB contribution.${physMode?'':' BASIC sets an overall stiffness level directly (0% ≈ softest, 100% ≈ stiffest bars the game allows) — like SHARE %, but the level doesn’t scale with spring rate.'} ROLL ° targets a specific body roll angle. SHARE % directly sets ARBs as a fraction of total roll stiffness.${uiMode==='pro'?` MAN sets front/rear ARB ${physMode?'roll stiffness':'clicks'} directly for calibration testing — bypasses the budget/split system entirely, so Balance Mode is hidden while this is active.`:''}`}/>
+              <Hint text={`AUTO derives ARB stiffness from the car's natural roll tendency — heavier, taller, softer cars get more ARB contribution.${physMode?'':' BASIC sets an overall stiffness level directly (0% ≈ softest, 100% ≈ stiffest bars the game allows) — like SHARE %, but the level doesn’t scale with spring rate.'} ROLL ° targets a specific body roll angle. SHARE % directly sets ARBs as a fraction of total roll stiffness. MAN sets front/rear ARB ${physMode?'roll stiffness':'clicks'} directly for calibration testing — bypasses the budget/split system entirely, so Balance Mode is hidden while this is active.`}/>
               <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
                 <button className={`tog${(fe.arbMode??'auto')==='auto'?' on':''}`}
                   onClick={()=>pFe('arbMode')('auto')}>AUTO</button>
@@ -5053,12 +5060,12 @@ function App(){
                 <button className={`tog${(fe.arbMode??'auto')==='share'?' on':''}`}
                   onClick={()=>setFe(p=>({...p,arbMode:'share',
                     arbShareMan:Math.round(tune.arbShare)}))}>SHARE %</button>
-                {uiMode==='pro'&&<button className={`tog${(fe.arbMode??'auto')==='man'?' on':''}`}
+                <button className={`tog${(fe.arbMode??'auto')==='man'?' on':''}`}
                   onClick={()=>{
                     const arbF=Math.round(tune.arbF*10)/10;
                     const arbR=Math.round(tune.arbR*10)/10;
                     setFe(p=>({...p,arbMode:'man',arbManF:arbF,arbManR:arbR}));
-                  }}>MAN</button>}
+                  }}>MAN</button>
               </div>
             </div>
             {(fe.arbMode??'auto')==='basic'&&!physMode&&

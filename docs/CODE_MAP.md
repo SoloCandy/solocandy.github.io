@@ -146,7 +146,7 @@ depends on the tier.
   `zone-drivetrain`, `zone-arb`, `zone-feel`, `zone-damping`,
   `zone-visuals`, plus output and balance bar.
 - **PRO** adds `zone-balance-target` and `zone-alignment`, and unlocks extra
-  controls inside the shared sections (CHASSIS geometry, ARB MECH/CO-SOLVE/MAN,
+  controls inside the shared sections (CHASSIS geometry, ARB MECH/CO-SOLVE,
   Hz MECH mode, Alignment Mode).
 
 `zone-presets` no longer exists. It was duplicated across the BEG panel and the
