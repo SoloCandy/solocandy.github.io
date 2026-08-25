@@ -527,6 +527,19 @@ const feelToPhysics=(ch,fe)=>{
         rearHz=Math.max(HZ_MIN,Math.min(HZ_MAX,2*avgHz*mult_m/(1+mult_m)));
         rearHzClamped=frontHz<=HZ_MIN||rearHz>=HZ_MAX;
       }
+    } else if(rearHzMode==='shared'){
+      // Solve front/rear Hz so both axles bottom out at the identical g, from each
+      // axle's own static ride height and 1g sag (same model as the SAG vs LOAD chart /
+      // BOTTOM G's stiffness mode). frontHz=avgHz*sqrt(rhAvg/rhF) makes gF=rhF*(2π*frontHz)²/9810
+      // collapse to rhAvg*(2π*avgHz)²/9810 — i.e. the g the Avg Bottom-Out slider shows —
+      // and the same substitution for rearHz makes gR match it too.
+      const rhF_mm=(ch.rideHeightF??0.13)*1000,rhR_mm=(ch.rideHeightR??0.12)*1000;
+      const rhAvg_mm=(rhF_mm+rhR_mm)/2;
+      const rawF=avgHz*Math.sqrt(rhAvg_mm/Math.max(1e-6,rhF_mm));
+      const rawR=avgHz*Math.sqrt(rhAvg_mm/Math.max(1e-6,rhR_mm));
+      frontHz=Math.max(HZ_MIN,Math.min(HZ_MAX,rawF));
+      rearHz=Math.max(HZ_MIN,Math.min(HZ_MAX,rawR));
+      rearHzClamped=rawF<HZ_MIN||rawF>HZ_MAX||rawR<HZ_MIN||rawR>HZ_MAX;
     } else { // flatRide (independent collapses to equal in shared mode)
       const res=flatRideSharedHz(avgHz,ch.wheelbase,fe.targetSpeed);
       frontHz=res.fHz;rearHz=res.rHz;rearHzClamped=res.clamped;
@@ -2515,8 +2528,8 @@ const GAME_MODE_ENC={'horizon':0,'motorsport':1,'beamng':2};
 const GAME_MODE_DEC=['horizon','motorsport','beamng'];
 const DAMPING_MODE_ENC={'ratio':0,'independent':1};
 const DAMPING_MODE_DEC=['ratio','independent'];
-const REAR_HZ_MODE_ENC={'flatRide':0,'independent':1,'multiplier':2,'mech':3};
-const REAR_HZ_MODE_DEC=['flatRide','independent','multiplier','mech'];
+const REAR_HZ_MODE_ENC={'flatRide':0,'independent':1,'multiplier':2,'mech':3,'shared':4};
+const REAR_HZ_MODE_DEC=['flatRide','independent','multiplier','mech','shared'];
 const ARB_MODE_ENC={'auto':0,'roll':1,'share':2,'man':4,'basic':5};
 const ARB_MODE_DEC=['auto','roll','share','auto','man','basic']; // index 3 was legacy 'balance' → auto; index 4 = MAN (moved from ARB_BAL_MODE — see sanitizeTune migration)
 const ARB_BAL_MODE_ENC={'weight':0,'mech':1,'coSolve':2,'man':3,'neutral':4,'chassis':5,'manual':6};
@@ -4352,9 +4365,24 @@ function App(){
                   markers={HZ_MARKERS}
                   readout={<span style={{display:'flex',alignItems:'center',gap:5}}>
                     <span style={{fontSize:11,color:hzCol,fontFamily:'var(--font-mono)',fontWeight:700,letterSpacing:1}}>{hzCat}</span>
-                    <span style={{fontSize:10,color:'#94a3b8',fontFamily:'var(--font-mono)'}}>{ridePrimaryHz.toFixed(2)} Hz</span>
+                    <input type="number" className="num"
+                      style={{width:44,fontSize:10,fontWeight:700,color:'#94a3b8',
+                              background:'transparent',fontFamily:'var(--font-mono)',
+                              borderRadius:2,textAlign:'right',padding:'0 2px',
+                              border:hzDraft!==null?'1px solid #334155':'1px solid transparent'}}
+                      min={HZ_MIN} max={HZ_MAX} step={0.01}
+                      value={hzDraft??ridePrimaryHz.toFixed(2)}
+                      onFocus={e=>{setHzDraft(ridePrimaryHz.toFixed(2));e.target.select();}}
+                      onChange={e=>setHzDraft(e.target.value)}
+                      onBlur={()=>{
+                        const v=parseFloat(hzDraft);
+                        if(!isNaN(v)) pFe('rideStiffness')(hzToRs(v));
+                        setHzDraft(null);
+                      }}
+                      onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}/>
+                    <span style={{fontSize:10,color:'#94a3b8',fontFamily:'var(--font-mono)'}}>Hz</span>
                   </span>}
-                  hint="How stiff the suspension feels. SOFT = comfortable street ride. ROAD = balanced. FIRM = responsive sport. RACE = stiff competition setup."/>
+                  hint="How stiff the suspension feels. SOFT = comfortable street ride. ROAD = balanced. FIRM = responsive sport. RACE = stiff competition setup. Click the Hz value to type directly."/>
                 </div>
                 <div id="zone-balance" style={dim('balance')}>
                 <FeelSlider label="Balance" value={balVal}
@@ -5245,7 +5273,8 @@ function App(){
                     onClick={()=>setFe(p=>({...p,
                       rideRef:'front',
                       rideStiffness:hzToRs(physics.frontHz),
-                      ...(p.rearHzMode==='independent'?{rearHzMan:Math.round(physics.rearHz*100)/100}:{})}))}>FRONT</button>
+                      ...(p.rearHzMode==='independent'?{rearHzMan:Math.round(physics.rearHz*100)/100}:{}),
+                      ...(p.rearHzMode==='shared'?{rearHzMode:'flatRide'}:{})}))}>FRONT</button>
                   <button className={`tog${rRef==='shared'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,
                       rideRef:'shared',
@@ -5255,13 +5284,15 @@ function App(){
                     onClick={()=>setFe(p=>({...p,
                       rideRef:'rear',
                       rideStiffness:hzToRs(tune.rHz),
-                      ...(p.rearHzMode==='independent'?{rearHzMan:Math.round(tune.fHz*100)/100}:{})}))}>REAR</button>
+                      ...(p.rearHzMode==='independent'?{rearHzMan:Math.round(tune.fHz*100)/100}:{}),
+                      ...(p.rearHzMode==='shared'?{rearHzMode:'flatRide'}:{})}))}>REAR</button>
                 </div>
                 {(()=>{
                   const effStiffMode=(fe.rideStiffMode??'hz')==='bottomG'&&ch.useRideHeightCG?'bottomG':'hz';
                   return ch.useRideHeightCG&&<div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
                   <span style={{flex:1,fontSize:10,color:'#94a3b8',letterSpacing:1}}>STIFFNESS<Hint text="What the Ride Stiffness slider below sets. HZ: spring frequency directly. BOTTOM G's: the vertical load factor at which the active RIDE REF. axle bottoms out (same model as the SAG vs LOAD chart) — the slider back-solves the Hz that produces it, and keeps re-solving it if ride height changes or a build/share-code lands a different target on this chassis. Switching RIDE REF. never changes the actual Hz values, only which axle's number is shown. Only available with RIDE HEIGHT → CG enabled (CHASSIS section)."/></span>
-                  <button className={`tog${effStiffMode==='hz'?' on':''}`} onClick={()=>setFe(p=>({...p,rideStiffMode:'hz'}))}>HZ</button>
+                  <button className={`tog${effStiffMode==='hz'?' on':''}`} onClick={()=>setFe(p=>({...p,rideStiffMode:'hz',
+                    ...(p.rearHzMode==='shared'?{rearHzMode:'flatRide'}:{})}))}>HZ</button>
                   <button className={`tog${effStiffMode==='bottomG'?' on':''}`} onClick={()=>setFe(p=>({...p,rideStiffMode:'bottomG',rideBottomG:primaryBottomG}))}>BOTTOM G's</button>
                 </div>;
                 })()}
@@ -5280,7 +5311,7 @@ function App(){
                               border:gDraft!==null?'1px solid #334155':'1px solid transparent'}}
                       min={bottomGLo} max={bottomGHi} step={0.01}
                       value={gDraft??primaryBottomG.toFixed(2)}
-                      onFocus={()=>setGDraft(primaryBottomG.toFixed(2))}
+                      onFocus={e=>{setGDraft(primaryBottomG.toFixed(2));e.target.select();}}
                       onChange={e=>setGDraft(e.target.value)}
                       onBlur={()=>{
                         const v=parseFloat(gDraft);
@@ -5306,7 +5337,7 @@ function App(){
                               border:hzDraft!==null?'1px solid #334155':'1px solid transparent'}}
                       min={HZ_MIN} max={HZ_MAX} step={0.01}
                       value={hzDraft??primaryHz.toFixed(2)}
-                      onFocus={()=>setHzDraft(primaryHz.toFixed(2))}
+                      onFocus={e=>{setHzDraft(primaryHz.toFixed(2));e.target.select();}}
                       onChange={e=>setHzDraft(e.target.value)}
                       onBlur={()=>{
                         const v=parseFloat(hzDraft);
@@ -5326,11 +5357,15 @@ function App(){
             {/* secondary Hz mode toggle — hidden in CO-SOLVE (rear Hz solved automatically) */}
             {(fe.arbBalMode??'weight')!=='coSolve'&&(()=>{
               const isShared=(physics.rideRef??'front')==='shared';
+              // SHARED Hz mode only makes sense with an actual per-axle bottom-out g to equalise —
+              // that's only exposed while STIFFNESS is BOTTOM G's (RIDE HEIGHT → CG required for it).
+              const showSharedG=isShared&&(fe.rideStiffMode??'hz')==='bottomG'&&ch.useRideHeightCG;
+              const btnCount=2+(uiMode==='pro'?1:0)+(!isShared?1:0)+(showSharedG?1:0);
               return<>
                 <div style={{display:'flex',alignItems:'center',marginBottom:3,marginTop:-2}}>
-                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,flex:1}}>Hz MODE<Hint text="How the secondary axle frequency is derived. MULTIPLIER: a fixed ratio of the anchored axle Hz. MECH: derived from the mech balance target — PRO only. FLAT RIDE: the mathematically ideal pitch-cancelling ratio for a target speed. INDEPENDENT: set manually, free of the other axle. Hidden in CO-SOLVE — rear Hz is solved automatically."/></span>
+                  <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1,flex:1}}>Hz MODE<Hint text="How the secondary axle frequency is derived. MULTIPLIER: a fixed ratio of the anchored axle Hz. MECH: derived from the mech balance target — PRO only. FLAT RIDE: the mathematically ideal pitch-cancelling ratio for a target speed. INDEPENDENT: set manually, free of the other axle. SHARED: (RIDE REF. SHARED + STIFFNESS BOTTOM G's only) solves both axles to bottom out at the identical g instead of holding a fixed Hz ratio. Hidden in CO-SOLVE — rear Hz is solved automatically."/></span>
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:uiMode==='pro'?(isShared?'1fr 1fr 1fr':'1fr 1fr'):(isShared?'1fr 1fr':'1fr 1fr 1fr'),gap:3,marginBottom:10}}>
+                <div style={{display:'grid',gridTemplateColumns:`repeat(${btnCount},1fr)`,gap:3,marginBottom:10}}>
                   <button className={`tog${(fe.rearHzMode??'flatRide')==='multiplier'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,rearHzMode:'multiplier',
                       rearHzMult:Math.round(physics.rearHz/physics.frontHz*100)/100}))}>MULTIPLIER</button>
@@ -5341,6 +5376,8 @@ function App(){
                   {!isShared&&<button className={`tog${(fe.rearHzMode??'flatRide')==='independent'?' on':''}`}
                     onClick={()=>setFe(p=>({...p,rearHzMode:'independent',
                       rearHzMan:Math.round((physics.rideRef==='rear'?physics.frontHz:physics.rearHz)*100)/100}))}>INDEPENDENT</button>}
+                  {showSharedG&&<button className={`tog${(fe.rearHzMode??'flatRide')==='shared'?' on':''}`}
+                    onClick={()=>setFe(p=>({...p,rearHzMode:'shared'}))}>SHARED</button>}
                 </div>
               </>;
             })()}
@@ -5428,6 +5465,28 @@ function App(){
                     {' '}{isShared?'Avg Stiffness slider shifts both together.':'Set target in ARB section above.'}
                   </div>
                 </div>
+            : (fe.rearHzMode??'flatRide')==='shared'
+              ? (()=>{
+                  const rhF_mm=(ch.rideHeightF??0.13)*1000,rhR_mm=(ch.rideHeightR??0.12)*1000;
+                  const gF=rhF_mm*Math.pow(2*Math.PI*physics.frontHz,2)/9810;
+                  const gR=rhR_mm*Math.pow(2*Math.PI*physics.rearHz,2)/9810;
+                  return <div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:2,
+                                 padding:'6px 10px',marginBottom:6}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                      <span style={{fontSize:10,color:'#94a3b8',letterSpacing:1}}>SOLVED SPLIT</span>
+                      <span style={{fontFamily:'var(--font-mono)',fontSize:13,fontWeight:700,color:physics.rearHzClamped?'#f59e0b':'#e2e8f0'}}>F {physics.frontHz.toFixed(2)}</span>
+                      <span style={{fontSize:10,color:'#94a3b8'}}>Hz</span>
+                      <span style={{fontFamily:'var(--font-mono)',fontSize:13,fontWeight:700,color:physics.rearHzClamped?'#f59e0b':'#e2e8f0'}}>R {physics.rearHz.toFixed(2)}</span>
+                      <span style={{fontSize:10,color:'#94a3b8'}}>Hz</span>
+                      {physics.rearHzClamped&&<span style={{fontSize:10,color:'#f59e0b',letterSpacing:1}}>CLAMPED</span>}
+                    </div>
+                    <div style={{fontSize:10,color:'#94a3b8',lineHeight:1.4}}>
+                      Both springs solved so front ({gF.toFixed(2)} g) and rear ({gR.toFixed(2)} g) bottom
+                      out at the same vertical load factor, from each axle's own ride height.{' '}
+                      Avg Bottom-Out slider above sets that shared target.
+                    </div>
+                  </div>;
+                })()
               : <FeelSlider
                   label={rRef==='rear'?'Front Hz':'Rear Hz'}
                   value={fe.rearHzMan??secHz}
@@ -5441,7 +5500,7 @@ function App(){
                               border:rearHzDraft!==null?'1px solid #334155':'1px solid transparent'}}
                       min={HZ_MIN} max={HZ_MAX} step={0.01}
                       value={rearHzDraft??secHz.toFixed(2)}
-                      onFocus={()=>setRearHzDraft(secHz.toFixed(2))}
+                      onFocus={e=>{setRearHzDraft(secHz.toFixed(2));e.target.select();}}
                       onChange={e=>setRearHzDraft(e.target.value)}
                       onBlur={()=>{
                         const v=parseFloat(rearHzDraft);

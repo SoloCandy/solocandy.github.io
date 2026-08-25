@@ -3,7 +3,7 @@
 The core physics engine: how a ride-stiffness slider position becomes a
 spring rate in lb/in, how a damping ratio becomes a damper click count, and
 how the various rear-Hz modes (FLAT RIDE / MULTIPLIER / MECH / CO-SOLVE /
-INDEPENDENT) derive the secondary axle's frequency. Scope note: this file
+INDEPENDENT / SHARED) derive the secondary axle's frequency. Scope note: this file
 covers the *solve* math (Hz → physical output). For the separate *balance
 direction* math (which axle being stiffer means oversteer vs understeer),
 see [FORMULAS.md](FORMULAS.md). For camber/toe/caster, see
@@ -425,6 +425,27 @@ frequency (dispatch lives in `feelToPhysics`):
   target," solved differently depending on whether the ARB budget is a
   roll-stiffness fraction (WEIGHT/SHARE) or an absolute value (ROLL/MANUAL,
   the latter solved via a quadratic in `mult_man`).
+- **SHARED** — only offered when `rideRef==='shared'` *and* the STIFFNESS
+  toggle is BOTTOM G's (see [BOTTOM G's stiffness mode](#bottom-gs-stiffness-mode)
+  below); selecting it any other way (a hand-edited share code, say) falls
+  through to FLAT RIDE, same as INDEPENDENT does outside `shared` ride-ref.
+  Where MULTIPLIER/MECH/FLAT RIDE all pick a front/rear **Hz ratio**, SHARED
+  instead solves front and rear Hz so both axles bottom out at the
+  **identical g** — the two axles can have very different ride heights, so
+  an equal-Hz or flat-ride ratio does not generally mean an equal bottom-out
+  g. Given `avgHz` (what the Avg Bottom-Out slider represents) and each
+  axle's own ride height:
+
+  ```js
+  frontHz = avgHz * sqrt(rhAvg_mm / rhF_mm)
+  rearHz  = avgHz * sqrt(rhAvg_mm / rhR_mm)
+  ```
+
+  Substituting back into `bottomG = rideHeight_mm·(2π·hz)²/9810` collapses
+  both axles' g to `rhAvg_mm·(2π·avgHz)²/9810` — exactly the value the Avg
+  Bottom-Out slider already shows — so the slider target *is* the shared
+  bottom-out g, not just an average of two different numbers. Clamped to
+  `HZ_MIN`/`HZ_MAX` per axle same as the other modes.
 - **CO-SOLVE** (PRO only — the branch in `feelToPhysics`, plus the main
   solve in `computeTune`) — solves rear Hz *and* ARB split together, with
   `fe.springShare` controlling how much of the balance correction comes
@@ -615,6 +636,11 @@ axle and per chassis. It reads `ch.rideHeightF/R` directly (defaults 130mm
 front / 120mm rear) regardless of whether the RIDE HEIGHT → CG toggle is on
 — it doesn't require the SAG vs LOAD chart to be visible to work, though the
 two are the same underlying model and should always agree.
+
+This mode is also what makes the SHARED **Hz mode** (as opposed to SHARED
+RIDE REF.) meaningful — see [Rear/secondary Hz modes](#rearsecondary-hz-modes)
+above. That Hz mode only surfaces here, since it needs a per-axle bottom-out
+g to equalise rather than a Hz ratio to hold.
 
 Unlike RIDE REF., this is **not** a display-only toggle — `fe.rideStiffMode`
 and the target `fe.rideBottomG` are real persisted fields (codec ids 63/64;
