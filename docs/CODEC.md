@@ -83,16 +83,20 @@ future version might not carry.
 | 62 | fe | dampBalMode | enum (`DAMP_BAL_MODE_ENC/DEC`) |
 | 63 | fe | rideStiffMode | enum (`'hz'`:0, `'bottomG'`:1) |
 | 64 | fe | rideBottomG | raw number |
+| 65 | ch | rideHeightF | raw number |
+| 66 | ch | rideHeightR | raw number |
 
-**Next available id: 65.**
+**Next available id: 67.**
 
 Ids 63/64 are the Ride Stiffness slider's BOTTOM G's mode (a target
 vertical-g bottom-out load factor, alternative to entering Hz directly — see
-[PHYSICS.md](PHYSICS.md#bottom-gs-stiffness-mode)). Unlike `rideHeightF/R`
-(excluded below — a calibration input to a value, `cgHeight`, that already
-has its own id), `rideBottomG` is intentionally a *stored target*: it's
-meant to actively re-solve `rideStiffness` (id 7) against whatever chassis
-it's applied to, not just describe how the sender arrived at their number.
+[PHYSICS.md](PHYSICS.md#bottom-gs-stiffness-mode)). `rideBottomG` is
+intentionally a *stored target*: it's meant to actively re-solve
+`rideStiffness` (id 7) against whatever chassis it's applied to, not just
+describe how the sender arrived at their number.
+
+Ids 65/66 (`rideHeightF`/`rideHeightR`) are `group:'ch'` — see the
+semantic-changes note below for why they moved from excluded to codec fields.
 
 Ids 58/59 are `group:'ch'` because a motion ratio describes the car's suspension
 geometry, so it travels with a chassis entry rather than a tune — same reasoning
@@ -199,27 +203,49 @@ reinterprets old codes under new rules. Two examples so far:
   fed a *delta*-based target, so nothing carried its effect. Old codes
   without ids 60/61 decode `useMeasuredNatBal:false` (the default) exactly as
   before — no behavior change for codes that never had a measured reading.
+- **ids 65/66 (`rideHeightF`/`rideHeightR`) added** — previously excluded (see
+  the removed "Fields deliberately excluded" text below) on the reasoning
+  that they were pure calibration inputs to `cgHeight` (id 4), which already
+  travels as a self-contained absolute value. That reasoning held for the CG
+  consumer, but missed a second one added later: ids 63/64 (BOTTOM G's mode)
+  re-solve `rideStiffness` (id 7) from `rideBottomG` against
+  `ch.rideHeightF/R` *directly* — and that resolve effect runs regardless of
+  whether the RIDE HEIGHT → CG toggle is on (see
+  [PHYSICS.md](PHYSICS.md#bottom-gs-stiffness-mode)). Without these two ids,
+  a BOTTOM G's-mode code decoded on a device with different local ride
+  heights re-solved to a different Hz than the sender tuned, even though the
+  g-target read identically — the exact "output isn't actually
+  self-contained" trap the ids 60/61 note above already flagged. Old codes
+  without ids 65/66 decode to `DEF_CH.rideHeightF/R` (130mm/120mm) exactly as
+  before — no behavior change for codes that predate this fix, since none of
+  them could have carried a different value anyway.
 
 When making a change like this, note it here so future debugging of "why
 did my old share code load weird" has a paper trail.
 
 ## Fields deliberately excluded from the codec
 
-Not every `ch`/`fe`/`dr` field needs an id. `useRideHeightCG`/`rideHeightF`/
-`rideHeightR` are local-only: they're inputs to a computed value that already
-has its own id (they feed `ch.cgHeight`, id 4). A share code carries the
-*resulting* physics value, not the calibration-toggle UI state used to arrive
-at it — `usePersist` still remembers the toggle/inputs locally across reloads
-on the same device, they just don't travel with a shared code.
+Not every `ch`/`fe`/`dr` field needs an id. `useRideHeightCG` is local-only:
+it's a UI mode toggle whose only effect — auto-deriving `ch.cgHeight` (id 4)
+from ride height — already produces a self-contained absolute value that
+travels via that id. A share code carries the *resulting* physics value, not
+the calibration-toggle UI state used to arrive at it — `usePersist` still
+remembers the toggle locally across reloads on the same device, it just
+doesn't travel with a shared code. `rideHeightF`/`rideHeightR` themselves
+used to be excluded on the same reasoning but are now ids 65/66 — see the
+semantic-changes note above for why that turned out to be wrong once a
+second consumer (BOTTOM G's mode) needed the raw inputs, not just their
+`cgHeight` output.
 
-`useMeasuredNatBal`/`measuredNatBal` used to follow this same pattern and were
-excluded here too, on the (incorrect, as it turned out) assumption that they
-were "computed-locally, shared-as-output" like ride-height CG. They're now
-codec ids 60/61 — see the semantic-changes note above for why. If a future
-field looks like it should have an id but doesn't, check here first before
-assuming it's an oversight, but note this list has been wrong once already:
-verify the field's output is genuinely self-contained (an absolute value, not
-a delta feeding into other fields) before excluding it.
+`useMeasuredNatBal`/`measuredNatBal` used to follow the same excluded pattern
+too, on the (incorrect, as it turned out) assumption that they were
+"computed-locally, shared-as-output" like ride-height CG. They're now codec
+ids 60/61 — see the semantic-changes note above for why. If a future field
+looks like it should have an id but doesn't, check here first before
+assuming it's an oversight, but note this list has been wrong twice now:
+verify the field's output is genuinely self-contained — an absolute value
+with exactly one consumer, not a delta or an input feeding some other field
+too — before excluding it.
 
 Garage entries' `notes` and `tags` are excluded for the same reason, one level up:
 they describe *your* relationship to a tune ("needs work", "Nordschleife"), not the

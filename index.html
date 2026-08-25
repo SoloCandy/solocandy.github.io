@@ -2645,12 +2645,20 @@ const CODEC_FIELDS=[
   {id:60,group:'ch',key:'useMeasuredNatBal',bool:true},
   {id:61,group:'ch',key:'measuredNatBal'},
   {id:62,group:'fe',key:'dampBalMode',enc:DAMP_BAL_MODE_ENC,dec:DAMP_BAL_MODE_DEC},
-  // 63/64: BOTTOM G's stiffness-input mode. Unlike rideHeightF/R (excluded — see the
-  // "Fields deliberately excluded" section), rideBottomG is a stored TARGET, not a
+  // 63/64: BOTTOM G's stiffness-input mode. rideBottomG is a stored TARGET, not a
   // calibration input to a value that already travels — it's meant to actively re-solve
   // rideStiffness (id 7) against whatever chassis it's applied to. See docs/CODEC.md.
   {id:63,group:'fe',key:'rideStiffMode',enc:{'hz':0,'bottomG':1},dec:['hz','bottomG']},
   {id:64,group:'fe',key:'rideBottomG'},
+  // 65/66: rideHeightF/R. Previously excluded on the assumption they were pure calibration
+  // inputs to cgHeight (id 4), which already travels — true for that one consumer, but ids
+  // 63/64 (added later) re-solve rideStiffness from rideBottomG against ch.rideHeightF/R
+  // directly, regardless of the CG toggle. Without these two ids that resolve ran against
+  // whichever ride height happened to be local on the receiving device, silently landing a
+  // different Hz than the sender tuned even though the g-target read the same. Same class of
+  // bug as ids 60/61 (measuredNatBal) — see docs/CODEC.md.
+  {id:65,group:'ch',key:'rideHeightF'},
+  {id:66,group:'ch',key:'rideHeightR'},
   // Retired ids — never reuse: none yet (dead fields removed pre-v1 never had an id).
 ];
 const codecFieldDefault=f=>f.tyre?f.def:DEF_GROUPS[f.group][f.key];
@@ -2711,6 +2719,10 @@ const sanitizeTune=({ch,fe,dr})=>{
       cgHeight:     cl(ch?.cgHeight,       0.2,  0.9,  DEF_CH.cgHeight),
       trackF:       cl(ch?.trackF,         1.0,  2.2,  DEF_CH.trackF),
       trackR:       cl(ch?.trackR,         1.0,  2.2,  DEF_CH.trackR),
+      // Bounds mirror the Ride Height F/R Field inputs' min/max (0.5in/24in imperial,
+      // 1.3cm/61cm metric) — see docs/CODEC.md ids 65/66.
+      rideHeightF:  cl(ch?.rideHeightF,    0.0127, 0.61, DEF_CH.rideHeightF),
+      rideHeightR:  cl(ch?.rideHeightR,    0.0127, 0.61, DEF_CH.rideHeightR),
       tyreF: parseTyre(ch?.tyreF)?ch.tyreF:DEF_CH.tyreF,
       tyreR: parseTyre(ch?.tyreR)?ch.tyreR:DEF_CH.tyreR,
       layout:       LAYOUT_DEC.includes(ch?.layout)?ch.layout:DEF_CH.layout,
@@ -6585,7 +6597,7 @@ function App(){
                         try{
                           const{ch:ic,fe:ife,dr:idr}=sanitizeTune(decodeTune(code));
                           // ic (sanitizeTune's ch) always has every codec-covered field filled in,
-                          // but fields the codec doesn't carry (e.g. useRideHeightCG/rideHeightF/R,
+                          // but fields the codec doesn't carry (e.g. useRideHeightCG, still
                           // deliberately local-only per docs/CODEC.md) are absent from it — merge
                           // over the CURRENT chassis, not DEF_CH, so those stay as the user set them.
                           if(importSel.ch) setCh(prev=>({...DEF_CH,...prev,...ic}));

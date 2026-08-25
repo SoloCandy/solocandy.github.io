@@ -5,6 +5,30 @@ of without a written trail. Not a general bug tracker — just things that
 either can't be trivially fixed, or were fixed here and are worth
 remembering *why* they broke in the first place.
 
+## Fixed — BOTTOM G's share codes re-solved against the wrong ride height (resolved)
+
+`rideHeightF`/`rideHeightR` were excluded from the share codec (see
+`docs/CODEC.md`) on the reasoning that they were pure calibration inputs to
+`ch.cgHeight` (codec id 4), which already travels as a self-contained
+absolute value — true for that one consumer. But BOTTOM G's stiffness mode
+(codec ids 63/64, see `docs/PHYSICS.md#bottom-gs-stiffness-mode`) added a
+second consumer: its `useEffect` re-solves `rideStiffness` (id 7) from the
+persisted `rideBottomG` target against `ch.rideHeightF/R` *directly*, and
+does so regardless of whether the RIDE HEIGHT → CG toggle is on. Since ride
+height itself never travelled with the code, decoding a BOTTOM G's-mode tune
+on a device whose local ride height differed from the sender's silently
+re-solved to a different Hz — the g-target read identically, but the actual
+spring frequency the receiver got was never the one the sender tuned.
+
+Fixed by adding `rideHeightF`/`rideHeightR` as codec ids 65/66 (`group:'ch'`)
+and giving them entries in `sanitizeTune`'s chassis object — they previously
+weren't clamped/returned there either, so even if a caller had passed them
+through decode they'd have been silently dropped before reaching `setCh`.
+Same root cause as the earlier `useMeasuredNatBal`/`measuredNatBal` fix (ids
+60/61): a field assumed "computed-locally, shared-as-output" turned out to
+have a second consumer that needed the raw input, not just the one output
+already covered.
+
 ## Fixed — TUNE CHECK import silently froze ARB balance when already on BEG/INT (resolved)
 
 `importDecoded` (TUNE CHECK's DECODE tab) always sets `arbMode:'man'` to hold
