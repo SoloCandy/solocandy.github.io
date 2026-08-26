@@ -5880,7 +5880,7 @@ function App(){
               <div className="collapsible-hdr" onClick={()=>setOpen(p=>({...p,visDynamics:!p.visDynamics}))}
                 style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:3,userSelect:'none',padding:'3px 4px'}}>
                 <span style={{fontSize:9,letterSpacing:2,color:'#334155'}}>DYNAMICS</span>
-                <Hint text="Damped spring step response — shows how fast the car settles, whether it overshoots, and how ride stiffness and damping interact. Dashed lines mark each axle's settle time."/>
+                <Hint text="Damped spring step response — shows how fast the car settles, whether it overshoots, and how ride stiffness and damping interact. Dashed lines mark each axle's settle time. The ring marks the first time the curve crosses neutral (ride height) — a rise-speed indicator, separate from settle time. Both are read out numerically below the chart."/>
                 <span style={{marginLeft:'auto',fontSize:9,color:'#475569'}}>{open.visDynamics?'▲':'▼'}</span>
               </div>
               {open.visDynamics&&(()=>{
@@ -5895,17 +5895,45 @@ function App(){
                 const toPolyPts=pts=>pts.map(p=>`${(p.t*xScale).toFixed(1)},${(midY-p.x*yScale).toFixed(1)}`).join(' ');
                 const fSetX=Math.min(W-1,(tune.settleF??2)*xScale);
                 const rSetX=Math.min(W-1,(tune.settleR??2)*xScale);
+                // First neutral (ride-height) crossing: linearly interpolate the sample pair
+                // that straddles x=0. One ring per axle — a rise-speed indicator, distinct from
+                // the settle-time dashed line — same "mark the meaningful point" pattern as the
+                // SAG vs LOAD chart's operating-point/bottom-out rings.
+                const firstCrossing=pts=>{
+                  for(let i=1;i<pts.length;i++){
+                    const a=pts[i-1],b=pts[i];
+                    if((a.x<0)!==(b.x<0))return a.t+(b.t-a.t)*(a.x/(a.x-b.x));
+                  }
+                  return null;
+                };
+                const fCross=firstCrossing(frontPts),rCross=firstCrossing(rearPts);
+                const crossMarker=(t,color)=>t==null?null:(
+                  <circle cx={t*xScale} cy={midY} r={2.2} fill="#020617" stroke={color} strokeWidth={1.4}/>
+                );
                 return(
-                  <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}
-                       style={{display:'block',background:'#020617',borderRadius:3,marginBottom:6,border:'1px solid #1e293b'}}>
-                    <line x1={0} y1={midY} x2={W} y2={midY} stroke="#1e293b" strokeWidth={1}/>
-                    <line x1={fSetX} y1={0} x2={fSetX} y2={H} stroke="#38bdf855" strokeWidth={1} strokeDasharray="3 3"/>
-                    <line x1={rSetX} y1={0} x2={rSetX} y2={H} stroke="#fb923c55" strokeWidth={1} strokeDasharray="3 3"/>
-                    <polyline points={toPolyPts(rearPts)}  fill="none" stroke="#fb923c" strokeWidth={1.5} strokeLinejoin="round"/>
-                    <polyline points={toPolyPts(frontPts)} fill="none" stroke="#38bdf8" strokeWidth={1.5} strokeLinejoin="round"/>
-                    <text x={W-6} y={13} textAnchor="end" fontSize={9} fill="#38bdf8" fontFamily="JetBrains Mono, monospace">F</text>
-                    <text x={W-6} y={25} textAnchor="end" fontSize={9} fill="#fb923c" fontFamily="JetBrains Mono, monospace">R</text>
-                  </svg>
+                  <div style={{background:'#0a0f1a',border:'1px solid #1e293b',borderRadius:3,padding:'6px 8px',marginBottom:6,display:'flex',flexDirection:'column',gap:4}}>
+                    <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:'auto',display:'block'}}>
+                      <line x1={0} y1={midY} x2={W} y2={midY} stroke="#1e293b" strokeWidth={1}/>
+                      <line x1={fSetX} y1={0} x2={fSetX} y2={H} stroke="#38bdf855" strokeWidth={1} strokeDasharray="3 3"/>
+                      <line x1={rSetX} y1={0} x2={rSetX} y2={H} stroke="#fb923c55" strokeWidth={1} strokeDasharray="3 3"/>
+                      <polyline points={toPolyPts(rearPts)}  fill="none" stroke="#fb923c" strokeWidth={1.5} strokeLinejoin="round"/>
+                      <polyline points={toPolyPts(frontPts)} fill="none" stroke="#38bdf8" strokeWidth={1.5} strokeLinejoin="round"/>
+                      {crossMarker(rCross,'#fb923c')}
+                      {crossMarker(fCross,'#38bdf8')}
+                      <text x={W-6} y={13} textAnchor="end" fontSize={9} fill="#38bdf8" fontFamily="JetBrains Mono, monospace">F</text>
+                      <text x={W-6} y={25} textAnchor="end" fontSize={9} fill="#fb923c" fontFamily="JetBrains Mono, monospace">R</text>
+                    </svg>
+                    <div style={{display:'flex',flexDirection:'column',gap:2,fontFamily:'var(--font-mono)'}}>
+                      <div style={{display:'flex',gap:12}}>
+                        <span style={{fontSize:9,color:'#38bdf8'}}>settle {(tune.settleF??2).toFixed(2)}s</span>
+                        <span style={{fontSize:9,color:'#fb923c'}}>settle {(tune.settleR??2).toFixed(2)}s</span>
+                      </div>
+                      <div style={{display:'flex',gap:12}}>
+                        <span style={{fontSize:9,color:'#38bdf8',opacity:0.75}}>{fCross!=null?`neutral ≈${fCross.toFixed(2)}s`:'no neutral cross'}</span>
+                        <span style={{fontSize:9,color:'#fb923c',opacity:0.75}}>{rCross!=null?`neutral ≈${rCross.toFixed(2)}s`:'no neutral cross'}</span>
+                      </div>
+                    </div>
+                  </div>
                 );
               })()}
 
