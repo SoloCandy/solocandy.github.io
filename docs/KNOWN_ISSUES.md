@@ -5,6 +5,54 @@ of without a written trail. Not a general bug tracker — just things that
 either can't be trivially fixed, or were fixed here and are worth
 remembering *why* they broke in the first place.
 
+## Changed — default Mech Balance Target moved 0.65 → 0.60, and the NAT hint described the wrong baseline
+
+Two independent findings from checking the mech-balance model against
+published community and vehicle-dynamics sources.
+
+**1. The default target sat at the edge of the usable window.** The Forza
+tuning community's documented range for road/circuit work is 0.55–0.65 with
+**~0.60 as the neutral baseline**; 0.62–0.65 is specifically categorised as a
+rotation-biased (touge) setting, and above 0.65 reads as instability.
+`MECH_BALANCE_TARGET` shipped at **0.65** from the commit that introduced BAL
+mode (`a8c94e1`) and was never revisited — so every fresh build defaulted to
+the rotation-biased extreme while presenting itself as the neutral default.
+Now `0.60`. This moves the default *target*, not any formula; `tests.js`'s
+MATCH CHASSIS block still sees a positive gap on its 50/50 fixture (NAT ≈0.49
+vs target 0.60, previously 0.65) so its polarity assertions are unaffected.
+The mirrored copy of the constant in `tests.js` was updated in step — it is
+duplicated there because `index.html` has no build step.
+
+**2. The BALANCE GUIDE's NAT hint described a baseline the code doesn't
+compute.** The hint read *"NAT is the car's natural balance with equal spring
+rates and no ARBs."* But `naturalMechBalanceOf` is
+`m_r·t_r² / (m_f·t_f² + m_r·t_r²)` — mass- and track-weighted, i.e. spring
+rate scaled to corner mass (**equal ride frequency**), not equal spring rates.
+With genuinely equal spring rates and equal track widths the answer would be
+0.50 for every car, which is not what the strip shows. Hint text corrected.
+This is exactly the hint-vs-formula drift [FORMULAS.md](FORMULAS.md) opens by
+warning about, and the same class of bug as the Damping Bias incident recorded
+there.
+
+Also corrected in passing: the GRIP-mode entry below cited
+`MECH_BALANCE_TARGET` as 0.55. It was 0.65 at the time of that fix and has
+never been 0.55.
+
+**Not changed — the displayed number is still an unverified match to Forza's.**
+`computeTune`'s comment claims `mechBalance` "matches what Forza displays as
+Mech Balance." Forza does not publish the formula, and the community reference
+documenting the stat explicitly describes its internal definition as opaque.
+Two facts sit in tension and can't both be right: the app's quantity is
+definitionally *roll stiffness distribution*, which the racing literature
+targets at **front weight bias + ~5% front** (a **rear** fraction near 0.43 for
+a 52/48 car), yet the in-game window everyone tunes to is 0.55–0.65 rear.
+Either the app's number equals Forza's and real-world LLTD is a different
+quantity, or vice versa. Resolving it needs telemetry, not a code change, so
+the claim is left standing but flagged here. Note the app *does* compute
+textbook LLTD separately — `mechBalanceLLT`/`gripBalance`, surfaced as **GRIP
+BIAS** — and that path was verified term-by-term against the standard
+elastic + geometric load-transfer decomposition and found correct.
+
 ## Fixed — BOTTOM G's share codes re-solved against the wrong ride height (resolved)
 
 `rideHeightF`/`rideHeightR` were excluded from the share codec (see
@@ -190,7 +238,7 @@ both TARGET and GRIP modes to an absolute value ... for every downstream
 display," but six call sites bypassed it and called `resolveArbBalTarget(ch,fe)`
 directly instead — a function that only understands TARGET-mode deltas and has
 no concept of GRIP mode. Whenever `arbBalTargetMode==='grip'`, all six instead
-showed/used a stale or default (`MECH_BALANCE_TARGET`, 0.55) value rather than
+showed/used a stale or default (`MECH_BALANCE_TARGET`, 0.65 at the time) value rather than
 the live grip-derived target the physics engine was actually solving toward:
 `computeDiff`'s MATCH CHASSIS correction, the alignment MECH-mode gap, the RIDE
 section's Hz-readout text, both SpringDial/ArbDial ghost rings, and the

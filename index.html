@@ -179,7 +179,12 @@ const TIRE_LOAD_SENS=0.15;   // grip falloff per unit Fz/Fz_ref (tyre load sensi
 const MECH_BAL_GAIN=1.8;     // axle capacity delta → balance offset (calibrated to legacy 0.5-neutral scale)
 const WIDTH_GRIP_EXP=0.4;    // tyre width → grip capacity, sub-linear
 const TIRE_MECH_SCALE=0.08;  // tyre width rear/front log-ratio → mech balance correction (calibrated from Forza telemetry)
-const MECH_BALANCE_TARGET=0.65;
+// Default absolute Mech Balance Target. The Forza tuning community's published window for
+// road/circuit work is 0.55–0.65, with ~0.60 the neutral baseline; 0.62–0.65 is specifically
+// a rotation-biased (touge) setting and >0.65 reads as instability. This shipped at 0.65 from
+// its introducing commit (a8c94e1) and was never revisited, so a fresh build defaulted to the
+// rotation-biased edge of that window while presenting itself as neutral. Now 0.60.
+const MECH_BALANCE_TARGET=0.60;
 // Forza hides its real internal units, so both Forza modes express springs/dampers/ARBs
 // as abstract "clicks" on a fixed 1–N scale (DAMPING_CALIBRATION and ARB_RS_SCALE were
 // reverse-engineered to map real physics onto those ranges — see docs/PHYSICS.md).
@@ -6948,7 +6953,7 @@ function App(){
                     {/* label row: section header + inline NAT/CUR/TGT values */}
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
                       <span style={{fontSize:10,color:'#475569',letterSpacing:2}}>MECH BALANCE</span>
-                      <Hint text="Roll stiffness rear fraction on the 0–1 scale. NAT is the car's natural balance with equal spring rates and no ARBs. CUR is where your current setup lands. TGT (shown in MECH/CO-SOLVE modes) is the balance you are targeting. The band between NAT and CUR shows how much correction your setup applies."/>
+                      <Hint text="Roll stiffness rear fraction on the 0–1 scale. NAT is the car's natural balance with no ARBs and spring rates scaled to corner mass (equal ride frequency front/rear), weighted by track width. CUR is where your current setup lands. TGT (shown in MECH/CO-SOLVE modes) is the balance you are targeting. The band between NAT and CUR shows how much correction your setup applies."/>
                       <span style={{fontSize:10,color:'#475569',letterSpacing:1}}>·</span>
                       <span style={{fontSize:10,color:'#475569',fontFamily:'var(--font-mono)'}}>
                         NAT <span style={{color:'#94a3b8'}}>{nat.toFixed(2)}</span>

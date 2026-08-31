@@ -52,7 +52,7 @@ const cornerMasses = ch => {
 };
 
 // ── computeDiff model (must mirror app: naturalMechBalanceOf / resolveArbBalTarget / computeDiff) ──
-const MECH_BALANCE_TARGET = 0.65;
+const MECH_BALANCE_TARGET = 0.60;
 const DIFF_BIAS_SCALE = 0.14;
 const DIFF_TYPE_SCALE = { race: 1.00, sport: 0.88, rally: 0.76, offroad: 0.52, drift: 1.10 };
 
@@ -807,7 +807,7 @@ console.log('\ncomputeDiff — diff type scaling');
 
 console.log('\ncomputeDiff — MATCH CHASSIS correction');
 {
-  // Chassis whose natural balance sits below the (default) 0.65 target, so MATCH CHASSIS
+  // Chassis whose natural balance (≈0.49 here) sits below the default target, so MATCH CHASSIS
   // sees gap>0 ("wants more oversteer") and pushes a nonzero correction on every layout.
   const chRWD = { weight: 3200, frontBias: 50, trackF: 1.55, trackR: 1.52, layout: 'RWD' };
   const chFWD = { ...chRWD, layout: 'FWD' };

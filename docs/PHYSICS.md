@@ -23,6 +23,7 @@ Key empirical constants calibrated from real Forza data:
 | `TIRE_MECH_SCALE` | 0.08 | Tyre width rear/front ratio → mech balance offset via `0.08 × ln(twR/twF)`. Forza's displayed mech balance incorporates tyre width asymmetry; this correction ensures the calculator's output matches Forza's reading. Calibrated from Stage 2 testing (same suspension, tyre widths swapped) across MX-5, Ultima, and Scirocco |
 | `MECH_BAL_GAIN` | 1.8 | Axle grip-capacity delta → balance offset (calibrated to the 0.5-neutral scale) |
 | `WIDTH_GRIP_EXP` | 0.4 | Tyre width → grip capacity, sub-linear exponent |
+| `MECH_BALANCE_TARGET` | 0.60 | Default absolute Mech Balance Target when the user hasn't set one. Not a physics constant — a default *goal*. Set from the Forza community's published road/circuit window of 0.55–0.65, whose neutral baseline is ~0.60 (0.62–0.65 is a rotation-biased touge setting). Was 0.65 until it was checked against that window — see [KNOWN_ISSUES.md](KNOWN_ISSUES.md) |
 | `DIFF_BIAS_SCALE` | 0.14 | Diff lock % → handling bias contribution |
 | `DIFF_TYPE_SCALE` | race 1.00 / sport 0.88 / rally 0.76 / offroad 0.52 / drift 1.10 | AUTO solver multipliers per diff type. Community-estimated: same slider % produces less effective lock on Rally/Offroad than Race, more on Drift. Sport is accel-only (no decel slider in-game) |
 | `BRAKE_BIAS_SCALE` | 0.20 | Brake balance deviation → handling bias contribution |
