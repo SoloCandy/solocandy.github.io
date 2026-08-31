@@ -75,7 +75,10 @@ every balance-relevant slider.
 ## Auto-computed by default, or PRO's Alignment Mode
 
 BRAKES (balance % — pressure was removed as dead output) is always fully computed from build type/
-layout/weight bias/chassis geometry, with no manual override. ALIGNMENT
+layout/weight bias/chassis geometry, with no manual override, and clamped to
+**45–68% front**. Values below 50 (a rear bias, valid for trail-braking and
+drift) are reachable only for rear-weighted cars on DRIFT/DRAG builds — the
+CG/wheelbase weight-transfer term front-biases everything else. ALIGNMENT
 (camber, toe, caster) is computed the same way by default (BUILD mode), but
 PRO mode adds an Alignment Mode toggle (BUILD/MECH/GRIP/MANUAL) — see the
 Nudge Strength/Camber/Toe/Caster rows above and

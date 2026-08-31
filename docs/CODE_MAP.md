@@ -270,6 +270,26 @@ assumed. The fallback stays as a cheap defensive branch.
 
 ---
 
+## Intentionally absent — do not add back
+
+The mirror of the section above: things whose *absence* is a decision, where
+the git history makes the removal look accidental.
+
+**Manual brake bias / brake pressure.** `brakeBias` is computed only
+(`const brakeBias=recBrakeBias`), with no AUTO/MANUAL toggle. There used to be
+one — `7932982` added it, `1c66ba2` removed the UI, and `082d51e` pruned the
+now-dead `brakeManual`/`brakeBias`/`brakePressure` state and their codec ids.
+`1c66ba2`'s commit message is about tutorial card positioning and never
+mentions brakes, so this reads like collateral damage in the log. **It was
+deliberate.** SUSP.OS produces a starting point to enter into the game; users
+finalise by feel in-game, like other tuning calculators. A manual brake field
+is only reachable after the user has finished with the calculator, so it earns
+nothing. Same reasoning covers alignment being auto-only outside PRO's
+Alignment Mode. Retired codec ids are never reused — see
+[CODEC.md](CODEC.md).
+
+---
+
 ## Testing reality
 
 There is **no CI, no linter, no type checker, no build step, and no git

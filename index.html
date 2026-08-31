@@ -3859,7 +3859,18 @@ function App(){
   const _brakeWtMod=ch.wheelbase>0?Math.round((ch.cgHeight/ch.wheelbase)*50):8;
   const _brakeBuildMod={street:0,track:3,drift:-5,rally:0,offroad:-3,drag:-8}[dr.buildType??'track']??3;
   const _brakeGripAdj=uiMode==='pro'?Math.round((natGripBalance-0.5)*15):0;
-  const recBrakeBias=Math.round(Math.max(50,Math.min(68,ch.frontBias+_brakeWtMod+_brakeBuildMod+_brakeGripAdj)));
+  // Floor is 45, not 50. The weight-transfer term above is what makes the typical recommendation
+  // front-biased, and it does that on its own — the floor exists only to stop absurd outputs. At 50
+  // it was doing far more than that: it silently truncated every rear-biased result the formula
+  // produced (a 39%-front rear-engine car on a DRIFT build solves to 43, on DRAG to 40), which is
+  // exactly the trail-braking/drift case the community does recommend rear bias for (~46-47% front
+  // for front-engine, ~46% mid/rear-engine). It also made three downstream things unreachable: the
+  // `brakeBias<50 → REAR` indicator in both BRAKES cards, the "Reduce front brake bias to add entry
+  // rotation" tip in HandlingVerdict, and any positive (oversteer) value of `bBrakeEntry` at all.
+  // 45 keeps the guard against nonsense while letting those express. Build-type mods deliberately
+  // left as-is — they were set with the floor masking them, but re-tuning them is a calibration
+  // question with no telemetry behind it (same trap as DIFF_BIAS_SCALE, see KNOWN_ISSUES.md).
+  const recBrakeBias=Math.round(Math.max(45,Math.min(68,ch.frontBias+_brakeWtMod+_brakeBuildMod+_brakeGripAdj)));
   const brakeBias=recBrakeBias;
   // positive = oversteer, negative = understeer
   const bBrakeEntry=-(brakeBias-50)*BRAKE_BIAS_SCALE; // high front bias → understeer (−)
@@ -6234,7 +6245,7 @@ function App(){
 
           {/* 5 — BRAKES */}
           <Card title="BRAKES"
-            hint="Brake balance starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. The recommendation accounts for forward weight transfer under braking (CG height and wheelbase) and is always front-biased relative to your weight distribution. Fine-tune in 1% steps by feel.">
+            hint="Brake balance starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. The recommendation accounts for forward weight transfer under braking (CG height and wheelbase), which front-biases it for most builds. DRIFT and DRAG on a rear-weighted car can land below 50% — a rear bias is a real trail-braking and drift technique, not an error. Fine-tune in 1% steps by feel.">
 
             {(()=>{
               const c=brakeBias>55?['FRONT','#3b82f6']:brakeBias<50?['REAR','#ef4444']:['NEUTRAL','#cbd5e1'];
@@ -6522,7 +6533,7 @@ function App(){
             const brakesCard=(()=>{
               const c=brakeBias>55?['FRONT','#3b82f6']:brakeBias<50?['REAR','#ef4444']:['NEUTRAL','#cbd5e1'];
               return (
-                <Card title="BRAKES" hint="Brake balance starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. The recommendation accounts for forward weight transfer under braking (CG height and wheelbase) and is always front-biased relative to your weight distribution. Fine-tune in 1% steps by feel.">
+                <Card title="BRAKES" hint="Brake balance starting point. Balance affects corner entry — higher front bias increases understeer tendency, lower increases rotation. The recommendation accounts for forward weight transfer under braking (CG height and wheelbase), which front-biases it for most builds. DRIFT and DRAG on a rear-weighted car can land below 50% — a rear bias is a real trail-braking and drift technique, not an error. Fine-tune in 1% steps by feel.">
                   <RowGroup style={{marginBottom:0}}>
                     <OutRow label="Balance" value={brakeBias} unit="% F" note={c[0]} noteColor={c[1]}/>
                   </RowGroup>

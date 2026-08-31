@@ -5,6 +5,65 @@ of without a written trail. Not a general bug tracker — just things that
 either can't be trivially fixed, or were fixed here and are worth
 remembering *why* they broke in the first place.
 
+## Fixed — brake bias floor of 50% made rear bias unreachable
+
+**The floor.** `recBrakeBias` was clamped to `[50, 68]`. `cade75d` raised the
+floor from 45 to 50 as part of a genuinely correct fix — the previous formula
+subtracted from static weight distribution and ignored that braking transfers
+load forward, so it produced over-aggressive rear bias (its example: 45% front
+for a 44%-front Porsche). Adding the CG/wheelbase weight-transfer term was
+right. Raising the floor on top of it was an overcorrection: the weight-transfer
+term already front-biases the typical recommendation on its own, so the floor
+stopped being a nonsense-guard and became a silent truncator.
+
+It bound hardest exactly where the community *does* recommend rear bias —
+trail-braking and drift (~46–47% front for front-engine, ~46% for mid/rear-
+engine). A 39%-front rear-engine car (`wtMod` ≈ +9) solves to 43 on DRIFT and
+40 on DRAG; both were silently reported as 50.
+
+Three downstream things were unreachable as a direct result, and all three
+had been written as if they weren't:
+
+- the `brakeBias<50 → ['REAR','#ef4444']` indicator in **both** BRAKES cards —
+  a dead branch, since the clamp floor *was* 50
+- `HandlingVerdict`'s tip *"Reduce front brake bias to add entry rotation"* —
+  advice the recommendation engine would not itself follow
+- `bBrakeEntry = -(brakeBias-50)*BRAKE_BIAS_SCALE` could only ever be
+  **negative or zero**, so the brakes contributor could never push oversteer —
+  contradicting its own hint text, which describes the positive case
+
+Floor lowered to **45**. Build-type mods deliberately left alone: they were
+set while the floor masked them, but re-tuning them is a calibration question
+with no telemetry behind it — the same trap as `DIFF_BIAS_SCALE`/
+`BRAKE_BIAS_SCALE` in the open bar-scale entry below.
+
+**Why there is no manual override to fall back on — by design.** Brake bias
+once had one: `7932982` added a BRAKES section with an AUTO/MANUAL toggle,
+manual bias, and brake pressure, and at `cade75d` the resolver still read
+`br.brakeManual ? br.brakeBias : recBrakeBias`. `1c66ba2` removed the UI and
+`082d51e` (codec rewrite) then pruned `brakeManual`/`brakeBias`/`brakePressure`
+as dead state. **This was intentional, not a regression** — worth stating
+plainly because `1c66ba2`'s message ("Fix tutorial card positioning under CSS
+zoom") does not mention brakes, so the git history reads like an accident and
+an audit could easily "restore" it.
+
+The rationale is the app's general contract: SUSP.OS produces a *starting
+point* to enter into the game, and users finalise by feel in-game — the same
+way other tuning calculators work. A manual brake field would only be used
+after the point where the user has left the calculator, so it earns nothing.
+That is why brakes and alignment are auto-only and why the BRAKES card says
+"Fine-tune in 1% steps by feel." See
+[CODE_MAP.md](CODE_MAP.md)'s intentionally-absent note.
+
+This is also why the floor mattered independently of the missing override: with
+no manual escape hatch, the clamped AUTO value *is* the number the user takes
+into the game, so a floor of 50 sent trail-braking and drift builds to a
+starting point the formula never asked for.
+
+Related tier quirk, not fixed: `_brakeGripAdj` is gated on `uiMode==='pro'`,
+so BEG/INT and PRO produce brake recommendations differing by up to ±3% for
+the same car.
+
 ## Changed — default Mech Balance Target moved 0.65 → 0.60, and the NAT hint described the wrong baseline
 
 Two independent findings from checking the mech-balance model against
