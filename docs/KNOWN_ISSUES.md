@@ -5,55 +5,83 @@ of without a written trail. Not a general bug tracker — just things that
 either can't be trivially fixed, or were fixed here and are worth
 remembering *why* they broke in the first place.
 
-## Open — `tests-beamng.js` has 6 failures: it asserts unrounded physical-unit output
+## Fixed — physical-unit output was snapped for display but the reported physics was not
 
-Found during a documentation review, not by a test run in CI — there is no CI,
-and `node tests.js` (119/119) is the suite that usually gets run, so this went
-unnoticed for a while.
+Found during a documentation review rather than by a test run — there is no CI,
+and `node tests.js` is the suite that usually gets run, so `tests-beamng.js` sat
+at 35/41 from 2026-08-15 until this was picked up.
 
-`2f640b3` (2026-08-15, *"Revamp BeamNG output panel into two-column per-axle
-layout"*) introduced output rounding for the physical-unit mode:
+`2f640b3` (*"Revamp BeamNG output panel into two-column per-axle layout"*) added
+rounding to BeamNG's real slider increments — 500 N/m spring, 1000 N/m anti-roll,
+100 N/m/s damper — and applied it inside `springOut`/`dampOut`/`arbOut` only,
+explicitly as a display concern. The comment on `roundTo` said so: *"every solver
+calculation keep[s] consuming the raw unrounded v … so this cannot affect
+thresholds or math."*
 
-```js
-const roundTo=(v,step)=>Math.round(v/step)*step;
-springs → roundTo(lbIn*LB_IN_TO_NM/mrDiv(mr), 500)   // N/m,     500 grid
-dampers → roundTo(v/mrDiv(mr), 100)                  // N/m/s,   100 grid
-ARB     → roundTo(2*v/(track*track), 1000)           // N/m,    1000 grid
-```
+That was the bug. The rounding was correct; treating it as cosmetic was not.
+The output panel printed a snapped value next to physics derived from the
+**pre-snap** target, so the two did not describe the same tune:
 
-`tests-beamng.js` was last touched on 2026-08-05 and still asserts the exact
-pre-rounding values, so every assertion that pins an absolute N/m figure now
-fails by less than one grid step:
+> Front spring printed as **45500 N/m** beside **1.75 Hz**. On the default
+> chassis 45500 N/m gives **1.7476 Hz**; 1.75 Hz needs **45627 N/m**, which the
+> slider cannot hold. Same for ζ and for every balance figure fed by `rsAb`.
 
-| Assertion | Got | Expected |
-|---|---|---|
-| springs come out in N/m, not N/mm | 70000 | 70050.72 |
-| ARB is a LINEAR N/m rate | 10000 | 9989.59 |
-| motion ratio below 1 stiffens the rate | 143000 | 142857.14 |
-| default: N/m equals wheel rate | 45500 | 45627.31 |
-| light RWD: N/m equals wheel rate | 29500 | 29613.88 |
-| heavy FWD: N/m equals wheel rate | 69000 | 69099.06 |
+This is the identical mistake, in a different mode, to the one already recorded
+below under *"damping ζ% output showed the pre-clamp target, not what the click
+value actually does"* — and the fix is the same shape. Forza quantises to its
+click grid and then back-calculates (`impliedZeta` from the clamped clicks, and
+`rsAbF`/`rsAbR` from the rounded ARB clicks) *"so the balance bar shows what the
+game will really do"*. Physical modes now do that against BeamNG's grid:
+`computeTune` snaps, then derives Hz, ζ, settle times, roll stiffness and the
+balance bar from the snapped values. The grid moved to `PHYS_SNAP` beside the
+calibration constants so the solver can reach it. See
+[PHYSICS.md](PHYSICS.md#physical-unit-output-beamng-game-mode).
 
-Every gap is within its own rounding step, so this looks like **stale test
-expectations rather than a physics regression** — the remaining 35 assertions,
-including *"every Forza mode/ARB-mode combination still solves identically to
-its own math"*, pass.
+Springs are snapped **before** the damper solve and before `rsSpF`/`rsSpR`, so one
+forward pass leaves everything downstream consistent with no second solve. Forza
+does not snap springs — its spring input is fine-grained enough that the pre-snap
+Hz is the Hz you get.
 
-Deliberately **not** fixed here, because which side is wrong is a real
-decision and not a documentation one:
+Two things deliberately kept out of it:
 
-- If the grid is intended (typing 45500 into BeamNG is friendlier than
-  45627.31, and BeamNG's own sliders are coarse), the tests should assert
-  against the rounded value, or compare with a tolerance of half a step.
-- If exactness matters more than tidy numbers, the rounding belongs at the
-  *display* layer only, leaving the tested value unrounded — the same
-  separation `motionRatioF/R` already has, where the ratio divides the
-  displayed rate but no physics reads it.
+- **ARB `MAN`** is a typed value, not a solved one, and Forza's `MAN` likewise
+  bypasses `clk()`'s 0.1-click rounding. Snapping it would have overwritten a
+  number the user entered; `tests-beamng.js` guards this.
+- **Motion ratio** still never reaches the physics. See the caveat below.
 
-Whichever way it goes, the grid steps themselves (500 / 100 / 1000) have no
-recorded derivation — they arrived inside a layout commit, like the STREET
-preset's `diffType` change in [PRESETS.md](PRESETS.md), and are worth an
-explicit note when someone settles this.
+### The `mr ≠ 1` corner this leaves behind
+
+The grid physically belongs to the number on the slider, which is the wheel rate
+*after* the `/mr²` division. Snapping there would have made Hz and the balance bar
+move whenever a motion ratio was entered — precisely what the display-only motion
+ratio invariant forbids, and what `tests-beamng.js`'s *"motion ratio never reaches
+the physics"* case asserts.
+
+So `snapPhys` snaps in **wheel-rate space, with no `mr` term**. The consequence:
+at `mr ≠ 1` the printed number is snapped a second time by the output helper after
+the division, and can land up to half a step from the rate the reported physics
+describes. At the default `mr` of 1.0 the two coincide exactly, so only tunes that
+opt into the advanced field are affected, and the residual is bounded by half a
+grid step either way.
+
+Resolving it properly means deciding whether the motion-ratio invariant should
+survive at all, which is a larger question than this fix — the same field is
+already implicated in the deferred ARB lever-arm work in
+[PHYSICS.md](PHYSICS.md#physical-unit-output-beamng-game-mode).
+
+### On the grid values themselves
+
+`PHYS_SNAP`'s 500 / 1000 / 100 arrived inside a layout commit with no recorded
+derivation beyond *"confirmed in-game"*. They are now load-bearing for the
+reported physics rather than for display alone, so they deserve the same scrutiny
+as a calibration constant if anyone re-checks them against the game.
+
+`tests-beamng.js` is back to 41/41, with the assertions that pinned the old
+behaviour rewritten rather than deleted: *"spring rate is mode-invariant"* became
+*"mode-invariant up to BeamNG's slider grid"*, the cross-mode ARB identity now
+allows for both games' quantisation, and *"physical damping keeps full precision"*
+became *"snaps to BeamNG's grid, not to Forza's 0.1 clicks"* — the claim that
+actually mattered. `tests.js` unchanged at 119/119.
 
 ## Fixed — brake bias floor of 50% made rear bias unreachable
 

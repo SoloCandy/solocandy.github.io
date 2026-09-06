@@ -52,7 +52,10 @@ The source runs top to bottom in this order:
 1. **Calibration constants and limits** — `DAMPING_CALIBRATION`,
    `TIRE_LOAD_SENS`, `MECH_BAL_GAIN`, `WIDTH_GRIP_EXP`, `TIRE_MECH_SCALE`,
    `MECH_BALANCE_TARGET`, `ARB_RS_SCALE`, `HZ_MIN`/`HZ_MAX`, `GAME_LIMITS`,
-   `BRAKE_BIAS_SCALE`, `DIFF_BIAS_SCALE`. Changing any of these retunes the
+   `BRAKE_BIAS_SCALE`, `DIFF_BIAS_SCALE`, plus `PHYS_SNAP` and its helpers
+   (`roundTo`, `mrDiv`, `snapPhys`) — the physical-unit slider grid, which lives
+   up here rather than beside the output helpers because `computeTune` snaps to
+   it before deriving the physics it reports. Changing any of these retunes the
    whole app; [PHYSICS.md](PHYSICS.md) carries the calibration table.
 2. **Pure physics** — no React, no state, safe to lift out (see below).
 3. **Defaults and presets** — `DEF_CH`, `DEF_FE`, `DEF_DR`, `DEF_AL`,

@@ -199,17 +199,47 @@ unknown and are not guessed at: the exact coefficient (`k·arm²` vs `2·k·arm�
 any given vehicle's arm length. See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for the full
 derivation, the eliminated hypotheses, and the deferred fix.
 
-**Display-only rounding to BeamNG's actual slider snap increments.** Confirmed
-in-game (not guessed): Spring Rate snaps to the nearest 500, Anti-Roll Spring
-Rate to the nearest 1000, Bump/Rebound Damping to the nearest 100. `roundTo(v,
-step)` applies this inside `springOut`/`dampOut`/`arbOut`'s `isPhysical`
-branch only — the Forza branch of each function is untouched. It rounds the
-`.value` field these functions return for display, nothing upstream:
-`warnOver`/`arbCtx` are called with the raw pre-conversion `v` at every call
-site, not `o.value`, so ceiling warnings and `arbCtx`'s LOW/MED/HIGH/MAX badge
-still key off the unrounded number. At spring/ARB/damper magnitudes in this
-app's range, the rounding error is well under 0.2% — inside the noise of the
-ARB lever-arm approximation above.
+**Snapping to BeamNG's slider increments.** Confirmed in-game (not guessed):
+Spring Rate snaps to the nearest 500 N/m, Anti-Roll Spring Rate to the nearest
+1000 N/m, Bump/Rebound Damping to the nearest 100 N/m/s. These live in
+`PHYS_SNAP` beside the calibration constants.
+
+This is BeamNG's counterpart to Forza's click grid, and `computeTune` treats it
+the same way. **The snap happens at the output boundary, and the physics the app
+reports is then derived from the snapped value** — not from the pre-snap target:
+
+| Snapped | Re-derived from it |
+|---|---|
+| spring rate (500 N/m) | `fHz`/`rHz`, and through them `rsSpF`/`rsSpR`, the ARB budget, `rollDeg`, settle times |
+| rebound/bump (100 N/m/s) | `zetaF`/`zetaR`/`bumpZetaF`/`bumpZetaR` via `impliedZeta`, and `settleF`/`settleR` |
+| anti-roll rate (1000 N/m) | `rsAbF`/`rsAbR`, and through them `mechBalance`, `bAb`, `bTot`, `arbShare` |
+
+The reason is the same one that made Forza back-calculate ζ from its clamped
+click values: this app is a starting-point calculator whose numbers get typed
+into a tuning menu, so the figure printed next to an output row has to describe
+the tune the user can actually dial in. A front spring printed as `45500 N/m`
+beside `1.75 Hz` was previously a small lie — 45500 N/m gives 1.7476 Hz on the
+default chassis, and 1.75 Hz needs 45627 N/m, a rate the slider cannot hold.
+
+Springs are the one place BeamNG snaps where Forza does not: Forza's spring
+input is fine-grained enough that the pre-snap Hz *is* the Hz you get, so
+`solveSpring`'s result flows through untouched there. Ordering matters — the
+spring snap runs before the damper solve and before `rsSpF`/`rsSpR`, so a single
+forward pass leaves everything downstream consistent with no second solve.
+
+Two things deliberately do **not** snap:
+
+- **ARB `MAN`.** It is a value the user typed rather than one the solver chose,
+  and Forza's `MAN` likewise bypasses `clk()`'s own 0.1-click rounding.
+- **`warnOver`/`arbCtx`.** Both are still called with the raw pre-conversion `v`
+  at every call site, not `o.value`, so ceiling warnings and the
+  LOW/MED/HIGH/MAX badge key off the unrounded number.
+
+The rounding in `springOut`/`dampOut`/`arbOut` remains in place and is now
+normally a no-op re-application of a snap already performed upstream. It is kept
+because it is the last thing between a raw coefficient and the UI, and the paths
+that do not run through `computeTune` — TUNE CHECK, the ARB `MAN` field's own
+round-trip — still land there.
 
 ### Motion ratio
 
@@ -224,14 +254,26 @@ roll stiffness, mech balance and every handling-balance figure are wheel-rate
 quantities and must not move when a motion ratio is entered — only the number you
 type into the game changes. `tests-beamng.js` asserts that invariant directly.
 
+That invariant is why `snapPhys` snaps in **wheel-rate space, with no motion-ratio
+term**, even though the grid physically belongs to the post-`mr²` number on the
+slider. Letting `mr` choose the snap point would make Hz and the balance bar shift
+when a motion ratio is entered, which is exactly what the invariant forbids. The
+cost is a corner case at `mr ≠ 1`: the printed value is snapped a second time by
+the output helper *after* the `/mr²` division, so it can sit up to half a step away
+from the rate the reported physics describes. At the default `mr` of 1.0 the two
+coincide exactly, so this only affects tunes that opt into the advanced field. See
+[KNOWN_ISSUES.md](KNOWN_ISSUES.md).
+
 BeamNG does not expose motion ratio, and it differs per vehicle *and* per axle, so
 it cannot be derived — only entered. Left at 1.0 the output is the wheel rate.
 
 Three consequences worth knowing:
 
-- **Nothing is clamped, floored, or quantised.** `dampScale` has *two* branches
-  (it scales up when the softer damper falls below 1 click, not only down at the
-  ceiling); both are bypassed, as is `clampDamp`'s 0.1 rounding.
+- **Nothing is clamped or floored, and none of Forza's quantisation applies.**
+  `dampScale` has *two* branches (it scales up when the softer damper falls below
+  1 click, not only down at the ceiling); both are bypassed, as is `clampDamp`'s
+  0.1-click rounding. Physical modes are not unquantised, though — they snap to
+  BeamNG's own grid instead, as described above.
 - **Balance figures differ slightly from Forza for identical inputs.** Forza
   deliberately recomputes `rsAbF`/`rsAbR` back out of the *rounded, clamped*
   click values, so the balance bar reflects what the game will really do with the

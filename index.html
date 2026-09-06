@@ -250,6 +250,28 @@ const resolveArbBalTarget=(ch,fe)=>fe.arbBalTarget==null
 // Single source of truth for the spring-frequency operating band. Change here to
 // retune the whole app — physics clamps, codec, slot-scaling, and UI sliders all read these.
 const HZ_MIN=0.8,HZ_MAX=5.5;
+// BeamNG's tuning sliders snap to fixed increments (confirmed in-game): Spring Rate 500 N/m,
+// Anti-Roll Spring Rate 1000 N/m, Bump/Rebound Damping 100 N/m/s. This is the physical-unit
+// analogue of Forza's 1..N click grid, and computeTune treats it the same way: the value is
+// quantised to the grid, and the reported physics (Hz, ζ, settle time, roll stiffness, the
+// balance bar) is then derived from the quantised value, so every figure printed beside an
+// output row describes the tune you can actually dial in rather than the pre-snap target.
+// Defined up here rather than beside the output helpers because the solver needs them too.
+// See docs/PHYSICS.md.
+const PHYS_SNAP={spring:500,arb:1000,damp:100};
+const roundTo=(v,step)=>Math.round(v/step)*step;
+// MOTION RATIO divisor. The solver works in wheel rate; BeamNG's sliders act at the
+// spring/damper, so an inboard spring needs rate/mr² to give the same wheel rate.
+const mrDiv=mr=>{const v=Number(mr);return v>0?v*v:1;};
+// Snap a wheel-rate quantity to the grid. Deliberately snapped in WHEEL-RATE space, with no
+// motion-ratio term: mr is display-only by design (see mrDiv's note at the output helpers,
+// and the `motion ratio never reaches the physics` guard in tests-beamng.js), so letting it
+// pick the snap point would make Hz and the balance bar move when a motion ratio is entered.
+// Consequence at mr != 1: the printed number is re-snapped by the output helper after the
+// /mr² division, so it can sit up to half a step off the rate these physics describe. At the
+// default mr of 1.0 — and so for every tune that does not opt into the advanced field — the
+// two coincide exactly. See docs/KNOWN_ISSUES.md.
+const snapPhys=(v,step)=>roundTo(v,step);
 const rsToHz=rs=>rs>6?0.8+(rs/100)*2.7:rs;
 const hzToRs=hz=>Math.round(Math.max(HZ_MIN,Math.min(HZ_MAX,hz))*100)/100;
 // Flat ride (Olley): the rear wheel meets a bump `t = wheelbase/speed` seconds after the
@@ -834,8 +856,12 @@ const computeTune=(ch,phys,gameMode)=>{
   // `dampCalib` of 1 and `physUnits` below are the only two switches here.
   const physUnits=isPhysical(gameMode);
   const dampCalib=physUnits?1:DAMPING_CALIBRATION;
-  const{frontHz:fHz,rearHz:rHz,reboundZeta,bumpZeta,zetaF:zetaF0,zetaR:zetaR0,bumpZetaF:bumpZetaF0,bumpZetaR:bumpZetaR0,arbBalance,arbBias,arbTargetRoll,arbMode,arbShareMan,arbBasicMan,arbBalTarget,arbBalMode,arbSplitOpposite,arbManF,arbManR}=phys;
+  const{frontHz:fHz0,rearHz:rHz,reboundZeta,bumpZeta,zetaF:zetaF0,zetaR:zetaR0,bumpZetaF:bumpZetaF0,bumpZetaR:bumpZetaR0,arbBalance,arbBias,arbTargetRoll,arbMode,arbShareMan,arbBasicMan,arbBalTarget,arbBalMode,arbSplitOpposite,arbManF,arbManR}=phys;
   let zetaF=zetaF0,zetaR=zetaR0,bumpZetaF=bumpZetaF0,bumpZetaR=bumpZetaR0;
+  // Reassigned below in physical-unit modes, once the snapped spring rate says what the
+  // front axle will really run. Everything above this point — CO-SOLVE's rear-Hz solve and
+  // the SYNC/NEUTRAL zeta recompute — must keep seeing the pre-snap target it asked for.
+  let fHz=fHz0;
   // Tyre-width correction: Forza's mech balance display includes a small tyre-width contribution.
   // Pre-compensate the solve target so Forza reads the desired value after tuning.
   const twF=parseTyre(ch.tyreF)?.width??265,twR=parseTyre(ch.tyreR)?.width??265;
@@ -875,8 +901,24 @@ const computeTune=(ch,phys,gameMode)=>{
     bumpZetaF=ratio?Math.max(10,Math.min(zetaF,zetaF*bumpRatioVal/100)):Math.max(10,Math.min(zetaF,bumpZ));
     bumpZetaR=ratio?Math.max(10,Math.min(zetaR,zetaR*bumpRatioVal/100)):Math.max(10,Math.min(zetaR,bumpZ));
   }
-  const springF=solveSpring(fHz,m.front,1);
-  const springR=solveSpring(effectiveRHz,m.rear,1);
+  // Snap to BeamNG's Spring Rate grid, then re-derive Hz from the snapped rate. Forza does
+  // the equivalent for dampers and ARBs (clampDamp/impliedZeta, and the rsAb round-trip below)
+  // but not for springs, because its spring input is fine-grained; BeamNG's 500 N/m step is
+  // coarse enough that the pre-snap Hz is not the Hz the car gets. Doing this here, before the
+  // damper solve and before rsSpF/rsSpR, means the whole downstream solve — dampers, roll
+  // stiffness, the ARB split, settle times, the balance bar — describes the snapped tune, with
+  // no second pass needed. Identity in the Forza modes.
+  const hzOfSpring=(lbIn,mass)=>Math.sqrt(lbIn*LB_IN_TO_NM/mass)/(2*Math.PI);
+  const springF=physUnits
+    ? snapPhys(solveSpring(fHz,m.front,1)*LB_IN_TO_NM,PHYS_SNAP.spring)/LB_IN_TO_NM
+    : solveSpring(fHz,m.front,1);
+  const springR=physUnits
+    ? snapPhys(solveSpring(effectiveRHz,m.rear,1)*LB_IN_TO_NM,PHYS_SNAP.spring)/LB_IN_TO_NM
+    : solveSpring(effectiveRHz,m.rear,1);
+  if(physUnits){
+    fHz=hzOfSpring(springF,m.front);
+    effectiveRHz=hzOfSpring(springR,m.rear);
+  }
   const rawRebF=solveDampRaw(fHz,m.front,zetaF,dampCalib);
   const rawRebR=solveDampRaw(effectiveRHz,m.rear,zetaR,dampCalib);
   const rawBmpF=solveDampRaw(fHz,m.front,bumpZetaF,dampCalib);
@@ -897,7 +939,10 @@ const computeTune=(ch,phys,gameMode)=>{
   const bmpScale=dampScale(rawBmpF,rawBmpR);
   // Forza needs 0.1-click quantisation and a 1..lim floor/ceiling; a real N·s/m coefficient
   // wants neither, so physical modes pass the scaled value straight through.
-  const clampDamp=(v,s)=>physUnits?v*s:Math.min(lim.damping,Math.max(1,Math.round(v*s*10)/10));
+  // Physical modes have no 1..lim range to fit, but they do have a 100 N/m/s slider step —
+  // so they snap instead of clamping, and the impliedZeta round-trip below then reports the
+  // damping that snapped value actually produces, exactly as it does for Forza's clicks.
+  const clampDamp=(v,s)=>physUnits?snapPhys(v*s,PHYS_SNAP.damp):Math.min(lim.damping,Math.max(1,Math.round(v*s*10)/10));
   const rebF=clampDamp(rawRebF,rebScale);
   const rebR=clampDamp(rawRebR,rebScale);
   const bumpF=clampDamp(rawBmpF,bmpScale);
@@ -1007,12 +1052,24 @@ const computeTune=(ch,phys,gameMode)=>{
     arbF=clk(rsAbBudget*(1-rF),ch.trackF);
     arbR=clk(rsAbBudget*rF,ch.trackR);
   }
+  // Physical modes snap the SOLVED budget to BeamNG's Anti-Roll Spring Rate grid, so rsAbF/rsAbR
+  // below carry the snapped stiffness into mechBalance/bTot/arbShare. The grid is on BeamNG's
+  // *linear* rate (k = 2*rs/track^2, the number on the slider), so convert into that space to
+  // snap and back out again. MAN is deliberately left out of this — it is a value the user typed
+  // rather than one the solver chose, and Forza's MAN bypasses `clk`'s own 0.1-click rounding for
+  // exactly the same reason.
+  if(physUnits&&arbMode!=='man'){
+    const snapArb=(rs,track)=>Math.max(0,roundTo(2*rs/(track*track),PHYS_SNAP.arb)*(track*track)/2);
+    arbF=snapArb(arbF,ch.trackF);
+    arbR=snapArb(arbR,ch.trackR);
+  }
   // Forza deliberately round-trips through the clamped, 0.1-rounded click values here, so the
   // balance bar reflects what the game will actually do with the numbers you type. Physical
-  // modes have no quantisation to model — arbF/arbR already ARE the roll stiffness — so the
-  // budget flows through untouched. Consequence worth knowing: for identical inputs a physical
-  // mode reports slightly different mechBalance/bTot/arbShare than Forza, because Forza's are
-  // post-rounding. That is correct, not drift.
+  // modes now do the same thing against BeamNG's own slider grid (snapped just above), rather
+  // than flowing through untouched as they did when the grid was treated as display-only —
+  // arbF/arbR already ARE the roll stiffness, so the snap is the only step needed. For
+  // identical inputs a physical mode still reports slightly different mechBalance/bTot/arbShare
+  // than Forza, because the two games quantise on different grids. That is correct, not drift.
   const rsAbF=physUnits?arbF:arbF*ARB_RS_SCALE*ch.trackF*ch.trackF;
   const rsAbR=physUnits?arbR:arbR*ARB_RS_SCALE*ch.trackR*ch.trackR;
   const rsTotal=rsSpF+rsSpR+rsAbF+rsAbR;
@@ -1252,19 +1309,14 @@ const HZ_MARKERS=HZ_BANDS.map((v,i)=>({value:v,color:HZ_BAND_COLS[i+1],
 // LB_IN_TO_NM is already N/m per lb/in, so physical modes need no separate constant —
 // NMM_PER_LBIN is the IMP/MET display toggle's N/mm conversion and is unrelated here.
 //
-// MOTION RATIO. The solver works in wheel rate (mr=1), which is what Forza displays.
-// BeamNG's sliders act at the spring/damper instead, so an inboard spring needs
-// rate/mr² to produce the same wheel rate. That correction belongs HERE, at the
-// display layer, and deliberately not in computeTune: Hz, roll stiffness and the whole
-// balance model are wheel-rate quantities and must not move when a motion ratio is
-// entered. Only the number you type into the game changes.
-const mrDiv=mr=>{const v=Number(mr);return v>0?v*v:1;};
-// Display-only rounding to BeamNG's actual slider snap increments (confirmed in-game:
-// Spring Rate 500, Anti-Roll Spring Rate 1000, Bump/Rebound Damping 100). Only ever
-// applied inside the isPhysical/physical branch below, to the .value field the UI
-// prints — warnOver/arbCtx and every solver calculation keep consuming the raw
-// unrounded v passed into these functions, so this cannot affect thresholds or math.
-const roundTo=(v,step)=>Math.round(v/step)*step;
+// MOTION RATIO is applied here, at the display layer, and deliberately not inside the balance
+// model: Hz, roll stiffness and every balance figure are wheel-rate quantities and must not
+// move by rate/mr² just because a motion ratio was entered. `mrDiv`/`roundTo`/`PHYS_SNAP` now
+// live up with the calibration constants, because computeTune snaps to the same grid before
+// deriving the physics it reports. The rounding below is therefore normally a no-op
+// re-application of a snap already performed upstream — kept deliberately, because it is the
+// last thing standing between a raw coefficient and the UI, and the paths that do not run
+// through computeTune (TUNE CHECK, the ARB MAN field's own round-trip) still land here.
 const springOut=(lbIn,gameMode,metric,mr=1)=>isPhysical(gameMode)
   ? {value:roundTo(lbIn*LB_IN_TO_NM/mrDiv(mr),500),unit:'N/m',decimals:0}
   : {value:metric?lbIn*NMM_PER_LBIN:lbIn,unit:metric?'N/mm':'lb/in',decimals:metric?1:0};

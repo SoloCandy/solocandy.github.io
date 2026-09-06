@@ -66,9 +66,14 @@ UI transpiled in-browser via `@babel/standalone`, `localStorage` persistence,
 and a sparse Base64 share codec. No build step, no server.
 
 A **HORIZON / MOTORSPORT / BEAMNG** dropdown in the header picks which game's
-tuning menu the output is written for. It only changes *units and ceilings* —
-the underlying physics solve (spring/damper/ARB targets, handling balance,
-alignment) is identical across all three.
+tuning menu the output is written for. It changes *units, ceilings, and the
+increments each game's sliders snap to* — the underlying physics solve
+(spring/damper/ARB targets, handling balance, alignment) is the same one in all
+three. Each mode then quantises that solve to its own grid and reports the
+physics of the quantised value, so the Hz, ζ and balance figures printed beside
+an output row describe the tune you can actually dial in rather than the
+pre-rounding target. Because the grids differ, identical inputs give very
+slightly different balance readouts between modes; that is correct, not drift.
 
 **Horizon and Motorsport** express output as abstract 1–N "clicks," because
 that's what those games' tuning screens use — Forza hides the real internal
@@ -76,7 +81,8 @@ units, so each has its own click ceiling (Horizon: 65 ARB / 20 damper.
 Motorsport: 40 / 40). **BeamNG** has no such fixed scale — it builds its
 tuning sliders per-vehicle from the car's own config — so that mode skips the
 click conversion and outputs the real values directly: spring rate in N/m,
-damping in N/m/s, anti-roll rate in N/m. A few things are specific to BEAMNG
+damping in N/m/s, anti-roll rate in N/m, each snapped to the increment BeamNG's
+own slider moves in (500 / 100 / 1000). A few things are specific to BEAMNG
 mode: BASIC ARB stiffness is Forza-only and hidden there; the anti-roll
 number is BeamNG's least-validated output; and PRO gains a **Motion Ratio
 F / R** input, since BeamNG's sliders act at the spring/damper rather than

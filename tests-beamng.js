@@ -13,7 +13,11 @@
 //   1. beamng emits exactly the pre-conversion physics (no calibration constant involved).
 //   2. horizon/motorsport output is still recoverable from beamng output by applying only
 //      the documented conversions — i.e. the branch diverges only where intended.
-//   3. Nothing is clamped, quantised, or floored in physical mode.
+//   3. Physical mode is free of FORZA's quantisation — no click grid, no 1..lim floor or
+//      ceiling. It has its own: BeamNG's sliders snap (500 N/m spring, 1000 N/m anti-roll,
+//      100 N/m/s damper), and since the app is a starting-point calculator whose numbers get
+//      typed into that menu, the solve reports the physics of the snapped value. What this
+//      suite pins is that the two quantisations stay separate and that mr stays out of both.
 //   4. CO-SOLVE's ARB_UTIL_REF substitution is neutral (the denominator cancels).
 //
 // If the slice() markers below stop matching, index.html has been reorganised — fix the
@@ -36,7 +40,7 @@ const M = new Function(
   slice('const KG_TO_LB=', 'const arbCtx=') +
   '\nreturn{computeTune,feelToPhysics,DEF_CH,DEF_FE,GAME_LIMITS,ARB_RS_SCALE,' +
   'DAMPING_CALIBRATION,LB_IN_TO_NM,NMM_PER_LBIN,cornerMasses,isPhysical,' +
-  'springOut,dampOut,arbOut,warnOver,mrDiv};'
+  'springOut,dampOut,arbOut,warnOver,mrDiv,PHYS_SNAP};'
 )();
 
 let pass = 0, fail = 0;
@@ -78,11 +82,17 @@ t('NMM_PER_LBIN converts lb/in to N/mm correctly', () => {
 });
 
 console.log('\n── output units (verified against BeamNG\'s own sliders) ──');
-t('springs come out in N/m, not N/mm', () => {
+t('springs come out in N/m, not N/mm, snapped to the slider grid', () => {
   // The unit BeamNG's Spring Rate slider uses. Confusing the two is a 1000x error.
   const o = M.springOut(400, 'beamng', false);
   if (o.unit !== 'N/m') throw new Error(`unit is "${o.unit}"`);
-  near(o.value, 400 * M.LB_IN_TO_NM, 1e-9, 'N/m value');
+  // Snapped to BeamNG's 500 N/m step, not the raw conversion: the printed number has to be
+  // one the slider can actually hold. Asserted as "the grid point nearest the true value" so
+  // this still fails if the conversion itself regresses, not just if the snap is dropped.
+  const raw = 400 * M.LB_IN_TO_NM;
+  near(o.value, Math.round(raw / M.PHYS_SNAP.spring) * M.PHYS_SNAP.spring, 1e-9, 'N/m value');
+  if (o.value % M.PHYS_SNAP.spring !== 0) throw new Error(`${o.value} is off the 500 N/m grid`);
+  if (Math.abs(o.value - raw) > M.PHYS_SNAP.spring / 2) throw new Error('snapped to the wrong grid point');
   if (o.value < 10000) throw new Error(`${o.value} looks like N/mm, not N/m`);
 });
 t('the IMP/MET path is untouched by the physical branch', () => {
@@ -101,7 +111,10 @@ t('ARB comes out as a LINEAR N/m rate, not torsional N·m/rad', () => {
   const track = 1.55, rs = 12000;
   const o = M.arbOut(rs, M.GAME_LIMITS.beamng, track);
   if (o.unit !== 'N/m') throw new Error(`unit is "${o.unit}"`);
-  near(o.value, 2 * rs / (track * track), 1e-9, 'k = 2·rs/track²');
+  // Same treatment as springs: the linear rate, snapped to the 1000 N/m Anti-Roll grid.
+  const raw = 2 * rs / (track * track);
+  near(o.value, Math.round(raw / M.PHYS_SNAP.arb) * M.PHYS_SNAP.arb, 1e-9, 'k = 2·rs/track²');
+  if (Math.abs(o.value - raw) > M.PHYS_SNAP.arb / 2) throw new Error('snapped to the wrong grid point');
 });
 t('Forza readouts still show a "/ N" denominator', () => {
   if (M.dampOut(7.8, M.GAME_LIMITS.horizon).unit !== '/ 20') throw new Error('damper suffix');
@@ -115,9 +128,14 @@ t('mrDiv squares the ratio and defends against nonsense input', () => {
     if (M.mrDiv(bad) !== 1) throw new Error(`mrDiv(${String(bad)}) = ${M.mrDiv(bad)}`);
 });
 t('a motion ratio below 1 stiffens the displayed spring and damper rate', () => {
-  const base = M.springOut(400, 'beamng', false, 1).value;
-  near(M.springOut(400, 'beamng', false, 0.7).value, base / 0.49, 1e-9, 'spring at mr 0.7');
-  near(M.dampOut(5000, M.GAME_LIMITS.beamng, 0.5).value, 5000 / 0.25, 1e-9, 'damper at mr 0.5');
+  // Both sides snap, so compare against the snapped expectation rather than the exact quotient.
+  const snap = (v, step) => Math.round(v / step) * step;
+  const raw = 400 * M.LB_IN_TO_NM;
+  near(M.springOut(400, 'beamng', false, 0.7).value, snap(raw / 0.49, M.PHYS_SNAP.spring), 1e-9, 'spring at mr 0.7');
+  near(M.dampOut(5000, M.GAME_LIMITS.beamng, 0.5).value, snap(5000 / 0.25, M.PHYS_SNAP.damp), 1e-9, 'damper at mr 0.5');
+  // The direction is the actual claim: a lower ratio must raise the printed number.
+  if (M.springOut(400, 'beamng', false, 0.7).value <= M.springOut(400, 'beamng', false, 1).value)
+    throw new Error('mr 0.7 did not stiffen the displayed spring rate');
 });
 t('motion ratio never reaches the physics — Hz and balance are wheel-rate quantities', () => {
   const a = solve({}, {}, 'beamng').tune;
@@ -133,8 +151,17 @@ t('motion ratio is inert in the Forza modes', () => {
 
 console.log('\n── springs ──');
 for (const [label, over] of CHS) {
-  t(`${label}: spring rate is mode-invariant`, () => {
-    near(solve(over, {}, 'beamng').tune.springF, solve(over, {}, 'horizon').tune.springF, 1e-12, 'springF');
+  t(`${label}: spring rate is mode-invariant up to BeamNG's slider grid`, () => {
+    // No longer bit-identical across modes: BeamNG snaps the spring to its 500 N/m step and
+    // re-derives Hz from the snapped rate, so the tune describes what the slider can hold.
+    // Forza has no comparable spring grid and is left exact. The solve underneath is still the
+    // same one, which is what this pins — the two may differ by at most half a step.
+    const b = solve(over, {}, 'beamng').tune.springF, h = solve(over, {}, 'horizon').tune.springF;
+    const halfStepLbIn = (M.PHYS_SNAP.spring / 2) / M.LB_IN_TO_NM;
+    if (Math.abs(b - h) > halfStepLbIn + 1e-9)
+      throw new Error(`springF ${b} vs ${h} differs by more than half a 500 N/m step`);
+    if (Math.abs(Math.round(b * M.LB_IN_TO_NM / M.PHYS_SNAP.spring) * M.PHYS_SNAP.spring - b * M.LB_IN_TO_NM) > 1e-6)
+      throw new Error(`beamng springF ${b} lb/in is not on the 500 N/m grid`);
   });
   t(`${label}: N/m output equals the wheel rate exactly`, () => {
     const { ch, tune } = solve(over, {}, 'beamng');
@@ -174,10 +201,17 @@ t('an extreme setup that pins horizon is left unclamped in beamng', () => {
     throw new Error('beamng reported dampingClamped despite having no ceiling');
 });
 
-t('physical damping keeps full precision (no 0.1-click quantisation)', () => {
+t("physical damping snaps to BeamNG's grid, not to Forza's 0.1 clicks", () => {
   const b = solve({}, {}, 'beamng').tune;
-  if (Math.abs(b.rebF - Math.round(b.rebF * 10) / 10) < 1e-12)
-    throw new Error('rebF looks quantised to 0.1 — the click rounding is still applied');
+  // The claim this test has always made is that Forza's click quantisation does not leak into
+  // the physical modes. That still holds — but "full precision" no longer does, because these
+  // modes now snap to BeamNG's own 100 N/m/s damper step and report the zeta that value gives.
+  for (const k of ['rebF', 'rebR', 'bumpF', 'bumpR'])
+    if (b[k] % M.PHYS_SNAP.damp !== 0) throw new Error(`${k} = ${b[k]} is off the 100 N/m/s grid`);
+  // A value on the 100 grid is trivially also on a 0.1 grid, so the old check cannot tell the
+  // two apart. What actually distinguishes them: Forza's clicks are bounded by lim.damping and
+  // these are not, and a click value would be orders of magnitude smaller.
+  if (b.rebF < 100) throw new Error(`rebF ${b.rebF} looks like a click value, not N/m/s`);
 });
 
 console.log('\n── anti-roll bars ──');
@@ -190,8 +224,16 @@ for (const [label, over] of CHS) {
   t(`${label}: horizon clicks == beamng N.m/rad / (ARB_RS_SCALE x track^2)`, () => {
     const { ch } = solve(over, {}, 'beamng');
     const b = solve(over, {}, 'beamng').tune, h = solve(over, {}, 'horizon').tune;
-    near(h.arbF, Math.round(b.arbF / (M.ARB_RS_SCALE * ch.trackF * ch.trackF) * 10) / 10, 1e-9, 'arbF');
-    near(h.arbR, Math.round(b.arbR / (M.ARB_RS_SCALE * ch.trackR * ch.trackR) * 10) / 10, 1e-9, 'arbR');
+    // Both modes quantise, on different grids — Forza to 0.1 clicks, BeamNG to 1000 N/m of
+    // linear anti-roll rate — so this can no longer be an exact identity. It pins the thing
+    // that matters: the same roll-stiffness budget underneath, agreeing once both snaps are
+    // allowed for. One Forza click is ARB_RS_SCALE*track^2 of roll stiffness, so half a
+    // BeamNG step is half of (1000*track^2/2) expressed in clicks.
+    const tol = (t2) => (M.PHYS_SNAP.arb * t2 / 2) / 2 / (M.ARB_RS_SCALE * t2) + 0.05 + 1e-9;
+    const cF = b.arbF / (M.ARB_RS_SCALE * ch.trackF * ch.trackF);
+    const cR = b.arbR / (M.ARB_RS_SCALE * ch.trackR * ch.trackR);
+    if (Math.abs(h.arbF - cF) > tol(ch.trackF * ch.trackF)) throw new Error(`arbF ${h.arbF} vs ${cF}`);
+    if (Math.abs(h.arbR - cR) > tol(ch.trackR * ch.trackR)) throw new Error(`arbR ${h.arbR} vs ${cR}`);
   });
 }
 
