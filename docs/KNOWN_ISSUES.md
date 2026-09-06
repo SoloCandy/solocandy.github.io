@@ -5,6 +5,56 @@ of without a written trail. Not a general bug tracker — just things that
 either can't be trivially fixed, or were fixed here and are worth
 remembering *why* they broke in the first place.
 
+## Open — `tests-beamng.js` has 6 failures: it asserts unrounded physical-unit output
+
+Found during a documentation review, not by a test run in CI — there is no CI,
+and `node tests.js` (119/119) is the suite that usually gets run, so this went
+unnoticed for a while.
+
+`2f640b3` (2026-08-15, *"Revamp BeamNG output panel into two-column per-axle
+layout"*) introduced output rounding for the physical-unit mode:
+
+```js
+const roundTo=(v,step)=>Math.round(v/step)*step;
+springs → roundTo(lbIn*LB_IN_TO_NM/mrDiv(mr), 500)   // N/m,     500 grid
+dampers → roundTo(v/mrDiv(mr), 100)                  // N/m/s,   100 grid
+ARB     → roundTo(2*v/(track*track), 1000)           // N/m,    1000 grid
+```
+
+`tests-beamng.js` was last touched on 2026-08-05 and still asserts the exact
+pre-rounding values, so every assertion that pins an absolute N/m figure now
+fails by less than one grid step:
+
+| Assertion | Got | Expected |
+|---|---|---|
+| springs come out in N/m, not N/mm | 70000 | 70050.72 |
+| ARB is a LINEAR N/m rate | 10000 | 9989.59 |
+| motion ratio below 1 stiffens the rate | 143000 | 142857.14 |
+| default: N/m equals wheel rate | 45500 | 45627.31 |
+| light RWD: N/m equals wheel rate | 29500 | 29613.88 |
+| heavy FWD: N/m equals wheel rate | 69000 | 69099.06 |
+
+Every gap is within its own rounding step, so this looks like **stale test
+expectations rather than a physics regression** — the remaining 35 assertions,
+including *"every Forza mode/ARB-mode combination still solves identically to
+its own math"*, pass.
+
+Deliberately **not** fixed here, because which side is wrong is a real
+decision and not a documentation one:
+
+- If the grid is intended (typing 45500 into BeamNG is friendlier than
+  45627.31, and BeamNG's own sliders are coarse), the tests should assert
+  against the rounded value, or compare with a tolerance of half a step.
+- If exactness matters more than tidy numbers, the rounding belongs at the
+  *display* layer only, leaving the tested value unrounded — the same
+  separation `motionRatioF/R` already has, where the ratio divides the
+  displayed rate but no physics reads it.
+
+Whichever way it goes, the grid steps themselves (500 / 100 / 1000) have no
+recorded derivation — they arrived inside a layout commit, like the STREET
+preset's `diffType` change in [PRESETS.md](PRESETS.md), and are worth an
+explicit note when someone settles this.
+
 ## Fixed — brake bias floor of 50% made rear bias unreachable
 
 **The floor.** `recBrakeBias` was clamped to `[50, 68]`. `cade75d` raised the

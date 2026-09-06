@@ -30,12 +30,21 @@ Character slider only understands the simple rebound-ζ/bump-ratio model.
 
 | # | Name | Build Type | Diff Type | Ride Stiffness | Rear Hz Mult | Damping Char | Notes |
 |---|---|---|---|---|---|---|---|
-| 1 | STREET | street | sport | 2.20 Hz | 1.15× | SETTLE 0.55s, bias 0 | Bump ratio 52, ARB AUTO. diffBiasExit −10 (GRIP-leaning), diffBiasEntry +10 (STABLE-leaning) |
-| 2 | TRACK | track | race | 2.50 Hz | 1.05× | SETTLE 0.40s, bias −5 | Bump ratio 58, ARB ROLL @ 1.5°. diffBiasExit +5, diffBiasEntry 0 |
-| 3 | RALLY | rally | rally | 1.55 Hz | 1.05× | CHARACTER ζ=58, bias −5 | Bump ratio 38, ARB SHARE @ 8%. diffBiasExit −5, diffBiasEntry −15 |
-| 4 | DRIFT | drift | drift | 1.80 Hz | 1.30× | CHARACTER ζ=60, bias +18 | Bump ratio 40. diffBiasExit +22, diffBiasEntry −18, diffRearAccel 65, diffRearDecel 15 |
-| 5 | MOTORSPT | track | race | 3.20 Hz | 0.92× | SETTLE 0.25s, bias −10 | Bump ratio 64, ARB ROLL @ 0.8°. diffBiasExit +10, diffBiasEntry −5 |
-| 6 | X COUNTRY | offroad | offroad | 0.90 Hz | 1.00× | SETTLE 1.00s, bias −5 | Bump ratio 38, ARB SHARE @ 5% |
+| 1 | STREET | street | race | 2.20 Hz | 1.15× | SETTLE 0.55s, bias 0 | Bump ratio 52, ARB AUTO. diffBiasExit −10 (GRIP-leaning), diffBiasEntry +10 (STABLE-leaning) |
+| 2 | TRACK | track | race | 2.50 Hz | 1.05× | SETTLE 0.40s, bias −5 (FRONT) | Bump ratio 58, ARB ROLL @ 1.5°. diffBiasExit +5, diffBiasEntry 0 |
+| 3 | RALLY | rally | rally | 1.55 Hz | 1.05× | CHARACTER ζ=58, bias +5 (REAR) | Bump ratio 38, ARB SHARE @ 8%. diffBiasExit −5, diffBiasEntry −15 |
+| 4 | DRIFT | drift | drift | 1.80 Hz | 1.30× | CHARACTER ζ=60, bias −18 (FRONT) | Bump ratio 40. diffBiasExit +22, diffBiasEntry −18, diffRearAccel 65, diffRearDecel 15 |
+| 5 | MOTORSPT | track | race | 3.20 Hz | 0.92× | SETTLE 0.25s, bias −10 (FRONT) | Bump ratio 64, ARB ROLL @ 0.8°. diffBiasExit +10, diffBiasEntry −5 |
+| 6 | X COUNTRY | offroad | offroad | 0.90 Hz | 1.00× | SETTLE 1.00s, bias −5 (FRONT) | Bump ratio 38, ARB SHARE @ 5% |
+
+> **STREET's diff type is `race`, not `sport`.** It was changed from `sport`
+> in `3960b38`, a commit whose message is entirely about surfacing the diff
+> type in the output card and marking N/A fields for Sport — the preset edit
+> is not mentioned. It is very likely deliberate rather than a slip: Sport is
+> accel-only in-game, so its decel fields render N/A, and STREET sets
+> `diffBiasEntry:+10`, a decel-lock intent that a Sport diff cannot express.
+> `DEF_DR`'s own default is still `sport`. This doc said `sport` until an
+> audit caught the drift.
 
 ## Reading the columns
 
@@ -47,9 +56,25 @@ Character slider only understands the simple rebound-ζ/bump-ratio model.
   `settleTarget` in seconds, `dampingBias` skew) or `CHARACTER` mode
   (`dampCharMode:'zeta'`, explicit `reboundZeta`, `dampBalMode` +
   `dampingBias` — all six presets use the default `dampBalMode:'standard'`).
-  The displayed "bias" figure below is the Damping Bias slider's own
-  reading (`-dampingBias` for the STANDARD-mode presets, `dampingBias`
-  itself for the SETTLE-mode ones — see [SLIDERS.md](SLIDERS.md)).
+  The "bias" figure above is the **Damping Bias slider's own reading**,
+  which is `-dampingBias` in *every* mode — the slider is a single
+  unconditional negation (`value={-(fe.dampingBias??0)}`, `leftLabel="FRONT"`
+  / `rightLabel="REAR"`), with no branch on `dampCharMode` or `dampBalMode`.
+  So a stored `dampingBias:18` reads as **−18, FRONT** on the slider, and
+  stiffens the front (`zetaF = baseZeta*(1+dampingBias/100)`). The
+  parenthesised side is spelled out per row because the sign alone is easy
+  to read the wrong way round.
+
+  The negation is a display convention only: `9eca491` swapped the slider's
+  end labels from REAR/FRONT to FRONT/REAR and negated the value in the same
+  edit, so the physical side a given stored value lands on never changed.
+  Presets 3 and 4 still carry the raw `dampingBias` values authored in
+  `56d2dec`, just before that flip. The other four stored `settleBias` at the
+  time and were re-expressed as negated `dampingBias` when `30ba96e` merged
+  the two fields (`settleBias:-5` → `dampingBias:5`), which is why the two
+  groups' stored numbers look inverted relative to each other — both are
+  correct, and all six land where the slider says. See
+  [SLIDERS.md](SLIDERS.md).
 - **diffBiasExit / diffBiasEntry** — see [SLIDERS.md](SLIDERS.md)'s EXIT/
   ENTRY rows for what these values mean directionally (positive =
   oversteer-leaning per the convention documented there).
